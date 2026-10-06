@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Segurança
+.env
+.env.*
+!.env.example
+*.env
+secrets.json
+*.key
+
+# Banco de dados
+*.db
+*.sqlite
+
+# Ambiente virtual
+venv/
+.venv/
+env/
+
+# Logs
+*.log
+
+# Migrações
+alembic/versions/*.pyc
+
+# Node / Vite
+node_modules/
+dist/
+
+# Cache
+.vite/
+.cache/
+.pytest_cache/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+*.iml
+
+# _logs/ deve ser versionado — não adicionar aqui
