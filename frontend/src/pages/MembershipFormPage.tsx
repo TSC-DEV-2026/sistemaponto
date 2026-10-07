@@ -34,7 +34,7 @@ export function MembershipFormPage() {
   return (
     <form className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">Vincular pessoa</h1>
-      <p className="text-sm text-muted-foreground">A senha não é definida aqui. A pessoa recebe o convite do autenticador. O gestor aprova solicitações da própria equipe.</p>
+      <p className="text-sm text-muted-foreground">A senha não é definida aqui. A pessoa recebe o convite do autenticador. O gestor aprova solicitações da própria equipe. O administrador também pode.</p>
       <div className="space-y-2">
         <Label htmlFor="name">Nome</Label>
         <Input id="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
