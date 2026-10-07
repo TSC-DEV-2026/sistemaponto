@@ -98,7 +98,9 @@ Todas                           19
 Pendentes                       12
 ├── Ajustes                      6
 ├── Abonos                       3
-└── Atestados                    3
+├── Atestados                    3
+├── Afastamentos
+└── Férias
 
 Aprovadas
 Recusadas
@@ -122,6 +124,8 @@ Exemplo melhor:
 6 ajustes
 3 abonos
 3 atestados
+afastamentos
+férias
 [Revisar]
 ```
 

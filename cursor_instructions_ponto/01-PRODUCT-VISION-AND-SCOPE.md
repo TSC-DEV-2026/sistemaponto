@@ -159,7 +159,8 @@ Relatórios
 - Ajuste de Ponto
 - Abono
 - Atestado
-- futuramente outros tipos, somente quando definidos explicitamente
+- Afastamento
+- Férias
 
 ### Fechamento do Ponto
 

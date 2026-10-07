@@ -18,13 +18,29 @@ O app **não é uma ferramenta de gestão**.
 
 ## 2. Registro de Ponto
 
-Modalidades previstas no produto:
+Modalidades deste corte:
 
 - Registro Simples
 - QR Code + Selfie
 - Reconhecimento Facial
   - Online
   - Offline
+
+### Registro Simples
+
+É um botão no app. O funcionário clica e a marcação é registrada.
+
+### QR Code + Selfie
+
+O QR Code é gerado com unidade, CPF e matrícula.
+
+A marcação só ocorre quando o QR Code e a selfie são aceitos. Se um dos dois falha, o ponto não é marcado e a pessoa pode tentar de novo.
+
+### Reconhecimento Facial
+
+Vale online e offline.
+
+A marcação só ocorre quando o rosto é reconhecido. Se o reconhecimento falha, o ponto não é marcado e a pessoa pode tentar de novo.
 
 O projeto `clockup` deve ser estudado como referência para o fluxo já implementado de registro de ponto.
 
@@ -73,12 +89,14 @@ O app pode permitir consulta do próprio banco de horas.
 
 Exibir de forma simples:
 
-- saldo atual;
+- saldo atual, contínuo de um mês para o outro;
 - créditos;
 - débitos;
-- período de referência quando aplicável.
+- aviso de expiração, quando o prazo estiver próximo.
 
-Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app sem definição futura explícita.
+O saldo não tem limite. O prazo de expiração é configurável e o padrão é de 6 em 6 meses. Neste corte o efeito do prazo é o aviso, no formato "Saldo irá expirar em x dias".
+
+O adicional noturno não entra nos minutos desse saldo. Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app. A quitação e o lançamento manual de crédito ou débito ficam com o gestor, na web.
 
 ---
 
@@ -86,9 +104,19 @@ Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app sem d
 
 O funcionário deve poder criar solicitações.
 
-Tipos atualmente previstos:
+Tipos que o funcionário pode solicitar:
+
+- ajuste de ponto;
+- abono (folga);
+- atestado;
+- afastamento;
+- férias.
+
+A solicitação nasce pendente e não altera o ponto até a aprovação. Uma aprovação do gestor da equipe basta. Não há segundo aprovador, escalonamento nem substituto.
 
 ### Ajuste de Ponto
+
+O pedido traz as marcações do dia, não uma marcação isolada.
 
 Exemplo:
 
@@ -96,7 +124,10 @@ Exemplo:
 Data
 31/08/2026
 
-Marcação solicitada
+Marcações do dia
+08:02
+12:01
+13:00
 18:03
 
 Motivo
@@ -114,21 +145,26 @@ Regra:
 
 ### Abono
 
-O funcionário pode solicitar abono conforme regras futuras da empresa.
-
-A solicitação não efetiva o abono até aprovação.
+O funcionário pode solicitar abono. A solicitação não efetiva o abono até aprovação.
 
 ### Atestado
 
+Há um tipo só de atestado.
+
 Permitir:
 
-- informar período;
+- informar período, em dia inteiro, em algumas horas ou em vários dias;
+- preencher CID, CRM e nome do médico;
+- anexar foto, opcional neste corte;
 - selecionar motivo quando aplicável;
-- anexar documento;
 - adicionar observação;
 - enviar para análise.
 
-O envio não significa aprovação.
+O envio não significa aprovação. O documento fica visível só para o solicitante e para o gestor da equipe.
+
+### Afastamento e férias
+
+O funcionário pode solicitar afastamento e férias. A solicitação não produz efeito até a aprovação.
 
 ---
 

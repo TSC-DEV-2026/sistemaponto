@@ -91,7 +91,9 @@ Preservar rastreabilidade de:
 - solicitações;
 - decisões.
 
-Não destruir a evidência anterior quando houver correção administrativa.
+Não destruir a evidência anterior quando houver correção.
+
+Na correção de marcação, a marcação anterior deixa de valer e permanece no histórico. O registro deixa explícito se a alteração veio de solicitação aprovada ou foi manual.
 
 ---
 
