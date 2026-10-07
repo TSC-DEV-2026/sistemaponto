@@ -19,7 +19,6 @@ from app.models.workforce import (  # noqa: F401
     PunchRule,
     Reason,
     RequestEvent,
-    RequestPunch,
     Sector,
     Team,
     TimeRequest,

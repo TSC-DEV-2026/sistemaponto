@@ -38,7 +38,6 @@ from app.models.workforce import (
     PunchRule,
     Reason,
     RequestEvent,
-    RequestPunch,
     Sector,
     Team,
     TimeRequest,
@@ -304,29 +303,11 @@ class WorkforceService:
                 source=source or self._punch_source(scope, employee),
                 request_id=request_id,
                 note=self._note(data.get("note")),
-                valid=True,
-                voided_at=None,
                 created_at=self.clock(),
             )
         )
         self._audit(scope, employee.id, "punch", row.id, None, "Marcação", self._punch_day(occurred))
         return row
-
-    def correct_punches(self, scope: Scope, data: dict) -> dict:
-        self._admin(scope)
-        employee = self._employee(scope, int(data["employee_id"]))
-        day, moments = self._normalize_day(data["punches"])
-        created = self._replace_day(
-            scope,
-            employee,
-            day,
-            moments,
-            source="manual",
-            request_id=None,
-            note=self._note(data.get("note")),
-            origin_label="manual",
-        )
-        return {"employee_id": employee.id, "day": day, "origin": "manual", "punches": created}
 
     def refuse_punch_change(self, scope: Scope, row_id: int) -> None:
         self.get_punch(scope, row_id)
@@ -381,35 +362,30 @@ class WorkforceService:
 
     def list_requests(self, scope: Scope, page: int, limit: int, equals: dict):
         rows, total = self._scoped_list(scope, TimeRequest, page, limit, equals)
-        return [self._request_out(row, events, punches) for row, events, punches in self._with_events(rows)], total
+        return [self._request_out(row, events) for row, events in self._with_events(rows)], total
 
     def get_request(self, scope: Scope, row_id: int) -> dict:
         row = self._row(TimeRequest, scope, row_id)
         self._visible(scope, row.employee_id)
         events = self.repo.events_for([row.id]).get(row.id, [])
-        punches = self.repo.request_punches_for([row.id]).get(row.id, [])
-        return self._request_out(row, events, punches)
+        return self._request_out(row, events)
 
     def create_request(self, scope: Scope, data: dict) -> dict:
         employee = self._own_employee(scope)
         self._assert_working(scope, employee)
         kind = data["kind"]
         occurred = None
-        moments: list[datetime] = []
         start = data.get("starts_on")
         end = data.get("ends_on")
         if kind == "adjustment":
-            raw = data.get("punches")
-            if not raw and data.get("occurred_at") is not None:
-                raw = [data["occurred_at"]]
-            day, moments = self._normalize_day(list(raw or []))
-            start = day
-            end = day
-            occurred = moments[0] if len(moments) == 1 else None
-            self._assert_open(scope.tenant_id, day)
+            if data.get("occurred_at") is None:
+                raise AppError(400, "Informe a marcação solicitada")
+            occurred = assert_aware(data["occurred_at"])
+            assert_not_future(occurred, self.today())
+            start = self._punch_day(occurred)
+            end = start
+            self._assert_open(scope.tenant_id, start)
         else:
-            if data.get("punches"):
-                raise AppError(400, "Marcações do dia só entram no ajuste")
             if start is None:
                 raise AppError(400, "Informe o período")
             end = assert_period(start, end)
@@ -433,15 +409,6 @@ class WorkforceService:
                 created_at=self.clock(),
             )
         )
-        for index, moment in enumerate(moments):
-            self.repo.add(
-                RequestPunch(
-                    tenant_id=scope.tenant_id,
-                    request_id=row.id,
-                    occurred_at=moment,
-                    position=index,
-                )
-            )
         self._request_event(scope, row, "pending", "Criada")
         self._notify(
             scope,
@@ -868,20 +835,14 @@ class WorkforceService:
 
     def _approve(self, scope: Scope, row: TimeRequest, employee: Employee) -> None:
         if row.kind == "adjustment":
-            stored = self.repo.request_punches_for([row.id]).get(row.id, [])
-            raw = [item.occurred_at for item in stored]
-            if not raw and row.occurred_at is not None:
-                raw = [row.occurred_at]
-            day, moments = self._normalize_day(raw)
-            self._replace_day(
+            if row.occurred_at is None:
+                raise AppError(400, "Informe a marcação solicitada")
+            self._assert_open(scope.tenant_id, self._punch_day(row.occurred_at))
+            self.create_punch(
                 scope,
-                employee,
-                day,
-                moments,
+                {"employee_id": employee.id, "occurred_at": row.occurred_at, "note": row.note},
                 source="approved_request",
                 request_id=row.id,
-                note=row.note,
-                origin_label="solicitação",
             )
         start = row.starts_on or self.today()
         self.create_occurrence(
@@ -897,55 +858,6 @@ class WorkforceService:
             source="approved_request",
             request_id=row.id,
         )
-
-    def _normalize_day(self, values: list[datetime]) -> tuple[date, list[datetime]]:
-        if not values:
-            raise AppError(400, "Informe as marcações do dia")
-        moments = sorted(assert_aware(value) for value in values)
-        seen: set[datetime] = set()
-        day = self._punch_day(moments[0])
-        for moment in moments:
-            assert_not_future(moment, self.today())
-            if self._punch_day(moment) != day:
-                raise AppError(400, "As marcações precisam ser do mesmo dia")
-            if moment in seen:
-                raise AppError(400, "Há marcações repetidas")
-            seen.add(moment)
-        return day, moments
-
-    def _replace_day(
-        self,
-        scope: Scope,
-        employee: Employee,
-        day: date,
-        moments: list[datetime],
-        *,
-        source: str,
-        request_id: int | None,
-        note: str | None,
-        origin_label: str,
-    ) -> list[Punch]:
-        self._assert_working(scope, employee)
-        self._assert_open(scope.tenant_id, day)
-        start, end = day_bounds(day)
-        current = self.repo.valid_punches_between(scope.tenant_id, employee.id, start, end)
-        voided_at = self.clock()
-        for row in current:
-            row.valid = False
-            row.voided_at = voided_at
-            self.repo.add(row)
-        created = [
-            self.create_punch(
-                scope,
-                {"employee_id": employee.id, "occurred_at": moment, "note": note},
-                source=source,
-                request_id=request_id,
-            )
-            for moment in moments
-        ]
-        subject_id = created[0].id if created else employee.id
-        self._audit(scope, employee.id, "punch_correction", subject_id, None, origin_label, day)
-        return created
 
     def _can_punch(self, scope: Scope, employee: Employee, source: str | None) -> None:
         if source == "approved_request":
@@ -1050,11 +962,7 @@ class WorkforceService:
             )
         )
 
-    def _request_out(self, row: TimeRequest, events: list, punches: list | None = None) -> dict:
-        stored = list(punches or [])
-        moments = [item.occurred_at for item in stored]
-        if not moments and row.kind == "adjustment" and row.occurred_at is not None:
-            moments = [row.occurred_at]
+    def _request_out(self, row: TimeRequest, events: list) -> dict:
         return {
             "id": row.id,
             "employee_id": row.employee_id,
@@ -1065,7 +973,6 @@ class WorkforceService:
             "starts_on": row.starts_on,
             "ends_on": row.ends_on,
             "occurred_at": row.occurred_at,
-            "punches": moments,
             "decision_note": row.decision_note,
             "decided_at": row.decided_at,
             "decided_by_person_id": row.decided_by_person_id,
@@ -1083,10 +990,8 @@ class WorkforceService:
         }
 
     def _with_events(self, rows: list[TimeRequest]):
-        ids = [row.id for row in rows]
-        grouped = self.repo.events_for(ids)
-        punches = self.repo.request_punches_for(ids)
-        return [(row, grouped.get(row.id, []), punches.get(row.id, [])) for row in rows]
+        grouped = self.repo.events_for([row.id for row in rows])
+        return [(row, grouped.get(row.id, [])) for row in rows]
 
     def _closing_out(self, row: Closing, events: list) -> dict:
         return {
@@ -1149,8 +1054,6 @@ class WorkforceService:
         action = AUDIT_ACTION.get(kind, "Registro")
         if kind == "punch":
             action = "Registro de marcação"
-        elif kind == "punch_correction":
-            action = "Correção de marcação"
         elif kind == "occurrence":
             action = "Registro de ocorrência"
         elif kind == "request":

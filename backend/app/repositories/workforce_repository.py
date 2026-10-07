@@ -15,7 +15,6 @@ from app.models.workforce import (
     Occurrence,
     Punch,
     RequestEvent,
-    RequestPunch,
     TimeRequest,
 )
 
@@ -187,56 +186,18 @@ class WorkforceRepository:
     def count_punches_between(self, tenant_id: int, start: datetime, end: datetime) -> int:
         return (
             self.db.query(Punch)
-            .filter(
-                Punch.tenant_id == tenant_id,
-                Punch.valid.is_(True),
-                Punch.occurred_at >= start,
-                Punch.occurred_at < end,
-            )
+            .filter(Punch.tenant_id == tenant_id, Punch.occurred_at >= start, Punch.occurred_at < end)
             .count()
         )
 
     def punch_counts(self, tenant_id: int, start: datetime, end: datetime) -> dict[int, int]:
         rows = (
             self.db.query(Punch.employee_id, func.count(Punch.id))
-            .filter(
-                Punch.tenant_id == tenant_id,
-                Punch.valid.is_(True),
-                Punch.occurred_at >= start,
-                Punch.occurred_at < end,
-            )
+            .filter(Punch.tenant_id == tenant_id, Punch.occurred_at >= start, Punch.occurred_at < end)
             .group_by(Punch.employee_id)
             .all()
         )
         return {employee_id: count for employee_id, count in rows}
-
-    def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
-        return (
-            self.db.query(Punch)
-            .filter(
-                Punch.tenant_id == tenant_id,
-                Punch.employee_id == employee_id,
-                Punch.valid.is_(True),
-                Punch.occurred_at >= start,
-                Punch.occurred_at < end,
-            )
-            .order_by(Punch.occurred_at.asc(), Punch.id.asc())
-            .all()
-        )
-
-    def request_punches_for(self, request_ids: list[int]) -> dict[int, list[RequestPunch]]:
-        if not request_ids:
-            return {}
-        rows = (
-            self.db.query(RequestPunch)
-            .filter(RequestPunch.request_id.in_(request_ids))
-            .order_by(RequestPunch.position.asc(), RequestPunch.id.asc())
-            .all()
-        )
-        found: dict[int, list[RequestPunch]] = {}
-        for row in rows:
-            found.setdefault(row.request_id, []).append(row)
-        return found
 
     def count_requests(self, tenant_id: int, *, kind: str, status: str) -> int:
         return (

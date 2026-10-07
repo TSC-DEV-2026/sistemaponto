@@ -29,7 +29,7 @@ OCCURRENCE_KINDS = (
     "leave",
 )
 REASON_KINDS = ("adjustment", "absence", "allowance", "certificate")
-PUNCH_SOURCES = ("employee", "admin", "approved_request", "manual")
+PUNCH_SOURCES = ("employee", "admin", "approved_request")
 
 REASON_FOR_REQUEST = {
     "adjustment": "adjustment",

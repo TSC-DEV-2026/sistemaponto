@@ -45,8 +45,6 @@ from app.schemas.workforce import (
     OccurrenceOut,
     OccurrenceUpdate,
     PayrollOut,
-    PunchCorrectionCreate,
-    PunchCorrectionOut,
     PunchCreate,
     PunchOut,
     PunchRuleCreate,
@@ -81,7 +79,7 @@ INT_FILTERS = {
     "month",
     "reason_id",
 }
-BOOL_FILTERS = {"active", "valid"}
+BOOL_FILTERS = {"active"}
 
 
 def as_scope(actor: Actor) -> Scope:
@@ -316,7 +314,7 @@ def delete_vigency(
     return json_data(None)
 
 
-@punches.get("", summary="Listar marcações", description="Filtros: employee_id, valid.")
+@punches.get("", summary="Listar marcações", description="Filtro: employee_id.")
 def list_punches(
     request: Request,
     page: int = Query(1, ge=1),
@@ -325,7 +323,7 @@ def list_punches(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    items, total = service.list_punches(as_scope(actor), page, limit, read_filters(request, ("employee_id", "valid")))
+    items, total = service.list_punches(as_scope(actor), page, limit, read_filters(request, ("employee_id",)))
     return json_data(dump_page(items, total, page, limit, PunchOut, fields))
 
 
@@ -347,22 +345,6 @@ def create_punch(
 ):
     row = service.create_punch(as_scope(actor), body.model_dump())
     return json_data(dump_one(row, PunchOut, None), status_code=201)
-
-
-@punches.post("/corrections", status_code=201, summary="Corrigir as marcações do dia")
-def correct_punches(
-    body: PunchCorrectionCreate,
-    actor: Actor = Depends(require_tenant),
-    service: WorkforceService = Depends(get_workforce_service),
-):
-    result = service.correct_punches(as_scope(actor), body.model_dump())
-    payload = PunchCorrectionOut(
-        employee_id=result["employee_id"],
-        day=result["day"],
-        origin=result["origin"],
-        punches=[PunchOut.model_validate(item) for item in result["punches"]],
-    )
-    return json_data(dump_one(payload, PunchCorrectionOut, None), status_code=201)
 
 
 @punches.put("/{row_id}", summary="Atualizar marcação")

@@ -237,24 +237,9 @@ class PunchOut(BaseModel):
     source: str
     request_id: int | None
     note: str | None
-    valid: bool
-    voided_at: datetime | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class PunchCorrectionCreate(BaseModel):
-    employee_id: int
-    punches: list[datetime] = Field(min_length=1, max_length=20)
-    note: str | None = Field(default=None, max_length=2000)
-
-
-class PunchCorrectionOut(BaseModel):
-    employee_id: int
-    day: date
-    origin: Literal["manual"]
-    punches: list[PunchOut]
 
 
 class OccurrenceCreate(BaseModel):
@@ -292,7 +277,6 @@ class RequestCreate(BaseModel):
     starts_on: date | None = None
     ends_on: date | None = None
     occurred_at: datetime | None = None
-    punches: list[datetime] | None = Field(default=None, max_length=20)
 
 
 class RequestUpdate(BaseModel):
@@ -320,7 +304,6 @@ class RequestOut(BaseModel):
     starts_on: date | None
     ends_on: date | None
     occurred_at: datetime | None
-    punches: list[datetime]
     decision_note: str | None
     decided_at: datetime | None
     decided_by_person_id: int | None
