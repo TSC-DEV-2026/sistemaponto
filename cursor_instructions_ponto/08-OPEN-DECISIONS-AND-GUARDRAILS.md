@@ -8,96 +8,13 @@ O Cursor não deve transformar perguntas abertas em regras definitivas sem nova 
 
 ---
 
-## 2. Registro Simples
+## 2. Corte de antes do fechamento
 
-O conceito existe, porém seu comportamento exato ainda não foi definido.
-
-Pode futuramente significar:
-
-- botão de registro no app;
-- PIN;
-- outro mecanismo sem reconhecimento facial.
-
-Não assumir.
+Registro, ajuste, aprovação, atestado, abono, afastamento, férias, apuração, adicional noturno e banco de horas deste corte estão decididos em `03-MOBILE-APP-SCOPE.md` e `04-BUSINESS-RULES-AND-WORKFLOWS.md`.
 
 ---
 
-## 3. Regras detalhadas de apuração
-
-Ainda precisam ser definidas em profundidade:
-
-- tolerâncias;
-- atrasos;
-- horas extras;
-- saídas antecipadas;
-- intervalos;
-- escalas;
-- feriados;
-- adicionais;
-- regras específicas por sindicato/convenção;
-- banco de horas.
-
-Não criar política trabalhista por inferência.
-
----
-
-## 4. Banco de Horas
-
-Ainda devem ser detalhadas:
-
-- regras de crédito;
-- regras de débito;
-- validade;
-- limites;
-- fechamento;
-- compensação;
-- tratamento por período.
-
----
-
-## 5. Aprovações
-
-Ainda pode ser necessário definir:
-
-- um ou múltiplos aprovadores;
-- ordem de aprovação;
-- aprovação por gestor;
-- aprovação por RH;
-- escalonamento;
-- substituto de gestor.
-
-Não criar fluxo complexo sem necessidade.
-
----
-
-## 6. Atestados
-
-Ainda precisam ser definidos:
-
-- documentos obrigatórios;
-- tipos;
-- quem pode aprovar;
-- tratamento de períodos;
-- regras de validação;
-- possíveis restrições de visualização.
-
----
-
-## 7. Férias
-
-Férias existem como ocorrência no escopo.
-
-Ainda não está decidido se o produto também terá:
-
-- solicitação de férias;
-- aprovação de férias;
-- planejamento de férias.
-
-Não implementar workflow de férias por inferência.
-
----
-
-## 8. Fechamento
+## 3. Fechamento
 
 Ainda devem ser detalhados:
 
@@ -111,7 +28,7 @@ Ainda devem ser detalhados:
 
 ---
 
-## 9. Trial e cobrança
+## 4. Trial e cobrança
 
 Ainda não definidos:
 
@@ -125,13 +42,13 @@ Ainda não definidos:
 
 ---
 
-## 10. Relatórios
+## 5. Relatórios
 
 Os grupos estão definidos, mas o catálogo inicial de relatórios ainda será escolhido.
 
 ---
 
-## 11. Notificações
+## 6. Notificações
 
 Eventos gerais estão previstos, mas:
 
@@ -145,7 +62,7 @@ ainda serão detalhados.
 
 ---
 
-## 12. Guardrail de escopo
+## 7. Guardrail de escopo
 
 Se uma demanda futura conflitar com estes documentos:
 
@@ -156,7 +73,7 @@ Se uma demanda futura conflitar com estes documentos:
 
 ---
 
-## 13. Guardrail web/app
+## 8. Guardrail web/app
 
 Regra vigente:
 
@@ -169,7 +86,7 @@ Qualquer exceção deve ser uma decisão explícita de produto.
 
 ---
 
-## 14. Guardrail de nome
+## 9. Guardrail de nome
 
 O nome definitivo ainda não foi escolhido.
 

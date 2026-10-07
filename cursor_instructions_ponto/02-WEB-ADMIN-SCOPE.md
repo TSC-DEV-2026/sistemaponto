@@ -137,7 +137,7 @@ A web deve permitir gestão de:
 - jornadas;
 - marcações;
 - apuração;
-- banco de horas.
+- banco de horas, com quitação pelo gestor e lançamento manual de crédito ou débito.
 
 A aplicação deve manter a separação conceitual:
 
@@ -162,6 +162,10 @@ A web deve permitir tratar:
 - afastamentos.
 
 Ações administrativas devem possuir rastreabilidade.
+
+A correção de marcação, feita por solicitação aprovada ou manualmente pelo administrador, deixa a marcação anterior sem validade e a mantém no histórico. A origem fica explícita: solicitação ou manual.
+
+O gestor pode lançar manualmente, no ponto, abono, atestado, afastamento e férias. A origem também fica explícita: solicitação ou manual.
 
 Quando houver motivo padronizado, o usuário deve selecioná-lo em vez de sempre digitar texto livre.
 
@@ -192,11 +196,15 @@ Solicitações
 ├── Pendentes
 │   ├── Ajustes
 │   ├── Abonos
-│   └── Atestados
+│   ├── Atestados
+│   ├── Afastamentos
+│   └── Férias
 ├── Aprovadas
 ├── Recusadas
 └── Canceladas
 ```
+
+Quem aprova é só o gestor da equipe. Uma aprovação basta. O pedido não sobe para outra pessoa e, por enquanto, ninguém substitui o gestor ausente.
 
 Ao aprovar:
 
@@ -257,7 +265,7 @@ Gerenciar:
 - feriados;
 - regras de ponto.
 
-As regras detalhadas de apuração ainda serão aprofundadas.
+Sindicato e convenção alteram as contas da apuração. Os padrões, quando não houver valor próprio, estão em `04-BUSINESS-RULES-AND-WORKFLOWS.md`.
 
 Não inventar regras trabalhistas não documentadas.
 
