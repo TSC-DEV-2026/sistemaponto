@@ -65,6 +65,7 @@ export function MembershipDetailPage() {
         <Label htmlFor="role">Papel</Label>
         <select id="role" className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={role} onChange={(event) => setRole(event.target.value)} disabled={!isAdmin}>
           <option value="member">Membro</option>
+          <option value="manager">Gestor</option>
           <option value="admin">Administrador</option>
         </select>
       </div>

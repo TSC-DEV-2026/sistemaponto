@@ -5,9 +5,7 @@ import { AppShell } from "@/components/layouts/AppShell"
 import { PrivateRoute } from "@/components/PrivateRoute"
 import { RouteLoader } from "@/components/RouteLoader"
 import { TenantRoute } from "@/components/TenantRoute"
-import { shellItems } from "@/navigation"
 import { ChangePasswordPage } from "@/pages/ChangePasswordPage"
-import { DomainPage } from "@/pages/DomainPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
 import { HomePage } from "@/pages/HomePage"
 import { LoginPage } from "@/pages/LoginPage"
@@ -22,6 +20,22 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { TenantDetailPage } from "@/pages/TenantDetailPage"
 import { TenantsPage } from "@/pages/TenantsPage"
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage"
+import { EmployeeFormPage } from "@/pages/workforce/EmployeeFormPage"
+import { EmployeePage } from "@/pages/workforce/EmployeePage"
+import { JourneyPage } from "@/pages/workforce/JourneyPage"
+import {
+  ClosingsPage,
+  LaborPage,
+  NotificationsPage,
+  OccurrencesPage,
+  OrganizationPage,
+  PayrollPage,
+  ReasonsPage,
+  ReportsPage,
+  RequestsPage,
+  TimeClockPage,
+} from "@/pages/workforce/OperationsPages"
+import { PeoplePage } from "@/pages/workforce/PeoplePage"
 
 function RootLayout() {
   return (
@@ -31,10 +45,6 @@ function RootLayout() {
     </>
   )
 }
-
-const domainRoutes = shellItems
-  .filter((item) => item.sections.length > 0)
-  .map((item) => ({ path: item.to, element: <DomainPage /> }))
 
 const router = createBrowserRouter([
   {
@@ -64,7 +74,20 @@ const router = createBrowserRouter([
                   { path: "/tenants", element: <TenantsPage /> },
                   { path: "/tenants/:id", element: <TenantDetailPage /> },
                   { path: "/change-password", element: <ChangePasswordPage /> },
-                  ...domainRoutes,
+                  { path: "/schedules", element: <JourneyPage /> },
+                  { path: "/time-clock", element: <TimeClockPage /> },
+                  { path: "/occurrences", element: <OccurrencesPage /> },
+                  { path: "/requests", element: <RequestsPage /> },
+                  { path: "/closings", element: <ClosingsPage /> },
+                  { path: "/people/new", element: <EmployeeFormPage /> },
+                  { path: "/people/:id", element: <EmployeePage /> },
+                  { path: "/people", element: <PeoplePage /> },
+                  { path: "/reports", element: <ReportsPage /> },
+                  { path: "/notifications", element: <NotificationsPage /> },
+                  { path: "/organization", element: <OrganizationPage /> },
+                  { path: "/labor-rules", element: <LaborPage /> },
+                  { path: "/payroll", element: <PayrollPage /> },
+                  { path: "/reasons", element: <ReasonsPage /> },
                 ],
               },
             ],

@@ -1,0 +1,251 @@
+from datetime import date, datetime
+
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Session
+
+from app.models.membership import Membership
+from app.models.tenant import Tenant
+from app.models.workforce import (
+    Audit,
+    Closing,
+    ClosingEvent,
+    Employee,
+    EmployeeVigency,
+    Notification,
+    Occurrence,
+    Punch,
+    RequestEvent,
+    TimeRequest,
+)
+
+
+class WorkforceRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def add(self, row):
+        self.db.add(row)
+        self.db.flush()
+        return row
+
+    def delete(self, row) -> None:
+        self.db.delete(row)
+        self.db.flush()
+
+    def get_tenant(self, tenant_id: int) -> Tenant | None:
+        return self.db.query(Tenant).filter(Tenant.id == tenant_id).one_or_none()
+
+    def membership(self, person_id: int, tenant_id: int) -> Membership | None:
+        return (
+            self.db.query(Membership)
+            .filter(Membership.person_id == person_id, Membership.tenant_id == tenant_id)
+            .one_or_none()
+        )
+
+    def admins(self, tenant_id: int) -> list[Membership]:
+        return (
+            self.db.query(Membership)
+            .filter(Membership.tenant_id == tenant_id, Membership.role == "admin")
+            .all()
+        )
+
+    def list_rows(
+        self,
+        model,
+        tenant_id: int,
+        *,
+        page: int,
+        limit: int,
+        equals: dict,
+        descending: bool,
+        employee_ids: list[int] | None = None,
+    ):
+        if employee_ids is not None and len(employee_ids) == 0:
+            return [], 0
+        query = self.db.query(model).filter(model.tenant_id == tenant_id)
+        if employee_ids is not None:
+            query = query.filter(model.employee_id.in_(employee_ids))
+        for key, value in equals.items():
+            query = query.filter(getattr(model, key) == value)
+        total = query.count()
+        order = model.id.desc() if descending else model.id.asc()
+        items = query.order_by(order).offset((page - 1) * limit).limit(limit).all()
+        return items, total
+
+    def get_row(self, model, tenant_id: int, row_id: int):
+        return (
+            self.db.query(model)
+            .filter(model.id == row_id, model.tenant_id == tenant_id)
+            .one_or_none()
+        )
+
+    def name_taken(self, model, tenant_id: int, name: str, *, exclude_id: int | None, scope: dict) -> bool:
+        query = self.db.query(model).filter(model.tenant_id == tenant_id, model.name == name)
+        for key, value in scope.items():
+            query = query.filter(getattr(model, key) == value)
+        if exclude_id is not None:
+            query = query.filter(model.id != exclude_id)
+        return query.first() is not None
+
+    def count_model(self, model, **equals) -> int:
+        query = self.db.query(model)
+        for key, value in equals.items():
+            query = query.filter(getattr(model, key) == value)
+        return query.count()
+
+    def list_employees(self, tenant_id: int, *, ids: list[int] | None, page: int, limit: int, equals: dict):
+        if ids is not None and len(ids) == 0:
+            return [], 0
+        query = self.db.query(Employee).filter(Employee.tenant_id == tenant_id)
+        if ids is not None:
+            query = query.filter(Employee.id.in_(ids))
+        for key, value in equals.items():
+            query = query.filter(getattr(Employee, key) == value)
+        total = query.count()
+        items = query.order_by(Employee.id.asc()).offset((page - 1) * limit).limit(limit).all()
+        return items, total
+
+    def labels_on(self, employee_ids: list[int], day: date) -> dict[int, dict[str, EmployeeVigency]]:
+        if not employee_ids:
+            return {}
+        rows = (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.employee_id.in_(employee_ids),
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
+            .all()
+        )
+        found: dict[int, dict[str, EmployeeVigency]] = {}
+        for row in rows:
+            found.setdefault(row.employee_id, {})[row.kind] = row
+        return found
+
+    def open_vigency(self, employee_id: int, kind: str) -> EmployeeVigency | None:
+        return (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.employee_id == employee_id,
+                EmployeeVigency.kind == kind,
+                EmployeeVigency.valid_to.is_(None),
+            )
+            .one_or_none()
+        )
+
+    def applicable(self, employee_id: int, kind: str, day: date) -> EmployeeVigency | None:
+        return (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.employee_id == employee_id,
+                EmployeeVigency.kind == kind,
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .order_by(EmployeeVigency.valid_from.desc(), EmployeeVigency.id.desc())
+            .first()
+        )
+
+    def employee_ids_for_team(self, tenant_id: int, team_id: int, day: date) -> list[int]:
+        rows = (
+            self.db.query(EmployeeVigency.employee_id)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.kind == "team",
+                EmployeeVigency.reference_id == team_id,
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .all()
+        )
+        return [row[0] for row in rows]
+
+    def count_active(self, tenant_id: int, day: date) -> int:
+        current = and_(
+            EmployeeVigency.label == "active",
+            EmployeeVigency.valid_from <= day,
+            or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+        )
+        scheduled = and_(
+            EmployeeVigency.label == "active",
+            EmployeeVigency.valid_to.is_(None),
+            EmployeeVigency.valid_from > day,
+        )
+        return (
+            self.db.query(EmployeeVigency.employee_id)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.kind == "status",
+                or_(current, scheduled),
+            )
+            .distinct()
+            .count()
+        )
+
+    def count_punches_between(self, tenant_id: int, start: datetime, end: datetime) -> int:
+        return (
+            self.db.query(Punch)
+            .filter(Punch.tenant_id == tenant_id, Punch.occurred_at >= start, Punch.occurred_at < end)
+            .count()
+        )
+
+    def punch_counts(self, tenant_id: int, start: datetime, end: datetime) -> dict[int, int]:
+        rows = (
+            self.db.query(Punch.employee_id, func.count(Punch.id))
+            .filter(Punch.tenant_id == tenant_id, Punch.occurred_at >= start, Punch.occurred_at < end)
+            .group_by(Punch.employee_id)
+            .all()
+        )
+        return {employee_id: count for employee_id, count in rows}
+
+    def count_requests(self, tenant_id: int, *, kind: str, status: str) -> int:
+        return (
+            self.db.query(TimeRequest)
+            .filter(TimeRequest.tenant_id == tenant_id, TimeRequest.kind == kind, TimeRequest.status == status)
+            .count()
+        )
+
+    def closing_for(self, tenant_id: int, year: int, month: int) -> Closing | None:
+        return (
+            self.db.query(Closing)
+            .filter(Closing.tenant_id == tenant_id, Closing.year == year, Closing.month == month)
+            .one_or_none()
+        )
+
+    def events_for(self, request_ids: list[int]) -> dict[int, list[RequestEvent]]:
+        if not request_ids:
+            return {}
+        rows = (
+            self.db.query(RequestEvent)
+            .filter(RequestEvent.request_id.in_(request_ids))
+            .order_by(RequestEvent.id.asc())
+            .all()
+        )
+        found: dict[int, list[RequestEvent]] = {}
+        for row in rows:
+            found.setdefault(row.request_id, []).append(row)
+        return found
+
+    def closing_events_for(self, closing_ids: list[int]) -> dict[int, list[ClosingEvent]]:
+        if not closing_ids:
+            return {}
+        rows = (
+            self.db.query(ClosingEvent)
+            .filter(ClosingEvent.closing_id.in_(closing_ids))
+            .order_by(ClosingEvent.id.asc())
+            .all()
+        )
+        found: dict[int, list[ClosingEvent]] = {}
+        for row in rows:
+            found.setdefault(row.closing_id, []).append(row)
+        return found
+
+    def reasons_active(self, tenant_id: int, kind: str) -> int:
+        from app.models.workforce import Reason
+
+        return (
+            self.db.query(Reason)
+            .filter(Reason.tenant_id == tenant_id, Reason.kind == kind, Reason.active.is_(True))
+            .count()
+        )

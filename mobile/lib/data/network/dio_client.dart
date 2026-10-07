@@ -67,10 +67,16 @@ class ApiClient {
   late final Dio dio;
   void Function()? onSessionLost;
 
-  Future<Map<String, dynamic>> get(String path) => _send(() => dio.get<dynamic>(path));
+  Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query}) {
+    return _send(() => dio.get<dynamic>(path, queryParameters: query));
+  }
 
   Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body) {
     return _send(() => dio.post<dynamic>(path, data: body));
+  }
+
+  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) {
+    return _send(() => dio.put<dynamic>(path, data: body));
   }
 
   Future<Map<String, dynamic>> _send(Future<Response<dynamic>> Function() call) async {
