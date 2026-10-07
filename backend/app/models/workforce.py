@@ -162,6 +162,8 @@ class Punch(Base):
     source = Column(String(32), nullable=False)
     request_id = Column(BigInteger, nullable=True)
     note = Column(Text, nullable=True)
+    valid = Column(Boolean, nullable=False, default=True)
+    voided_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
@@ -198,6 +200,17 @@ class TimeRequest(Base):
     decided_at = Column(DateTime(timezone=True), nullable=True)
     decided_by_person_id = Column(BigInteger, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class RequestPunch(Base):
+    __tablename__ = "request_punches"
+    __table_args__ = (UniqueConstraint("request_id", "position", name="uq_request_punch_position"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    request_id = Column(BigInteger, ForeignKey("time_requests.id"), nullable=False, index=True)
+    occurred_at = Column(DateTime(timezone=True), nullable=False)
+    position = Column(BigInteger, nullable=False)
 
 
 class RequestEvent(Base):
