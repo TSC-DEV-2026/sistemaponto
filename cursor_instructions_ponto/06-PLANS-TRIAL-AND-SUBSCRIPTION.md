@@ -37,6 +37,8 @@ Limitações do trial:
 - tempo;
 - quantidade de funcionários.
 
+Ao terminar os 7 dias, o sistema pede a contratação de um plano.
+
 ---
 
 ## 3. Plano por capacidade
@@ -83,6 +85,8 @@ Exemplos válidos:
 ```
 
 A unidade é múltiplo de 10, mas o usuário não precisa aumentar apenas um bloco por vez.
+
+O upgrade cobra pró-rata.
 
 ---
 
@@ -140,7 +144,7 @@ Não pode:
 100 → 80
 ```
 
-O comportamento financeiro do downgrade ainda será definido.
+O downgrade só ocorre quando a nova capacidade cabe nos funcionários contabilizados. Exemplo: 20 funcionários na conta não permitem descer para 10. O valor é corrigido no mês seguinte.
 
 ---
 
@@ -172,23 +176,10 @@ Não transformar planos em módulo operacional.
 
 ---
 
-## 10. Decisões ainda abertas
+## 10. Preço, cobrança e inadimplência
 
-Não assumir sem definição explícita:
+A cobrança é mensal: R$ 5 por pessoa. Exemplo: 10 pessoas custam R$ 50. Esse é o preço em vigor. Uma revisão futura pode alterá-lo.
 
-- preço por bloco;
-- mensal vs anual;
-- pró-rata;
-- cobrança imediata em upgrade;
-- vigência de downgrade;
-- comportamento de inadimplência;
-- métodos de pagamento;
-- comportamento definitivo ao fim do trial.
+Os métodos de pagamento são Pix, boleto e cartão de débito ou crédito.
 
-Possibilidades identificadas para fim do trial:
-
-- bloqueio total;
-- somente leitura;
-- período de tolerância.
-
-Nenhuma delas está definitivamente aprovada.
+A inadimplência avisa e bloqueia o uso em 7 dias.
