@@ -1,14 +1,34 @@
+import { useEffect, useState } from "react"
+
+import { getDashboard } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { formatDate, trialDaysLeft, trialEnded } from "@/utils/trial"
 
 export function PlanPage() {
   const tenant = useAuthStore((state) => state.activeTenant)
+  const [activeEmployees, setActiveEmployees] = useState(0)
+  useEffect(() => {
+    let active = true
+    getDashboard()
+      .then((board) => {
+        if (active) {
+          setActiveEmployees(board.active_employees)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setActiveEmployees(0)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [tenant?.id])
   if (!tenant) {
     return null
   }
   const ended = trialEnded(tenant.trial_ends_at)
   const days = trialDaysLeft(tenant.trial_ends_at)
-  const activeEmployees = 0
   const available = Math.max(0, tenant.employee_capacity - activeEmployees)
 
   return (

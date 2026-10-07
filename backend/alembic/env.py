@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config import settings
 from app.db.base import Base
 from app.models import Membership, RefreshToken, Tenant  # noqa: F401
+import app.models.workforce  # noqa: F401
 
 config = context.config
 

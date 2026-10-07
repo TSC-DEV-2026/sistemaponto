@@ -11,7 +11,7 @@ from app.services.authenticator_client import AuthenticatorClient
 
 logger = logging.getLogger("base.membership")
 
-ROLES = {"admin", "member"}
+ROLES = {"admin", "manager", "member"}
 
 
 @dataclass

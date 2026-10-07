@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.middleware import CsrfMiddleware, SecurityHeadersMiddleware
-from app.api.routes import auth, memberships, meta, tenants
+from app.api.routes import auth, memberships, meta, tenants, workforce
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.limiter import limiter
@@ -67,6 +67,8 @@ def create_app() -> FastAPI:
     app.include_router(tenants.router, prefix="/api/v1")
     app.include_router(memberships.router, prefix="/api/v1")
     app.include_router(meta.router, prefix="/api/v1")
+    for router in workforce.routers:
+        app.include_router(router, prefix="/api/v1")
     return app
 
 

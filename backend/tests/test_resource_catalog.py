@@ -35,7 +35,29 @@ def test_registry_so_tem_pydantic():
 
 def test_lista_e_filtro_sem_sql():
     items = catalog_items()
-    assert [item["name"] for item in items] == ["tenants", "memberships"]
+    assert [item["name"] for item in items] == [
+        "tenants",
+        "memberships",
+        "jobs",
+        "cost-centers",
+        "units",
+        "sectors",
+        "teams",
+        "journeys",
+        "unions",
+        "labor-agreements",
+        "holidays",
+        "punch-rules",
+        "reasons",
+        "employees",
+        "employee-vigencies",
+        "punches",
+        "occurrences",
+        "requests",
+        "closings",
+        "notifications",
+        "audits",
+    ]
     found = [item for item in items if item["name"] == "tenants"]
     assert len(found) == 1
     missing = [item for item in items if item["name"] == "products"]
