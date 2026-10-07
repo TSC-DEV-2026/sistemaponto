@@ -17,7 +17,11 @@ from app.models.workforce import (
     Occurrence,
     Punch,
     RequestEvent,
+    RequestPunch,
+    Sector,
+    Team,
     TimeRequest,
+    Unit,
 )
 from app.services.workforce_service import Scope, WorkforceService
 
@@ -159,15 +163,32 @@ class Memory:
         return sum(
             1
             for row in self._of(Punch, tenant_id)
-            if start <= row.occurred_at < end
+            if row.valid and start <= row.occurred_at < end
         )
 
     def punch_counts(self, tenant_id: int, start: datetime, end: datetime):
         counts: dict[int, int] = {}
         for row in self._of(Punch, tenant_id):
-            if start <= row.occurred_at < end:
+            if row.valid and start <= row.occurred_at < end:
                 counts[row.employee_id] = counts.get(row.employee_id, 0) + 1
         return counts
+
+    def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime):
+        found = [
+            row
+            for row in self._of(Punch, tenant_id)
+            if row.employee_id == employee_id and row.valid and start <= row.occurred_at < end
+        ]
+        found.sort(key=lambda item: (item.occurred_at, item.id))
+        return found
+
+    def request_punches_for(self, request_ids: list[int]):
+        found: dict[int, list] = {}
+        rows = [row for row in self.rows if isinstance(row, RequestPunch) and row.request_id in request_ids]
+        rows.sort(key=lambda item: (item.position, item.id))
+        for row in rows:
+            found.setdefault(row.request_id, []).append(row)
+        return found
 
     def count_requests(self, tenant_id: int, *, kind: str, status: str) -> int:
         return sum(1 for row in self._of(TimeRequest, tenant_id) if row.kind == kind and row.status == status)
@@ -203,6 +224,26 @@ def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
 
 def admin() -> Scope:
     return Scope(person_id=7, tenant_id=1, role="admin")
+
+
+def scope(person_id: int, role: str) -> Scope:
+    return Scope(person_id=person_id, tenant_id=1, role=role)
+
+
+def at(hour: int, minute: int, day: int = 6) -> datetime:
+    return datetime(2026, 10, day, hour, minute, tzinfo=BR)
+
+
+def adjustment(moments: list[datetime], note: str | None = None) -> dict:
+    return {
+        "kind": "adjustment",
+        "reason_id": None,
+        "note": note,
+        "starts_on": None,
+        "ends_on": None,
+        "occurred_at": None,
+        "punches": moments,
+    }
 
 
 def employee_payload(cpf: str = "12345678901", person_id: int | None = 7):
@@ -336,3 +377,153 @@ def test_auditoria_registra_quem_alterou_o_cargo():
     )
     audits = [row for row in repo.rows if isinstance(row, Audit)]
     assert any(row.action == "Alteração de cargo" and row.person_id == 7 for row in audits)
+
+
+def test_ajuste_pendente_guarda_o_dia_sem_alterar_marcacao():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    created = workforce.create_request(admin(), adjustment([at(8, 5), at(12, 0), at(13, 0), at(18, 0)]))
+    assert created["punches"] == [at(8, 5), at(12, 0), at(13, 0), at(18, 0)]
+    assert created["status"] == "pending"
+    punches = [row for row in repo.rows if isinstance(row, Punch)]
+    assert len(punches) == 1
+    assert punches[0].valid is True
+    assert punches[0].occurred_at == at(8, 0).astimezone(ZoneInfo("UTC"))
+
+
+def test_aprovacao_substitui_as_marcacoes_validas_do_dia():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    other = workforce.create_employee(admin(), employee_payload("10987654321", None))
+    morning = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    leaving = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(17, 0), "note": None})
+    previous_day = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, day=5), "note": None})
+    neighbor = workforce.create_punch(admin(), {"employee_id": other["id"], "occurred_at": at(8, 0), "note": None})
+    created = workforce.create_request(admin(), adjustment([at(8, 12), at(12, 2), at(13, 1), at(18, 4)], "Esqueci a saída"))
+    workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
+    assert morning.valid is False and morning.voided_at == NOW
+    assert leaving.valid is False and leaving.voided_at == NOW
+    assert previous_day.valid is True and neighbor.valid is True
+    current = [row for row in repo.rows if isinstance(row, Punch) and row.employee_id == person["id"] and row.valid]
+    assert sorted(row.occurred_at for row in current) == [
+        at(8, 0, day=5).astimezone(ZoneInfo("UTC")),
+        at(8, 12).astimezone(ZoneInfo("UTC")),
+        at(12, 2).astimezone(ZoneInfo("UTC")),
+        at(13, 1).astimezone(ZoneInfo("UTC")),
+        at(18, 4).astimezone(ZoneInfo("UTC")),
+    ]
+    replaced = [row for row in current if row.occurred_at != previous_day.occurred_at]
+    assert {row.source for row in replaced} == {"approved_request"}
+    assert {row.request_id for row in replaced} == {created["id"]}
+    audits = [row for row in repo.rows if isinstance(row, Audit) and row.action == "Correção de marcação"]
+    assert len(audits) == 1 and audits[0].new_label == "solicitação"
+    assert repo.count_model(Punch, tenant_id=1) == 8
+
+
+def test_recusa_mantem_as_marcacoes_que_valem():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    original = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    created = workforce.create_request(admin(), adjustment([at(9, 0)]))
+    workforce.decide_request(admin(), created["id"], {"status": "rejected", "decision_note": None})
+    assert original.valid is True
+    assert original.voided_at is None
+
+
+def test_correcao_manual_do_administrador_segue_a_mesma_troca():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    original = workforce.create_punch(
+        scope(7, "member"),
+        {"employee_id": person["id"], "occurred_at": at(8, 0, day=7), "note": None},
+    )
+    with pytest.raises(AppError) as denied:
+        workforce.correct_punches(
+            scope(7, "manager"),
+            {"employee_id": person["id"], "punches": [at(8, 30, day=7), at(18, 0, day=7)], "note": None},
+        )
+    assert denied.value.status_code == 403
+    assert original.valid is True
+    corrected = workforce.correct_punches(
+        admin(),
+        {"employee_id": person["id"], "punches": [at(8, 30, day=7), at(18, 0, day=7)], "note": "Ajuste de gestão"},
+    )
+    assert corrected["origin"] == "manual"
+    assert corrected["day"] == date(2026, 10, 7)
+    assert [row.source for row in corrected["punches"]] == ["manual", "manual"]
+    assert all(row.valid for row in corrected["punches"])
+    assert original.valid is False
+    assert workforce.dashboard(admin())["punches_today"] == 2
+    audits = [row for row in repo.rows if isinstance(row, Audit) and row.action == "Correção de marcação"]
+    assert audits[-1].new_label == "manual"
+
+
+def test_periodo_fechado_bloqueia_ajuste_e_correcao():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    original = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    created = workforce.create_request(admin(), adjustment([at(9, 0)]))
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as approval:
+        workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
+    with pytest.raises(AppError) as correction:
+        workforce.correct_punches(admin(), {"employee_id": person["id"], "punches": [at(9, 30)], "note": None})
+    assert approval.value.status_code == 409
+    assert correction.value.status_code == 409
+    assert original.valid is True
+    assert workforce.get_request(admin(), created["id"])["status"] == "pending"
+
+
+def test_ajuste_rejeita_dia_misturado_e_horario_repetido():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), employee_payload())
+    with pytest.raises(AppError) as mixed:
+        workforce.create_request(admin(), adjustment([at(8, 0), at(8, 0, day=7)]))
+    with pytest.raises(AppError) as repeated:
+        workforce.create_request(admin(), adjustment([at(8, 0), at(8, 0)]))
+    assert mixed.value.status_code == 400
+    assert repeated.value.status_code == 400
+
+
+def test_gestor_aprova_a_propria_equipe_e_o_administrador_qualquer_uma():
+    workforce, repo = service()
+    for person_id, role in ((8, "manager"), (9, "member"), (10, "member")):
+        access = Membership(person_id=person_id, tenant_id=1, role=role)
+        access.id = repo.seq
+        repo.seq += 1
+        repo.memberships.append(access)
+    leader = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    own = workforce.create_request(scope(8, "manager"), adjustment([at(8, 0)]))
+    with pytest.raises(AppError) as own_decision:
+        workforce.decide_request(scope(8, "manager"), own["id"], {"status": "approved", "decision_note": None})
+    assert own_decision.value.status_code == 403
+    mate_request = workforce.create_request(scope(9, "member"), adjustment([at(9, 0)]))
+    approved = workforce.decide_request(scope(8, "manager"), mate_request["id"], {"status": "approved", "decision_note": None})
+    assert approved["status"] == "approved"
+    outside = workforce.create_request(scope(10, "member"), adjustment([at(10, 0)]))
+    with pytest.raises(AppError) as other_team:
+        workforce.decide_request(scope(8, "manager"), outside["id"], {"status": "rejected", "decision_note": None})
+    assert other_team.value.status_code == 403
+    decided = workforce.decide_request(admin(), outside["id"], {"status": "approved", "decision_note": None})
+    assert decided["status"] == "approved"
+    assert decided["decided_by_person_id"] == 7
