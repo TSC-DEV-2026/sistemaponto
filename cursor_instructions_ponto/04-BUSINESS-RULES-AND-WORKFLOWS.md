@@ -264,20 +264,64 @@ O gestor também pode lançar crédito ou débito manual no banco. Esse lançame
 
 ## 10. Fechamento
 
-O fechamento consolida um período.
+O gestor define o período e o fecha num passo só. Não há etapa de sistema chamada conferido ou aprovado. Por norma de processo, o gestor confere os pontos antes de fechar.
 
-Antes do fechamento devem poder existir:
+O período não é fixo. Em geral é o mês civil, e pode ser qualquer intervalo.
 
-- conferência;
-- pendências;
-- correções;
-- solicitações;
-- aprovações;
-- ocorrências.
+O fechamento não ocorre quando existe:
 
-Após fechamento, qualquer alteração posterior deve respeitar regra específica de reabertura/cancelamento, a ser detalhada.
+- solicitação pendente;
+- ponto incompleto;
+- conflito entre abono ou atestado e marcação registrada.
 
-Não permitir que mudanças silenciosas alterem retroativamente um período fechado sem workflow explícito.
+O aviso de intervalo menor do que o previsto não impede o fechamento.
+
+No dia de trabalho da escala 5x2, o ponto está completo quando a quantidade de marcações é par. Quantidade ímpar é ponto incompleto.
+
+Não entram nessa conta:
+
+- feriado;
+- férias;
+- afastamento;
+- abono do dia inteiro;
+- atestado do dia inteiro.
+
+Atraso, saída antecipada e intervalo menor não são ponto incompleto.
+
+Depois de fechado, ficam bloqueados no período:
+
+- marcação;
+- ajuste;
+- ocorrência;
+- vigência;
+- quitação do banco;
+- lançamento manual de crédito ou débito no banco.
+
+Correção de período fechado só ocorre depois de reabrir.
+
+O gestor cancela o fechamento e informa o motivo. O período fica cancelado no histórico.
+
+O gestor reabre o fechamento, informa o motivo, e o mesmo período volta a aberto.
+
+Não permitir que mudanças silenciosas alterem um período fechado.
+
+### Arquivos fiscais
+
+A exportação de AFD não depende de período fechado.
+
+A importação de AFD cria marcação com origem própria, distinta da marcação do funcionário e da marcação do administrador. Se a marcação importada já existe, só ela é ignorada e as demais seguem.
+
+A exportação de AEJ sai só de período fechado.
+
+A exportação de totais para a folha leva, neste corte:
+
+- horas trabalhadas;
+- hora extra;
+- adicional noturno;
+- falta;
+- saldo do banco.
+
+Se o período for cancelado ou reaberto, o arquivo já gerado deixa de valer e precisa ser gerado de novo.
 
 ---
 
@@ -321,7 +365,9 @@ Quem aprova solicitação de ajuste, abono, atestado, afastamento e férias é s
 
 O administrador corrige marcação manualmente, com a mesma regra do ajuste aprovado. O gestor lança manualmente abono, atestado, afastamento e férias. Nos dois casos a origem fica explícita: solicitação ou manual.
 
-O gestor quita o banco de horas e lança crédito ou débito manual no saldo. O funcionário não faz essas ações.
+O gestor quita o banco de horas e lança crédito ou débito manual no saldo. O funcionário não faz essas ações. Dentro de período fechado, quitação e lançamento manual ficam bloqueados até a reabertura.
+
+O gestor fecha, cancela e reabre o período. Cancelamento e reabertura exigem motivo.
 
 Não assumir que permissão é apenas um booleano global.
 
@@ -329,19 +375,21 @@ Não assumir que permissão é apenas um booleano global.
 
 ## 14. Notificações
 
-Eventos candidatos:
+Os canais deste corte são o aviso dentro do sistema e o e-mail. O texto é o mesmo nos dois. A pessoa pode desligar cada aviso. O envio é diário. A frequência poderá ser customizada no futuro.
 
-- nova solicitação;
-- solicitação aprovada;
-- solicitação recusada;
-- solicitação cancelada;
-- atestado recebido;
-- ponto incompleto;
-- pendência de fechamento;
-- fechamento próximo;
-- trial terminando;
-- limite do plano próximo;
-- limite do plano atingido.
+Frases:
+
+- nova solicitação: "Há uma nova solicitação para analisar.";
+- solicitação aprovada: "Sua solicitação foi aprovada.";
+- solicitação recusada: "Sua solicitação foi recusada.";
+- solicitação cancelada: "Sua solicitação foi cancelada.";
+- atestado recebido: "Há um atestado recebido para analisar.";
+- ponto incompleto: "Há um dia com quantidade ímpar de marcações.";
+- pendência de fechamento: "Há pendência impedindo o fechamento.";
+- fechamento próximo, a partir de 3 dias antes: "O fechamento do período ocorre em 3 dias.";
+- trial terminando, a partir de 3 dias antes: "O período de teste termina em 3 dias. Contrate um plano.";
+- limite do plano próximo: "A capacidade de funcionários está próxima do limite.";
+- limite do plano atingido: "A capacidade de funcionários foi atingida."
 
 ---
 

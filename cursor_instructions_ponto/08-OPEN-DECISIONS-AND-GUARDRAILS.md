@@ -14,51 +14,31 @@ Registro, ajuste, aprovação, atestado, abono, afastamento, férias, apuração
 
 ---
 
-## 3. Fechamento
+## 3. Corte de depois do fechamento
 
-Ainda devem ser detalhados:
-
-- cancelamento;
-- reabertura;
-- motivo de reabertura;
-- efeitos em exportações;
-- bloqueios;
-- nova versão de fechamento;
-- tratamento de correções retroativas.
+Fechamento, cancelamento, reabertura, ponto incompleto, AFD, AEJ e totais de folha estão decididos em `04-BUSINESS-RULES-AND-WORKFLOWS.md`.
 
 ---
 
 ## 4. Trial e cobrança
 
-Ainda não definidos:
+Preço mensal, métodos de pagamento, pró-rata, downgrade, inadimplência e fim do trial estão em `06-PLANS-TRIAL-AND-SUBSCRIPTION.md`.
 
-- preços;
-- periodicidade;
-- pró-rata;
-- cobrança em upgrade;
-- downgrade;
-- inadimplência;
-- fim definitivo do trial.
+Uma revisão futura pode alterar o preço de R$ 5 por pessoa. Até lá, esse é o valor em vigor.
 
 ---
 
 ## 5. Relatórios
 
-Os grupos estão definidos, mas o catálogo inicial de relatórios ainda será escolhido.
+O catálogo inicial é um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão.
 
 ---
 
 ## 6. Notificações
 
-Eventos gerais estão previstos, mas:
+Canais, frases e o início dos avisos de fechamento e de trial estão em `04-BUSINESS-RULES-AND-WORKFLOWS.md`.
 
-- canais;
-- frequência;
-- templates;
-- preferências;
-- obrigatoriedade
-
-ainda serão detalhados.
+A frequência customizável fica para o futuro. Neste corte o envio é diário.
 
 ---
 

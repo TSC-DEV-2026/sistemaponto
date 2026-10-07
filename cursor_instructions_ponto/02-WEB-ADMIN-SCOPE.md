@@ -229,6 +229,8 @@ A sidebar deve possuir apenas:
 
 `Fechamento do Ponto`
 
+O gestor define o período, em geral o mês civil, e pode escolher outro intervalo. O fechamento é um passo. As regras de bloqueio, cancelamento e reabertura estão em `04-BUSINESS-RULES-AND-WORKFLOWS.md`.
+
 A tela inicial deve apresentar os fechamentos já existentes e seus estados.
 
 Exemplo:
@@ -281,6 +283,8 @@ Macrogrupos:
 - Ocorrências
 - Gestão
 
+O catálogo inicial tem um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão.
+
 Relatórios são analíticos e históricos.
 
 Dashboard é operacional.
@@ -291,9 +295,11 @@ Dashboard é operacional.
 
 Gerenciar:
 
-- AFD;
-- AEJ;
-- exportação de totais para folha.
+- AFD, com exportação independente de período fechado e importação de marcação com origem própria;
+- AEJ, exportado só de período fechado;
+- exportação de totais para folha: horas trabalhadas, hora extra, adicional noturno, falta e saldo do banco.
+
+Arquivo gerado de período cancelado ou reaberto precisa ser gerado de novo.
 
 A experiência deve ficar fora do fluxo cotidiano do funcionário.
 

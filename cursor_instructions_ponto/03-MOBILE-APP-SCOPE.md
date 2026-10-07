@@ -183,6 +183,8 @@ Enquanto pendente, permitir cancelamento quando a regra aplicável permitir.
 
 ## 8. Notificações
 
+O aviso também pode ir por e-mail. A pessoa pode desligar cada aviso. O envio deste corte é diário.
+
 Possíveis notificações para o funcionário:
 
 - solicitação recebida;
