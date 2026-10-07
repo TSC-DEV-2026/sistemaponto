@@ -13,6 +13,7 @@ Este pacote consolida as decisões funcionais do produto de gestão de jornada e
 7. `06-PLANS-TRIAL-AND-SUBSCRIPTION.md`
 8. `07-HISTORY-VIGENCY-AND-AUDIT.md`
 9. `08-OPEN-DECISIONS-AND-GUARDRAILS.md`
+10. `09-PLANO-DE-DESENVOLVIMENTO.md`
 
 ## Placeholder do nome
 
