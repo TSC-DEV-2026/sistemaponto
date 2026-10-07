@@ -40,8 +40,26 @@ export const vigencyKindLabel: Record<string, string> = {
 
 export const punchSourceLabel: Record<string, string> = {
   employee: "Funcionário",
-  admin: "Gestão",
-  approved_request: "Solicitação aprovada",
+  admin: "Manual",
+  manual: "Manual",
+  approved_request: "Solicitação",
+}
+
+export function punchOrigin(source: string) {
+  return punchSourceLabel[source] || source
+}
+
+export function brazilMoment(day: string, time: string) {
+  return new Date(`${day}T${time}:00-03:00`).toISOString()
+}
+
+export function punchDay(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value))
 }
 
 export const closingStatusLabel: Record<string, string> = {

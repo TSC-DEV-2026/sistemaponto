@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import {
   createRecord,
   getRecord,
@@ -22,7 +23,7 @@ import { useAuthStore } from "@/store/auth.store"
 import { onlyDigits } from "@/utils/digits"
 import {
   occurrenceKindLabel,
-  punchSourceLabel,
+  punchOrigin,
   requestKindLabel,
   requestStatusLabel,
   showDate,
@@ -75,8 +76,6 @@ export function EmployeePage() {
   const [statusLabel, setStatusLabel] = useState("active")
   const [validFrom, setValidFrom] = useState("")
   const [vigencyNote, setVigencyNote] = useState("")
-  const [occurredAt, setOccurredAt] = useState("")
-  const [punchNote, setPunchNote] = useState("")
   const [occurrenceKind, setOccurrenceKind] = useState("absence")
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
@@ -189,22 +188,6 @@ export function EmployeePage() {
       })
       setReferenceId("")
       setVigencyNote("")
-      await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
-    }
-  }
-
-  async function savePunch(event: FormEvent) {
-    event.preventDefault()
-    setError("")
-    try {
-      await createRecord("/punches", {
-        employee_id: id,
-        occurred_at: new Date(occurredAt).toISOString(),
-        note: punchNote.trim() || null,
-      })
-      setPunchNote("")
       await load()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
@@ -352,35 +335,17 @@ export function EmployeePage() {
             </p>
             <p className="mt-2">A apuração não é calculada. As regras detalhadas de tolerância, extra e banco ainda não foram definidas.</p>
           </section>
-          {isAdmin ? (
-            <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={savePunch}>
-              <div className="space-y-2">
-                <Label htmlFor="when">Marcação</Label>
-                <input id="when" className={fieldClass} type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pnote">Observação</Label>
-                <Input id="pnote" value={punchNote} onChange={(event) => setPunchNote(event.target.value)} />
-              </div>
-              <Button type="submit">Lançar marcação</Button>
-            </form>
-          ) : null}
-          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {punches.map((item) => (
-              <li key={item.id} className="px-4 py-3 text-sm">
-                {showDateTime(item.occurred_at)} · {punchSourceLabel[item.source] || item.source}
-                {item.note ? ` · ${item.note}` : ""}
-              </li>
-            ))}
-            {punches.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma marcação.</li> : null}
-          </ul>
+          {isAdmin ? <PunchCorrectionForm employeeId={id} onSaved={load} /> : null}
+          <PunchLists punches={punches} />
           <section className="text-sm">
             <h2 className="font-medium">Solicitações</h2>
-            <p className="text-muted-foreground">Uma solicitação pendente não altera estas marcações.</p>
+            <p className="text-muted-foreground">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
             <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
               {requests.map((item) => (
                 <li key={item.id} className="px-4 py-3">
                   {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
+                  {item.kind === "adjustment" && item.punches.length > 0 ? ` · ${item.punches.map((value) => showDateTime(value)).join(", ")}` : ""}
+                  {item.kind === "adjustment" && item.status === "approved" ? ` · ${punchOrigin("approved_request")}` : ""}
                 </li>
               ))}
               {requests.length === 0 ? <li className="px-4 py-3 text-muted-foreground">Nenhuma solicitação.</li> : null}

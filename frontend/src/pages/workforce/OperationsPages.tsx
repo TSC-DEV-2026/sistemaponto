@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CatalogPanel, fieldClass, optionsOf } from "@/components/workforce/CatalogPanel"
+import { DayTimesFields, momentsOf } from "@/components/workforce/PunchDay"
 import {
   createRecord,
   getPayroll,
@@ -166,21 +167,29 @@ export function OccurrencesPage() {
 
 export function RequestsPage() {
   const role = useAuthStore((state) => state.user?.role)
+  const personId = useAuthStore((state) => state.user?.person_id)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const canDecide = role === "admin" || role === "manager"
   const [status, setStatus] = useState("pending")
   const [items, setItems] = useState<TimeRequest[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [error, setError] = useState("")
   const [note, setNote] = useState("")
+  const [day, setDay] = useState("")
+  const [times, setTimes] = useState(["", ""])
+  const [requestNote, setRequestNote] = useState("")
+  const [reasonId, setReasonId] = useState("")
 
   async function load(next: string) {
-    const [inbox, people] = await Promise.all([
+    const [inbox, people, motive] = await Promise.all([
       listRecords<TimeRequest>("/requests", { page: 1, limit: 100, status: next }),
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: "adjustment", active: true }),
     ])
     setItems(inbox.items)
     setEmployees(people.items)
+    setReasons(motive.items)
   }
 
   useEffect(() => {
@@ -206,6 +215,40 @@ export function RequestsPage() {
     }
   }
 
+  async function requestAdjustment(event: FormEvent) {
+    event.preventDefault()
+    setError("")
+    try {
+      await createRecord("/requests", {
+        kind: "adjustment",
+        punches: momentsOf(day, times),
+        note: requestNote.trim() || null,
+        reason_id: reasonId ? Number(reasonId) : null,
+      })
+      setTimes(["", ""])
+      setRequestNote("")
+      setStatus("pending")
+      await load("pending")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível solicitar.")
+    }
+  }
+
+  function ownRequest(item: TimeRequest) {
+    const employee = employees.find((person) => person.id === item.employee_id)
+    return employee?.person_id != null && employee.person_id === personId
+  }
+
+  function mayDecide(item: TimeRequest) {
+    if (!canDecide || item.status !== "pending") {
+      return false
+    }
+    if (role === "manager" && ownRequest(item)) {
+      return false
+    }
+    return true
+  }
+
   const pending = items.filter((item) => item.status === "pending")
   const counts = {
     adjustment: pending.filter((item) => item.kind === "adjustment").length,
@@ -217,8 +260,32 @@ export function RequestsPage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-semibold">Solicitações</h1>
       <p className="text-sm text-muted-foreground">
-        {status === "pending" ? `${items.length} pendentes · ${counts.adjustment} ajustes · ${counts.allowance} abonos · ${counts.certificate} atestados.` : "Uma pendência não altera o ponto."}
+        {status === "pending" ? `${items.length} pendentes · ${counts.adjustment} ajustes · ${counts.allowance} abonos · ${counts.certificate} atestados. ` : ""}
+        O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
       </p>
+      <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestAdjustment}>
+        <h2 className="text-sm font-medium">Solicitar ajuste</h2>
+        <p className="text-sm text-muted-foreground">Informe todas as marcações que devem valer naquele dia. A origem, depois da aprovação, é solicitação.</p>
+        <DayTimesFields dayId="request-day" day={day} times={times} onDay={setDay} onTimes={setTimes} />
+        {reasons.length > 0 ? (
+          <div className="space-y-2">
+            <Label htmlFor="request-reason">Motivo</Label>
+            <select id="request-reason" className={fieldClass} value={reasonId} onChange={(event) => setReasonId(event.target.value)} required>
+              <option value="">Selecione</option>
+              {reasons.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="request-note">Observação</Label>
+          <Input id="request-note" value={requestNote} onChange={(event) => setRequestNote(event.target.value)} />
+        </div>
+        <Button type="submit">Enviar ajuste</Button>
+      </form>
       <div className="flex flex-wrap gap-2">
         {Object.entries(requestStatusLabel).map(([value, label]) => (
           <Button key={value} type="button" size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)}>
@@ -226,7 +293,7 @@ export function RequestsPage() {
           </Button>
         ))}
       </div>
-      {canDecide && status === "pending" ? (
+      {items.some((item) => mayDecide(item)) ? (
         <div className="space-y-2">
           <Label htmlFor="decision">Observação da decisão</Label>
           <Input id="decision" value={note} onChange={(event) => setNote(event.target.value)} />
@@ -240,11 +307,18 @@ export function RequestsPage() {
               {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
             </p>
             <p className="text-muted-foreground">
-              {item.occurred_at ? showDateTime(item.occurred_at) : `${showDate(item.starts_on)} a ${showDate(item.ends_on)}`}
+              {item.kind === "adjustment"
+                ? `Marcações pedidas: ${item.punches.length > 0 ? item.punches.map((value) => showDateTime(value)).join(", ") : "—"}`
+                : item.occurred_at
+                  ? showDateTime(item.occurred_at)
+                  : `${showDate(item.starts_on)} a ${showDate(item.ends_on)}`}
               {item.note ? ` · ${item.note}` : ""}
             </p>
+            {item.kind === "adjustment" && item.status === "pending" ? <p className="text-muted-foreground">Pendente. Não altera as marcações que valem.</p> : null}
+            {item.kind === "adjustment" && item.status === "approved" ? <p className="text-muted-foreground">Origem: solicitação.</p> : null}
+            {role === "manager" && item.status === "pending" && ownRequest(item) ? <p className="text-muted-foreground">Você não decide a própria solicitação.</p> : null}
             <p className="text-muted-foreground">{item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")}</p>
-            {canDecide && item.status === "pending" ? (
+            {mayDecide(item) ? (
               <div className="flex gap-2">
                 <Button type="button" size="sm" onClick={() => void decide(item.id, "approved")}>
                   Aprovar

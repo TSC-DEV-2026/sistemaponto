@@ -57,6 +57,8 @@ export type Punch = {
   source: string
   request_id: number | null
   note: string | null
+  valid: boolean
+  voided_at: string | null
   created_at: string
 }
 
@@ -91,6 +93,7 @@ export type TimeRequest = {
   starts_on: string | null
   ends_on: string | null
   occurred_at: string | null
+  punches: string[]
   decision_note: string | null
   decided_at: string | null
   decided_by_person_id: number | null
