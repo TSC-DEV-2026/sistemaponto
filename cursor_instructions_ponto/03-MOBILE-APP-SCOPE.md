@@ -96,7 +96,7 @@ Exibir de forma simples:
 
 O saldo não tem limite. O prazo de expiração é configurável e o padrão é de 6 em 6 meses. Neste corte o efeito do prazo é o aviso, no formato "Saldo irá expirar em x dias".
 
-O adicional noturno não entra nos minutos desse saldo. Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app. A quitação e o lançamento manual de crédito ou débito ficam com o gestor, na web.
+O adicional noturno não entra nos minutos desse saldo. Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app. A quitação e o lançamento manual de crédito ou débito ficam com o gestor ou com o administrador, na web.
 
 ---
 
@@ -112,7 +112,7 @@ Tipos que o funcionário pode solicitar:
 - afastamento;
 - férias.
 
-A solicitação nasce pendente e não altera o ponto até a aprovação. Uma aprovação do gestor da equipe basta. Não há segundo aprovador, escalonamento nem substituto.
+A solicitação nasce pendente e não altera o ponto até a aprovação. Uma aprovação do gestor da equipe ou do administrador basta. Não há segundo aprovador, escalonamento nem substituto.
 
 ### Ajuste de Ponto
 
@@ -160,7 +160,7 @@ Permitir:
 - adicionar observação;
 - enviar para análise.
 
-O envio não significa aprovação. O documento fica visível só para o solicitante e para o gestor da equipe.
+O envio não significa aprovação. O documento fica visível para o solicitante, para o gestor da equipe e para o administrador.
 
 ### Afastamento e férias
 

@@ -143,7 +143,7 @@ Exemplos:
 - cancelado, com motivo, permanecendo no histórico;
 - reaberto, com motivo, devolvendo o mesmo período a aberto.
 
-A conferência antes de fechar é norma de processo do gestor. Não é uma etapa gravada pelo sistema.
+A conferência antes de fechar é norma de processo de quem fecha. Não é uma etapa gravada pelo sistema.
 
 ---
 
@@ -207,4 +207,4 @@ Mudanças que afetem período fechado devem ser tratadas com cuidado.
 
 Não permitir alteração silenciosa do passado fechado.
 
-A correção desse período só ocorre depois que o gestor reabre, com motivo. O cancelamento também exige motivo e deixa o período cancelado no histórico.
+A correção desse período só ocorre depois que o gestor ou o administrador reabre, com motivo. O cancelamento também exige motivo e deixa o período cancelado no histórico.

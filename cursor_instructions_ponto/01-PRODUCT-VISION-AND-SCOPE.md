@@ -169,7 +169,7 @@ Relatórios
 - pendências;
 - aprovação;
 - fechamento;
-- cancelamento e reabertura pelo gestor, com motivo;
+- cancelamento e reabertura pelo gestor ou pelo administrador, com motivo;
 - histórico contextual.
 
 ### Regras Trabalhistas

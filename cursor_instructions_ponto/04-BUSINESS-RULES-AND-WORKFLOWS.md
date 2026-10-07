@@ -94,7 +94,7 @@ A marcação que deixa de valer não é apagada.
 
 A correção manual feita pelo administrador segue a mesma regra. A origem fica explícita: solicitação ou manual.
 
-Uma aprovação basta. Quem aprova é só o gestor da equipe. O pedido não sobe para outra pessoa. Se o gestor está ausente, ninguém substitui por enquanto.
+Uma aprovação basta. Quem aprova é o gestor da equipe ou o administrador. O pedido não sobe para outra pessoa. Se o gestor está ausente, ninguém substitui por enquanto.
 
 ---
 
@@ -114,7 +114,7 @@ Gestor da equipe analisa
   └── Recusa → não altera situação existente
 ```
 
-O gestor também pode lançar o abono manualmente no ponto, sem solicitação. A origem fica explícita: solicitação ou manual.
+O gestor e o administrador também podem lançar o abono manualmente no ponto, sem solicitação. A origem fica explícita: solicitação ou manual.
 
 ---
 
@@ -146,21 +146,21 @@ com:
 Atestado validado/efetivado
 ```
 
-Somente após aprovação do gestor da equipe o atestado produz efeito.
+Somente após aprovação do gestor da equipe ou do administrador o atestado produz efeito.
 
 Antes de aceitar, o sistema confere se já existem marcações no período. O atestado entra mesmo assim. Se houver conflito, o ponto mostra o aviso "período abonado conflita com registro de ponto".
 
-O documento fica visível só para o solicitante e para o gestor da equipe.
+O documento fica visível para o solicitante, para o gestor da equipe e para o administrador.
 
-O gestor também pode lançar o atestado manualmente no ponto. A origem fica explícita: solicitação ou manual.
+O gestor e o administrador também podem lançar o atestado manualmente no ponto. A origem fica explícita: solicitação ou manual.
 
 ---
 
 ## 5. Afastamento e férias
 
-Afastamento e férias podem ser solicitados pelo funcionário e aceitos pelo gestor da equipe.
+Afastamento e férias podem ser solicitados pelo funcionário e aceitos pelo gestor da equipe ou pelo administrador.
 
-O gestor também pode lançar os dois manualmente no ponto. A origem fica explícita: solicitação ou manual.
+O gestor e o administrador também podem lançar os dois manualmente no ponto. A origem fica explícita: solicitação ou manual.
 
 Não há planejamento de férias neste corte.
 
@@ -250,21 +250,21 @@ Exemplo de crédito: a escala determina 08:48 e o trabalho foi 09:18, então ent
 
 Exemplo de débito: a escala determina 08:48 e o trabalho foi 08:18, então saem 30 minutos do saldo.
 
-O saldo é contínuo. Ele acumula de um mês para o outro até o gestor quitar.
+O saldo é contínuo. Ele acumula de um mês para o outro até o gestor ou o administrador quitar.
 
 Não há limite de saldo.
 
 O prazo para expirar é configurável. O padrão é de 6 em 6 meses. Neste corte o efeito é o aviso "Saldo irá expirar em x dias".
 
-Quem quita é o gestor. A quitação pode ser parcial e pode ocorrer a qualquer momento, também fora do fechamento. O padrão é pagar o valor quitado como hora extra. Se o saldo quitado está negativo, o padrão é descontar como falta.
+Quem quita é o gestor ou o administrador. A quitação pode ser parcial e pode ocorrer a qualquer momento, também fora do fechamento. O padrão é pagar o valor quitado como hora extra. Se o saldo quitado está negativo, o padrão é descontar como falta.
 
-O gestor também pode lançar crédito ou débito manual no banco. Esse lançamento não depende do fechamento nem do aviso de expiração.
+O gestor e o administrador também podem lançar crédito ou débito manual no banco. Esse lançamento não depende do fechamento nem do aviso de expiração.
 
 ---
 
 ## 10. Fechamento
 
-O gestor define o período e o fecha num passo só. Não há etapa de sistema chamada conferido ou aprovado. Por norma de processo, o gestor confere os pontos antes de fechar.
+O gestor ou o administrador define o período e o fecha num passo só. Não há etapa de sistema chamada conferido ou aprovado. Por norma de processo, quem fecha confere os pontos antes.
 
 O período não é fixo. Em geral é o mês civil, e pode ser qualquer intervalo.
 
@@ -299,9 +299,9 @@ Depois de fechado, ficam bloqueados no período:
 
 Correção de período fechado só ocorre depois de reabrir.
 
-O gestor cancela o fechamento e informa o motivo. O período fica cancelado no histórico.
+O gestor ou o administrador cancela o fechamento e informa o motivo. O período fica cancelado no histórico.
 
-O gestor reabre o fechamento, informa o motivo, e o mesmo período volta a aberto.
+O gestor ou o administrador reabre o fechamento, informa o motivo, e o mesmo período volta a aberto.
 
 Não permitir que mudanças silenciosas alterem um período fechado.
 
@@ -361,13 +361,13 @@ Permissão deve considerar:
 - domínio;
 - escopo.
 
-Quem aprova solicitação de ajuste, abono, atestado, afastamento e férias é só o gestor da equipe. Uma aprovação basta. O pedido não sobe e, por enquanto, ninguém substitui o gestor ausente.
+Quem aprova solicitação de ajuste, abono, atestado, afastamento e férias é o gestor da equipe ou o administrador. Uma aprovação basta. O pedido não sobe e, por enquanto, ninguém substitui o gestor ausente. O gestor decide a própria equipe e não decide a própria solicitação. O administrador pode decidir em qualquer equipe.
 
-O administrador corrige marcação manualmente, com a mesma regra do ajuste aprovado. O gestor lança manualmente abono, atestado, afastamento e férias. Nos dois casos a origem fica explícita: solicitação ou manual.
+O administrador corrige marcação manualmente, com a mesma regra do ajuste aprovado. O gestor e o administrador lançam manualmente abono, atestado, afastamento e férias. A origem fica explícita: solicitação ou manual.
 
-O gestor quita o banco de horas e lança crédito ou débito manual no saldo. O funcionário não faz essas ações. Dentro de período fechado, quitação e lançamento manual ficam bloqueados até a reabertura.
+O gestor e o administrador quitam o banco de horas e lançam crédito ou débito manual no saldo. O funcionário não faz essas ações. Dentro de período fechado, quitação e lançamento manual ficam bloqueados até a reabertura.
 
-O gestor fecha, cancela e reabre o período. Cancelamento e reabertura exigem motivo.
+O gestor e o administrador fecham, cancelam e reabrem o período. Cancelamento e reabertura exigem motivo.
 
 Não assumir que permissão é apenas um booleano global.
 

@@ -131,7 +131,7 @@ Uma solicitação criada pelo funcionário:
 
 - nasce pendente;
 - não modifica o ponto;
-- somente uma aprovação do gestor da equipe efetiva a alteração;
+- somente uma aprovação do gestor da equipe ou do administrador efetiva a alteração;
 - não há segundo aprovador, escalonamento nem substituto;
 - uma recusa preserva o ponto original;
 - uma solicitação cancelada pelo funcionário também não altera o ponto.
