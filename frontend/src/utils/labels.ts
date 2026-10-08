@@ -84,8 +84,16 @@ export function punchDay(value: string) {
 }
 
 export const closingStatusLabel: Record<string, string> = {
-  open: "Em conferência",
+  open: "Aberto",
   closed: "Fechado",
+  cancelled: "Cancelado",
+}
+
+export const closingEventLabel: Record<string, string> = {
+  started: "Iniciado",
+  closed: "Fechado",
+  cancelled: "Cancelado",
+  reopened: "Reaberto",
 }
 
 export const reasonKindLabel: Record<string, string> = {

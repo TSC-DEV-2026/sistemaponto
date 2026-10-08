@@ -22,6 +22,7 @@ import {
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import {
+  closingEventLabel,
   closingStatusLabel,
   occurrenceKindLabel,
   reasonKindLabel,
@@ -31,6 +32,7 @@ import {
   punchOrigin,
   requestKindLabel,
   requestStatusLabel,
+  showDate,
   showDateTime,
 } from "@/utils/labels"
 
@@ -445,11 +447,16 @@ export function RequestsPage() {
 }
 
 export function ClosingsPage() {
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const role = useAuthStore((state) => state.user?.role)
+  const canManage = role === "admin" || role === "manager"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [items, setItems] = useState<Closing[]>([])
+  const [mode, setMode] = useState("month")
   const [year, setYear] = useState(String(new Date().getFullYear()))
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
+  const [startsOn, setStartsOn] = useState("")
+  const [endsOn, setEndsOn] = useState("")
+  const [reasons, setReasons] = useState<Record<number, string>>({})
   const [error, setError] = useState("")
 
   async function load() {
@@ -469,59 +476,112 @@ export function ClosingsPage() {
     }
   }, [tenantId])
 
-  async function openPeriod(event: FormEvent) {
+  async function closeNewPeriod(event: FormEvent) {
     event.preventDefault()
     setError("")
     try {
-      await createRecord("/closings", { year: Number(year), month: Number(month), note: null })
-      await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível abrir.")
-    }
-  }
-
-  async function closePeriod(id: number) {
-    setError("")
-    try {
-      await updateRecord("/closings", id, { status: "closed" })
+      const body = mode === "range" ? { starts_on: startsOn, ends_on: endsOn || null, note: null } : { year: Number(year), month: Number(month), note: null }
+      const created = await createRecord<Closing>("/closings", body)
+      try {
+        await updateRecord("/closings", created.id, { status: "closed" })
+      } catch (caught) {
+        await load()
+        throw caught
+      }
       await load()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível fechar.")
     }
   }
 
+  async function changePeriod(id: number, status: "closed" | "cancelled" | "open") {
+    setError("")
+    const note = (reasons[id] || "").trim()
+    if (status !== "closed" && !note) {
+      setError("Informe o motivo.")
+      return
+    }
+    try {
+      await updateRecord("/closings", id, { status, note: note || null })
+      setReasons((current) => ({ ...current, [id]: "" }))
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o período.")
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-semibold">Fechamento do Ponto</h1>
-      <p className="text-sm text-muted-foreground">Depois de fechado, o período não recebe alteração silenciosa. Reabertura ainda não foi definida.</p>
-      {isAdmin ? (
-        <form className="flex flex-wrap items-end gap-3" onSubmit={openPeriod}>
+      <p className="text-sm text-muted-foreground">
+        O gestor ou o administrador fecha o mês, ou um intervalo, num passo. Não fecha se houver solicitação pendente, ponto incompleto ou conflito entre abono ou atestado e marcação. O aviso de intervalo menor não impede. Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados até reabrir. Cancelar e reabrir exigem motivo.
+      </p>
+      {canManage ? (
+        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={closeNewPeriod}>
           <div className="space-y-2">
-            <Label htmlFor="month">Mês</Label>
-            <Input id="month" value={month} onChange={(event) => setMonth(event.target.value)} required />
+            <Label htmlFor="closing-mode">Período</Label>
+            <select id="closing-mode" className={fieldClass} value={mode} onChange={(event) => setMode(event.target.value)}>
+              <option value="month">Mês civil</option>
+              <option value="range">Intervalo de datas</option>
+            </select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="year">Ano</Label>
-            <Input id="year" value={year} onChange={(event) => setYear(event.target.value)} required />
-          </div>
-          <Button type="submit">Abrir período</Button>
+          {mode === "month" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="month">Mês</Label>
+                <Input id="month" inputMode="numeric" value={month} onChange={(event) => setMonth(event.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="year">Ano</Label>
+                <Input id="year" inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} required />
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="closing-start">De</Label>
+                <input id="closing-start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="closing-end">Até</Label>
+                <input id="closing-end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
+              </div>
+            </div>
+          )}
+          <Button type="submit">Fechar período</Button>
         </form>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
         {items.map((item) => (
           <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span>
-                {String(item.month).padStart(2, "0")}/{item.year} · {closingStatusLabel[item.status] || item.status}
-              </span>
-              {isAdmin && item.status === "open" ? (
-                <Button type="button" size="sm" onClick={() => void closePeriod(item.id)}>
-                  Fechar
-                </Button>
-              ) : null}
-            </div>
-            <p className="text-muted-foreground">{item.events.map((event) => (event.kind === "closed" ? "Fechado" : "Iniciado")).join(" → ")}</p>
+            <p>
+              {showDate(item.starts_on)} a {showDate(item.ends_on)} · {closingStatusLabel[item.status] || item.status}
+            </p>
+            <p className="text-muted-foreground">
+              {item.events.map((event) => `${closingEventLabel[event.kind] || event.kind}${event.note ? ` (${event.note})` : ""}`).join(" → ")}
+            </p>
+            {canManage && item.status === "open" ? (
+              <Button type="button" size="sm" onClick={() => void changePeriod(item.id, "closed")}>
+                Fechar
+              </Button>
+            ) : null}
+            {canManage && item.status !== "open" ? (
+              <div className="grid gap-2">
+                <Label htmlFor={`reason-${item.id}`}>Motivo</Label>
+                <Input id={`reason-${item.id}`} value={reasons[item.id] || ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))} />
+                <div className="flex flex-wrap gap-2">
+                  {item.status === "closed" ? (
+                    <Button type="button" size="sm" variant="outline" onClick={() => void changePeriod(item.id, "cancelled")}>
+                      Cancelar
+                    </Button>
+                  ) : null}
+                  <Button type="button" size="sm" variant="outline" onClick={() => void changePeriod(item.id, "open")}>
+                    Reabrir
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </li>
         ))}
         {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum fechamento.</li> : null}
