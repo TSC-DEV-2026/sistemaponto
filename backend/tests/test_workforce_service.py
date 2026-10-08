@@ -527,3 +527,220 @@ def test_gestor_aprova_a_propria_equipe_e_o_administrador_qualquer_uma():
     decided = workforce.decide_request(admin(), outside["id"], {"status": "approved", "decision_note": None})
     assert decided["status"] == "approved"
     assert decided["decided_by_person_id"] == 7
+
+
+def period(kind: str, **extra) -> dict:
+    body = {
+        "kind": kind,
+        "reason_id": None,
+        "note": None,
+        "starts_on": date(2026, 10, 6),
+        "ends_on": None,
+        "occurred_at": None,
+        "starts_at": None,
+        "ends_at": None,
+        "cid": None,
+        "crm": None,
+        "doctor_name": None,
+        "photo_key": None,
+        "punches": None,
+    }
+    body.update(extra)
+    return body
+
+
+def certificate(**extra) -> dict:
+    body = period("certificate", cid="A00", crm="12345", doctor_name="Dra. Luz")
+    body.update(extra)
+    return body
+
+
+def test_pedido_pendente_de_abono_nao_cria_ocorrencia():
+    workforce, repo = service()
+    workforce.create_employee(admin(), employee_payload())
+    created = workforce.create_request(admin(), period("allowance"))
+    assert created["status"] == "pending"
+    assert repo.count_model(Occurrence, tenant_id=1) == 0
+
+
+def test_aprovacao_de_afastamento_e_ferias_grava_origem_solicitacao():
+    workforce, repo = service()
+    workforce.create_employee(admin(), employee_payload())
+    leave = workforce.create_request(admin(), period("leave", ends_on=date(2026, 10, 8)))
+    workforce.decide_request(admin(), leave["id"], {"status": "approved", "decision_note": None})
+    vacation = workforce.create_request(admin(), period("vacation"))
+    workforce.decide_request(admin(), vacation["id"], {"status": "approved", "decision_note": None})
+    rows = [row for row in repo.rows if isinstance(row, Occurrence)]
+    assert {row.kind for row in rows} == {"leave", "vacation"}
+    assert {row.source for row in rows} == {"approved_request"}
+    assert all(row.warning is None for row in rows)
+
+
+def test_atestado_entra_e_avisa_quando_ha_marcacao_no_periodo():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    created = workforce.create_request(admin(), certificate())
+    assert repo.count_model(Occurrence, tenant_id=1) == 0
+    workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
+    row = next(item for item in repo.rows if isinstance(item, Occurrence))
+    assert row.source == "approved_request"
+    assert row.cid == "A00" and row.crm == "12345" and row.doctor_name == "Dra. Luz"
+    assert row.photo_key is None
+    assert row.warning == "período abonado conflita com registro de ponto"
+
+
+def test_horario_parcial_ignora_marcacao_invalida_e_fora_da_faixa():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    early = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    created = workforce.create_request(admin(), adjustment([at(18, 0)]))
+    workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
+    assert early.valid is False
+    hours = workforce.create_request(
+        admin(),
+        certificate(starts_at=at(8, 0), ends_at=at(9, 0)),
+    )
+    workforce.decide_request(admin(), hours["id"], {"status": "approved", "decision_note": None})
+    warned = [row for row in repo.rows if isinstance(row, Occurrence) and row.kind == "certificate"]
+    assert warned[0].warning is None
+    assert warned[0].starts_at == at(8, 0).astimezone(ZoneInfo("UTC"))
+
+
+def test_atestado_exige_medico_e_rejeita_foto_de_outro_tipo():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), employee_payload())
+    with pytest.raises(AppError) as missing:
+        workforce.create_request(admin(), period("certificate", cid="A00"))
+    with pytest.raises(AppError) as photo:
+        workforce.create_request(admin(), period("allowance", photo_key="1/certificates/foto.jpg"))
+    assert missing.value.status_code == 400
+    assert photo.value.status_code == 400
+
+
+def test_gestor_lanca_os_quatro_na_propria_equipe():
+    workforce, repo = service()
+    for person_id, role in ((8, "manager"), (9, "member"), (10, "member")):
+        access = Membership(person_id=person_id, tenant_id=1, role=role)
+        access.id = repo.seq
+        repo.seq += 1
+        repo.memberships.append(access)
+    leader = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    launched = workforce.create_occurrence(
+        scope(8, "manager"),
+        {
+            "employee_id": mate["id"],
+            "kind": "allowance",
+            "starts_on": date(2026, 10, 6),
+            "ends_on": None,
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    assert launched.source == "manual"
+    manual = workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": outsider["id"],
+            "kind": "vacation",
+            "starts_on": date(2026, 10, 6),
+            "ends_on": date(2026, 10, 10),
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    assert manual.source == "manual"
+    with pytest.raises(AppError) as other_team:
+        workforce.create_occurrence(
+            scope(8, "manager"),
+            {
+                "employee_id": outsider["id"],
+                "kind": "leave",
+                "starts_on": date(2026, 10, 6),
+                "ends_on": None,
+                "starts_at": None,
+                "ends_at": None,
+                "reason_id": None,
+                "note": None,
+                "cid": None,
+                "crm": None,
+                "doctor_name": None,
+                "photo_key": None,
+            },
+        )
+    with pytest.raises(AppError) as member:
+        workforce.create_occurrence(
+            scope(9, "member"),
+            {
+                "employee_id": mate["id"],
+                "kind": "allowance",
+                "starts_on": date(2026, 10, 5),
+                "ends_on": None,
+                "starts_at": None,
+                "ends_at": None,
+                "reason_id": None,
+                "note": None,
+                "cid": None,
+                "crm": None,
+                "doctor_name": None,
+                "photo_key": None,
+            },
+        )
+    assert other_team.value.status_code == 403
+    assert member.value.status_code == 403
+
+
+def test_periodo_fechado_bloqueia_o_lancamento_manual():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as caught:
+        workforce.create_occurrence(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "certificate",
+                "starts_on": date(2026, 10, 6),
+                "ends_on": None,
+                "starts_at": None,
+                "ends_at": None,
+                "reason_id": None,
+                "note": None,
+                "cid": "A00",
+                "crm": "12345",
+                "doctor_name": "Dra. Luz",
+                "photo_key": None,
+            },
+        )
+    assert caught.value.status_code == 409

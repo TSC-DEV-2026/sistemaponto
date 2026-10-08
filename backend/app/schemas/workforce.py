@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 ReasonKind = Literal["adjustment", "absence", "allowance", "certificate"]
-RequestKind = Literal["adjustment", "allowance", "certificate"]
+RequestKind = Literal["adjustment", "allowance", "certificate", "leave", "vacation"]
 RequestStatus = Literal["pending", "approved", "rejected", "cancelled"]
 DecisionStatus = Literal["approved", "rejected", "cancelled"]
 OccurrenceKind = Literal[
@@ -262,8 +262,14 @@ class OccurrenceCreate(BaseModel):
     kind: OccurrenceKind
     starts_on: date
     ends_on: date | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
     reason_id: int | None = None
     note: str | None = Field(default=None, max_length=2000)
+    cid: str | None = Field(default=None, max_length=16)
+    crm: str | None = Field(default=None, max_length=32)
+    doctor_name: str | None = Field(default=None, max_length=255)
+    photo_key: str | None = Field(default=None, max_length=512)
 
 
 class OccurrenceUpdate(BaseModel):
@@ -280,9 +286,21 @@ class OccurrenceOut(BaseModel):
     note: str | None
     source: str
     request_id: int | None
+    starts_at: datetime | None
+    ends_at: datetime | None
+    cid: str | None
+    crm: str | None
+    doctor_name: str | None
+    photo_key: str | None
+    photo_url: str | None = None
+    warning: str | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CertificatePhotoOut(BaseModel):
+    key: str
 
 
 class RequestCreate(BaseModel):
@@ -292,6 +310,12 @@ class RequestCreate(BaseModel):
     starts_on: date | None = None
     ends_on: date | None = None
     occurred_at: datetime | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    cid: str | None = Field(default=None, max_length=16)
+    crm: str | None = Field(default=None, max_length=32)
+    doctor_name: str | None = Field(default=None, max_length=255)
+    photo_key: str | None = Field(default=None, max_length=512)
     punches: list[datetime] | None = Field(default=None, max_length=20)
 
 
@@ -320,6 +344,13 @@ class RequestOut(BaseModel):
     starts_on: date | None
     ends_on: date | None
     occurred_at: datetime | None
+    starts_at: datetime | None
+    ends_at: datetime | None
+    cid: str | None
+    crm: str | None
+    doctor_name: str | None
+    photo_key: str | None
+    photo_url: str | None = None
     punches: list[datetime]
     decision_note: str | None
     decided_at: datetime | None
@@ -406,6 +437,8 @@ class DashboardOut(BaseModel):
     pending_adjustments: int
     pending_allowances: int
     pending_certificates: int
+    pending_leaves: int
+    pending_vacations: int
     open_closings: int
     employee_capacity: int
 
