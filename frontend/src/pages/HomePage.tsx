@@ -34,7 +34,9 @@ export function HomePage() {
     }
   }, [tenant?.id])
 
-  const pending = board ? board.pending_adjustments + board.pending_allowances + board.pending_certificates : 0
+  const pending = board
+    ? board.pending_adjustments + board.pending_allowances + board.pending_certificates + board.pending_leaves + board.pending_vacations
+    : 0
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -57,7 +59,7 @@ export function HomePage() {
           <h2 className="text-sm font-medium">Solicitações</h2>
           <p className="mt-2 text-sm">
             {board
-              ? `${pending} pendentes. ${board.pending_adjustments} ajustes, ${board.pending_allowances} abonos, ${board.pending_certificates} atestados.`
+              ? `${pending} pendentes. ${board.pending_adjustments} ajustes, ${board.pending_allowances} abonos, ${board.pending_certificates} atestados, ${board.pending_leaves} afastamentos, ${board.pending_vacations} férias.`
               : boardState === "error"
                 ? "Não foi possível carregar."
                 : "Carregando."}

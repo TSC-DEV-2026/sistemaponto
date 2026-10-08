@@ -14,7 +14,11 @@ export const requestKindLabel: Record<string, string> = {
   adjustment: "Ajuste",
   allowance: "Abono",
   certificate: "Atestado",
+  leave: "Afastamento",
+  vacation: "Férias",
 }
+
+export const manualTimeOffKinds = ["allowance", "certificate", "leave", "vacation"] as const
 
 export const occurrenceKindLabel: Record<string, string> = {
   adjustment: "Ajuste de ponto",
@@ -51,6 +55,23 @@ export function punchOrigin(source: string) {
 
 export function brazilMoment(day: string, time: string) {
   return new Date(`${day}T${time}:00-03:00`).toISOString()
+}
+
+export function periodText(item: { starts_on?: string | null; ends_on?: string | null; starts_at?: string | null; ends_at?: string | null }) {
+  if (item.starts_at && item.ends_at) {
+    return `${showDateTime(item.starts_at)} até ${showDateTime(item.ends_at)}`
+  }
+  if (!item.starts_on) {
+    return "—"
+  }
+  return `${showDate(item.starts_on)} a ${showDate(item.ends_on)}`
+}
+
+export function certificateText(item: { cid?: string | null; crm?: string | null; doctor_name?: string | null }) {
+  if (!item.cid && !item.crm && !item.doctor_name) {
+    return ""
+  }
+  return `CID ${item.cid || "—"} · CRM ${item.crm || "—"} · ${item.doctor_name || "—"}`
 }
 
 export function punchDay(value: string) {
