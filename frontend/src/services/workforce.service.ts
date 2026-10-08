@@ -275,6 +275,30 @@ export type TimeResults = {
   items: TimeResult[]
 }
 
+export type ReportCatalogItem = {
+  kind: string
+  name: string
+}
+
+export type ReportLine = {
+  employee_id: number | null
+  full_name: string | null
+  occurred_on: string
+  title: string
+  detail: string
+}
+
+export type Report = {
+  kind: string
+  name: string
+  starts_on: string
+  ends_on: string
+  items: ReportLine[]
+  total: number
+  page: number
+  limit: number
+}
+
 export type HourBank = {
   employee_id: number
   balance_minutes: number
@@ -346,6 +370,21 @@ export function getPayroll(year: number, month: number) {
 
 export function getHourBank(employeeId: number) {
   return read<HourBank>(() => api.get<ApiResponse<HourBank>>("/hour-bank", { params: { employee_id: employeeId } }))
+}
+
+export function getReport(kind: string, startsOn: string, endsOn: string, page: number, employeeId?: number) {
+  return read<Report>(() =>
+    api.get<ApiResponse<Report>>("/reports", {
+      params: {
+        kind,
+        starts_on: startsOn,
+        ends_on: endsOn,
+        page,
+        limit: 20,
+        employee_id: employeeId,
+      },
+    }),
+  )
 }
 
 export function getTimeResults(employeeId: number, startsOn: string, endsOn: string) {
