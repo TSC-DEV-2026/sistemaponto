@@ -47,6 +47,13 @@ export const punchSourceLabel: Record<string, string> = {
   admin: "Manual",
   manual: "Manual",
   approved_request: "Solicitação",
+  afd: "AFD",
+}
+
+export const fiscalKindLabel: Record<string, string> = {
+  afd: "AFD",
+  aej: "AEJ",
+  payroll: "Folha",
 }
 
 export function punchOrigin(source: string) {

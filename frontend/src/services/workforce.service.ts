@@ -177,7 +177,33 @@ export type Dashboard = {
 export type Payroll = {
   year: number
   month: number
-  items: { employee_id: number; full_name: string; punch_count: number }[]
+  items: {
+    employee_id: number
+    full_name: string
+    punch_count: number
+    worked_minutes: number
+    overtime_minutes: number
+    night_additional_minutes: number
+    shortage_minutes: number
+    balance_minutes: number
+  }[]
+}
+
+export type FiscalFile = {
+  id: number
+  kind: string
+  starts_on: string
+  ends_on: string
+  content: string
+  valid: boolean
+  invalidated_at: string | null
+  created_at: string
+}
+
+export type FiscalImport = {
+  created: number
+  ignored: number
+  blocked: number
 }
 
 export type TimeResult = {
