@@ -59,6 +59,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>A câmera tira a selfie do ponto e a foto do atestado.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>A foto do atestado pode ser escolhida na biblioteca.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

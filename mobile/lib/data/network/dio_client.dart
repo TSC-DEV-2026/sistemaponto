@@ -75,6 +75,16 @@ class ApiClient {
     return _send(() => dio.post<dynamic>(path, data: body));
   }
 
+  Future<Map<String, dynamic>> postFile(String path, String filename, List<int> bytes, String contentType) {
+    final slash = contentType.indexOf('/');
+    final type = slash < 0 ? 'image' : contentType.substring(0, slash);
+    final subtype = slash < 0 ? 'jpeg' : contentType.substring(slash + 1);
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename, contentType: DioMediaType(type, subtype)),
+    });
+    return _send(() => dio.post<dynamic>(path, data: form));
+  }
+
   Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) {
     return _send(() => dio.put<dynamic>(path, data: body));
   }
