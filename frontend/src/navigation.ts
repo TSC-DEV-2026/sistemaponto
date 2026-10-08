@@ -216,7 +216,7 @@ export const navGroups: NavGroup[] = [
         to: "/plan",
         label: "Plano e Assinatura",
         icon: CreditCard,
-        lead: "Trial de 7 dias, até 10 funcionários, com as funcionalidades liberadas.",
+        lead: "Mensalidade de R$ 5 por pessoa.",
         sections: [],
       },
       {

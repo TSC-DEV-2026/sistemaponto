@@ -167,6 +167,33 @@ export type NoticeEmail = {
   created_at: string
 }
 
+export type Subscription = {
+  id: number
+  status: string
+  capacity: number
+  payment_method: string
+  price_cents: number
+  monthly_amount_cents: number
+  period_start: string
+  period_end: string
+  contracted_at: string
+}
+
+export type Charge = {
+  id: number
+  subscription_id: number
+  kind: string
+  amount_cents: number
+  capacity: number
+  due_on: string
+  status: string
+  payment_method: string
+  period_start: string
+  period_end: string
+  paid_at: string | null
+  created_at: string
+}
+
 export type Audit = {
   id: number
   person_id: number
