@@ -365,13 +365,15 @@ class RequestOut(BaseModel):
 
 
 class ClosingCreate(BaseModel):
-    year: int = Field(ge=2000, le=2100)
-    month: int = Field(ge=1, le=12)
+    year: int | None = Field(default=None, ge=2000, le=2100)
+    month: int | None = Field(default=None, ge=1, le=12)
+    starts_on: date | None = None
+    ends_on: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
 class ClosingUpdate(BaseModel):
-    status: Literal["closed"]
+    status: Literal["open", "closed", "cancelled"]
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -389,6 +391,8 @@ class ClosingOut(BaseModel):
     id: int
     year: int
     month: int
+    starts_on: date
+    ends_on: date
     status: str
     note: str | None
     closed_at: datetime | None

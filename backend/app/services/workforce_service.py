@@ -541,14 +541,19 @@ class WorkforceService:
         return self._closing_out(row, events)
 
     def create_closing(self, scope: Scope, data: dict) -> dict:
-        self._admin(scope)
-        if self.repo.closing_for(scope.tenant_id, data["year"], data["month"]) is not None:
+        self._can_manage_period(scope)
+        start, end = self._closing_bounds(data)
+        if (end - start).days + 1 > 366:
+            raise AppError(400, "O fechamento aceita no máximo 366 dias")
+        if self.repo.closing_overlapping(scope.tenant_id, start, end) is not None:
             raise AppError(409, "Esse período já existe")
         row = self.repo.add(
             Closing(
                 tenant_id=scope.tenant_id,
-                year=data["year"],
-                month=data["month"],
+                year=start.year,
+                month=start.month,
+                starts_on=start,
+                ends_on=end,
                 status="open",
                 note=self._note(data.get("note")),
                 closed_at=None,
@@ -568,36 +573,55 @@ class WorkforceService:
         return self.get_closing(scope, row.id)
 
     def update_closing(self, scope: Scope, row_id: int, data: dict) -> dict:
-        self._admin(scope)
+        self._can_manage_period(scope)
         row = self._row(Closing, scope, row_id)
-        if row.status == "closed":
-            raise AppError(409, "Período fechado não é reaberto nem apagado.")
-        if data["status"] != "closed":
+        status = data["status"]
+        previous = row.status
+        if status == "closed":
+            if row.status != "open":
+                raise AppError(409, "Só um período aberto pode ser fechado")
+            self._assert_can_close(scope, row.starts_on, row.ends_on)
+            if "note" in data:
+                row.note = self._note(data.get("note"))
+            row.status = "closed"
+            row.closed_at = self.clock()
+            row.closed_by_person_id = scope.person_id
+            event_note = row.note
+        elif status == "cancelled":
+            if row.status != "closed":
+                raise AppError(409, "Só um período fechado pode ser cancelado")
+            event_note = self._required_note(data)
+            row.note = event_note
+            row.status = "cancelled"
+        elif status == "open":
+            if row.status not in {"closed", "cancelled"}:
+                raise AppError(409, "Só um período fechado ou cancelado pode ser reaberto")
+            event_note = self._required_note(data)
+            row.note = event_note
+            row.status = "open"
+            row.closed_at = None
+            row.closed_by_person_id = None
+        else:
             raise AppError(400, "Situação inválida")
-        row.status = "closed"
-        if "note" in data:
-            row.note = self._note(data.get("note"))
-        row.closed_at = self.clock()
-        row.closed_by_person_id = scope.person_id
         self.repo.add(row)
         self.repo.add(
             ClosingEvent(
                 tenant_id=scope.tenant_id,
                 closing_id=row.id,
-                kind="closed",
-                note=row.note,
+                kind={"closed": "closed", "cancelled": "cancelled", "open": "reopened"}[status],
+                note=event_note,
                 person_id=scope.person_id,
                 created_at=self.clock(),
             )
         )
-        self._audit(scope, None, "closing", row.id, "open", "closed", date(row.year, row.month, 1))
+        self._audit(scope, None, "closing", row.id, previous, status, row.starts_on)
         return self.get_closing(scope, row.id)
 
     def delete_closing(self, scope: Scope, row_id: int) -> None:
-        self._admin(scope)
+        self._can_manage_period(scope)
         row = self._row(Closing, scope, row_id)
-        if row.status == "closed":
-            raise AppError(409, "Período fechado não é reaberto nem apagado.")
+        if row.status != "open":
+            raise AppError(409, "Período fechado ou cancelado permanece no histórico.")
         events = self.repo.closing_events_for([row.id]).get(row.id, [])
         for event in events:
             self.repo.delete(event)
@@ -1408,6 +1432,8 @@ class WorkforceService:
             "id": row.id,
             "year": int(row.year),
             "month": int(row.month),
+            "starts_on": row.starts_on,
+            "ends_on": row.ends_on,
             "status": row.status,
             "note": row.note,
             "closed_at": row.closed_at,
@@ -1471,7 +1497,11 @@ class WorkforceService:
         elif kind == "request":
             action = "Decisão de solicitação"
         elif kind == "closing":
-            action = "Fechamento do período"
+            action = {
+                "closed": "Fechamento do período",
+                "cancelled": "Cancelamento do período",
+                "open": "Reabertura do período",
+            }.get(new or "", "Fechamento do período")
         self.repo.add(
             Audit(
                 tenant_id=scope.tenant_id,
@@ -1488,9 +1518,78 @@ class WorkforceService:
         )
 
     def _assert_open(self, tenant_id: int, day: date) -> None:
-        closing = self.repo.closing_for(tenant_id, day.year, day.month)
-        if closing is not None and closing.status == "closed":
+        if self.repo.closed_covering(tenant_id, day) is not None:
             raise AppError(409, "Período fechado")
+
+    def _can_manage_period(self, scope: Scope) -> None:
+        self._known(scope)
+        if scope.role not in {"admin", "manager"}:
+            raise AppError(403, "Sem permissão")
+
+    def _closing_bounds(self, data: dict) -> tuple[date, date]:
+        start = data.get("starts_on")
+        end = data.get("ends_on")
+        if start is None:
+            year = data.get("year")
+            month = data.get("month")
+            if year is None or month is None:
+                raise AppError(400, "Informe o período")
+            start = date(int(year), int(month), 1)
+            if int(month) == 12:
+                end = date(int(year), 12, 31)
+            else:
+                end = date(int(year), int(month) + 1, 1) - timedelta(days=1)
+        else:
+            end = end or start
+        if end < start:
+            raise AppError(400, "O fim precisa ser igual ou posterior ao início")
+        return start, end
+
+    def _required_note(self, data: dict) -> str:
+        note = self._note(data.get("note"))
+        if not note:
+            raise AppError(400, "Informe o motivo")
+        return note
+
+    def _assert_can_close(self, scope: Scope, start: date, end: date) -> None:
+        for request in self.repo.pending_overlapping(scope.tenant_id, start, end):
+            finish = request.ends_on or request.starts_on
+            if request.starts_on <= end and finish >= start:
+                raise AppError(409, "Há solicitação pendente no período")
+        page = 1
+        while True:
+            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+            for employee in rows:
+                if employee.admission_date > end:
+                    continue
+                first = employee.admission_date if employee.admission_date > start else start
+                for day in self._day_results(scope, employee, first, end):
+                    if day["incomplete"]:
+                        raise AppError(409, "Há ponto incompleto no período")
+            if page * 100 >= total or not rows:
+                break
+            page += 1
+        for occurrence in self.repo.blocking_occurrences(scope.tenant_id, start, end):
+            if self._conflict_in_closing(scope, occurrence, start, end):
+                raise AppError(409, "Há conflito entre abono ou atestado e marcação no período")
+
+    def _conflict_in_closing(self, scope: Scope, occurrence, start: date, end: date) -> bool:
+        if occurrence.starts_at is not None and occurrence.ends_at is not None:
+            if not (start <= occurrence.starts_on <= end):
+                return False
+            return self._period_has_punch(
+                scope,
+                occurrence.employee_id,
+                occurrence.starts_on,
+                occurrence.ends_on,
+                occurrence.starts_at,
+                occurrence.ends_at,
+            )
+        overlap_start = occurrence.starts_on if occurrence.starts_on > start else start
+        overlap_end = occurrence.ends_on if occurrence.ends_on < end else end
+        if overlap_end < overlap_start:
+            return False
+        return self._period_has_punch(scope, occurrence.employee_id, overlap_start, overlap_end, None, None)
 
     def _row(self, model, scope: Scope, row_id: int):
         row = self.repo.get_row(model, scope.tenant_id, row_id)

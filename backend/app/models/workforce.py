@@ -256,12 +256,13 @@ class HourBankEntry(Base):
 
 class Closing(Base):
     __tablename__ = "closings"
-    __table_args__ = (UniqueConstraint("tenant_id", "year", "month", name="uq_closing_period"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
     year = Column(BigInteger, nullable=False)
     month = Column(BigInteger, nullable=False)
+    starts_on = Column(Date, nullable=False)
+    ends_on = Column(Date, nullable=False)
     status = Column(String(32), nullable=False)
     note = Column(Text, nullable=True)
     closed_at = Column(DateTime(timezone=True), nullable=True)

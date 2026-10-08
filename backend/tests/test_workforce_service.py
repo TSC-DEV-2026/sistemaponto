@@ -239,6 +239,35 @@ class Memory:
                 return row
         return None
 
+    def closing_overlapping(self, tenant_id: int, start: date, end: date):
+        for row in self._of(Closing, tenant_id):
+            if row.starts_on <= end and row.ends_on >= start:
+                return row
+        return None
+
+    def closed_covering(self, tenant_id: int, day: date):
+        for row in self._of(Closing, tenant_id):
+            if row.status == "closed" and row.starts_on <= day <= row.ends_on:
+                return row
+        return None
+
+    def pending_overlapping(self, tenant_id: int, start: date, end: date):
+        found = []
+        for row in self._of(TimeRequest, tenant_id):
+            if row.status != "pending" or row.starts_on is None:
+                continue
+            finish = row.ends_on or row.starts_on
+            if row.starts_on <= end and finish >= start:
+                found.append(row)
+        return found
+
+    def blocking_occurrences(self, tenant_id: int, start: date, end: date):
+        return [
+            row
+            for row in self._of(Occurrence, tenant_id)
+            if row.kind in {"allowance", "certificate"} and row.starts_on <= end and row.ends_on >= start
+        ]
+
     def events_for(self, request_ids: list[int]):
         found: dict[int, list] = {}
         for row in self.rows:
@@ -503,17 +532,16 @@ def test_periodo_fechado_bloqueia_ajuste_e_correcao():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     original = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
-    created = workforce.create_request(admin(), adjustment([at(9, 0)]))
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
     opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
     workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     with pytest.raises(AppError) as approval:
-        workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
+        workforce.create_request(admin(), adjustment([at(9, 0)]))
     with pytest.raises(AppError) as correction:
         workforce.correct_punches(admin(), {"employee_id": person["id"], "punches": [at(9, 30)], "note": None})
     assert approval.value.status_code == 409
     assert correction.value.status_code == 409
     assert original.valid is True
-    assert workforce.get_request(admin(), created["id"])["status"] == "pending"
 
 
 def test_ajuste_rejeita_dia_misturado_e_horario_repetido():
@@ -1312,3 +1340,151 @@ def test_gestor_lanca_na_equipe_e_periodo_fechado_bloqueia():
         {"employee_id": outsider["id"], "kind": "settlement", "minutes": 1, "entry_on": date(2026, 9, 20), "note": None},
     )
     assert still_open.effect == "overtime"
+
+
+def test_pendencia_e_ponto_incompleto_impedem_o_fechamento():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    pending = workforce.create_request(admin(), period("allowance", starts_on=date(2026, 10, 5)))
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    with pytest.raises(AppError) as waiting:
+        workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    assert waiting.value.status_code == 409
+    assert waiting.value.message == "Há solicitação pendente no período"
+    workforce.decide_request(admin(), pending["id"], {"status": "rejected", "decision_note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    with pytest.raises(AppError) as odd:
+        workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    assert odd.value.message == "Há ponto incompleto no período"
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
+    closed = workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    assert closed["status"] == "closed"
+    assert closed["starts_on"] == date(2026, 10, 1)
+    assert closed["ends_on"] == date(2026, 10, 31)
+
+
+def test_conflito_impede_o_fechamento_e_intervalo_menor_nao():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0), (12, 40), (17, 48))
+    warned = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    assert warned["warnings"] == ["intervalo menor do que o previsto"]
+    opened = workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6), "note": None},
+    )
+    closed = workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    assert closed["status"] == "closed"
+    other = workforce.create_employee(admin(), employee_payload("10987654321", None))
+    workforce.create_punch(admin(), {"employee_id": other["id"], "occurred_at": at(8, 0, 5), "note": None})
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": other["id"],
+            "kind": "allowance",
+            "starts_on": date(2026, 10, 5),
+            "ends_on": None,
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    blocked = workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 5), "ends_on": date(2026, 10, 5), "note": None},
+    )
+    with pytest.raises(AppError) as conflict:
+        workforce.update_closing(admin(), blocked["id"], {"status": "closed", "note": None})
+    assert conflict.value.message == "Há conflito entre abono ou atestado e marcação no período"
+
+
+def test_ferias_e_fim_de_semana_nao_sao_ponto_incompleto():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 3), "note": None})
+    weekend = workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 3), "ends_on": date(2026, 10, 3), "note": None},
+    )
+    assert workforce.update_closing(admin(), weekend["id"], {"status": "closed", "note": None})["status"] == "closed"
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 5), "note": None})
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "vacation",
+            "starts_on": date(2026, 10, 5),
+            "ends_on": None,
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    holiday = workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 5), "ends_on": date(2026, 10, 5), "note": None},
+    )
+    assert workforce.update_closing(admin(), holiday["id"], {"status": "closed", "note": None})["status"] == "closed"
+
+
+def test_cancelar_e_reabrir_exigem_motivo_e_liberam_o_periodo():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as missing:
+        workforce.update_closing(admin(), opened["id"], {"status": "cancelled", "note": None})
+    assert missing.value.status_code == 400
+    cancelled = workforce.update_closing(admin(), opened["id"], {"status": "cancelled", "note": "Erro de competência"})
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["events"][-1]["kind"] == "cancelled"
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
+    with pytest.raises(AppError) as bare:
+        workforce.update_closing(admin(), opened["id"], {"status": "open", "note": " "})
+    assert bare.value.status_code == 400
+    reopened = workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Corrigir o ponto"})
+    assert reopened["status"] == "open"
+    assert reopened["closed_at"] is None
+    assert reopened["events"][-1]["kind"] == "reopened"
+    again = workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    assert again["status"] == "closed"
+    with pytest.raises(AppError) as locked:
+        workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(12, 0), "note": None})
+    assert locked.value.status_code == 409
+    workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Segunda correção"})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(12, 0), "note": None})
+
+
+def test_gestor_fecha_intervalo_e_membro_nao():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    opened = workforce.create_closing(
+        scope(8, "manager"),
+        {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 7), "note": None},
+    )
+    workforce.update_closing(scope(8, "manager"), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as inside:
+        workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 6), "note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 5), "note": None})
+    assert inside.value.status_code == 409
+    with pytest.raises(AppError) as member:
+        workforce.create_closing(scope(9, "member"), {"year": 2026, "month": 9, "note": None})
+    with pytest.raises(AppError) as overlap:
+        workforce.create_closing(
+            admin(),
+            {"starts_on": date(2026, 10, 7), "ends_on": date(2026, 10, 8), "note": None},
+        )
+    assert member.value.status_code == 403
+    assert overlap.value.status_code == 409
