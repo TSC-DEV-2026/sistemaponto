@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from app.core.cpf import normalize_cpf
+from app.core.hour_bank import project_balance
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.workforce import (
@@ -31,6 +32,7 @@ from app.models.workforce import (
     Employee,
     EmployeeVigency,
     Holiday,
+    HourBankEntry,
     Job,
     Journey,
     LaborAgreement,
@@ -687,6 +689,14 @@ class WorkforceService:
             raise AppError(400, "A apuração aceita no máximo 62 dias")
         employee = self._employee(scope, employee_id)
         self._visible(scope, employee.id)
+        return {
+            "employee_id": employee.id,
+            "starts_on": starts_on,
+            "ends_on": ends_on,
+            "items": self._day_results(scope, employee, starts_on, ends_on),
+        }
+
+    def _day_results(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date) -> list[dict]:
         start, _end = day_bounds(starts_on - timedelta(days=1))
         window_end = datetime.combine(ends_on + timedelta(days=1), time(5, 1), tzinfo=BR)
         punches = self.repo.valid_punches_between(scope.tenant_id, employee.id, start, window_end)
@@ -726,10 +736,81 @@ class WorkforceService:
                     full_allowance=any(self._full_day(row) for row in covering if row.kind == "allowance"),
                     full_certificate=any(self._full_day(row) for row in covering if row.kind == "certificate"),
                     extra_warnings=[row.warning for row in covering if row.warning],
+                    uses_bank=bool(employee.hour_bank),
                 )
             )
             current += timedelta(days=1)
-        return {"employee_id": employee.id, "starts_on": starts_on, "ends_on": ends_on, "items": items}
+        return items
+
+    def hour_bank(self, scope: Scope, employee_id: int) -> dict:
+        self._known(scope)
+        employee = self._employee(scope, employee_id)
+        self._visible(scope, employee.id)
+        return {"employee_id": employee.id, **self._project_hour_bank(scope, employee)}
+
+    def list_hour_bank_entries(self, scope: Scope, page: int, limit: int, equals: dict):
+        return self._scoped_list(scope, HourBankEntry, page, limit, equals)
+
+    def get_hour_bank_entry(self, scope: Scope, row_id: int) -> HourBankEntry:
+        row = self._row(HourBankEntry, scope, row_id)
+        self._visible(scope, row.employee_id)
+        return row
+
+    def create_hour_bank_entry(self, scope: Scope, data: dict) -> HourBankEntry:
+        self._known(scope)
+        employee = self._employee(scope, int(data["employee_id"]))
+        self._can_launch(scope, employee)
+        if not employee.hour_bank:
+            raise AppError(409, "Este funcionário não usa banco de horas")
+        kind = data["kind"]
+        minutes = int(data["minutes"])
+        entry_on = data.get("entry_on") or self.today()
+        if entry_on > self.today():
+            raise AppError(400, "A data não pode ser futura")
+        self._assert_open(scope.tenant_id, entry_on)
+        effect = None
+        if kind == "settlement":
+            balance = self._project_hour_bank(scope, employee)["balance_minutes"]
+            if balance == 0:
+                raise AppError(400, "Não há saldo para quitar")
+            if minutes > abs(balance):
+                raise AppError(400, "A quitação passa do saldo")
+            effect = "overtime" if balance > 0 else "absence"
+        row = self.repo.add(
+            HourBankEntry(
+                tenant_id=scope.tenant_id,
+                employee_id=employee.id,
+                kind=kind,
+                minutes=minutes,
+                effect=effect,
+                note=self._note(data.get("note")),
+                entry_on=entry_on,
+                created_by_person_id=scope.person_id,
+                created_at=self.clock(),
+            )
+        )
+        return row
+
+    def refuse_hour_bank_change(self, scope: Scope, row_id: int) -> None:
+        self.get_hour_bank_entry(scope, row_id)
+        raise AppError(409, "Lançamento de banco permanece no histórico.")
+
+    def _project_hour_bank(self, scope: Scope, employee: Employee) -> dict:
+        items = []
+        if employee.admission_date <= self.today():
+            items = self._day_results(scope, employee, employee.admission_date, self.today())
+        events = []
+        for day in items:
+            if day["bank_minutes"] > 0:
+                events.append((day["work_date"], 0, "credit", day["bank_minutes"]))
+            elif day["bank_minutes"] < 0:
+                events.append((day["work_date"], 0, "debit", -day["bank_minutes"]))
+        for entry in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id):
+            if entry.kind == "settlement":
+                events.append((entry.entry_on, entry.id, entry.effect, entry.minutes))
+            else:
+                events.append((entry.entry_on, entry.id, entry.kind, entry.minutes))
+        return project_balance(events, self.today())
 
     def _take_night_exit(self, by_day: dict, day: date, consumed: set[int]) -> datetime | None:
         following = by_day.get(day + timedelta(days=1), [])
@@ -894,6 +975,8 @@ class WorkforceService:
             payload["admission_date"] = data["admission_date"]
         if current is None or "note" in data:
             payload["note"] = self._note(data.get("note"))
+        if current is None or "hour_bank" in data:
+            payload["hour_bank"] = bool(data.get("hour_bank", False))
         return payload
 
     def _employee_out(self, row: Employee, labels: dict) -> dict:
@@ -905,6 +988,7 @@ class WorkforceService:
             "person_id": row.person_id,
             "admission_date": row.admission_date,
             "note": row.note,
+            "hour_bank": bool(row.hour_bank),
         }
         for kind, field in KIND_FIELD.items():
             item = labels.get(kind)

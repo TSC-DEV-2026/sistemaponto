@@ -87,6 +87,7 @@ def settle_day(
     full_allowance: bool,
     full_certificate: bool,
     extra_warnings: list[str],
+    uses_bank: bool = False,
 ) -> dict:
     workday = work_date.weekday() < 5
     schedule = schedule_for(journey, work_date) if workday else {"start": None, "end": None, "expected": 0, "break_minutes": 0}
@@ -129,6 +130,16 @@ def settle_day(
     for text in extra_warnings:
         if text not in warnings:
             warnings.append(text)
+    eligible = holiday or (
+        workday and not vacation and not leave and not full_allowance and not full_certificate and not incomplete
+    )
+    bank = 0
+    shortage = 0
+    if eligible and uses_bank:
+        bank = worked - expected
+        overtime = 0
+    elif eligible:
+        shortage = max(0, expected - worked)
     return {
         "work_date": work_date,
         "expected_minutes": expected,
@@ -136,6 +147,8 @@ def settle_day(
         "delay_minutes": delay,
         "early_leave_minutes": early,
         "overtime_minutes": overtime,
+        "shortage_minutes": shortage,
+        "bank_minutes": bank,
         "night_minutes": night,
         "night_additional_minutes": night * NIGHT_PERCENT // 100,
         "absence": absence,

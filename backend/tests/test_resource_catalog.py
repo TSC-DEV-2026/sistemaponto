@@ -55,6 +55,7 @@ def test_lista_e_filtro_sem_sql():
         "occurrences",
         "requests",
         "closings",
+        "hour-bank-entries",
         "notifications",
         "audits",
     ]

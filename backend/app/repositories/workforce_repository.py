@@ -12,6 +12,7 @@ from app.models.workforce import (
     Employee,
     EmployeeVigency,
     Holiday,
+    HourBankEntry,
     Notification,
     Occurrence,
     Punch,
@@ -256,6 +257,14 @@ class WorkforceRepository:
                 Occurrence.ends_on >= start,
             )
             .order_by(Occurrence.id.asc())
+            .all()
+        )
+
+    def hour_bank_entries_for(self, tenant_id: int, employee_id: int) -> list[HourBankEntry]:
+        return (
+            self.db.query(HourBankEntry)
+            .filter(HourBankEntry.tenant_id == tenant_id, HourBankEntry.employee_id == employee_id)
+            .order_by(HourBankEntry.entry_on.asc(), HourBankEntry.id.asc())
             .all()
         )
 

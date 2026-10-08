@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 
 from app.db.base import Base
 
@@ -136,6 +136,7 @@ class Employee(Base):
     person_id = Column(BigInteger, nullable=True, index=True)
     admission_date = Column(Date, nullable=False)
     note = Column(Text, nullable=True)
+    hour_bank = Column(Boolean, nullable=False, default=False)
 
 
 class EmployeeVigency(Base):
@@ -235,6 +236,21 @@ class RequestEvent(Base):
     status = Column(String(32), nullable=False)
     note = Column(Text, nullable=True)
     person_id = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class HourBankEntry(Base):
+    __tablename__ = "hour_bank_entries"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    employee_id = Column(BigInteger, ForeignKey("employees.id"), nullable=False, index=True)
+    kind = Column(String(32), nullable=False)
+    minutes = Column(Integer, nullable=False)
+    effect = Column(String(32), nullable=True)
+    note = Column(Text, nullable=True)
+    entry_on = Column(Date, nullable=False)
+    created_by_person_id = Column(BigInteger, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 

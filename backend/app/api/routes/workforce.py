@@ -36,6 +36,10 @@ from app.schemas.workforce import (
     HolidayCreate,
     HolidayOut,
     HolidayUpdate,
+    HourBankEntryCreate,
+    HourBankEntryOut,
+    HourBankEntryUpdate,
+    HourBankOut,
     JourneyCreate,
     JourneyOut,
     JourneyUpdate,
@@ -205,6 +209,7 @@ occurrences = APIRouter(prefix="/occurrences", tags=["occurrences"])
 certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-photos"])
 requests = APIRouter(prefix="/requests", tags=["requests"])
 closings = APIRouter(prefix="/closings", tags=["closings"])
+hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"])
 notifications = APIRouter(prefix="/notifications", tags=["notifications"])
 audits = APIRouter(prefix="/audits", tags=["audits"])
 reads = APIRouter(tags=["reads"])
@@ -706,6 +711,83 @@ def time_results(
     return json_data(dump_one(result, TimeResultsOut, None))
 
 
+@reads.get("/hour-bank", summary="Saldo do banco de horas")
+def hour_bank(
+    employee_id: int = Query(),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.hour_bank(as_scope(actor), employee_id), HourBankOut, None))
+
+
+@hour_bank_entries.get("", summary="Listar lançamentos do banco", description="Filtros: employee_id, kind.")
+def list_hour_bank_entries(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_hour_bank_entries(
+        as_scope(actor), page, limit, read_filters(request, ("employee_id", "kind"))
+    )
+    return json_data(dump_page(items, total, page, limit, HourBankEntryOut, fields))
+
+
+@hour_bank_entries.get("/{row_id}", summary="Detalhe do lançamento do banco")
+def get_hour_bank_entry(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_hour_bank_entry(as_scope(actor), row_id), HourBankEntryOut, fields))
+
+
+@hour_bank_entries.post("", status_code=201, summary="Lançar no banco de horas")
+def create_hour_bank_entry(
+    body: HourBankEntryCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.create_hour_bank_entry(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, HourBankEntryOut, None), status_code=201)
+
+
+@hour_bank_entries.put("/{row_id}", summary="Atualizar lançamento do banco")
+def update_hour_bank_entry(
+    row_id: int,
+    body: HourBankEntryUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_hour_bank_change(as_scope(actor), row_id)
+    return json_data(None)
+
+
+@hour_bank_entries.delete("/{row_id}", summary="Excluir lançamento do banco")
+def delete_hour_bank_entry(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_hour_bank_change(as_scope(actor), row_id)
+    return json_data(None)
+
+
 routers.extend(
-    [employees, vigencies, punches, occurrences, certificate_photos, requests, closings, notifications, audits, reads]
+    [
+        employees,
+        vigencies,
+        punches,
+        occurrences,
+        certificate_photos,
+        requests,
+        closings,
+        hour_bank_entries,
+        notifications,
+        audits,
+        reads,
+    ]
 )

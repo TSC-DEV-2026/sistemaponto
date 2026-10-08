@@ -162,6 +162,7 @@ class EmployeeCreate(BaseModel):
     person_id: int | None = None
     admission_date: date
     note: str | None = Field(default=None, max_length=2000)
+    hour_bank: bool = False
 
 
 class EmployeeUpdate(BaseModel):
@@ -171,6 +172,7 @@ class EmployeeUpdate(BaseModel):
     person_id: int | None = None
     admission_date: date | None = None
     note: str | None = Field(default=None, max_length=2000)
+    hour_bank: bool | None = None
 
 
 class EmployeeOut(BaseModel):
@@ -181,6 +183,7 @@ class EmployeeOut(BaseModel):
     person_id: int | None
     admission_date: date
     note: str | None
+    hour_bank: bool
     situation: str | None
     job_label: str | None
     journey_label: str | None
@@ -462,6 +465,8 @@ class TimeResultOut(BaseModel):
     delay_minutes: int
     early_leave_minutes: int
     overtime_minutes: int
+    shortage_minutes: int
+    bank_minutes: int
     night_minutes: int
     night_additional_minutes: int
     absence: bool
@@ -475,3 +480,39 @@ class TimeResultsOut(BaseModel):
     starts_on: date
     ends_on: date
     items: list[TimeResultOut]
+
+
+class HourBankEntryCreate(BaseModel):
+    employee_id: int
+    kind: Literal["settlement", "credit", "debit"]
+    minutes: int = Field(gt=0, le=100000)
+    entry_on: date | None = None
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class HourBankEntryUpdate(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class HourBankEntryOut(BaseModel):
+    id: int
+    employee_id: int
+    kind: str
+    minutes: int
+    effect: str | None
+    note: str | None
+    entry_on: date
+    created_by_person_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HourBankOut(BaseModel):
+    employee_id: int
+    balance_minutes: int
+    credit_minutes: int
+    debit_minutes: int
+    paid_overtime_minutes: int
+    discounted_absence_minutes: int
+    warning: str | None
