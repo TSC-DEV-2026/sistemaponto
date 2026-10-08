@@ -14,6 +14,7 @@ from app.models.workforce import (
     Employee,
     EmployeeVigency,
     Holiday,
+    HourBankEntry,
     Job,
     Journey,
     Occurrence,
@@ -210,6 +211,15 @@ class Memory:
             if row.employee_id == employee_id and row.starts_on <= end and row.ends_on >= start
         ]
         found.sort(key=lambda item: item.id)
+        return found
+
+    def hour_bank_entries_for(self, tenant_id: int, employee_id: int):
+        found = [
+            row
+            for row in self._of(HourBankEntry, tenant_id)
+            if row.employee_id == employee_id
+        ]
+        found.sort(key=lambda item: (item.entry_on, item.id))
         return found
 
     def request_punches_for(self, request_ids: list[int]):
@@ -1069,3 +1079,236 @@ def test_apuracao_recusa_periodo_invertido_e_funcionario_de_outra_pessoa():
         workforce.time_results(scope(9, "member"), other["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert inverted.value.status_code == 400
     assert hidden.value.status_code == 404
+
+
+def admitted(day: date, cpf: str = "12345678901", person_id: int | None = 7) -> dict:
+    payload = employee_payload(cpf, person_id)
+    payload["admission_date"] = day
+    return payload
+
+
+def test_sem_banco_excedente_e_hora_extra_e_a_falta_de_tempo_desconta():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
+    extra = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    assert extra["overtime_minutes"] == 30
+    assert extra["shortage_minutes"] == 0
+    assert extra["bank_minutes"] == 0
+    short = workforce.create_employee(admin(), admitted(date(2026, 10, 6), "10987654321", None))
+    work_journey(workforce, short["id"], "Comercial 2")
+    mark(workforce, short["id"], 6, (8, 0), (12, 0), (13, 0), (17, 18))
+    missing = workforce.time_results(admin(), short["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    assert missing["overtime_minutes"] == 0
+    assert missing["shortage_minutes"] == 30
+    assert missing["absence"] is False
+    with pytest.raises(AppError) as blocked:
+        workforce.create_hour_bank_entry(
+            admin(),
+            {"employee_id": person["id"], "kind": "credit", "minutes": 10, "entry_on": None, "note": None},
+        )
+    assert blocked.value.status_code == 409
+
+
+def test_com_banco_o_excedente_soma_e_o_que_falta_compensa():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 6)))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (18, 18))
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (17, 38))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 6))["overtime_minutes"] == 0
+    assert day_result(result, date(2026, 10, 6))["bank_minutes"] == 30
+    assert day_result(result, date(2026, 10, 7))["bank_minutes"] == -10
+    assert day_result(result, date(2026, 10, 7))["shortage_minutes"] == 0
+    balance = workforce.hour_bank(admin(), person["id"])
+    assert balance["balance_minutes"] == 20
+    assert balance["credit_minutes"] == 30
+    assert balance["debit_minutes"] == 10
+
+
+def test_adicional_noturno_nao_entra_no_saldo():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    workforce.create_named(Holiday, admin(), {"name": "Hoje", "holiday_date": date(2026, 10, 7), "note": None})
+    mark(workforce, person["id"], 7, (22, 0), (23, 0))
+    day = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    assert day["night_minutes"] == 60
+    assert day["night_additional_minutes"] == 12
+    assert day["overtime_minutes"] == 0
+    assert day["bank_minutes"] == 60
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 60
+
+
+def test_quitacao_parcial_paga_hora_extra_ou_desconta_falta():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
+    paid = workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "settlement", "minutes": 10, "entry_on": None, "note": None},
+    )
+    assert paid.effect == "overtime"
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 20
+    assert workforce.hour_bank(admin(), person["id"])["paid_overtime_minutes"] == 10
+    with pytest.raises(AppError) as too_much:
+        workforce.create_hour_bank_entry(
+            admin(),
+            {"employee_id": person["id"], "kind": "settlement", "minutes": 21, "entry_on": None, "note": None},
+        )
+    assert too_much.value.status_code == 400
+    negative = workforce.create_employee(admin(), admitted(date(2026, 10, 7), "10987654321", None))
+    workforce.update_employee(admin(), negative["id"], {"hour_bank": True})
+    work_journey(workforce, negative["id"], "Comercial 2")
+    mark(workforce, negative["id"], 7, (8, 0), (12, 0), (13, 0), (17, 18))
+    discounted = workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": negative["id"], "kind": "settlement", "minutes": 10, "entry_on": date(2026, 10, 7), "note": None},
+    )
+    assert discounted.effect == "absence"
+    balance = workforce.hour_bank(admin(), negative["id"])
+    assert balance["balance_minutes"] == -20
+    assert balance["discounted_absence_minutes"] == 10
+    assert balance["warning"] is None
+
+
+def test_lancamento_manual_e_aviso_de_expiracao():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    oldest = workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "credit", "minutes": 40, "entry_on": date(2026, 4, 8), "note": None},
+    )
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "credit", "minutes": 15, "entry_on": date(2026, 9, 1), "note": None},
+    )
+    first = workforce.hour_bank(admin(), person["id"])
+    assert first["balance_minutes"] == 55
+    assert first["warning"] == "Saldo irá expirar em 1 dias"
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "settlement", "minutes": 40, "entry_on": date(2026, 10, 7), "note": None},
+    )
+    left = (date(2027, 3, 1) - date(2026, 10, 7)).days
+    second = workforce.hour_bank(admin(), person["id"])
+    assert second["balance_minutes"] == 15
+    assert second["warning"] == f"Saldo irá expirar em {left} dias"
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "debit", "minutes": 5, "entry_on": date(2026, 10, 7), "note": None},
+    )
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 10
+    created = workforce.hour_bank(admin(), person["id"])
+    assert created["credit_minutes"] == 55
+    assert created["debit_minutes"] == 5
+    with pytest.raises(AppError) as kept:
+        workforce.refuse_hour_bank_change(admin(), oldest.id)
+    assert kept.value.status_code == 409
+
+
+def test_abono_e_ponto_incompleto_nao_movimentam_o_banco():
+    workforce, _repo = service()
+    excused = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    workforce.update_employee(admin(), excused["id"], {"hour_bank": True})
+    work_journey(workforce, excused["id"])
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": excused["id"],
+            "kind": "allowance",
+            "starts_on": date(2026, 10, 7),
+            "ends_on": None,
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    assert workforce.hour_bank(admin(), excused["id"])["balance_minutes"] == 0
+    opened = workforce.create_employee(admin(), admitted(date(2026, 10, 7), "10987654321", None))
+    workforce.update_employee(admin(), opened["id"], {"hour_bank": True})
+    work_journey(workforce, opened["id"], "Comercial 2")
+    mark(workforce, opened["id"], 7, (8, 0))
+    day = workforce.time_results(admin(), opened["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    assert day["incomplete"] is True
+    assert day["bank_minutes"] == 0
+    assert workforce.hour_bank(admin(), opened["id"])["balance_minutes"] == 0
+
+
+def test_gestor_lanca_na_equipe_e_periodo_fechado_bloqueia():
+    workforce, repo = service()
+    for person_id, role in ((8, "manager"), (9, "member"), (10, "member")):
+        access = Membership(person_id=person_id, tenant_id=1, role=role)
+        access.id = repo.seq
+        repo.seq += 1
+        repo.memberships.append(access)
+    leader = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    for person in (mate, outsider):
+        workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    launched = workforce.create_hour_bank_entry(
+        scope(8, "manager"),
+        {"employee_id": mate["id"], "kind": "credit", "minutes": 15, "entry_on": date(2026, 9, 15), "note": None},
+    )
+    assert launched.created_by_person_id == 8
+    assert workforce.hour_bank(scope(9, "member"), mate["id"])["balance_minutes"] == 15
+    with pytest.raises(AppError) as other_team:
+        workforce.create_hour_bank_entry(
+            scope(8, "manager"),
+            {"employee_id": outsider["id"], "kind": "credit", "minutes": 5, "entry_on": None, "note": None},
+        )
+    with pytest.raises(AppError) as member:
+        workforce.create_hour_bank_entry(
+            scope(9, "member"),
+            {"employee_id": mate["id"], "kind": "debit", "minutes": 5, "entry_on": None, "note": None},
+        )
+    assert other_team.value.status_code == 403
+    assert member.value.status_code == 403
+    with pytest.raises(AppError) as hidden:
+        workforce.hour_bank(scope(9, "member"), outsider["id"])
+    assert hidden.value.status_code == 404
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": outsider["id"], "kind": "credit", "minutes": 20, "entry_on": date(2026, 9, 15), "note": None},
+    )
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as closed:
+        workforce.create_hour_bank_entry(
+            admin(),
+            {"employee_id": outsider["id"], "kind": "credit", "minutes": 5, "entry_on": date(2026, 10, 7), "note": None},
+        )
+    assert closed.value.status_code == 409
+    still_open = workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": outsider["id"], "kind": "settlement", "minutes": 1, "entry_on": date(2026, 9, 20), "note": None},
+    )
+    assert still_open.effect == "overtime"

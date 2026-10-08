@@ -9,6 +9,7 @@ from app.models.workforce import (  # noqa: F401
     Employee,
     EmployeeVigency,
     Holiday,
+    HourBankEntry,
     Job,
     Journey,
     LaborAgreement,
