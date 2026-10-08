@@ -68,9 +68,13 @@ from app.schemas.workforce import (
     ReportCatalogOut,
     ReportOut,
     TimeResultsOut,
+    PunchCodeOut,
     PunchCorrectionCreate,
     PunchCorrectionOut,
     PunchCreate,
+    QrPunchCreate,
+    FacePunchCreate,
+    SelfiePhotoOut,
     PunchOut,
     PunchRuleCreate,
     PunchRuleOut,
@@ -232,6 +236,7 @@ vigencies = APIRouter(prefix="/employee-vigencies", tags=["employee-vigencies"],
 punches = APIRouter(prefix="/punches", tags=["punches"], dependencies=[Depends(require_use)])
 occurrences = APIRouter(prefix="/occurrences", tags=["occurrences"], dependencies=[Depends(require_use)])
 certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-photos"], dependencies=[Depends(require_use)])
+selfie_photos = APIRouter(prefix="/selfie-photos", tags=["selfie-photos"], dependencies=[Depends(require_use)])
 requests = APIRouter(prefix="/requests", tags=["requests"], dependencies=[Depends(require_use)])
 closings = APIRouter(prefix="/closings", tags=["closings"], dependencies=[Depends(require_use)])
 hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"], dependencies=[Depends(require_use)])
@@ -406,6 +411,26 @@ def correct_punches(
     return json_data(dump_one(payload, PunchCorrectionOut, None), status_code=201)
 
 
+@punches.post("/qr-selfies", status_code=201, summary="Registrar marcação por QR Code e selfie")
+def punch_qr(
+    body: QrPunchCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.punch_qr(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, PunchOut, None), status_code=201)
+
+
+@punches.post("/faces", status_code=201, summary="Registrar marcação por reconhecimento facial")
+def punch_face(
+    body: FacePunchCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.punch_face(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, PunchOut, None), status_code=201)
+
+
 @punches.put("/{row_id}", summary="Atualizar marcação")
 def update_punch(
     row_id: int,
@@ -435,6 +460,16 @@ def upload_certificate_photo(
 ):
     key = service.store_certificate_photo(as_scope(actor), file.content_type or "", file.file.read())
     return json_data(CertificatePhotoOut(key=key).model_dump(), status_code=201)
+
+
+@selfie_photos.post("", status_code=201, summary="Enviar a selfie")
+def upload_selfie(
+    file: UploadFile = File(...),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    key = service.store_selfie(as_scope(actor), file.content_type or "", file.file.read())
+    return json_data(SelfiePhotoOut(key=key).model_dump(), status_code=201)
 
 
 @occurrences.get("", summary="Listar ocorrências", description="Filtros: employee_id, kind.")
@@ -861,6 +896,15 @@ def time_results(
     return json_data(dump_one(result, TimeResultsOut, None))
 
 
+@reads.get("/punch-codes", summary="QR Code da unidade, do CPF e da matrícula")
+def punch_code(
+    employee_id: int = Query(),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.punch_code(as_scope(actor), employee_id), PunchCodeOut, None))
+
+
 @reads.get("/report-catalog", summary="Catálogo de relatórios")
 def report_catalog(
     page: int = Query(1, ge=1),
@@ -1131,6 +1175,7 @@ routers.extend(
         punches,
         occurrences,
         certificate_photos,
+        selfie_photos,
         requests,
         closings,
         hour_bank_entries,

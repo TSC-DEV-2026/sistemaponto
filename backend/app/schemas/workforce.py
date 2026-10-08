@@ -163,6 +163,7 @@ class EmployeeCreate(BaseModel):
     admission_date: date
     note: str | None = Field(default=None, max_length=2000)
     hour_bank: bool = False
+    registration_number: str | None = Field(default=None, max_length=32)
 
 
 class EmployeeUpdate(BaseModel):
@@ -173,6 +174,7 @@ class EmployeeUpdate(BaseModel):
     admission_date: date | None = None
     note: str | None = Field(default=None, max_length=2000)
     hour_bank: bool | None = None
+    registration_number: str | None = Field(default=None, max_length=32)
 
 
 class EmployeeOut(BaseModel):
@@ -184,6 +186,7 @@ class EmployeeOut(BaseModel):
     admission_date: date
     note: str | None
     hour_bank: bool
+    registration_number: str | None
     situation: str | None
     job_label: str | None
     journey_label: str | None
@@ -242,9 +245,35 @@ class PunchOut(BaseModel):
     note: str | None
     valid: bool
     voided_at: datetime | None
+    channel: str | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PunchCodeOut(BaseModel):
+    employee_id: int
+    unit_id: int
+    unit_name: str
+    cpf: str
+    registration_number: str
+    content: str
+
+
+class QrPunchCreate(BaseModel):
+    employee_id: int
+    occurred_at: datetime
+    content: str = Field(min_length=1, max_length=200)
+    selfie_key: str = Field(min_length=1, max_length=512)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class FacePunchCreate(BaseModel):
+    employee_id: int
+    occurred_at: datetime
+    recognized: bool
+    channel: Literal["online", "offline"]
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class PunchCorrectionCreate(BaseModel):
@@ -303,6 +332,10 @@ class OccurrenceOut(BaseModel):
 
 
 class CertificatePhotoOut(BaseModel):
+    key: str
+
+
+class SelfiePhotoOut(BaseModel):
     key: str
 
 
