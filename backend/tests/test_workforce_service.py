@@ -13,6 +13,7 @@ from app.models.workforce import (
     ClosingEvent,
     Employee,
     EmployeeVigency,
+    FiscalFile,
     Holiday,
     HourBankEntry,
     Job,
@@ -176,6 +177,23 @@ class Memory:
                 counts[row.employee_id] = counts.get(row.employee_id, 0) + 1
         return counts
 
+    def valid_punches_in(self, tenant_id: int, start: datetime, end: datetime):
+        found = [row for row in self._of(Punch, tenant_id) if row.valid and start <= row.occurred_at < end]
+        found.sort(key=lambda item: (item.occurred_at, item.id))
+        return found
+
+    def punch_at(self, tenant_id: int, employee_id: int, occurred_at: datetime):
+        for row in self._of(Punch, tenant_id):
+            if row.employee_id == employee_id and row.occurred_at == occurred_at:
+                return row
+        return None
+
+    def employee_by_cpf(self, tenant_id: int, cpf: str):
+        for row in self._of(Employee, tenant_id):
+            if row.cpf == cpf:
+                return row
+        return None
+
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime):
         found = [
             row
@@ -244,6 +262,19 @@ class Memory:
             if row.starts_on <= end and row.ends_on >= start:
                 return row
         return None
+
+    def closed_exact(self, tenant_id: int, start: date, end: date):
+        for row in self._of(Closing, tenant_id):
+            if row.status == "closed" and row.starts_on == start and row.ends_on == end:
+                return row
+        return None
+
+    def fiscal_files_overlapping(self, tenant_id: int, start: date, end: date):
+        return [
+            row
+            for row in self._of(FiscalFile, tenant_id)
+            if row.valid and row.starts_on <= end and row.ends_on >= start
+        ]
 
     def closed_covering(self, tenant_id: int, day: date):
         for row in self._of(Closing, tenant_id):
@@ -1488,3 +1519,108 @@ def test_gestor_fecha_intervalo_e_membro_nao():
         )
     assert member.value.status_code == 403
     assert overlap.value.status_code == 409
+
+
+def test_importacao_de_afd_cria_origem_propria_e_ignora_a_que_ja_existe():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), employee_payload())
+    content = (
+        "AFD\n"
+        "12345678901|2026-10-06T08:00:00-03:00\n"
+        "99999999999|2026-10-06T09:00:00-03:00\n"
+        "12345678901|2026-10-05T08:00:00-03:00\n"
+    )
+    imported = workforce.import_afd(admin(), content)
+    assert imported == {"created": 2, "ignored": 0, "blocked": 1}
+    punches, _total = workforce.list_punches(admin(), 1, 10, {})
+    assert {row.source for row in punches} == {"afd"}
+    again = workforce.import_afd(admin(), content)
+    assert again == {"created": 0, "ignored": 2, "blocked": 1}
+    with pytest.raises(AppError) as invalid:
+        workforce.import_afd(admin(), "AEJ\n")
+    assert invalid.value.message == "Arquivo AFD inválido"
+
+
+def test_afd_sai_sem_fechamento_e_aej_so_de_periodo_fechado():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
+    exported = workforce.create_fiscal_file(
+        scope(8, "manager"),
+        {"kind": "afd", "starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6)},
+    )
+    assert exported.valid is True
+    assert "12345678901|2026-10-06T08:00:00-03:00" in exported.content
+    with pytest.raises(AppError) as open_period:
+        workforce.create_fiscal_file(
+            admin(),
+            {"kind": "aej", "starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6)},
+        )
+    assert open_period.value.message == "A exportação de AEJ sai só de período fechado"
+    opened = workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6), "note": None},
+    )
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    archive = workforce.create_fiscal_file(
+        admin(),
+        {"kind": "aej", "starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6)},
+    )
+    assert archive.content.startswith("AEJ\n")
+    assert archive.valid is True
+    brought = workforce.import_afd(
+        admin(),
+        "AFD\n12345678901|2026-10-06T12:00:00-03:00\n12345678901|2026-10-05T08:00:00-03:00\n",
+    )
+    assert brought == {"created": 1, "ignored": 0, "blocked": 1}
+
+
+def test_cancelar_ou_reabrir_faz_o_arquivo_deixar_de_valer():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), employee_payload())
+    september = workforce.create_fiscal_file(
+        admin(),
+        {"kind": "afd", "starts_on": date(2026, 9, 1), "ends_on": date(2026, 9, 30)},
+    )
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    october = workforce.create_fiscal_file(admin(), {"kind": "afd", "year": 2026, "month": 10})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "cancelled", "note": "Competência errada"})
+    assert workforce.get_fiscal_file(admin(), october.id).valid is False
+    assert workforce.get_fiscal_file(admin(), september.id).valid is True
+    fresh = workforce.create_fiscal_file(admin(), {"kind": "payroll", "year": 2026, "month": 10})
+    assert fresh.valid is True
+    assert fresh.content.startswith("PAYROLL\n")
+    workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Corrigir o ponto"})
+    assert workforce.get_fiscal_file(admin(), fresh.id).valid is False
+    with pytest.raises(AppError) as kept:
+        workforce.refuse_fiscal_file_change(admin(), fresh.id)
+    assert kept.value.message == "Arquivo fiscal permanece no histórico."
+
+
+def test_totais_da_folha_levam_hora_extra_adicional_falta_e_saldo():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    day = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    item = workforce.payroll(admin(), 2026, 10)["items"][0]
+    assert item["worked_minutes"] == day["worked_minutes"]
+    assert item["overtime_minutes"] == day["overtime_minutes"]
+    assert item["night_additional_minutes"] == day["night_additional_minutes"]
+    assert item["shortage_minutes"] == day["shortage_minutes"]
+    assert item["balance_minutes"] == workforce.hour_bank(admin(), person["id"])["balance_minutes"]
+    assert item["punch_count"] == 4
+    assert item["balance_minutes"] > 0
+
+
+def test_membro_nao_gera_arquivo_fiscal():
+    workforce, _repo = service()
+    with pytest.raises(AppError) as member:
+        workforce.create_fiscal_file(scope(9, "member"), {"kind": "afd", "year": 2026, "month": 10})
+    with pytest.raises(AppError) as imported:
+        workforce.import_afd(scope(9, "member"), "AFD\n")
+    assert member.value.status_code == 403
+    assert imported.value.status_code == 403

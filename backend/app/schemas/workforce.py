@@ -454,12 +454,52 @@ class PayrollTotalOut(BaseModel):
     employee_id: int
     full_name: str
     punch_count: int
+    worked_minutes: int
+    overtime_minutes: int
+    night_additional_minutes: int
+    shortage_minutes: int
+    balance_minutes: int
 
 
 class PayrollOut(BaseModel):
     year: int
     month: int
     items: list[PayrollTotalOut]
+
+
+class FiscalFileCreate(BaseModel):
+    kind: Literal["afd", "aej", "payroll"]
+    year: int | None = Field(default=None, ge=2000, le=2100)
+    month: int | None = Field(default=None, ge=1, le=12)
+    starts_on: date | None = None
+    ends_on: date | None = None
+
+
+class FiscalFileUpdate(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class FiscalFileOut(BaseModel):
+    id: int
+    kind: str
+    starts_on: date
+    ends_on: date
+    content: str
+    valid: bool
+    invalidated_at: datetime | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FiscalImportCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=500_000)
+
+
+class FiscalImportOut(BaseModel):
+    created: int
+    ignored: int
+    blocked: int
 
 
 class TimeResultOut(BaseModel):

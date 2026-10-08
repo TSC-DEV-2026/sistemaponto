@@ -8,6 +8,7 @@ from app.models.workforce import (  # noqa: F401
     CostCenter,
     Employee,
     EmployeeVigency,
+    FiscalFile,
     Holiday,
     HourBankEntry,
     Job,

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from app.core.cpf import normalize_cpf
+from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
 from app.core.hour_bank import project_balance
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
@@ -19,7 +20,6 @@ from app.core.workforce import (
     assert_not_future,
     assert_period,
     day_bounds,
-    month_bounds,
     now_utc,
     previous_end,
     today_in_brazil,
@@ -31,6 +31,7 @@ from app.models.workforce import (
     CostCenter,
     Employee,
     EmployeeVigency,
+    FiscalFile,
     Holiday,
     HourBankEntry,
     Job,
@@ -615,6 +616,8 @@ class WorkforceService:
             )
         )
         self._audit(scope, None, "closing", row.id, previous, status, row.starts_on)
+        if status in {"cancelled", "open"}:
+            self._invalidate_files(scope, row.starts_on, row.ends_on)
         return self.get_closing(scope, row.id)
 
     def delete_closing(self, scope: Scope, row_id: int) -> None:
@@ -690,20 +693,95 @@ class WorkforceService:
 
     def payroll(self, scope: Scope, year: int, month: int) -> dict:
         self._admin(scope)
-        start, end = month_bounds(year, month)
-        counts = self.repo.punch_counts(scope.tenant_id, start, end)
-        items = []
-        page = 1
-        while True:
-            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
-            items.extend(
-                {"employee_id": row.id, "full_name": row.full_name, "punch_count": counts.get(row.id, 0)}
-                for row in rows
+        start = date(year, month, 1)
+        if month == 12:
+            end = date(year, 12, 31)
+        else:
+            end = date(year, month + 1, 1) - timedelta(days=1)
+        return {"year": year, "month": month, "items": self._payroll_items(scope, start, end)}
+
+    def list_fiscal_files(self, scope: Scope, page: int, limit: int, equals: dict):
+        self._can_manage_period(scope)
+        return self.repo.list_rows(FiscalFile, scope.tenant_id, page=page, limit=limit, equals=equals, descending=True)
+
+    def get_fiscal_file(self, scope: Scope, row_id: int) -> FiscalFile:
+        self._can_manage_period(scope)
+        return self._row(FiscalFile, scope, row_id)
+
+    def create_fiscal_file(self, scope: Scope, data: dict) -> FiscalFile:
+        self._can_manage_period(scope)
+        kind = data["kind"]
+        start, end = self._closing_bounds(data)
+        if (end - start).days + 1 > 366:
+            raise AppError(400, "O arquivo aceita no máximo 366 dias")
+        if kind == "aej" and self.repo.closed_exact(scope.tenant_id, start, end) is None:
+            raise AppError(409, "A exportação de AEJ sai só de período fechado")
+        if kind == "afd":
+            content = render_afd(self._afd_rows(scope, start, end))
+        elif kind == "aej":
+            content = render_aej(self._aej_rows(scope, start, end))
+        elif kind == "payroll":
+            content = render_payroll(
+                [
+                    (
+                        item["cpf"],
+                        item["worked_minutes"],
+                        item["overtime_minutes"],
+                        item["night_additional_minutes"],
+                        item["shortage_minutes"],
+                        item["balance_minutes"],
+                    )
+                    for item in self._payroll_items(scope, start, end)
+                ]
             )
-            if page * 100 >= total or not rows:
-                break
-            page += 1
-        return {"year": year, "month": month, "items": items}
+        else:
+            raise AppError(400, "Tipo de arquivo inválido")
+        row = self.repo.add(
+            FiscalFile(
+                tenant_id=scope.tenant_id,
+                kind=kind,
+                starts_on=start,
+                ends_on=end,
+                content=content,
+                valid=True,
+                invalidated_at=None,
+                created_by_person_id=scope.person_id,
+                created_at=self.clock(),
+            )
+        )
+        self._audit(scope, None, "fiscal_file", row.id, None, kind, start)
+        return row
+
+    def import_afd(self, scope: Scope, content: str) -> dict:
+        self._can_manage_period(scope)
+        created = 0
+        ignored = 0
+        blocked = 0
+        for cpf, moment in parse_afd(content):
+            employee = self.repo.employee_by_cpf(scope.tenant_id, cpf)
+            if employee is None:
+                blocked += 1
+                continue
+            if self.repo.punch_at(scope.tenant_id, employee.id, moment) is not None:
+                ignored += 1
+                continue
+            try:
+                self.create_punch(
+                    scope,
+                    {"employee_id": employee.id, "occurred_at": moment, "note": None},
+                    source="afd",
+                )
+            except AppError as error:
+                if error.status_code in {400, 409}:
+                    blocked += 1
+                    continue
+                raise
+            created += 1
+        return {"created": created, "ignored": ignored, "blocked": blocked}
+
+    def refuse_fiscal_file_change(self, scope: Scope, row_id: int) -> None:
+        self.get_fiscal_file(scope, row_id)
+        raise AppError(409, "Arquivo fiscal permanece no histórico.")
 
     def time_results(self, scope: Scope, employee_id: int, starts_on: date, ends_on: date) -> dict:
         self._known(scope)
@@ -819,10 +897,119 @@ class WorkforceService:
         self.get_hour_bank_entry(scope, row_id)
         raise AppError(409, "Lançamento de banco permanece no histórico.")
 
-    def _project_hour_bank(self, scope: Scope, employee: Employee) -> dict:
+    def _payroll_items(self, scope: Scope, starts_on: date, ends_on: date) -> list[dict]:
+        finish = ends_on if ends_on <= self.today() else self.today()
+        counts: dict[int, int] = {}
+        if finish >= starts_on:
+            start_at, _ignored = day_bounds(starts_on)
+            _start, end_at = day_bounds(finish)
+            counts = self.repo.punch_counts(scope.tenant_id, start_at, end_at)
         items = []
-        if employee.admission_date <= self.today():
-            items = self._day_results(scope, employee, employee.admission_date, self.today())
+        page = 1
+        while True:
+            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+            items.extend(self._payroll_item(scope, row, starts_on, finish, counts) for row in rows)
+            if page * 100 >= total or not rows:
+                break
+            page += 1
+        return items
+
+    def _payroll_item(self, scope: Scope, employee: Employee, starts_on: date, finish: date, counts: dict[int, int]) -> dict:
+        punch_count = counts.get(employee.id, 0) if finish >= starts_on else 0
+        worked = overtime = night = shortage = balance = 0
+        if finish >= starts_on and employee.admission_date <= finish:
+            day_start = employee.admission_date if employee.admission_date > starts_on else starts_on
+            for day in self._day_results(scope, employee, day_start, finish):
+                worked += day["worked_minutes"]
+                overtime += day["overtime_minutes"]
+                night += day["night_additional_minutes"]
+                shortage += day["shortage_minutes"]
+            if employee.hour_bank:
+                balance = self._project_hour_bank(scope, employee, finish)["balance_minutes"]
+        return {
+            "employee_id": employee.id,
+            "full_name": employee.full_name,
+            "cpf": employee.cpf,
+            "punch_count": punch_count,
+            "worked_minutes": worked,
+            "overtime_minutes": overtime,
+            "night_additional_minutes": night,
+            "shortage_minutes": shortage,
+            "balance_minutes": balance,
+        }
+
+    def _afd_rows(self, scope: Scope, starts_on: date, ends_on: date) -> list[tuple[str, datetime]]:
+        punches = self._punches_in(scope, starts_on, ends_on)
+        employees: dict[int, Employee | None] = {}
+        rows = []
+        for punch in punches:
+            if punch.employee_id not in employees:
+                employees[punch.employee_id] = self.repo.get_row(Employee, scope.tenant_id, punch.employee_id)
+            employee = employees[punch.employee_id]
+            if employee is None:
+                continue
+            rows.append((employee.cpf, punch.occurred_at))
+        return rows
+
+    def _aej_rows(self, scope: Scope, starts_on: date, ends_on: date):
+        finish = ends_on if ends_on <= self.today() else self.today()
+        moments: dict[tuple[int, date], list[datetime]] = {}
+        for punch in self._punches_in(scope, starts_on, ends_on):
+            local = punch.occurred_at.astimezone(BR).date()
+            moments.setdefault((punch.employee_id, local), []).append(punch.occurred_at)
+        rows = []
+        page = 1
+        while True:
+            employees, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+            for employee in employees:
+                if finish < starts_on or employee.admission_date > finish:
+                    continue
+                day_start = employee.admission_date if employee.admission_date > starts_on else starts_on
+                for day in self._day_results(scope, employee, day_start, finish):
+                    punch_moments = moments.get((employee.id, day["work_date"]), [])
+                    if (
+                        not punch_moments
+                        and day["worked_minutes"] == 0
+                        and day["overtime_minutes"] == 0
+                        and day["night_additional_minutes"] == 0
+                        and day["shortage_minutes"] == 0
+                    ):
+                        continue
+                    rows.append(
+                        (
+                            employee.cpf,
+                            day["work_date"],
+                            day["worked_minutes"],
+                            day["overtime_minutes"],
+                            day["night_additional_minutes"],
+                            day["shortage_minutes"],
+                            punch_moments,
+                        )
+                    )
+            if page * 100 >= total or not employees:
+                break
+            page += 1
+        return rows
+
+    def _punches_in(self, scope: Scope, starts_on: date, ends_on: date):
+        finish = ends_on if ends_on <= self.today() else self.today()
+        if finish < starts_on:
+            return []
+        start_at, _ignored = day_bounds(starts_on)
+        _start, end_at = day_bounds(finish)
+        return self.repo.valid_punches_in(scope.tenant_id, start_at, end_at)
+
+    def _invalidate_files(self, scope: Scope, start: date, end: date) -> None:
+        for row in self.repo.fiscal_files_overlapping(scope.tenant_id, start, end):
+            row.valid = False
+            row.invalidated_at = self.clock()
+            self.repo.add(row)
+
+    def _project_hour_bank(self, scope: Scope, employee: Employee, until: date | None = None) -> dict:
+        limit = self.today() if until is None or until > self.today() else until
+        items = []
+        if employee.admission_date <= limit:
+            items = self._day_results(scope, employee, employee.admission_date, limit)
         events = []
         for day in items:
             if day["bank_minutes"] > 0:
@@ -830,11 +1017,13 @@ class WorkforceService:
             elif day["bank_minutes"] < 0:
                 events.append((day["work_date"], 0, "debit", -day["bank_minutes"]))
         for entry in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id):
+            if entry.entry_on > limit:
+                continue
             if entry.kind == "settlement":
                 events.append((entry.entry_on, entry.id, entry.effect, entry.minutes))
             else:
                 events.append((entry.entry_on, entry.id, entry.kind, entry.minutes))
-        return project_balance(events, self.today())
+        return project_balance(events, limit)
 
     def _take_night_exit(self, by_day: dict, day: date, consumed: set[int]) -> datetime | None:
         following = by_day.get(day + timedelta(days=1), [])
@@ -1282,6 +1471,9 @@ class WorkforceService:
     def _can_punch(self, scope: Scope, employee: Employee, source: str | None) -> None:
         if source == "approved_request":
             return
+        if source == "afd":
+            self._can_manage_period(scope)
+            return
         if scope.role == "admin":
             return
         if employee.person_id == scope.person_id:
@@ -1496,6 +1688,8 @@ class WorkforceService:
             action = "Registro de ocorrência"
         elif kind == "request":
             action = "Decisão de solicitação"
+        elif kind == "fiscal_file":
+            action = "Exportação de arquivo fiscal"
         elif kind == "closing":
             action = {
                 "closed": "Fechamento do período",
