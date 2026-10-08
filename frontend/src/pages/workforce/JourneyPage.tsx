@@ -2,12 +2,14 @@ import { useEffect, useState } from "react"
 
 import { CatalogPanel } from "@/components/workforce/CatalogPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { listRecords, type Employee, type Punch } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
 export function JourneyPage() {
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const role = useAuthStore((state) => state.user?.role)
+  const isAdmin = role === "admin"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [punches, setPunches] = useState<Punch[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -61,10 +63,7 @@ export function JourneyPage() {
         <PunchLists punches={punches} employeeName={(id) => employees.find((person) => person.id === id)?.full_name || String(id)} />
       </section>
       <TimeResultsPanel employees={employees} />
-      <section className="rounded-md border border-border bg-card px-4 py-3 text-sm">
-        <h2 className="font-medium">Banco de horas</h2>
-        <p className="mt-1 text-muted-foreground">Nenhum saldo. Crédito, débito, validade e compensação ainda não foram definidos.</p>
-      </section>
+      <HourBankPanel employees={employees} canLaunch={isAdmin || role === "manager"} />
     </div>
   )
 }

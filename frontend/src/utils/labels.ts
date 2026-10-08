@@ -106,6 +106,17 @@ export function showDate(value: string | null | undefined) {
   return `${day}/${month}/${year}`
 }
 
+export const hourBankKindLabel: Record<string, string> = {
+  settlement: "Quitação",
+  credit: "Crédito",
+  debit: "Débito",
+}
+
+export const hourBankEffectLabel: Record<string, string> = {
+  overtime: "Hora extra",
+  absence: "Falta",
+}
+
 export function showMinutes(value: number) {
   const hours = Math.floor(value / 60)
   const minutes = value % 60
@@ -116,6 +127,13 @@ export function showMinutes(value: number) {
     return `${hours} h`
   }
   return `${hours} h ${minutes} min`
+}
+
+export function showSignedMinutes(value: number) {
+  if (value < 0) {
+    return `-${showMinutes(Math.abs(value))}`
+  }
+  return showMinutes(value)
 }
 
 export function showDateTime(value: string | null | undefined) {

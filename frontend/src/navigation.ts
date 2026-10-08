@@ -55,7 +55,7 @@ export const navGroups: NavGroup[] = [
           { title: "Jornadas", text: "Nenhuma jornada cadastrada." },
           { title: "Marcações", text: "Nenhuma marcação." },
           { title: "Apuração", text: "Resultado do período." },
-          { title: "Banco de horas", text: "Nenhum saldo." },
+          { title: "Banco de horas", text: "Saldo contínuo." },
         ],
       },
       {

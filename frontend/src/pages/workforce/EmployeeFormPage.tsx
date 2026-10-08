@@ -16,6 +16,7 @@ export function EmployeeFormPage() {
   const [personId, setPersonId] = useState("")
   const [admission, setAdmission] = useState("")
   const [note, setNote] = useState("")
+  const [hourBank, setHourBank] = useState(false)
   const [error, setError] = useState("")
 
   async function onSubmit(event: FormEvent) {
@@ -29,6 +30,7 @@ export function EmployeeFormPage() {
         person_id: personId.trim() ? Number(personId) : null,
         admission_date: admission,
         note: note.trim() || null,
+        hour_bank: hourBank,
       })
       navigate(`/people/${created.id}`)
     } catch (caught) {
@@ -60,6 +62,10 @@ export function EmployeeFormPage() {
         <Label htmlFor="admission">Admissão</Label>
         <input id="admission" className={fieldClass} type="date" value={admission} onChange={(event) => setAdmission(event.target.value)} required />
       </div>
+      <label className="flex items-center gap-2 text-sm" htmlFor="hour-bank">
+        <input id="hour-bank" type="checkbox" checked={hourBank} onChange={(event) => setHourBank(event.target.checked)} />
+        Usa banco de horas
+      </label>
       <div className="space-y-2">
         <Label htmlFor="note">Observação</Label>
         <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} onChange={(event) => setNote(event.target.value)} />
