@@ -5,6 +5,7 @@ from app.schemas.tenant import TenantOut
 from app.schemas.workforce import (
     AgreementOut,
     AuditOut,
+    ChargeOut,
     ClosingOut,
     EmployeeOut,
     FiscalFileOut,
@@ -21,6 +22,7 @@ from app.schemas.workforce import (
     ReasonOut,
     RequestOut,
     SectorOut,
+    SubscriptionOut,
     TeamOut,
     VigencyOut,
 )
@@ -51,6 +53,8 @@ RESOURCES: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     "notifications": (NotificationOut, NotificationOut),
     "notification-preferences": (NotificationPreferenceOut, NotificationPreferenceOut),
     "notice-emails": (NoticeEmailOut, NoticeEmailOut),
+    "subscriptions": (SubscriptionOut, SubscriptionOut),
+    "charges": (ChargeOut, ChargeOut),
     "audits": (AuditOut, AuditOut),
 }
 

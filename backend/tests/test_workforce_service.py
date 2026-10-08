@@ -9,6 +9,7 @@ from app.core.workforce import previous_end
 from app.models.membership import Membership
 from app.models.workforce import (
     Audit,
+    Charge,
     Closing,
     ClosingEvent,
     Employee,
@@ -25,6 +26,7 @@ from app.models.workforce import (
     RequestEvent,
     RequestPunch,
     Sector,
+    Subscription,
     Team,
     TimeRequest,
     Unit,
@@ -101,6 +103,15 @@ class Memory:
 
     def open_closings(self, tenant_id: int):
         return [row for row in self._of(Closing, tenant_id) if row.status == "open"]
+
+    def subscription_for(self, tenant_id: int):
+        found = self._of(Subscription, tenant_id)
+        return found[0] if found else None
+
+    def open_charges(self, tenant_id: int):
+        found = [row for row in self._of(Charge, tenant_id) if row.status == "open"]
+        found.sort(key=lambda item: (item.due_on, item.id))
+        return found
 
     def _of(self, model, tenant_id: int):
         return [row for row in self.rows if isinstance(row, model) and row.tenant_id == tenant_id]
@@ -1744,3 +1755,86 @@ def test_limite_proximo_e_limite_atingido_usam_a_frase():
     assert reached[0].body == "A capacidade de funcionários foi atingida."
     emailed = [row for row in workforce.list_notice_emails(admin(), 1, 10, {})[0] if row.kind == "plan_limit"]
     assert emailed[0].body == reached[0].body
+
+
+def test_fim_do_trial_pede_plano_e_a_cobranca_e_mensal():
+    workforce, repo = service()
+    workforce.assert_usable(admin())
+    repo.tenant.trial_ends_at = datetime(2026, 10, 6, 12, 0, tzinfo=BR)
+    with pytest.raises(AppError) as ended:
+        workforce.assert_usable(admin())
+    assert ended.value.message == "Contrate um plano."
+    with pytest.raises(AppError) as member:
+        workforce.create_subscription(scope(9, "member"), {"capacity": 10, "payment_method": "pix"})
+    with pytest.raises(AppError) as block:
+        workforce.create_subscription(admin(), {"capacity": 15, "payment_method": "pix"})
+    assert member.value.status_code == 403
+    assert block.value.status_code == 400
+    hired = workforce.create_subscription(admin(), {"capacity": 10, "payment_method": "pix"})
+    assert hired["price_cents"] == 500
+    assert hired["monthly_amount_cents"] == 5000
+    assert hired["status"] == "active"
+    workforce.assert_usable(admin())
+    charge = workforce.list_charges(admin(), 1, 10, {})[0][0]
+    assert charge.amount_cents == 5000
+    assert charge.kind == "monthly"
+    with pytest.raises(AppError) as again:
+        workforce.create_subscription(admin(), {"capacity": 20, "payment_method": "boleto"})
+    assert again.value.status_code == 409
+    paid = workforce.pay_charge(admin(), charge.id, {"paid": True})
+    assert paid.status == "paid"
+    with pytest.raises(AppError) as twice:
+        workforce.pay_charge(admin(), charge.id, {"paid": True})
+    assert twice.value.status_code == 409
+
+
+def test_upgrade_cobra_pro_rata_e_downgrade_muda_o_valor_no_mes_seguinte():
+    workforce, repo = service()
+    hired = workforce.create_subscription(admin(), {"capacity": 20, "payment_method": "credit"})
+    reduced = workforce.update_subscription(admin(), hired["id"], {"capacity": 10})
+    assert reduced["monthly_amount_cents"] == 5000
+    assert repo.tenant.employee_capacity == 10
+    kept = [row for row in workforce.list_charges(admin(), 1, 10, {})[0] if row.kind == "monthly"]
+    assert kept[0].amount_cents == 10000
+    current = repo.subscription_for(1)
+    current.period_start = date(2026, 10, 1)
+    current.period_end = date(2026, 10, 31)
+    upgraded = workforce.update_subscription(admin(), hired["id"], {"capacity": 20})
+    extra = [row for row in workforce.list_charges(admin(), 1, 10, {})[0] if row.kind == "upgrade"]
+    assert extra[0].amount_cents == 4000
+    assert upgraded["capacity"] == 20
+    for index in range(15):
+        workforce.create_employee(admin(), employee_payload(str(20000000000 + index), None))
+    with pytest.raises(AppError) as crowded:
+        workforce.update_subscription(admin(), hired["id"], {"capacity": 10})
+    assert crowded.value.message == "A nova capacidade não cabe nos funcionários contabilizados"
+
+
+def test_inadimplencia_avisa_e_bloqueia_em_7_dias():
+    workforce, repo = service()
+    hired = workforce.create_subscription(admin(), {"capacity": 10, "payment_method": "debit"})
+    charge = workforce.list_charges(admin(), 1, 10, {})[0][0]
+    charge.due_on = date(2026, 10, 6)
+    warned = workforce.get_subscription(admin(), hired["id"])
+    assert warned["status"] == "delinquent"
+    workforce.assert_usable(admin())
+    notices = [row.body for row in workforce.list_notifications(admin(), 1, 10, {})[0]]
+    assert "Há uma cobrança em atraso." in notices
+    mailed = [row.body for row in workforce.list_notice_emails(admin(), 1, 10, {})[0]]
+    assert "Há uma cobrança em atraso." in mailed
+    charge.due_on = date(2026, 9, 30)
+    blocked = workforce.get_subscription(admin(), hired["id"])
+    assert blocked["status"] == "blocked"
+    with pytest.raises(AppError) as locked:
+        workforce.assert_usable(admin())
+    assert locked.value.message == "O uso está bloqueado por inadimplência."
+    workforce.pay_charge(admin(), charge.id, {"paid": True})
+    assert workforce.get_subscription(admin(), hired["id"])["status"] == "active"
+    workforce.assert_usable(admin())
+    current = repo.subscription_for(1)
+    current.period_end = TODAY
+    renewed = workforce.get_subscription(admin(), hired["id"])
+    assert renewed["period_start"] == TODAY
+    assert renewed["monthly_amount_cents"] == 5000
+    monthly = [row for row in workforce.list_charges(admin(), 1, 10, {})[0] if row.kind == "monthly"]
+    assert len(monthly) == 2

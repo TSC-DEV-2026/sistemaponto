@@ -10,6 +10,7 @@ PHRASES = {
     "trial_ending": "O período de teste termina em 3 dias. Contrate um plano.",
     "plan_limit_near": "A capacidade de funcionários está próxima do limite.",
     "plan_limit": "A capacidade de funcionários foi atingida.",
+    "billing_overdue": "Há uma cobrança em atraso.",
 }
 
 DAILY_KINDS = (
@@ -19,4 +20,5 @@ DAILY_KINDS = (
     "trial_ending",
     "plan_limit_near",
     "plan_limit",
+    "billing_overdue",
 )

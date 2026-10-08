@@ -458,6 +458,52 @@ class NoticeRunOut(BaseModel):
     created: int
 
 
+PaymentMethod = Literal["pix", "boleto", "debit", "credit"]
+
+
+class SubscriptionCreate(BaseModel):
+    capacity: int
+    payment_method: PaymentMethod
+
+
+class SubscriptionUpdate(BaseModel):
+    capacity: int | None = None
+    payment_method: PaymentMethod | None = None
+
+
+class SubscriptionOut(BaseModel):
+    id: int
+    status: str
+    capacity: int
+    payment_method: str
+    price_cents: int
+    monthly_amount_cents: int
+    period_start: date
+    period_end: date
+    contracted_at: datetime
+
+
+class ChargeUpdate(BaseModel):
+    paid: bool | None = None
+
+
+class ChargeOut(BaseModel):
+    id: int
+    subscription_id: int
+    kind: str
+    amount_cents: int
+    capacity: int
+    due_on: date
+    status: str
+    payment_method: str
+    period_start: date
+    period_end: date
+    paid_at: datetime | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AuditUpdate(BaseModel):
     note: str | None = None
 

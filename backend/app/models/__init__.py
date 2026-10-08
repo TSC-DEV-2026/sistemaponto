@@ -3,6 +3,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.tenant import Tenant
 from app.models.workforce import (  # noqa: F401
     Audit,
+    Charge,
     Closing,
     ClosingEvent,
     CostCenter,
@@ -25,6 +26,7 @@ from app.models.workforce import (  # noqa: F401
     RequestEvent,
     RequestPunch,
     Sector,
+    Subscription,
     Team,
     TimeRequest,
     Unit,
