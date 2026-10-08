@@ -65,6 +65,8 @@ from app.schemas.workforce import (
     OccurrenceOut,
     OccurrenceUpdate,
     PayrollOut,
+    ReportCatalogOut,
+    ReportOut,
     TimeResultsOut,
     PunchCorrectionCreate,
     PunchCorrectionOut,
@@ -857,6 +859,33 @@ def time_results(
 ):
     result = service.time_results(as_scope(actor), employee_id, starts_on, ends_on)
     return json_data(dump_one(result, TimeResultsOut, None))
+
+
+@reads.get("/report-catalog", summary="Catálogo de relatórios")
+def report_catalog(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.report_catalog(as_scope(actor), page, limit)
+    return json_data(dump_page(items, total, page, limit, ReportCatalogOut, fields))
+
+
+@reads.get("/reports", summary="Relatório analítico do período")
+def reports(
+    kind: str = Query(min_length=1, max_length=32),
+    starts_on: date = Query(),
+    ends_on: date = Query(),
+    employee_id: int | None = Query(default=None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit)
+    return json_data(dump_one(result, ReportOut, None))
 
 
 @reads.get("/hour-bank", summary="Saldo do banco de horas")

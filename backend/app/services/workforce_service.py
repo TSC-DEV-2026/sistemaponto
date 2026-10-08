@@ -8,6 +8,15 @@ from app.core.hour_bank import add_months, project_balance
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.notices import PHRASES
+from app.core.reports import (
+    CLOSING_STATUS,
+    ENTRY_TITLES,
+    OCCURRENCE_TITLES,
+    REPORT_NAMES,
+    REPORTS,
+    REQUEST_STATUS,
+    REQUEST_TITLES,
+)
 from app.core.workforce import (
     AUDIT_ACTION,
     BR,
@@ -788,6 +797,253 @@ class WorkforceService:
             "ends_on": ends_on,
             "items": self._day_results(scope, employee, starts_on, ends_on),
         }
+
+    def report_catalog(self, scope: Scope, page: int, limit: int) -> tuple[list[dict], int]:
+        self._can_manage_period(scope)
+        rows = [{"kind": kind, "name": name} for kind, name in REPORTS]
+        start = (page - 1) * limit
+        return rows[start : start + limit], len(rows)
+
+    def report(
+        self,
+        scope: Scope,
+        kind: str,
+        starts_on: date,
+        ends_on: date,
+        employee_id: int | None,
+        page: int,
+        limit: int,
+    ) -> dict:
+        self._can_manage_period(scope)
+        name = REPORT_NAMES.get(kind)
+        if name is None:
+            raise AppError(400, "Relatório inválido")
+        if ends_on < starts_on:
+            raise AppError(400, "O fim precisa ser igual ou posterior ao início")
+        if (ends_on - starts_on).days + 1 > 366:
+            raise AppError(400, "O relatório aceita no máximo 366 dias")
+        lines = self._report_lines(scope, kind, starts_on, ends_on, employee_id)
+        start = (page - 1) * limit
+        return {
+            "kind": kind,
+            "name": name,
+            "starts_on": starts_on,
+            "ends_on": ends_on,
+            "items": lines[start : start + limit],
+            "total": len(lines),
+            "page": page,
+            "limit": limit,
+        }
+
+    def _report_lines(
+        self, scope: Scope, kind: str, starts_on: date, ends_on: date, employee_id: int | None
+    ) -> list[dict]:
+        people = self._report_people(scope, employee_id)
+        if kind == "punch":
+            lines = self._punch_lines(scope, people, starts_on, ends_on)
+        elif kind == "journey":
+            lines = self._journey_lines(scope, people, starts_on, ends_on)
+        elif kind == "hour_bank":
+            lines = self._bank_lines(scope, people, starts_on, ends_on)
+        elif kind == "occurrence":
+            lines = self._occurrence_lines(scope, people, starts_on, ends_on)
+        else:
+            lines = self._management_lines(scope, people, starts_on, ends_on, employee_id is None)
+        return sorted(lines, key=lambda item: (item["occurred_on"], item["full_name"] or "", item["title"], item["detail"]))
+
+    def _report_people(self, scope: Scope, employee_id: int | None) -> list[Employee]:
+        ids = self._visible_ids(scope)
+        if employee_id is not None:
+            self._visible(scope, employee_id)
+            ids = [employee_id]
+        people: list[Employee] = []
+        page = 1
+        while True:
+            rows, total = self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=100, equals={})
+            people.extend(rows)
+            if not rows or page * 100 >= total:
+                return people
+            page += 1
+
+    def _punch_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
+        finish = ends_on if ends_on <= self.today() else self.today()
+        if finish < starts_on:
+            return []
+        lines = []
+        for employee in people:
+            start = max(starts_on, employee.admission_date)
+            if start > finish:
+                continue
+            for day in self._day_results(scope, employee, start, finish):
+                lines.append(
+                    {
+                        "employee_id": employee.id,
+                        "full_name": employee.full_name,
+                        "occurred_on": day["work_date"],
+                        "title": "Ponto",
+                        "detail": (
+                            f"trabalhadas {day['worked_minutes']} min; "
+                            f"hora extra {day['overtime_minutes']} min; "
+                            f"adicional noturno {day['night_additional_minutes']} min; "
+                            f"falta {day['shortage_minutes']} min"
+                        ),
+                    }
+                )
+        return lines
+
+    def _journey_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
+        lines = []
+        for employee in people:
+            for vigency in self.repo.vigencies_between(scope.tenant_id, employee.id, "journey", starts_on, ends_on):
+                journey = (
+                    self.repo.get_row(Journey, scope.tenant_id, vigency.reference_id) if vigency.reference_id else None
+                )
+                spans = []
+                if journey is not None:
+                    for start, end in (
+                        (journey.morning_start, journey.morning_end),
+                        (journey.afternoon_start, journey.afternoon_end),
+                    ):
+                        if start and end:
+                            spans.append(f"{start}-{end}")
+                end_label = vigency.valid_to.isoformat() if vigency.valid_to else "atual"
+                clocks = "; ".join(spans)
+                period = f"vigência {vigency.valid_from.isoformat()} a {end_label}"
+                lines.append(
+                    {
+                        "employee_id": employee.id,
+                        "full_name": employee.full_name,
+                        "occurred_on": vigency.valid_from,
+                        "title": vigency.label,
+                        "detail": f"{clocks}; {period}" if clocks else period,
+                    }
+                )
+        return lines
+
+    def _bank_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
+        finish = ends_on if ends_on <= self.today() else self.today()
+        if finish < starts_on:
+            return []
+        lines = []
+        for employee in people:
+            if not employee.hour_bank:
+                continue
+            start = max(starts_on, employee.admission_date)
+            movement = 0
+            if start <= finish:
+                movement = sum(day["bank_minutes"] for day in self._day_results(scope, employee, start, finish))
+            projection = self._project_hour_bank(scope, employee, finish)
+            detail = f"saldo {projection['balance_minutes']} min; movimento {movement} min"
+            if projection["warning"]:
+                detail = f"{detail}; {projection['warning']}"
+            lines.append(
+                {
+                    "employee_id": employee.id,
+                    "full_name": employee.full_name,
+                    "occurred_on": finish,
+                    "title": "Saldo",
+                    "detail": detail,
+                }
+            )
+            for entry in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id):
+                if starts_on <= entry.entry_on <= ends_on:
+                    entry_detail = f"{entry.minutes} min"
+                    if entry.effect:
+                        entry_detail = f"{entry_detail}; {entry.effect}"
+                    lines.append(
+                        {
+                            "employee_id": employee.id,
+                            "full_name": employee.full_name,
+                            "occurred_on": entry.entry_on,
+                            "title": ENTRY_TITLES.get(entry.kind, entry.kind),
+                            "detail": entry_detail,
+                        }
+                    )
+        return lines
+
+    def _occurrence_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
+        lines = []
+        for employee in people:
+            for row in self.repo.occurrences_between(scope.tenant_id, employee.id, starts_on, ends_on):
+                detail = row.source
+                if row.warning:
+                    detail = f"{detail}; {row.warning}"
+                lines.append(
+                    {
+                        "employee_id": employee.id,
+                        "full_name": employee.full_name,
+                        "occurred_on": row.starts_on,
+                        "title": OCCURRENCE_TITLES.get(row.kind, row.kind),
+                        "detail": detail,
+                    }
+                )
+        return lines
+
+    def _management_lines(
+        self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date, include_closings: bool
+    ) -> list[dict]:
+        allowed = {person.id for person in people}
+        lines = []
+        if include_closings:
+            page = 1
+            while True:
+                rows, total = self.repo.list_rows(
+                    Closing, scope.tenant_id, page=page, limit=100, equals={}, descending=False
+                )
+                for closing in rows:
+                    if closing.starts_on <= ends_on and closing.ends_on >= starts_on:
+                        lines.append(
+                            {
+                                "employee_id": None,
+                                "full_name": None,
+                                "occurred_on": closing.starts_on,
+                                "title": "Fechamento",
+                                "detail": (
+                                    f"{CLOSING_STATUS.get(closing.status, closing.status)} "
+                                    f"de {closing.starts_on.isoformat()} a {closing.ends_on.isoformat()}"
+                                ),
+                            }
+                        )
+                if not rows or page * 100 >= total:
+                    break
+                page += 1
+        page = 1
+        employee_ids = None if self._visible_ids(scope) is None else list(allowed)
+        while True:
+            rows, total = self.repo.list_rows(
+                TimeRequest,
+                scope.tenant_id,
+                page=page,
+                limit=100,
+                equals={},
+                descending=False,
+                employee_ids=employee_ids,
+            )
+            for request in rows:
+                if request.employee_id not in allowed:
+                    continue
+                created = request.created_at.astimezone(BR).date()
+                decided = request.decided_at.astimezone(BR).date() if request.decided_at else None
+                if starts_on <= created <= ends_on:
+                    occurred = created
+                elif decided is not None and starts_on <= decided <= ends_on:
+                    occurred = decided
+                else:
+                    continue
+                person = next((item for item in people if item.id == request.employee_id), None)
+                lines.append(
+                    {
+                        "employee_id": request.employee_id,
+                        "full_name": person.full_name if person is not None else None,
+                        "occurred_on": occurred,
+                        "title": f"Solicitação de {REQUEST_TITLES.get(request.kind, request.kind).lower()}",
+                        "detail": REQUEST_STATUS.get(request.status, request.status),
+                    }
+                )
+            if not rows or page * 100 >= total:
+                break
+            page += 1
+        return lines
 
     def _day_results(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date) -> list[dict]:
         start, _end = day_bounds(starts_on - timedelta(days=1))

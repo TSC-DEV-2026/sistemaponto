@@ -152,7 +152,18 @@ class Memory:
         return total
 
     def list_employees(self, tenant_id: int, *, ids, page: int, limit: int, equals: dict):
-        return self.list_rows(Employee, tenant_id, page=page, limit=limit, equals=equals, descending=False, employee_ids=ids)
+        if ids is not None and len(ids) == 0:
+            return [], 0
+        found = []
+        for row in self._of(Employee, tenant_id):
+            if ids is not None and row.id not in ids:
+                continue
+            if all(getattr(row, key) == value for key, value in equals.items()):
+                found.append(row)
+        found.sort(key=lambda item: item.id)
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
 
     def labels_on(self, employee_ids: list[int], day: date):
         found: dict[int, dict] = {}
@@ -1838,3 +1849,111 @@ def test_inadimplencia_avisa_e_bloqueia_em_7_dias():
     assert renewed["monthly_amount_cents"] == 5000
     monthly = [row for row in workforce.list_charges(admin(), 1, 10, {})[0] if row.kind == "monthly"]
     assert len(monthly) == 2
+
+
+def test_catalogo_tem_um_relatorio_por_grupo():
+    workforce, _repo = service()
+    page, total = workforce.report_catalog(admin(), 1, 2)
+    assert total == 5
+    assert [row["name"] for row in page] == ["Ponto", "Jornada"]
+    rest, _total = workforce.report_catalog(admin(), 2, 2)
+    assert [row["name"] for row in rest] == ["Banco de Horas", "Ocorrências"]
+    with pytest.raises(AppError) as member:
+        workforce.report_catalog(scope(9, "member"), 1, 10)
+    assert member.value.status_code == 403
+    with pytest.raises(AppError) as unknown:
+        workforce.report(admin(), "folha", date(2026, 10, 7), date(2026, 10, 7), None, 1, 10)
+    assert unknown.value.message == "Relatório inválido"
+    with pytest.raises(AppError) as wide:
+        workforce.report(admin(), "punch", date(2025, 10, 6), TODAY, None, 1, 10)
+    assert wide.value.message == "O relatório aceita no máximo 366 dias"
+
+
+def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
+    workforce, repo = service()
+    _access(repo, 8, "manager")
+    _access(repo, 9, "member")
+    _access(repo, 10, "member")
+    leader = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    mate = workforce.create_employee(admin(), admitted(date(2026, 10, 6), "22222222222", 9))
+    outsider = workforce.create_employee(admin(), admitted(date(2026, 10, 6), "33333333333", 10))
+    workforce.update_employee(admin(), mate["id"], {"hour_bank": True})
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    work_journey(workforce, mate["id"])
+    mark(workforce, mate["id"], 6, (8, 0), (12, 0), (13, 0), (18, 18))
+    mark(workforce, mate["id"], 7, (8, 0), (12, 0), (13, 0), (17, 38))
+    mark(workforce, outsider["id"], 6, (8, 0), (12, 0), (13, 0), (17, 48))
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": mate["id"],
+            "kind": "allowance",
+            "starts_on": date(2026, 10, 5),
+            "ends_on": None,
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    workforce.create_request(scope(9, "member"), adjustment([at(9, 0, 6)]))
+    workforce.create_closing(admin(), {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 7), "note": None})
+    panel = workforce.dashboard(admin())
+    assert panel["punches_today"] >= 1
+    assert "items" not in panel
+    start, end = date(2026, 10, 6), date(2026, 10, 7)
+    punch = workforce.report(admin(), "punch", start, end, mate["id"], 1, 1)
+    assert punch["name"] == "Ponto"
+    assert punch["total"] == 2
+    assert len(punch["items"]) == 1
+    assert "hora extra 0 min" in punch["items"][0]["detail"] or "hora extra 30 min" in punch["items"][0]["detail"]
+    full = workforce.report(admin(), "punch", start, end, mate["id"], 1, 10)
+    by_day = {row["occurred_on"]: row["detail"] for row in full["items"]}
+    assert "hora extra 0 min" in by_day[date(2026, 10, 6)]
+    assert "falta 0 min" in by_day[date(2026, 10, 7)]
+    journey = workforce.report(admin(), "journey", date(2026, 10, 1), end, mate["id"], 1, 10)
+    assert journey["items"][0]["title"] == "Comercial"
+    assert "08:00-12:00; 13:00-17:48" in journey["items"][0]["detail"]
+    assert "vigência 2026-10-01 a atual" in journey["items"][0]["detail"]
+    balance = workforce.hour_bank(admin(), mate["id"])
+    bank = workforce.report(admin(), "hour_bank", start, end, mate["id"], 1, 10)
+    saldo = next(row for row in bank["items"] if row["title"] == "Saldo")
+    assert f"saldo {balance['balance_minutes']} min" in saldo["detail"]
+    assert "movimento 20 min" in saldo["detail"]
+    occurrence = workforce.report(admin(), "occurrence", date(2026, 10, 5), date(2026, 10, 5), mate["id"], 1, 10)
+    assert occurrence["items"][0]["title"] == "Abono"
+    assert occurrence["items"][0]["detail"] == "manual"
+    managed = workforce.report(admin(), "management", start, end, None, 1, 10)
+    titles = {row["title"] for row in managed["items"]}
+    assert "Fechamento" in titles
+    assert "Solicitação de ajuste" in titles
+    assert any(row["detail"].startswith("em conferência") for row in managed["items"])
+    visible = workforce.report(scope(8, "manager"), "punch", start, end, None, 1, 50)
+    seen = {row["employee_id"] for row in visible["items"]}
+    assert mate["id"] in seen
+    assert outsider["id"] not in seen
+    with pytest.raises(AppError) as hidden:
+        workforce.report(scope(8, "manager"), "punch", start, end, outsider["id"], 1, 10)
+    assert hidden.value.status_code == 404
+    with pytest.raises(AppError) as member:
+        workforce.report(scope(9, "member"), "punch", start, end, mate["id"], 1, 10)
+    assert member.value.status_code == 403
