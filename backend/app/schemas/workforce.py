@@ -453,3 +453,25 @@ class PayrollOut(BaseModel):
     year: int
     month: int
     items: list[PayrollTotalOut]
+
+
+class TimeResultOut(BaseModel):
+    work_date: date
+    expected_minutes: int
+    worked_minutes: int
+    delay_minutes: int
+    early_leave_minutes: int
+    overtime_minutes: int
+    night_minutes: int
+    night_additional_minutes: int
+    absence: bool
+    incomplete: bool
+    holiday: bool
+    warnings: list[str]
+
+
+class TimeResultsOut(BaseModel):
+    employee_id: int
+    starts_on: date
+    ends_on: date
+    items: list[TimeResultOut]

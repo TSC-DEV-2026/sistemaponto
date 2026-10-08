@@ -13,7 +13,9 @@ from app.models.workforce import (
     ClosingEvent,
     Employee,
     EmployeeVigency,
+    Holiday,
     Job,
+    Journey,
     Occurrence,
     Punch,
     RequestEvent,
@@ -180,6 +182,34 @@ class Memory:
             if row.employee_id == employee_id and row.valid and start <= row.occurred_at < end
         ]
         found.sort(key=lambda item: (item.occurred_at, item.id))
+        return found
+
+    def vigencies_between(self, tenant_id: int, employee_id: int, kind: str, start: date, end: date):
+        found = [
+            row
+            for row in self._of(EmployeeVigency, tenant_id)
+            if row.employee_id == employee_id
+            and row.kind == kind
+            and row.valid_from <= end
+            and (row.valid_to is None or row.valid_to >= start)
+        ]
+        found.sort(key=lambda item: (item.valid_from, item.id))
+        return found
+
+    def holidays_between(self, tenant_id: int, start: date, end: date):
+        return [
+            row
+            for row in self._of(Holiday, tenant_id)
+            if start <= row.holiday_date <= end
+        ]
+
+    def occurrences_between(self, tenant_id: int, employee_id: int, start: date, end: date):
+        found = [
+            row
+            for row in self._of(Occurrence, tenant_id)
+            if row.employee_id == employee_id and row.starts_on <= end and row.ends_on >= start
+        ]
+        found.sort(key=lambda item: item.id)
         return found
 
     def request_punches_for(self, request_ids: list[int]):
@@ -720,6 +750,49 @@ def test_gestor_lanca_os_quatro_na_propria_equipe():
     assert member.value.status_code == 403
 
 
+def work_journey(workforce: WorkforceService, employee_id: int, name: str = "Comercial"):
+    journey = workforce.create_named(
+        Journey,
+        admin(),
+        {
+            "name": name,
+            "morning_start": "08:00",
+            "morning_end": "12:00",
+            "afternoon_start": "13:00",
+            "afternoon_end": "17:48",
+            "note": None,
+        },
+    )
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": employee_id,
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 1),
+            "note": None,
+        },
+    )
+    return journey
+
+
+def mark(workforce: WorkforceService, employee_id: int, day: int, *clocks: tuple[int, int]):
+    rows = []
+    for hour, minute in clocks:
+        rows.append(
+            workforce.create_punch(
+                admin(),
+                {"employee_id": employee_id, "occurred_at": at(hour, minute, day), "note": None},
+            )
+        )
+    return rows
+
+
+def day_result(result: dict, day: date) -> dict:
+    return next(item for item in result["items"] if item["work_date"] == day)
+
+
 def test_periodo_fechado_bloqueia_o_lancamento_manual():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
@@ -744,3 +817,255 @@ def test_periodo_fechado_bloqueia_o_lancamento_manual():
             },
         )
     assert caught.value.status_code == 409
+
+
+def test_apuracao_usa_so_marcacao_valida_e_ignora_pedido_pendente():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    kept = mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 48))
+    extra = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(9, 0), "note": None})
+    extra.valid = False
+    workforce.create_request(admin(), adjustment([at(10, 0)]))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    row = result["items"][0]
+    assert row["worked_minutes"] == 8 * 60 + 48
+    assert row["expected_minutes"] == 8 * 60 + 48
+    assert row["overtime_minutes"] == 0
+    assert row["absence"] is False
+    assert row["incomplete"] is False
+    assert all(item.valid for item in kept)
+
+
+def test_tolerancia_perdoa_dez_minutos_e_desconta_o_atraso_inteiro():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 10), (12, 0), (13, 0), (17, 48))
+    mark(workforce, person["id"], 7, (8, 11), (12, 0), (13, 0), (17, 48))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    forgiven = day_result(result, date(2026, 10, 6))
+    late = day_result(result, date(2026, 10, 7))
+    assert forgiven["delay_minutes"] == 0
+    assert forgiven["worked_minutes"] == 8 * 60 + 48
+    assert late["delay_minutes"] == 11
+    assert late["worked_minutes"] == 8 * 60 + 48 - 11
+    assert late["incomplete"] is False
+
+
+def test_saida_antecipada_desconta_e_hora_extra_e_o_excedente():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 18))
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    early = day_result(result, date(2026, 10, 6))
+    extra = day_result(result, date(2026, 10, 7))
+    assert early["early_leave_minutes"] == 30
+    assert early["worked_minutes"] == 8 * 60 + 18
+    assert early["overtime_minutes"] == 0
+    assert extra["overtime_minutes"] == 30
+    assert extra["worked_minutes"] == 9 * 60 + 18
+    assert extra["early_leave_minutes"] == 0
+
+
+def test_intervalo_menor_avisa_e_a_marcacao_permanece():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    rows = mark(workforce, person["id"], 6, (8, 0), (12, 0), (12, 40), (17, 48))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert result["items"][0]["warnings"] == ["intervalo menor do que o previsto"]
+    assert result["items"][0]["incomplete"] is False
+    assert all(row.valid for row in rows)
+
+
+def test_feriado_trabalhado_vira_hora_extra_e_noturno_fica_no_horario():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    workforce.create_named(Holiday, admin(), {"name": "Segunda", "holiday_date": date(2026, 10, 5), "note": None})
+    workforce.create_named(Holiday, admin(), {"name": "Terca", "holiday_date": date(2026, 10, 6), "note": None})
+    mark(workforce, person["id"], 5, (22, 0), (23, 0))
+    mark(workforce, person["id"], 6, (22, 0))
+    mark(workforce, person["id"], 7, (5, 0), (12, 0))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
+    same_day = day_result(result, date(2026, 10, 5))
+    crossed = day_result(result, date(2026, 10, 6))
+    assert same_day["holiday"] is True
+    assert same_day["overtime_minutes"] == 60
+    assert same_day["night_minutes"] == 60
+    assert same_day["night_additional_minutes"] == 12
+    assert same_day["absence"] is False
+    assert same_day["incomplete"] is False
+    assert crossed["overtime_minutes"] == 7 * 60
+    assert crossed["night_minutes"] == 7 * 60
+    assert crossed["night_additional_minutes"] == 84
+    assert crossed["incomplete"] is False
+    morning = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
+    assert morning["items"][0]["worked_minutes"] == 0
+
+
+def test_abono_aprovado_tira_a_falta_e_o_pendente_nao():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    before = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
+    assert day_result(before, date(2026, 10, 6))["absence"] is True
+    pending = workforce.create_request(admin(), period("allowance"))
+    waiting = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert waiting["items"][0]["absence"] is True
+    workforce.decide_request(admin(), pending["id"], {"status": "approved", "decision_note": None})
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "allowance",
+            "starts_on": date(2026, 10, 7),
+            "ends_on": None,
+            "starts_at": at(8, 0, 7),
+            "ends_at": at(9, 0, 7),
+            "reason_id": None,
+            "note": None,
+            "cid": None,
+            "crm": None,
+            "doctor_name": None,
+            "photo_key": None,
+        },
+    )
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 5))["absence"] is True
+    assert day_result(result, date(2026, 10, 6))["absence"] is False
+    assert day_result(result, date(2026, 10, 6))["incomplete"] is False
+    assert day_result(result, date(2026, 10, 7))["absence"] is True
+
+
+def test_ponto_incompleto_e_as_excecoes_do_dia():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 1, (8, 0))
+    mark(workforce, person["id"], 2, (8, 0))
+    mark(workforce, person["id"], 3, (8, 0))
+    mark(workforce, person["id"], 5, (8, 0))
+    mark(workforce, person["id"], 6, (8, 0))
+    mark(workforce, person["id"], 7, (8, 0))
+    for kind, day in (("vacation", date(2026, 10, 1)), ("leave", date(2026, 10, 2)), ("allowance", date(2026, 10, 5))):
+        workforce.create_occurrence(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": kind,
+                "starts_on": day,
+                "ends_on": None,
+                "starts_at": None,
+                "ends_at": None,
+                "reason_id": None,
+                "note": None,
+                "cid": None,
+                "crm": None,
+                "doctor_name": None,
+                "photo_key": None,
+            },
+        )
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "certificate",
+            "starts_on": date(2026, 10, 7),
+            "ends_on": None,
+            "starts_at": None,
+            "ends_at": None,
+            "reason_id": None,
+            "note": None,
+            "cid": "A00",
+            "crm": "12345",
+            "doctor_name": "Dra. Luz",
+            "photo_key": None,
+        },
+    )
+    workforce.create_occurrence(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "certificate",
+            "starts_on": date(2026, 10, 6),
+            "ends_on": None,
+            "starts_at": at(8, 0),
+            "ends_at": at(9, 0),
+            "reason_id": None,
+            "note": None,
+            "cid": "A00",
+            "crm": "12345",
+            "doctor_name": "Dra. Luz",
+            "photo_key": None,
+        },
+    )
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 1), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 1))["incomplete"] is False
+    assert day_result(result, date(2026, 10, 2))["incomplete"] is False
+    assert day_result(result, date(2026, 10, 3))["incomplete"] is False
+    assert day_result(result, date(2026, 10, 3))["absence"] is False
+    assert day_result(result, date(2026, 10, 5))["incomplete"] is False
+    assert day_result(result, date(2026, 10, 5))["absence"] is False
+    opened = day_result(result, date(2026, 10, 6))
+    assert opened["incomplete"] is True
+    assert opened["absence"] is False
+    assert "período abonado conflita com registro de ponto" in opened["warnings"]
+    closed = day_result(result, date(2026, 10, 7))
+    assert closed["incomplete"] is False
+    assert "período abonado conflita com registro de ponto" in closed["warnings"]
+
+
+def test_jornada_vigente_muda_o_previsto_do_dia():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    short = workforce.create_named(
+        Journey,
+        admin(),
+        {
+            "name": "Manha",
+            "morning_start": "08:00",
+            "morning_end": "12:00",
+            "afternoon_start": None,
+            "afternoon_end": None,
+            "note": None,
+        },
+    )
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": short.id,
+            "label": None,
+            "valid_from": date(2026, 10, 7),
+            "note": None,
+        },
+    )
+    mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 48))
+    mark(workforce, person["id"], 7, (8, 0), (12, 0))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 8 * 60 + 48
+    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 4 * 60
+    assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 4 * 60
+    assert day_result(result, date(2026, 10, 7))["warnings"] == []
+
+
+def test_apuracao_recusa_periodo_invertido_e_funcionario_de_outra_pessoa():
+    workforce, repo = service()
+    access = Membership(person_id=9, tenant_id=1, role="member")
+    access.id = repo.seq
+    repo.seq += 1
+    repo.memberships.append(access)
+    own = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    other = workforce.create_employee(admin(), employee_payload())
+    with pytest.raises(AppError) as inverted:
+        workforce.time_results(admin(), own["id"], date(2026, 10, 7), date(2026, 10, 6))
+    with pytest.raises(AppError) as hidden:
+        workforce.time_results(scope(9, "member"), other["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert inverted.value.status_code == 400
+    assert hidden.value.status_code == 404

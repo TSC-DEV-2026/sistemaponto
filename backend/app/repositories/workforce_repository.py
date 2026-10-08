@@ -11,6 +11,7 @@ from app.models.workforce import (
     ClosingEvent,
     Employee,
     EmployeeVigency,
+    Holiday,
     Notification,
     Occurrence,
     Punch,
@@ -221,6 +222,40 @@ class WorkforceRepository:
                 Punch.occurred_at < end,
             )
             .order_by(Punch.occurred_at.asc(), Punch.id.asc())
+            .all()
+        )
+
+    def vigencies_between(self, tenant_id: int, employee_id: int, kind: str, start: date, end: date) -> list[EmployeeVigency]:
+        return (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.employee_id == employee_id,
+                EmployeeVigency.kind == kind,
+                EmployeeVigency.valid_from <= end,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= start),
+            )
+            .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
+            .all()
+        )
+
+    def holidays_between(self, tenant_id: int, start: date, end: date) -> list[Holiday]:
+        return (
+            self.db.query(Holiday)
+            .filter(Holiday.tenant_id == tenant_id, Holiday.holiday_date >= start, Holiday.holiday_date <= end)
+            .all()
+        )
+
+    def occurrences_between(self, tenant_id: int, employee_id: int, start: date, end: date) -> list[Occurrence]:
+        return (
+            self.db.query(Occurrence)
+            .filter(
+                Occurrence.tenant_id == tenant_id,
+                Occurrence.employee_id == employee_id,
+                Occurrence.starts_on <= end,
+                Occurrence.ends_on >= start,
+            )
+            .order_by(Occurrence.id.asc())
             .all()
         )
 

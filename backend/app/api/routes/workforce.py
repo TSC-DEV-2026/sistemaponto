@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 
 from app.api.dependencies.auth import Actor, require_tenant
@@ -46,6 +48,7 @@ from app.schemas.workforce import (
     OccurrenceOut,
     OccurrenceUpdate,
     PayrollOut,
+    TimeResultsOut,
     PunchCorrectionCreate,
     PunchCorrectionOut,
     PunchCreate,
@@ -689,6 +692,18 @@ def payroll_totals(
     service: WorkforceService = Depends(get_workforce_service),
 ):
     return json_data(dump_one(service.payroll(as_scope(actor), year, month), PayrollOut, None))
+
+
+@reads.get("/time-results", summary="Apuração do período")
+def time_results(
+    employee_id: int = Query(),
+    starts_on: date = Query(),
+    ends_on: date = Query(),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    result = service.time_results(as_scope(actor), employee_id, starts_on, ends_on)
+    return json_data(dump_one(result, TimeResultsOut, None))
 
 
 routers.extend(

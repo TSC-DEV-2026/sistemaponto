@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from app.core.cpf import normalize_cpf
+from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.workforce import (
     AUDIT_ACTION,
@@ -677,6 +678,83 @@ class WorkforceService:
                 break
             page += 1
         return {"year": year, "month": month, "items": items}
+
+    def time_results(self, scope: Scope, employee_id: int, starts_on: date, ends_on: date) -> dict:
+        self._known(scope)
+        if ends_on < starts_on:
+            raise AppError(400, "O fim precisa ser igual ou posterior ao início")
+        if (ends_on - starts_on).days + 1 > 62:
+            raise AppError(400, "A apuração aceita no máximo 62 dias")
+        employee = self._employee(scope, employee_id)
+        self._visible(scope, employee.id)
+        start, _end = day_bounds(starts_on - timedelta(days=1))
+        window_end = datetime.combine(ends_on + timedelta(days=1), time(5, 1), tzinfo=BR)
+        punches = self.repo.valid_punches_between(scope.tenant_id, employee.id, start, window_end)
+        by_day: dict[date, list] = {}
+        for punch in punches:
+            by_day.setdefault(punch.occurred_at.astimezone(BR).date(), []).append(punch)
+        for rows in by_day.values():
+            rows.sort(key=lambda row: (row.occurred_at, row.id))
+        occurrences = self.repo.occurrences_between(scope.tenant_id, employee.id, starts_on, ends_on)
+        holidays = {row.holiday_date for row in self.repo.holidays_between(scope.tenant_id, starts_on, ends_on)}
+        vigencies = self.repo.vigencies_between(scope.tenant_id, employee.id, "journey", starts_on, ends_on)
+        journeys: dict[int, Journey] = {}
+        consumed: set[int] = set()
+        previous = starts_on - timedelta(days=1)
+        if len(by_day.get(previous, [])) % 2 == 1:
+            self._take_night_exit(by_day, previous, consumed)
+        items = []
+        current = starts_on
+        while current <= ends_on:
+            calendar = by_day.get(current, [])
+            working = [row for row in calendar if row.id not in consumed]
+            moments = [row.occurred_at for row in working]
+            if len(working) % 2 == 1:
+                exit_at = self._take_night_exit(by_day, current, consumed)
+                if exit_at is not None:
+                    moments.append(exit_at)
+            covering = [row for row in occurrences if row.starts_on <= current <= row.ends_on]
+            items.append(
+                settle_day(
+                    work_date=current,
+                    moments=moments,
+                    counted=len(calendar),
+                    journey=self._journey_on(scope, vigencies, journeys, current),
+                    holiday=current in holidays,
+                    vacation=any(row.kind == "vacation" for row in covering),
+                    leave=any(row.kind == "leave" for row in covering),
+                    full_allowance=any(self._full_day(row) for row in covering if row.kind == "allowance"),
+                    full_certificate=any(self._full_day(row) for row in covering if row.kind == "certificate"),
+                    extra_warnings=[row.warning for row in covering if row.warning],
+                )
+            )
+            current += timedelta(days=1)
+        return {"employee_id": employee.id, "starts_on": starts_on, "ends_on": ends_on, "items": items}
+
+    def _take_night_exit(self, by_day: dict, day: date, consumed: set[int]) -> datetime | None:
+        following = by_day.get(day + timedelta(days=1), [])
+        if not following or following[0].id in consumed:
+            return None
+        local = following[0].occurred_at.astimezone(BR)
+        if (local.hour, local.minute) > (5, 0):
+            return None
+        consumed.add(following[0].id)
+        return following[0].occurred_at
+
+    def _journey_on(self, scope: Scope, vigencies: list, journeys: dict, day: date):
+        chosen = None
+        for row in vigencies:
+            if row.valid_from <= day and (row.valid_to is None or row.valid_to >= day):
+                if chosen is None or (row.valid_from, row.id) > (chosen.valid_from, chosen.id):
+                    chosen = row
+        if chosen is None or chosen.reference_id is None:
+            return None
+        if chosen.reference_id not in journeys:
+            journeys[chosen.reference_id] = self.repo.get_row(Journey, scope.tenant_id, chosen.reference_id)
+        return journeys[chosen.reference_id]
+
+    def _full_day(self, row) -> bool:
+        return row.starts_at is None and row.ends_at is None
 
     def _prepare_named(self, model, scope: Scope, data: dict, current) -> dict:
         payload = {}
