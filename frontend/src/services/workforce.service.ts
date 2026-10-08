@@ -177,6 +177,28 @@ export type Payroll = {
   items: { employee_id: number; full_name: string; punch_count: number }[]
 }
 
+export type TimeResult = {
+  work_date: string
+  expected_minutes: number
+  worked_minutes: number
+  delay_minutes: number
+  early_leave_minutes: number
+  overtime_minutes: number
+  night_minutes: number
+  night_additional_minutes: number
+  absence: boolean
+  incomplete: boolean
+  holiday: boolean
+  warnings: string[]
+}
+
+export type TimeResults = {
+  employee_id: number
+  starts_on: string
+  ends_on: string
+  items: TimeResult[]
+}
+
 async function read<T>(work: () => Promise<{ data: ApiResponse<T> }>): Promise<T> {
   try {
     const response = await work()
@@ -222,4 +244,12 @@ export function getDashboard() {
 
 export function getPayroll(year: number, month: number) {
   return read<Payroll>(() => api.get<ApiResponse<Payroll>>("/payroll-totals", { params: { year, month } }))
+}
+
+export function getTimeResults(employeeId: number, startsOn: string, endsOn: string) {
+  return read<TimeResults>(() =>
+    api.get<ApiResponse<TimeResults>>("/time-results", {
+      params: { employee_id: employeeId, starts_on: startsOn, ends_on: endsOn },
+    }),
+  )
 }

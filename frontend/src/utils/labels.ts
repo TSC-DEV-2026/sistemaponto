@@ -106,6 +106,18 @@ export function showDate(value: string | null | undefined) {
   return `${day}/${month}/${year}`
 }
 
+export function showMinutes(value: number) {
+  const hours = Math.floor(value / 60)
+  const minutes = value % 60
+  if (hours === 0) {
+    return `${minutes} min`
+  }
+  if (minutes === 0) {
+    return `${hours} h`
+  }
+  return `${hours} h ${minutes} min`
+}
+
 export function showDateTime(value: string | null | undefined) {
   if (!value) {
     return "—"

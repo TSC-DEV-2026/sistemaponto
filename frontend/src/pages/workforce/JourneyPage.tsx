@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 
 import { CatalogPanel } from "@/components/workforce/CatalogPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { listRecords, type Employee, type Punch } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
@@ -37,7 +38,7 @@ export function JourneyPage() {
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="text-xl font-semibold">Jornada e Ponto</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Jornada é o previsto. Marcação é o ocorrido. Apuração é o resultado e ainda não é calculada.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Jornada é o previsto. Marcação é o ocorrido. Apuração é o resultado do período.</p>
       </div>
       <CatalogPanel
         title="Jornadas"
@@ -59,10 +60,7 @@ export function JourneyPage() {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <PunchLists punches={punches} employeeName={(id) => employees.find((person) => person.id === id)?.full_name || String(id)} />
       </section>
-      <section className="rounded-md border border-border bg-card px-4 py-3 text-sm">
-        <h2 className="font-medium">Apuração</h2>
-        <p className="mt-1 text-muted-foreground">Nenhum resultado calculado. Tolerância, atraso, hora extra, intervalo e banco de horas ainda não têm regra definida.</p>
-      </section>
+      <TimeResultsPanel employees={employees} />
       <section className="rounded-md border border-border bg-card px-4 py-3 text-sm">
         <h2 className="font-medium">Banco de horas</h2>
         <p className="mt-1 text-muted-foreground">Nenhum saldo. Crédito, débito, validade e compensação ainda não foram definidos.</p>
