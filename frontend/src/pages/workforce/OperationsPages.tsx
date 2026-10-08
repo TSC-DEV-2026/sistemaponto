@@ -9,6 +9,7 @@ import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDra
 import {
   createRecord,
   getPayroll,
+  getReport,
   listRecords,
   updateRecord,
   uploadCertificatePhoto,
@@ -22,6 +23,8 @@ import {
   type NoticePreference,
   type Occurrence,
   type Payroll,
+  type Report,
+  type ReportCatalogItem,
   type TimeRequest,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -35,6 +38,7 @@ import {
   certificateText,
   manualTimeOffKinds,
   periodText,
+  punchDay,
   punchOrigin,
   requestKindLabel,
   requestStatusLabel,
@@ -859,18 +863,147 @@ export function NotificationsPage() {
   )
 }
 
+function monthStart() {
+  return `${punchDay(new Date().toISOString()).slice(0, 8)}01`
+}
+
 export function ReportsPage() {
-  const groups = ["Ponto", "Jornada", "Banco de horas", "Ocorrências", "Gestão"]
+  const role = useAuthStore((state) => state.user?.role)
+  const canRead = role === "admin" || role === "manager"
+  const tenantId = useAuthStore((state) => state.activeTenant?.id)
+  const [catalog, setCatalog] = useState<ReportCatalogItem[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [kind, setKind] = useState("punch")
+  const [startsOn, setStartsOn] = useState(monthStart)
+  const [endsOn, setEndsOn] = useState(() => punchDay(new Date().toISOString()))
+  const [employeeId, setEmployeeId] = useState("")
+  const [result, setResult] = useState<Report | null>(null)
+  const [query, setQuery] = useState({ kind: "", startsOn: "", endsOn: "", employeeId: "" })
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (!canRead) {
+      return
+    }
+    let active = true
+    Promise.all([
+      listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 }),
+      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
+    ])
+      .then(([reports, people]) => {
+        if (!active) {
+          return
+        }
+        setCatalog(reports.items)
+        setEmployees(people.items)
+        if (reports.items[0]) {
+          setKind(reports.items[0].kind)
+        }
+      })
+      .catch((caught: unknown) => {
+        if (active) {
+          setError(caught instanceof Error ? caught.message : "Não foi possível listar os relatórios.")
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [canRead, tenantId])
+
+  async function openPage(page: number, next = query) {
+    setError("")
+    try {
+      setQuery(next)
+      setResult(await getReport(next.kind, next.startsOn, next.endsOn, page, next.employeeId ? Number(next.employeeId) : undefined))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
+    }
+  }
+
+  async function consult(event: FormEvent) {
+    event.preventDefault()
+    await openPage(1, { kind, startsOn, endsOn, employeeId })
+  }
+
+  const pages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-semibold">Relatórios</h1>
-      <p className="text-sm text-muted-foreground">Consulta analítica. O catálogo inicial de cada grupo ainda não foi escolhido.</p>
-      {groups.map((group) => (
-        <section key={group} className="rounded-md border border-border bg-card px-4 py-3 text-sm">
-          <h2 className="font-medium">{group}</h2>
-          <p className="mt-1 text-muted-foreground">Nenhum relatório deste grupo.</p>
+      <p className="text-sm text-muted-foreground">
+        Um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão. A consulta é analítica e histórica, de até 366 dias. Dia futuro não entra no ponto nem no movimento do banco. O dashboard continua operacional. O gestor vê a própria equipe. O fechamento, sem filtro de funcionário, continua da empresa.
+      </p>
+      {canRead ? (
+        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={consult}>
+          <div className="space-y-2">
+            <Label htmlFor="report-kind">Relatório</Label>
+            <select id="report-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
+              {catalog.map((item) => (
+                <option key={item.kind} value={item.kind}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="report-start">De</Label>
+              <input id="report-start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="report-end">Até</Label>
+              <input id="report-end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} required />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-employee">Funcionário</Label>
+            <select id="report-employee" className={fieldClass} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
+              <option value="">Todos</option>
+              {employees.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit">Consultar</Button>
+        </form>
+      ) : (
+        <p className="text-sm text-muted-foreground">O funcionário não consulta relatório gerencial.</p>
+      )}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {result ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">
+            {result.name} · {showDate(result.starts_on)} a {showDate(result.ends_on)} · {result.total} linhas
+          </h2>
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+            {result.items.map((item, index) => (
+              <li key={`${item.occurred_on}-${item.employee_id ?? "empresa"}-${item.title}-${index}`} className="px-4 py-3 text-sm">
+                <p className="font-medium">
+                  {showDate(item.occurred_on)} · {item.title}
+                  {item.full_name ? ` · ${item.full_name}` : ""}
+                </p>
+                <p className="mt-1 text-muted-foreground">{item.detail}</p>
+              </li>
+            ))}
+            {result.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma linha neste período.</li> : null}
+          </ul>
+          {result.total > result.limit ? (
+            <div className="flex items-center gap-3">
+              <Button type="button" size="sm" variant="outline" disabled={result.page <= 1} onClick={() => void openPage(result.page - 1)}>
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {result.page} de {pages}
+              </span>
+              <Button type="button" size="sm" variant="outline" disabled={result.page >= pages} onClick={() => void openPage(result.page + 1)}>
+                Próxima
+              </Button>
+            </div>
+          ) : null}
         </section>
-      ))}
+      ) : null}
     </div>
   )
 }

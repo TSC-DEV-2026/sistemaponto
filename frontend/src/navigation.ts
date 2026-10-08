@@ -126,11 +126,11 @@ export const navGroups: NavGroup[] = [
         icon: BarChart3,
         lead: "Consulta analítica. O dashboard permanece a visão operacional.",
         sections: [
-          { title: "Ponto", text: "Nenhum relatório." },
-          { title: "Jornada", text: "Nenhum relatório." },
-          { title: "Banco de horas", text: "Nenhum relatório." },
-          { title: "Ocorrências", text: "Nenhum relatório." },
-          { title: "Gestão", text: "Nenhum relatório." },
+          { title: "Ponto", text: "Histórico da apuração." },
+          { title: "Jornada", text: "Histórico da vigência." },
+          { title: "Banco de Horas", text: "Saldo e lançamentos." },
+          { title: "Ocorrências", text: "O que já foi lançado." },
+          { title: "Gestão", text: "Fechamento e solicitação." },
         ],
       },
       {
