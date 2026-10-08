@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/app/presentation/screens/account_screen.dart';
 import '../features/app/presentation/screens/change_password_screen.dart';
 import '../features/app/presentation/screens/home_screen.dart';
+import '../features/app/presentation/screens/notices_screen.dart';
 import '../features/app/presentation/screens/requests_screen.dart';
 import '../features/app/presentation/screens/select_tenant_screen.dart';
 import '../features/auth/presentation/screens/boot_screen.dart';
@@ -67,6 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
           GoRoute(path: '/requests', builder: (context, state) => const RequestsScreen()),
+          GoRoute(path: '/notices', builder: (context, state) => const NoticesScreen()),
           GoRoute(path: '/account', builder: (context, state) => const AccountScreen()),
           GoRoute(path: '/change-password', builder: (context, state) => const ChangePasswordScreen()),
         ],
