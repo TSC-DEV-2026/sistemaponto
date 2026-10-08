@@ -295,6 +295,21 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
+class FiscalFile(Base):
+    __tablename__ = "fiscal_files"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    kind = Column(String(32), nullable=False)
+    starts_on = Column(Date, nullable=False)
+    ends_on = Column(Date, nullable=False)
+    content = Column(Text, nullable=False)
+    valid = Column(Boolean, nullable=False, default=True)
+    invalidated_at = Column(DateTime(timezone=True), nullable=True)
+    created_by_person_id = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
 class Audit(Base):
     __tablename__ = "audits"
 

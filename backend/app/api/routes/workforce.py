@@ -31,6 +31,11 @@ from app.schemas.workforce import (
     ClosingUpdate,
     DashboardOut,
     EmployeeCreate,
+    FiscalFileCreate,
+    FiscalFileOut,
+    FiscalFileUpdate,
+    FiscalImportCreate,
+    FiscalImportOut,
     EmployeeOut,
     EmployeeUpdate,
     HolidayCreate,
@@ -210,6 +215,7 @@ certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-
 requests = APIRouter(prefix="/requests", tags=["requests"])
 closings = APIRouter(prefix="/closings", tags=["closings"])
 hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"])
+fiscal_files = APIRouter(prefix="/fiscal-files", tags=["fiscal-files"])
 notifications = APIRouter(prefix="/notifications", tags=["notifications"])
 audits = APIRouter(prefix="/audits", tags=["audits"])
 reads = APIRouter(tags=["reads"])
@@ -689,7 +695,7 @@ def dashboard(
     return json_data(dump_one(service.dashboard(as_scope(actor)), DashboardOut, None))
 
 
-@reads.get("/payroll-totals", summary="Totais de marcações do período")
+@reads.get("/payroll-totals", summary="Totais da folha no mês")
 def payroll_totals(
     year: int = Query(ge=2000, le=2100),
     month: int = Query(ge=1, le=12),
@@ -718,6 +724,70 @@ def hour_bank(
     service: WorkforceService = Depends(get_workforce_service),
 ):
     return json_data(dump_one(service.hour_bank(as_scope(actor), employee_id), HourBankOut, None))
+
+
+@fiscal_files.get("", summary="Listar arquivos fiscais", description="Filtros: kind, valid.")
+def list_fiscal_files(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_fiscal_files(as_scope(actor), page, limit, read_filters(request, ("kind", "valid")))
+    return json_data(dump_page(items, total, page, limit, FiscalFileOut, fields))
+
+
+@fiscal_files.post("/imports", status_code=201, summary="Importar marcações do AFD")
+def import_afd(
+    body: FiscalImportCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    result = service.import_afd(as_scope(actor), body.content)
+    return json_data(dump_one(result, FiscalImportOut, None), status_code=201)
+
+
+@fiscal_files.get("/{row_id}", summary="Detalhe do arquivo fiscal")
+def get_fiscal_file(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_fiscal_file(as_scope(actor), row_id), FiscalFileOut, fields))
+
+
+@fiscal_files.post("", status_code=201, summary="Gerar arquivo fiscal")
+def create_fiscal_file(
+    body: FiscalFileCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.create_fiscal_file(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, FiscalFileOut, None), status_code=201)
+
+
+@fiscal_files.put("/{row_id}", summary="Atualizar arquivo fiscal")
+def update_fiscal_file(
+    row_id: int,
+    body: FiscalFileUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_fiscal_file_change(as_scope(actor), row_id)
+    return json_data(None)
+
+
+@fiscal_files.delete("/{row_id}", summary="Excluir arquivo fiscal")
+def delete_fiscal_file(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_fiscal_file_change(as_scope(actor), row_id)
+    return json_data(None)
 
 
 @hour_bank_entries.get("", summary="Listar lançamentos do banco", description="Filtros: employee_id, kind.")
@@ -786,6 +856,7 @@ routers.extend(
         requests,
         closings,
         hour_bank_entries,
+        fiscal_files,
         notifications,
         audits,
         reads,

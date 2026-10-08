@@ -7,6 +7,7 @@ from app.schemas.workforce import (
     AuditOut,
     ClosingOut,
     EmployeeOut,
+    FiscalFileOut,
     HolidayOut,
     HourBankEntryOut,
     JourneyOut,
@@ -44,6 +45,7 @@ RESOURCES: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     "requests": (RequestOut, RequestOut),
     "closings": (ClosingOut, ClosingOut),
     "hour-bank-entries": (HourBankEntryOut, HourBankEntryOut),
+    "fiscal-files": (FiscalFileOut, FiscalFileOut),
     "notifications": (NotificationOut, NotificationOut),
     "audits": (AuditOut, AuditOut),
 }

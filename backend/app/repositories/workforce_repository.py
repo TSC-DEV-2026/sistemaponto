@@ -11,6 +11,7 @@ from app.models.workforce import (
     ClosingEvent,
     Employee,
     EmployeeVigency,
+    FiscalFile,
     Holiday,
     HourBankEntry,
     Notification,
@@ -212,6 +213,37 @@ class WorkforceRepository:
         )
         return {employee_id: count for employee_id, count in rows}
 
+    def valid_punches_in(self, tenant_id: int, start: datetime, end: datetime) -> list[Punch]:
+        return (
+            self.db.query(Punch)
+            .filter(
+                Punch.tenant_id == tenant_id,
+                Punch.valid.is_(True),
+                Punch.occurred_at >= start,
+                Punch.occurred_at < end,
+            )
+            .order_by(Punch.occurred_at.asc(), Punch.id.asc())
+            .all()
+        )
+
+    def punch_at(self, tenant_id: int, employee_id: int, occurred_at: datetime) -> Punch | None:
+        return (
+            self.db.query(Punch)
+            .filter(
+                Punch.tenant_id == tenant_id,
+                Punch.employee_id == employee_id,
+                Punch.occurred_at == occurred_at,
+            )
+            .first()
+        )
+
+    def employee_by_cpf(self, tenant_id: int, cpf: str) -> Employee | None:
+        return (
+            self.db.query(Employee)
+            .filter(Employee.tenant_id == tenant_id, Employee.cpf == cpf)
+            .one_or_none()
+        )
+
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
         return (
             self.db.query(Punch)
@@ -301,6 +333,30 @@ class WorkforceRepository:
             self.db.query(Closing)
             .filter(Closing.tenant_id == tenant_id, Closing.starts_on <= end, Closing.ends_on >= start)
             .first()
+        )
+
+    def closed_exact(self, tenant_id: int, start: date, end: date) -> Closing | None:
+        return (
+            self.db.query(Closing)
+            .filter(
+                Closing.tenant_id == tenant_id,
+                Closing.status == "closed",
+                Closing.starts_on == start,
+                Closing.ends_on == end,
+            )
+            .first()
+        )
+
+    def fiscal_files_overlapping(self, tenant_id: int, start: date, end: date) -> list[FiscalFile]:
+        return (
+            self.db.query(FiscalFile)
+            .filter(
+                FiscalFile.tenant_id == tenant_id,
+                FiscalFile.valid.is_(True),
+                FiscalFile.starts_on <= end,
+                FiscalFile.ends_on >= start,
+            )
+            .all()
         )
 
     def closed_covering(self, tenant_id: int, day: date) -> Closing | None:
