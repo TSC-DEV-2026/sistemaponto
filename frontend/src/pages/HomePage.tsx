@@ -53,7 +53,7 @@ export function HomePage() {
         </section>
         <section className="rounded-md border border-border bg-card px-4 py-3">
           <h2 className="text-sm font-medium">Ponto</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.punches_today} marcações hoje.` : boardState === "error" ? "Não foi possível carregar." : "Carregando."} A apuração não é calculada.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.punches_today} marcações hoje.` : boardState === "error" ? "Não foi possível carregar." : "Carregando."} A apuração do período fica em Jornada e Ponto.</p>
         </section>
         <section className="rounded-md border border-border bg-card px-4 py-3">
           <h2 className="text-sm font-medium">Solicitações</h2>

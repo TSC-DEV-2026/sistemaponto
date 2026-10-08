@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
@@ -347,8 +348,8 @@ export function EmployeePage() {
                 ? `${schedule.name}: ${schedule.morning_start || "—"}–${schedule.morning_end || "—"} / ${schedule.afternoon_start || "—"}–${schedule.afternoon_end || "—"}`
                 : "Nenhuma jornada vigente."}
             </p>
-            <p className="mt-2">A apuração não é calculada. As regras detalhadas de tolerância, extra e banco ainda não foram definidas.</p>
           </section>
+          <TimeResultsPanel employeeId={id} />
           {isAdmin ? <PunchCorrectionForm employeeId={id} onSaved={load} /> : null}
           <PunchLists punches={punches} />
           <section className="text-sm">

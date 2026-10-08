@@ -573,7 +573,7 @@ export function LaborPage() {
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="text-xl font-semibold">Regras Trabalhistas</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Cadastro de sindicatos, acordos, feriados e regras. O cálculo da apuração não usa estes registros ainda.</p>
+        <p className="mt-2 text-sm text-muted-foreground">A apuração usa o feriado. Sindicato e acordo ainda não alteram tolerância, intervalo nem adicional.</p>
       </div>
       <CatalogPanel title="Sindicatos" hint="O vínculo do funcionário fica na vigência." path="/unions" columns={[{ key: "name", label: "Nome" }]} fields={[{ name: "name", label: "Nome", type: "text", required: true }]} />
       <CatalogPanel
