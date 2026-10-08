@@ -129,6 +129,8 @@ export type Closing = {
   id: number
   year: number
   month: number
+  starts_on: string
+  ends_on: string
   status: string
   note: string | null
   closed_at: string | null
