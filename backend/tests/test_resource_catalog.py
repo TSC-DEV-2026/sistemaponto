@@ -58,6 +58,8 @@ def test_lista_e_filtro_sem_sql():
         "hour-bank-entries",
         "fiscal-files",
         "notifications",
+        "notification-preferences",
+        "notice-emails",
         "audits",
     ]
     found = [item for item in items if item["name"] == "tenants"]
