@@ -1,11 +1,13 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from app.core.cpf import normalize_cpf
 from app.core.exceptions import AppError
 from app.core.workforce import (
     AUDIT_ACTION,
     BR,
+    CERTIFICATE_CONFLICT,
+    MANUAL_OCCURRENCE_KINDS,
     OCCURRENCE_FOR_REQUEST,
     REASON_FOR_REQUEST,
     REASON_KINDS,
@@ -45,6 +47,7 @@ from app.models.workforce import (
     Unit,
 )
 from app.repositories.workforce_repository import WorkforceRepository
+from app.services.storage_service import StorageService
 
 UNIQUE_MODELS = {
     Job,
@@ -333,38 +336,65 @@ class WorkforceService:
         raise AppError(409, "Marcação registrada não é alterada nem apagada.")
 
     def list_occurrences(self, scope: Scope, page: int, limit: int, equals: dict):
-        return self._scoped_list(scope, Occurrence, page, limit, equals)
+        rows, total = self._scoped_list(scope, Occurrence, page, limit, equals)
+        return [self._show_document(row) for row in rows], total
 
     def get_occurrence(self, scope: Scope, row_id: int) -> Occurrence:
         row = self._row(Occurrence, scope, row_id)
         self._visible(scope, row.employee_id)
-        return row
+        return self._show_document(row)
 
     def create_occurrence(self, scope: Scope, data: dict, *, source: str = "admin", request_id: int | None = None) -> Occurrence:
-        if source == "admin":
-            self._admin(scope)
         employee = self._employee(scope, int(data["employee_id"]))
-        start = data["starts_on"]
-        end = assert_period(start, data.get("ends_on"))
-        self._assert_open(scope.tenant_id, start)
-        self._assert_open(scope.tenant_id, end)
-        reason_id = self._reason(scope, data["kind"] if data["kind"] in REASON_KINDS else None, data.get("reason_id"))
+        kind = data["kind"]
+        if source == "approved_request":
+            origin = "approved_request"
+        elif kind in MANUAL_OCCURRENCE_KINDS:
+            self._can_launch(scope, employee)
+            origin = "manual"
+        else:
+            self._admin(scope)
+            origin = "admin"
+        start, end, starts_at, ends_at = self._span(data)
+        self._assert_span_open(scope.tenant_id, start, end)
+        cid, crm, doctor = self._medical(kind, data)
+        photo_key = self._photo_key(scope, kind, data.get("photo_key"))
+        reason_id = self._reason(scope, kind if kind in REASON_KINDS else None, data.get("reason_id"))
+        warning = None
+        if kind == "certificate" and self._period_has_punch(scope, employee.id, start, end, starts_at, ends_at):
+            warning = CERTIFICATE_CONFLICT
         row = self.repo.add(
             Occurrence(
                 tenant_id=scope.tenant_id,
                 employee_id=employee.id,
-                kind=data["kind"],
+                kind=kind,
                 starts_on=start,
                 ends_on=end,
+                starts_at=starts_at,
+                ends_at=ends_at,
                 reason_id=reason_id,
                 note=self._note(data.get("note")),
-                source=source,
+                source=origin,
                 request_id=request_id,
+                cid=cid,
+                crm=crm,
+                doctor_name=doctor,
+                photo_key=photo_key,
+                warning=warning,
                 created_at=self.clock(),
             )
         )
-        self._audit(scope, employee.id, "occurrence", row.id, None, data["kind"], start)
-        return row
+        self._audit(scope, employee.id, "occurrence", row.id, None, kind, start)
+        return self._show_document(row)
+
+    def store_certificate_photo(self, scope: Scope, content_type: str, body: bytes) -> str:
+        self._known(scope)
+        return StorageService().upload(
+            tenant_id=scope.tenant_id,
+            folder="certificates",
+            content_type=content_type,
+            body=body,
+        )
 
     def update_occurrence(self, scope: Scope, row_id: int, data: dict) -> Occurrence:
         self._admin(scope)
@@ -398,6 +428,9 @@ class WorkforceService:
         moments: list[datetime] = []
         start = data.get("starts_on")
         end = data.get("ends_on")
+        starts_at = None
+        ends_at = None
+        cid = crm = doctor = photo_key = None
         if kind == "adjustment":
             raw = data.get("punches")
             if not raw and data.get("occurred_at") is not None:
@@ -407,14 +440,15 @@ class WorkforceService:
             end = day
             occurred = moments[0] if len(moments) == 1 else None
             self._assert_open(scope.tenant_id, day)
+            self._medical(kind, data)
+            self._photo_key(scope, kind, data.get("photo_key"))
         else:
             if data.get("punches"):
                 raise AppError(400, "Marcações do dia só entram no ajuste")
-            if start is None:
-                raise AppError(400, "Informe o período")
-            end = assert_period(start, end)
-            self._assert_open(scope.tenant_id, start)
-            self._assert_open(scope.tenant_id, end)
+            start, end, starts_at, ends_at = self._span(data)
+            self._assert_span_open(scope.tenant_id, start, end)
+            cid, crm, doctor = self._medical(kind, data)
+            photo_key = self._photo_key(scope, kind, data.get("photo_key"))
         reason_id = self._reason(scope, REASON_FOR_REQUEST[kind], data.get("reason_id"))
         row = self.repo.add(
             TimeRequest(
@@ -427,6 +461,12 @@ class WorkforceService:
                 starts_on=start,
                 ends_on=end,
                 occurred_at=occurred,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                cid=cid,
+                crm=crm,
+                doctor_name=doctor,
+                photo_key=photo_key,
                 decision_note=None,
                 decided_at=None,
                 decided_by_person_id=None,
@@ -443,12 +483,15 @@ class WorkforceService:
                 )
             )
         self._request_event(scope, row, "pending", "Criada")
+        notice = "A solicitação está pendente e não altera o ponto."
+        if kind == "certificate":
+            notice = "Há um atestado recebido para analisar."
         self._notify(
             scope,
             employee,
             "request_created",
             "Solicitação enviada",
-            "A solicitação está pendente e não altera o ponto.",
+            notice,
             include_admins=True,
         )
         return self.get_request(scope, row.id)
@@ -612,6 +655,8 @@ class WorkforceService:
             "pending_adjustments": self.repo.count_requests(scope.tenant_id, kind="adjustment", status="pending"),
             "pending_allowances": self.repo.count_requests(scope.tenant_id, kind="allowance", status="pending"),
             "pending_certificates": self.repo.count_requests(scope.tenant_id, kind="certificate", status="pending"),
+            "pending_leaves": self.repo.count_requests(scope.tenant_id, kind="leave", status="pending"),
+            "pending_vacations": self.repo.count_requests(scope.tenant_id, kind="vacation", status="pending"),
             "open_closings": self.repo.count_model(Closing, tenant_id=scope.tenant_id, status="open"),
             "employee_capacity": tenant.employee_capacity,
         }
@@ -891,8 +936,14 @@ class WorkforceService:
                 "kind": OCCURRENCE_FOR_REQUEST[row.kind],
                 "starts_on": start,
                 "ends_on": row.ends_on or start,
+                "starts_at": row.starts_at,
+                "ends_at": row.ends_at,
                 "reason_id": row.reason_id,
                 "note": row.note,
+                "cid": row.cid,
+                "crm": row.crm,
+                "doctor_name": row.doctor_name,
+                "photo_key": row.photo_key,
             },
             source="approved_request",
             request_id=row.id,
@@ -946,6 +997,101 @@ class WorkforceService:
         subject_id = created[0].id if created else employee.id
         self._audit(scope, employee.id, "punch_correction", subject_id, None, origin_label, day)
         return created
+
+    def _span(self, data: dict) -> tuple[date, date, datetime | None, datetime | None]:
+        start = data.get("starts_on")
+        if start is None:
+            raise AppError(400, "Informe o período")
+        end = assert_period(start, data.get("ends_on"))
+        starts_at = data.get("starts_at")
+        ends_at = data.get("ends_at")
+        if (starts_at is None) != (ends_at is None):
+            raise AppError(400, "Informe o início e o fim do horário")
+        if starts_at is None:
+            return start, end, None, None
+        starts_at = assert_aware(starts_at)
+        ends_at = assert_aware(ends_at)
+        if ends_at <= starts_at:
+            raise AppError(400, "O fim do horário precisa ser posterior ao início")
+        if start != end or self._punch_day(starts_at) != start or self._punch_day(ends_at) != end:
+            raise AppError(400, "Horário parcial vale para um dia")
+        return start, end, starts_at, ends_at
+
+    def _assert_span_open(self, tenant_id: int, start: date, end: date) -> None:
+        day = start
+        while day <= end:
+            self._assert_open(tenant_id, day)
+            day += timedelta(days=1)
+
+    def _medical(self, kind: str, data: dict) -> tuple[str | None, str | None, str | None]:
+        cid = self._bounded(data.get("cid"), 16)
+        crm = self._bounded(data.get("crm"), 32)
+        doctor = self._bounded(data.get("doctor_name"), 255)
+        if kind != "certificate":
+            if cid or crm or doctor:
+                raise AppError(400, "CID, CRM e médico só entram no atestado")
+            return None, None, None
+        if not cid or not crm or not doctor:
+            raise AppError(400, "Informe CID, CRM e o nome do médico")
+        return cid, crm, doctor
+
+    def _photo_key(self, scope: Scope, kind: str, value) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        if kind != "certificate":
+            raise AppError(400, "A foto só entra no atestado")
+        key = str(value).strip()
+        prefix = f"{scope.tenant_id}/certificates/"
+        if not key.startswith(prefix) or ".." in key:
+            raise AppError(400, "A foto não pertence a esta empresa")
+        return key
+
+    def _period_has_punch(
+        self,
+        scope: Scope,
+        employee_id: int,
+        start: date,
+        end: date,
+        starts_at: datetime | None,
+        ends_at: datetime | None,
+    ) -> bool:
+        window_start, _window_end = day_bounds(start)
+        _start, window_end = day_bounds(end)
+        rows = self.repo.valid_punches_between(scope.tenant_id, employee_id, window_start, window_end)
+        if starts_at is None:
+            return len(rows) > 0
+        return any(starts_at <= row.occurred_at <= ends_at for row in rows)
+
+    def _photo_url(self, key: str | None) -> str | None:
+        if not key:
+            return None
+        try:
+            return StorageService().presign_get(key)
+        except AppError:
+            return None
+
+    def _show_document(self, row: Occurrence) -> Occurrence:
+        row.photo_url = self._photo_url(row.photo_key)
+        return row
+
+    def _bounded(self, value, limit: int) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if len(text) > limit:
+            raise AppError(400, "Texto longo demais")
+        return text
+
+    def _can_launch(self, scope: Scope, employee: Employee) -> None:
+        if scope.role == "admin":
+            return
+        if scope.role != "manager":
+            raise AppError(403, "Sem permissão")
+        ids = self._visible_ids(scope) or []
+        if employee.id not in ids:
+            raise AppError(403, "Sem permissão")
 
     def _can_punch(self, scope: Scope, employee: Employee, source: str | None) -> None:
         if source == "approved_request":
@@ -1065,6 +1211,13 @@ class WorkforceService:
             "starts_on": row.starts_on,
             "ends_on": row.ends_on,
             "occurred_at": row.occurred_at,
+            "starts_at": row.starts_at,
+            "ends_at": row.ends_at,
+            "cid": row.cid,
+            "crm": row.crm,
+            "doctor_name": row.doctor_name,
+            "photo_key": row.photo_key,
+            "photo_url": self._photo_url(row.photo_key),
             "punches": moments,
             "decision_note": row.decision_note,
             "decided_at": row.decided_at,

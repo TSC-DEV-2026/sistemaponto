@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 
 from app.api.dependencies.auth import Actor, require_tenant
 from app.api.dependencies.services import get_workforce_service
@@ -23,6 +23,7 @@ from app.schemas.workforce import (
     AgreementOut,
     AgreementUpdate,
     AuditOut,
+    CertificatePhotoOut,
     ClosingCreate,
     ClosingOut,
     ClosingUpdate,
@@ -198,6 +199,7 @@ employees = APIRouter(prefix="/employees", tags=["employees"])
 vigencies = APIRouter(prefix="/employee-vigencies", tags=["employee-vigencies"])
 punches = APIRouter(prefix="/punches", tags=["punches"])
 occurrences = APIRouter(prefix="/occurrences", tags=["occurrences"])
+certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-photos"])
 requests = APIRouter(prefix="/requests", tags=["requests"])
 closings = APIRouter(prefix="/closings", tags=["closings"])
 notifications = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -384,6 +386,16 @@ def delete_punch(
 ):
     service.refuse_punch_change(as_scope(actor), row_id)
     return json_data(None)
+
+
+@certificate_photos.post("", status_code=201, summary="Enviar a foto do atestado")
+def upload_certificate_photo(
+    file: UploadFile = File(...),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    key = service.store_certificate_photo(as_scope(actor), file.content_type or "", file.file.read())
+    return json_data(CertificatePhotoOut(key=key).model_dump(), status_code=201)
 
 
 @occurrences.get("", summary="Listar ocorrências", description="Filtros: employee_id, kind.")
@@ -680,5 +692,5 @@ def payroll_totals(
 
 
 routers.extend(
-    [employees, vigencies, punches, occurrences, requests, closings, notifications, audits, reads]
+    [employees, vigencies, punches, occurrences, certificate_photos, requests, closings, notifications, audits, reads]
 )

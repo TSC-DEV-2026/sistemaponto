@@ -17,7 +17,7 @@ VIGENCY_KINDS = (
     "status",
 )
 STATUS_LABELS = ("active", "dismissed")
-REQUEST_KINDS = ("adjustment", "allowance", "certificate")
+REQUEST_KINDS = ("adjustment", "allowance", "certificate", "leave", "vacation")
 DECISIONS = ("approved", "rejected", "cancelled")
 OCCURRENCE_KINDS = (
     "adjustment",
@@ -35,12 +35,18 @@ REASON_FOR_REQUEST = {
     "adjustment": "adjustment",
     "allowance": "allowance",
     "certificate": "certificate",
+    "leave": None,
+    "vacation": None,
 }
 OCCURRENCE_FOR_REQUEST = {
     "adjustment": "adjustment",
     "allowance": "allowance",
     "certificate": "certificate",
+    "leave": "leave",
+    "vacation": "vacation",
 }
+MANUAL_OCCURRENCE_KINDS = ("allowance", "certificate", "leave", "vacation")
+CERTIFICATE_CONFLICT = "período abonado conflita com registro de ponto"
 AUDIT_ACTION = {
     "job": "Alteração de cargo",
     "journey": "Alteração de jornada",
