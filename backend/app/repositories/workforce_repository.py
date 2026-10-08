@@ -14,7 +14,9 @@ from app.models.workforce import (
     FiscalFile,
     Holiday,
     HourBankEntry,
+    NoticeEmail,
     Notification,
+    NotificationPreference,
     Occurrence,
     Punch,
     RequestEvent,
@@ -47,9 +49,57 @@ class WorkforceRepository:
         )
 
     def admins(self, tenant_id: int) -> list[Membership]:
+        return self.role_memberships(tenant_id, "admin")
+
+    def role_memberships(self, tenant_id: int, role: str) -> list[Membership]:
         return (
             self.db.query(Membership)
-            .filter(Membership.tenant_id == tenant_id, Membership.role == "admin")
+            .filter(Membership.tenant_id == tenant_id, Membership.role == role)
+            .all()
+        )
+
+    def preference_for(self, tenant_id: int, person_id: int, kind: str) -> NotificationPreference | None:
+        return (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.tenant_id == tenant_id,
+                NotificationPreference.person_id == person_id,
+                NotificationPreference.kind == kind,
+            )
+            .one_or_none()
+        )
+
+    def notice_between(
+        self,
+        tenant_id: int,
+        person_id: int,
+        kind: str,
+        start: datetime,
+        end: datetime,
+    ) -> Notification | None:
+        return (
+            self.db.query(Notification)
+            .filter(
+                Notification.tenant_id == tenant_id,
+                Notification.person_id == person_id,
+                Notification.kind == kind,
+                Notification.created_at >= start,
+                Notification.created_at < end,
+            )
+            .first()
+        )
+
+    def employee_by_person(self, tenant_id: int, person_id: int) -> Employee | None:
+        return (
+            self.db.query(Employee)
+            .filter(Employee.tenant_id == tenant_id, Employee.person_id == person_id)
+            .one_or_none()
+        )
+
+    def open_closings(self, tenant_id: int) -> list[Closing]:
+        return (
+            self.db.query(Closing)
+            .filter(Closing.tenant_id == tenant_id, Closing.status == "open")
             .all()
         )
 

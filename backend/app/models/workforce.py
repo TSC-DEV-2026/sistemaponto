@@ -281,6 +281,33 @@ class ClosingEvent(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "person_id", "kind", name="uq_notification_preference"),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    person_id = Column(BigInteger, nullable=False, index=True)
+    kind = Column(String(64), nullable=False)
+    enabled = Column(Boolean, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class NoticeEmail(Base):
+    __tablename__ = "notice_emails"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    person_id = Column(BigInteger, nullable=False, index=True)
+    employee_id = Column(BigInteger, nullable=True)
+    kind = Column(String(64), nullable=False)
+    body = Column(Text, nullable=False)
+    address = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

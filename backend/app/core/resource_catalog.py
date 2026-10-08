@@ -12,7 +12,9 @@ from app.schemas.workforce import (
     HourBankEntryOut,
     JourneyOut,
     NamedOut,
+    NoticeEmailOut,
     NotificationOut,
+    NotificationPreferenceOut,
     OccurrenceOut,
     PunchOut,
     PunchRuleOut,
@@ -47,6 +49,8 @@ RESOURCES: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     "hour-bank-entries": (HourBankEntryOut, HourBankEntryOut),
     "fiscal-files": (FiscalFileOut, FiscalFileOut),
     "notifications": (NotificationOut, NotificationOut),
+    "notification-preferences": (NotificationPreferenceOut, NotificationPreferenceOut),
+    "notice-emails": (NoticeEmailOut, NoticeEmailOut),
     "audits": (AuditOut, AuditOut),
 }
 

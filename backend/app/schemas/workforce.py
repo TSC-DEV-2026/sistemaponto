@@ -419,6 +419,45 @@ class NotificationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class NotificationPreferenceCreate(BaseModel):
+    kind: str = Field(min_length=1, max_length=64)
+    enabled: bool
+
+
+class NotificationPreferenceUpdate(BaseModel):
+    enabled: bool | None = None
+
+
+class NotificationPreferenceOut(BaseModel):
+    id: int
+    person_id: int
+    kind: str
+    enabled: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NoticeEmailUpdate(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class NoticeEmailOut(BaseModel):
+    id: int
+    person_id: int
+    employee_id: int | None
+    kind: str
+    body: str
+    address: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NoticeRunOut(BaseModel):
+    created: int
+
+
 class AuditUpdate(BaseModel):
     note: str | None = None
 

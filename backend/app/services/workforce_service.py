@@ -6,6 +6,7 @@ from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payro
 from app.core.hour_bank import project_balance
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
+from app.core.notices import PHRASES
 from app.core.workforce import (
     AUDIT_ACTION,
     BR,
@@ -34,6 +35,8 @@ from app.models.workforce import (
     FiscalFile,
     Holiday,
     HourBankEntry,
+    NoticeEmail,
+    NotificationPreference,
     Job,
     Journey,
     LaborAgreement,
@@ -487,17 +490,8 @@ class WorkforceService:
                 )
             )
         self._request_event(scope, row, "pending", "Criada")
-        notice = "A solicitação está pendente e não altera o ponto."
-        if kind == "certificate":
-            notice = "Há um atestado recebido para analisar."
-        self._notify(
-            scope,
-            employee,
-            "request_created",
-            "Solicitação enviada",
-            notice,
-            include_admins=True,
-        )
+        notice_kind = "certificate_received" if kind == "certificate" else "request_created"
+        self._notify_reviewers(scope, employee, notice_kind)
         return self.get_request(scope, row.id)
 
     def decide_request(self, scope: Scope, row_id: int, data: dict) -> dict:
@@ -520,13 +514,7 @@ class WorkforceService:
         self.repo.add(row)
         self._request_event(scope, row, status, row.decision_note)
         self._audit(scope, employee.id, "request", row.id, "pending", status, row.starts_on)
-        title = {"approved": "Solicitação aprovada", "rejected": "Solicitação recusada", "cancelled": "Solicitação cancelada"}[status]
-        body = {
-            "approved": "A aprovação efetivou o registro correspondente. A apuração não foi recalculada.",
-            "rejected": "O ponto existente foi mantido.",
-            "cancelled": "O cancelamento não altera o ponto.",
-        }[status]
-        self._notify(scope, employee, f"request_{status}", title, body, include_admins=False)
+        self._notify_employee(scope, employee, f"request_{status}")
         return self.get_request(scope, row.id)
 
     def list_closings(self, scope: Scope, page: int, limit: int, equals: dict):
@@ -1260,31 +1248,17 @@ class WorkforceService:
 
     def _plan_notice(self, scope: Scope) -> None:
         tenant = self.repo.get_tenant(scope.tenant_id)
-        if tenant is None:
+        if tenant is None or tenant.employee_capacity <= 0:
             return
         active = self.repo.count_active(scope.tenant_id, self.today())
         if active >= tenant.employee_capacity:
-            title = "Limite do plano atingido"
-            body = "A capacidade de funcionários ativos foi atingida."
             kind = "plan_limit"
-        elif tenant.employee_capacity > 1 and active == tenant.employee_capacity - 1:
-            title = "Limite do plano próximo"
-            body = "Resta 1 vaga de funcionário ativo."
+        elif active * 100 >= tenant.employee_capacity * 85:
             kind = "plan_limit_near"
         else:
             return
-        self.repo.add(
-            Notification(
-                tenant_id=scope.tenant_id,
-                person_id=scope.person_id,
-                employee_id=None,
-                kind=kind,
-                title=title,
-                body=body,
-                read_at=None,
-                created_at=self.clock(),
-            )
-        )
+        for person_id in self._admin_ids(scope):
+            self._deliver(scope, person_id, None, kind, daily=True)
 
     def _approve(self, scope: Scope, row: TimeRequest, employee: Employee) -> None:
         if row.kind == "adjustment":
@@ -1642,18 +1616,202 @@ class WorkforceService:
             ],
         }
 
-    def _notify(self, scope: Scope, employee: Employee, kind: str, title: str, body: str, *, include_admins: bool) -> None:
-        sent: set[int] = set()
-        if employee.person_id is not None:
-            sent.add(employee.person_id)
-            self._notice(scope, employee.person_id, employee.id, kind, title, body)
-        if not include_admins:
+    def list_notification_preferences(self, scope: Scope, page: int, limit: int, equals: dict):
+        self._known(scope)
+        filters = dict(equals)
+        filters["person_id"] = scope.person_id
+        return self.repo.list_rows(
+            NotificationPreference, scope.tenant_id, page=page, limit=limit, equals=filters, descending=True
+        )
+
+    def get_notification_preference(self, scope: Scope, row_id: int) -> NotificationPreference:
+        self._known(scope)
+        row = self._row(NotificationPreference, scope, row_id)
+        if row.person_id != scope.person_id:
+            raise AppError(404, "Registro não encontrado")
+        return row
+
+    def create_notification_preference(self, scope: Scope, data: dict) -> NotificationPreference:
+        self._known(scope)
+        kind = str(data["kind"])
+        if kind not in PHRASES:
+            raise AppError(400, "Aviso inválido")
+        if self.repo.preference_for(scope.tenant_id, scope.person_id, kind) is not None:
+            raise AppError(409, "Esse aviso já está configurado")
+        return self.repo.add(
+            NotificationPreference(
+                tenant_id=scope.tenant_id,
+                person_id=scope.person_id,
+                kind=kind,
+                enabled=bool(data["enabled"]),
+                created_at=self.clock(),
+            )
+        )
+
+    def update_notification_preference(self, scope: Scope, row_id: int, data: dict) -> NotificationPreference:
+        row = self.get_notification_preference(scope, row_id)
+        if "enabled" in data and data["enabled"] is not None:
+            row.enabled = bool(data["enabled"])
+            self.repo.add(row)
+        return row
+
+    def delete_notification_preference(self, scope: Scope, row_id: int) -> None:
+        row = self.get_notification_preference(scope, row_id)
+        self.repo.delete(row)
+
+    def list_notice_emails(self, scope: Scope, page: int, limit: int, equals: dict):
+        self._known(scope)
+        filters = dict(equals)
+        if scope.role != "admin":
+            filters["person_id"] = scope.person_id
+        return self.repo.list_rows(NoticeEmail, scope.tenant_id, page=page, limit=limit, equals=filters, descending=True)
+
+    def get_notice_email(self, scope: Scope, row_id: int) -> NoticeEmail:
+        self._known(scope)
+        row = self._row(NoticeEmail, scope, row_id)
+        if scope.role != "admin" and row.person_id != scope.person_id:
+            raise AppError(404, "Registro não encontrado")
+        return row
+
+    def refuse_notice_email_write(self, scope: Scope, row_id: int | None = None) -> None:
+        self._known(scope)
+        if row_id is not None:
+            self.get_notice_email(scope, row_id)
+        raise AppError(409, "E-mail de aviso é gerado pelo sistema.")
+
+    def dispatch_notices(self, scope: Scope) -> dict:
+        self._can_manage_period(scope)
+        before = self.repo.count_model(Notification, tenant_id=scope.tenant_id)
+        self._daily_incomplete(scope)
+        self._daily_closing(scope)
+        self._daily_trial(scope)
+        self._plan_notice(scope)
+        created = self.repo.count_model(Notification, tenant_id=scope.tenant_id) - before
+        return {"created": created}
+
+    def _notify_reviewers(self, scope: Scope, employee: Employee, kind: str) -> None:
+        for person_id in self._reviewer_ids(scope, employee):
+            self._deliver(scope, person_id, employee.id, kind, daily=False)
+
+    def _notify_employee(self, scope: Scope, employee: Employee, kind: str) -> None:
+        if employee.person_id is None:
             return
-        for admin in self.repo.admins(scope.tenant_id):
-            if admin.person_id in sent:
-                continue
-            sent.add(admin.person_id)
-            self._notice(scope, admin.person_id, employee.id, kind, "Nova solicitação", body)
+        self._deliver(scope, employee.person_id, employee.id, kind, daily=False)
+
+    def _deliver(self, scope: Scope, person_id: int, employee_id: int | None, kind: str, *, daily: bool) -> None:
+        phrase = PHRASES[kind]
+        if not self._notice_enabled(scope, person_id, kind):
+            return
+        if daily:
+            start, end = day_bounds(self.today())
+            if self.repo.notice_between(scope.tenant_id, person_id, kind, start, end) is not None:
+                return
+        self._notice(scope, person_id, employee_id, kind, phrase, phrase)
+        employee = self.repo.employee_by_person(scope.tenant_id, person_id)
+        self.repo.add(
+            NoticeEmail(
+                tenant_id=scope.tenant_id,
+                person_id=person_id,
+                employee_id=employee_id,
+                kind=kind,
+                body=phrase,
+                address=None if employee is None else employee.email,
+                created_at=self.clock(),
+            )
+        )
+
+    def _notice_enabled(self, scope: Scope, person_id: int, kind: str) -> bool:
+        row = self.repo.preference_for(scope.tenant_id, person_id, kind)
+        if row is None:
+            return True
+        return bool(row.enabled)
+
+    def _admin_ids(self, scope: Scope) -> list[int]:
+        return [row.person_id for row in self.repo.role_memberships(scope.tenant_id, "admin")]
+
+    def _closer_ids(self, scope: Scope) -> list[int]:
+        found: list[int] = []
+        for role in ("admin", "manager"):
+            for row in self.repo.role_memberships(scope.tenant_id, role):
+                if row.person_id not in found:
+                    found.append(row.person_id)
+        return found
+
+    def _reviewer_ids(self, scope: Scope, employee: Employee) -> list[int]:
+        found = self._admin_ids(scope)
+        team = self.repo.applicable(employee.id, "team", self.today())
+        if team is None or team.reference_id is None:
+            return found
+        member_ids = set(self.repo.employee_ids_for_team(scope.tenant_id, team.reference_id, self.today()))
+        for manager in self.repo.role_memberships(scope.tenant_id, "manager"):
+            row = self.repo.employee_by_person(scope.tenant_id, manager.person_id)
+            if row is not None and row.id in member_ids and manager.person_id not in found:
+                found.append(manager.person_id)
+        return found
+
+    def _daily_incomplete(self, scope: Scope) -> None:
+        start = date(self.today().year, self.today().month, 1)
+        found = False
+        page = 1
+        while True:
+            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+            for employee in rows:
+                if employee.admission_date > self.today():
+                    continue
+                first = employee.admission_date if employee.admission_date > start else start
+                if any(day["incomplete"] for day in self._day_results(scope, employee, first, self.today())):
+                    found = True
+                    if employee.person_id is not None:
+                        self._deliver(scope, employee.person_id, employee.id, "incomplete_punch", daily=True)
+            if page * 100 >= total or not rows:
+                break
+            page += 1
+        if not found:
+            return
+        for person_id in self._closer_ids(scope):
+            self._deliver(scope, person_id, None, "incomplete_punch", daily=True)
+
+    def _daily_closing(self, scope: Scope) -> None:
+        blocked = False
+        soon = False
+        opened = self.repo.open_closings(scope.tenant_id)
+        for row in opened:
+            try:
+                self._assert_can_close(scope, row.starts_on, row.ends_on)
+            except AppError as error:
+                if error.status_code != 409:
+                    raise
+                blocked = True
+            if (row.ends_on - self.today()).days <= 3:
+                soon = True
+        if not opened:
+            month = self.today().month
+            year = self.today().year
+            if month == 12:
+                month_end = date(year, 12, 31)
+            else:
+                month_end = date(year, month + 1, 1) - timedelta(days=1)
+            if 0 <= (month_end - self.today()).days <= 3:
+                soon = True
+        people = self._closer_ids(scope)
+        if blocked:
+            for person_id in people:
+                self._deliver(scope, person_id, None, "closing_pending", daily=True)
+        if soon:
+            for person_id in people:
+                self._deliver(scope, person_id, None, "closing_soon", daily=True)
+
+    def _daily_trial(self, scope: Scope) -> None:
+        tenant = self.repo.get_tenant(scope.tenant_id)
+        ends = None if tenant is None else getattr(tenant, "trial_ends_at", None)
+        if ends is None:
+            return
+        end_day = ends.astimezone(BR).date() if ends.tzinfo is not None else ends.date()
+        left = (end_day - self.today()).days
+        if left < 0 or left > 3:
+            return
+        for person_id in self._admin_ids(scope):
+            self._deliver(scope, person_id, None, "trial_ending", daily=True)
 
     def _notice(self, scope: Scope, person_id: int, employee_id: int | None, kind: str, title: str, body: str) -> None:
         self.repo.add(

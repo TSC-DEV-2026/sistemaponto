@@ -51,7 +51,13 @@ from app.schemas.workforce import (
     NamedCreate,
     NamedOut,
     NamedUpdate,
+    NoticeEmailOut,
+    NoticeEmailUpdate,
+    NoticeRunOut,
     NotificationOut,
+    NotificationPreferenceCreate,
+    NotificationPreferenceOut,
+    NotificationPreferenceUpdate,
     NotificationUpdate,
     OccurrenceCreate,
     OccurrenceOut,
@@ -217,6 +223,9 @@ closings = APIRouter(prefix="/closings", tags=["closings"])
 hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"])
 fiscal_files = APIRouter(prefix="/fiscal-files", tags=["fiscal-files"])
 notifications = APIRouter(prefix="/notifications", tags=["notifications"])
+notification_preferences = APIRouter(prefix="/notification-preferences", tags=["notification-preferences"])
+notice_emails = APIRouter(prefix="/notice-emails", tags=["notice-emails"])
+notification_runs = APIRouter(prefix="/notification-runs", tags=["notification-runs"])
 audits = APIRouter(prefix="/audits", tags=["audits"])
 reads = APIRouter(tags=["reads"])
 
@@ -623,6 +632,125 @@ def update_notification(
     return json_data(dump_one(row, NotificationOut, None))
 
 
+@notification_preferences.get("", summary="Listar preferências de aviso", description="Filtros: kind.")
+def list_notification_preferences(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_notification_preferences(
+        as_scope(actor), page, limit, read_filters(request, ("kind",))
+    )
+    return json_data(dump_page(items, total, page, limit, NotificationPreferenceOut, fields))
+
+
+@notification_preferences.get("/{row_id}", summary="Detalhe da preferência de aviso")
+def get_notification_preference(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(
+        dump_one(service.get_notification_preference(as_scope(actor), row_id), NotificationPreferenceOut, fields)
+    )
+
+
+@notification_preferences.post("", status_code=201, summary="Configurar aviso")
+def create_notification_preference(
+    body: NotificationPreferenceCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.create_notification_preference(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, NotificationPreferenceOut, None), status_code=201)
+
+
+@notification_preferences.put("/{row_id}", summary="Atualizar aviso")
+def update_notification_preference(
+    row_id: int,
+    body: NotificationPreferenceUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.update_notification_preference(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, NotificationPreferenceOut, None))
+
+
+@notification_preferences.delete("/{row_id}", summary="Restaurar aviso")
+def delete_notification_preference(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.delete_notification_preference(as_scope(actor), row_id)
+    return json_data(None)
+
+
+@notice_emails.get("", summary="Listar e-mails de aviso", description="Filtros: kind.")
+def list_notice_emails(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_notice_emails(as_scope(actor), page, limit, read_filters(request, ("kind",)))
+    return json_data(dump_page(items, total, page, limit, NoticeEmailOut, fields))
+
+
+@notice_emails.get("/{row_id}", summary="Detalhe do e-mail de aviso")
+def get_notice_email(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_notice_email(as_scope(actor), row_id), NoticeEmailOut, fields))
+
+
+@notice_emails.post("", status_code=201, summary="Criar e-mail de aviso")
+def create_notice_email(
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_notice_email_write(as_scope(actor))
+    return json_data(None)
+
+
+@notice_emails.put("/{row_id}", summary="Atualizar e-mail de aviso")
+def update_notice_email(
+    row_id: int,
+    body: NoticeEmailUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_notice_email_write(as_scope(actor), row_id)
+    return json_data(None)
+
+
+@notice_emails.delete("/{row_id}", summary="Excluir e-mail de aviso")
+def delete_notice_email(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_notice_email_write(as_scope(actor), row_id)
+    return json_data(None)
+
+
+@notification_runs.post("", status_code=201, summary="Enviar os avisos do dia")
+def dispatch_notices(
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.dispatch_notices(as_scope(actor)), NoticeRunOut, None), status_code=201)
+
+
 @notifications.delete("/{row_id}", summary="Excluir notificação")
 def delete_notification(
     row_id: int,
@@ -858,6 +986,9 @@ routers.extend(
         hour_bank_entries,
         fiscal_files,
         notifications,
+        notification_preferences,
+        notice_emails,
+        notification_runs,
         audits,
         reads,
     ]

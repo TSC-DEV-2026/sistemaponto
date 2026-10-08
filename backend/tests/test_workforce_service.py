@@ -18,6 +18,8 @@ from app.models.workforce import (
     HourBankEntry,
     Job,
     Journey,
+    Notification,
+    NotificationPreference,
     Occurrence,
     Punch,
     RequestEvent,
@@ -63,7 +65,42 @@ class Memory:
         return None
 
     def admins(self, tenant_id: int):
-        return [row for row in self.memberships if row.tenant_id == tenant_id and row.role == "admin"]
+        return self.role_memberships(tenant_id, "admin")
+
+    def role_memberships(self, tenant_id: int, role: str):
+        return [row for row in self.memberships if row.tenant_id == tenant_id and row.role == role]
+
+    def preference_for(self, tenant_id: int, person_id: int, kind: str):
+        for row in self.rows:
+            if (
+                isinstance(row, NotificationPreference)
+                and row.tenant_id == tenant_id
+                and row.person_id == person_id
+                and row.kind == kind
+            ):
+                return row
+        return None
+
+    def notice_between(self, tenant_id: int, person_id: int, kind: str, start: datetime, end: datetime):
+        for row in self.rows:
+            if (
+                isinstance(row, Notification)
+                and row.tenant_id == tenant_id
+                and row.person_id == person_id
+                and row.kind == kind
+                and start <= row.created_at < end
+            ):
+                return row
+        return None
+
+    def employee_by_person(self, tenant_id: int, person_id: int):
+        for row in self._of(Employee, tenant_id):
+            if row.person_id == person_id:
+                return row
+        return None
+
+    def open_closings(self, tenant_id: int):
+        return [row for row in self._of(Closing, tenant_id) if row.status == "open"]
 
     def _of(self, model, tenant_id: int):
         return [row for row in self.rows if isinstance(row, model) and row.tenant_id == tenant_id]
@@ -1624,3 +1661,86 @@ def test_membro_nao_gera_arquivo_fiscal():
         workforce.import_afd(scope(9, "member"), "AFD\n")
     assert member.value.status_code == 403
     assert imported.value.status_code == 403
+
+
+def _access(repo: Memory, person_id: int, role: str) -> None:
+    access = Membership(person_id=person_id, tenant_id=1, role=role)
+    access.id = repo.seq
+    repo.seq += 1
+    repo.memberships.append(access)
+
+
+def test_solicitacao_usa_a_frase_no_sistema_e_no_email():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    person = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    workforce.update_employee(admin(), person["id"], {"email": "ana@example.com"})
+    created = workforce.create_request(scope(9, "member"), period("allowance"))
+    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    assert [row.body for row in notices] == ["Há uma nova solicitação para analisar."]
+    assert notices[0].title == notices[0].body
+    own, _total = workforce.list_notifications(scope(9, "member"), 1, 10, {})
+    assert own == []
+    emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
+    assert emails[0].body == notices[0].body
+    assert emails[0].address is None
+    workforce.create_notification_preference(admin(), {"kind": "request_created", "enabled": False})
+    workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 5)))
+    again, _total = workforce.list_notifications(admin(), 1, 10, {})
+    assert len(again) == 1
+    preference = workforce.list_notification_preferences(admin(), 1, 10, {})[0][0]
+    workforce.delete_notification_preference(admin(), preference.id)
+    workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 4)))
+    workforce.create_request(scope(9, "member"), period("certificate", cid="A00", crm="1234", doctor_name="Dra. Ana"))
+    bodies = [row.body for row in workforce.list_notifications(admin(), 1, 10, {})[0]]
+    assert bodies.count("Há uma nova solicitação para analisar.") == 2
+    assert "Há um atestado recebido para analisar." in bodies
+    workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
+    decided, _total = workforce.list_notifications(scope(9, "member"), 1, 10, {})
+    assert decided[0].body == "Sua solicitação foi aprovada."
+    mailed, _total = workforce.list_notice_emails(scope(9, "member"), 1, 10, {})
+    assert mailed[0].body == "Sua solicitação foi aprovada."
+    assert mailed[0].address == "ana@example.com"
+
+
+def test_envio_diario_de_ponto_fechamento_trial_e_plano():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 10), "note": None},
+    )
+    repo.tenant.trial_ends_at = datetime(2026, 10, 10, 12, 0, tzinfo=BR)
+    first = workforce.dispatch_notices(admin())
+    bodies = {row.kind: row.body for row in workforce.list_notifications(admin(), 1, 20, {})[0]}
+    assert bodies["incomplete_punch"] == "Há um dia com quantidade ímpar de marcações."
+    assert bodies["closing_pending"] == "Há pendência impedindo o fechamento."
+    assert bodies["closing_soon"] == "O fechamento do período ocorre em 3 dias."
+    assert bodies["trial_ending"] == "O período de teste termina em 3 dias. Contrate um plano."
+    assert first["created"] == 4
+    for row in workforce.list_notice_emails(admin(), 1, 20, {})[0]:
+        assert row.body == bodies[row.kind]
+    second = workforce.dispatch_notices(admin())
+    assert second["created"] == 0
+    far = service()[0]
+    far.create_employee(admin(), employee_payload())
+    far_repo_notices = far.dispatch_notices(admin())
+    assert far_repo_notices["created"] == 0
+    with pytest.raises(AppError) as member:
+        workforce.dispatch_notices(scope(9, "member"))
+    assert member.value.status_code == 403
+
+
+def test_limite_proximo_e_limite_atingido_usam_a_frase():
+    workforce, _repo = service(capacity=7)
+    for index in range(6):
+        workforce.create_employee(admin(), employee_payload(str(10000000000 + index), None))
+    near = [row for row in workforce.list_notifications(admin(), 1, 10, {})[0] if row.kind == "plan_limit_near"]
+    assert near[0].body == "A capacidade de funcionários está próxima do limite."
+    assert near[0].title == near[0].body
+    workforce.create_employee(admin(), employee_payload("10000000006", None))
+    reached = [row for row in workforce.list_notifications(admin(), 1, 10, {})[0] if row.kind == "plan_limit"]
+    assert reached[0].body == "A capacidade de funcionários foi atingida."
+    emailed = [row for row in workforce.list_notice_emails(admin(), 1, 10, {})[0] if row.kind == "plan_limit"]
+    assert emailed[0].body == reached[0].body
