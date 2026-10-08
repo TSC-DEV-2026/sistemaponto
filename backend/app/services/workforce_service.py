@@ -8,6 +8,7 @@ from app.core.hour_bank import add_months, project_balance
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.notices import PHRASES
+from app.core.punch_code import read_code, render_code
 from app.core.reports import (
     CLOSING_STATUS,
     ENTRY_TITLES,
@@ -311,7 +312,15 @@ class WorkforceService:
         self._visible(scope, row.employee_id)
         return row
 
-    def create_punch(self, scope: Scope, data: dict, *, source: str | None = None, request_id: int | None = None) -> Punch:
+    def create_punch(
+        self,
+        scope: Scope,
+        data: dict,
+        *,
+        source: str | None = None,
+        request_id: int | None = None,
+        channel: str | None = None,
+    ) -> Punch:
         employee = self._employee(scope, int(data["employee_id"]))
         self._can_punch(scope, employee, source)
         occurred = assert_aware(data["occurred_at"])
@@ -328,11 +337,60 @@ class WorkforceService:
                 note=self._note(data.get("note")),
                 valid=True,
                 voided_at=None,
+                channel=channel,
                 created_at=self.clock(),
             )
         )
         self._audit(scope, employee.id, "punch", row.id, None, "Marcação", self._punch_day(occurred))
         return row
+
+    def punch_code(self, scope: Scope, employee_id: int) -> dict:
+        self._known(scope)
+        employee = self._employee(scope, employee_id)
+        self._visible(scope, employee.id)
+        unit, registration = self._clock_identity(employee, self.today())
+        return {
+            "employee_id": employee.id,
+            "unit_id": unit.reference_id,
+            "unit_name": unit.label,
+            "cpf": employee.cpf,
+            "registration_number": registration,
+            "content": render_code(unit.reference_id, employee.cpf, registration),
+        }
+
+    def punch_qr(self, scope: Scope, data: dict) -> Punch:
+        employee = self._employee(scope, int(data["employee_id"]))
+        self._own_clock(scope, employee)
+        if self._selfie_key(scope, data.get("selfie_key")) is None:
+            raise AppError(400, "A selfie não foi aceita.")
+        occurred = assert_aware(data["occurred_at"])
+        unit, registration = self._clock_identity(employee, occurred.astimezone(BR).date())
+        parsed = read_code(str(data.get("content") or ""))
+        expected = (unit.reference_id, employee.cpf, registration)
+        if parsed != expected:
+            raise AppError(400, "O QR Code não foi aceito.")
+        return self.create_punch(scope, data, source="qr")
+
+    def punch_face(self, scope: Scope, data: dict) -> Punch:
+        employee = self._employee(scope, int(data["employee_id"]))
+        self._own_clock(scope, employee)
+        if data.get("recognized") is not True:
+            raise AppError(400, "O rosto não foi reconhecido.")
+        channel = data.get("channel")
+        if channel not in {"online", "offline"}:
+            raise AppError(400, "Reconhecimento inválido.")
+        return self.create_punch(scope, data, source="face", channel=channel)
+
+    def store_selfie(self, scope: Scope, content_type: str, body: bytes) -> str:
+        self._known(scope)
+        if content_type not in {"image/jpeg", "image/png"}:
+            raise AppError(400, "A selfie precisa ser uma imagem")
+        return StorageService().upload(
+            tenant_id=scope.tenant_id,
+            folder="selfies",
+            content_type=content_type,
+            body=body,
+        )
 
     def correct_punches(self, scope: Scope, data: dict) -> dict:
         self._admin(scope)
@@ -1437,6 +1495,8 @@ class WorkforceService:
             payload["note"] = self._note(data.get("note"))
         if current is None or "hour_bank" in data:
             payload["hour_bank"] = bool(data.get("hour_bank", False))
+        if current is None or "registration_number" in data:
+            payload["registration_number"] = self._registration(scope, data.get("registration_number"), current)
         return payload
 
     def _employee_out(self, row: Employee, labels: dict) -> dict:
@@ -1449,6 +1509,7 @@ class WorkforceService:
             "admission_date": row.admission_date,
             "note": row.note,
             "hour_bank": bool(row.hour_bank),
+            "registration_number": row.registration_number,
         }
         for kind, field in KIND_FIELD.items():
             item = labels.get(kind)
@@ -1700,6 +1761,46 @@ class WorkforceService:
         ids = self._visible_ids(scope) or []
         if employee.id not in ids:
             raise AppError(403, "Sem permissão")
+
+    def _registration(self, scope: Scope, value, current: Employee | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        number = str(value).strip()
+        if "|" in number or len(number) > 32:
+            raise AppError(400, "Matrícula inválida")
+        taken, _total = self.repo.list_rows(
+            Employee,
+            scope.tenant_id,
+            page=1,
+            limit=1,
+            equals={"registration_number": number},
+            descending=False,
+        )
+        if taken and (current is None or taken[0].id != current.id):
+            raise AppError(409, "Matrícula já cadastrada nesta empresa")
+        return number
+
+    def _clock_identity(self, employee: Employee, day: date):
+        if not employee.registration_number:
+            raise AppError(400, "Informe a matrícula.")
+        unit = self.repo.applicable(employee.id, "unit", day)
+        if unit is None or unit.reference_id is None:
+            raise AppError(400, "O funcionário não tem unidade vigente.")
+        return unit, employee.registration_number
+
+    def _own_clock(self, scope: Scope, employee: Employee) -> None:
+        self._known(scope)
+        if employee.person_id != scope.person_id:
+            raise AppError(403, "Sem permissão")
+
+    def _selfie_key(self, scope: Scope, value) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        key = str(value).strip()
+        prefix = f"{scope.tenant_id}/selfies/"
+        if not key.startswith(prefix) or ".." in key:
+            return None
+        return key
 
     def _can_punch(self, scope: Scope, employee: Employee, source: str | None) -> None:
         if source == "approved_request":

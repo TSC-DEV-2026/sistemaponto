@@ -126,6 +126,7 @@ class Employee(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "cpf", name="uq_employee_tenant_cpf"),
         UniqueConstraint("tenant_id", "person_id", name="uq_employee_tenant_person"),
+        UniqueConstraint("tenant_id", "registration_number", name="uq_employee_tenant_registration"),
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -137,6 +138,7 @@ class Employee(Base):
     admission_date = Column(Date, nullable=False)
     note = Column(Text, nullable=True)
     hour_bank = Column(Boolean, nullable=False, default=False)
+    registration_number = Column(String(32), nullable=True)
 
 
 class EmployeeVigency(Base):
@@ -165,6 +167,7 @@ class Punch(Base):
     note = Column(Text, nullable=True)
     valid = Column(Boolean, nullable=False, default=True)
     voided_at = Column(DateTime(timezone=True), nullable=True)
+    channel = Column(String(16), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 

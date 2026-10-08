@@ -1957,3 +1957,159 @@ def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
     with pytest.raises(AppError) as member:
         workforce.report(scope(9, "member"), "punch", start, end, mate["id"], 1, 10)
     assert member.value.status_code == 403
+
+
+def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    _access(repo, 10, "member")
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "22222222222", 9))
+    other = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    button = workforce.create_punch(
+        scope(9, "member"),
+        {"employee_id": person["id"], "occurred_at": at(8, 0, 6), "note": None},
+    )
+    assert button.source == "employee"
+    assert button.channel is None
+
+    def counted() -> int:
+        _rows, total = workforce.list_punches(admin(), 1, 20, {"employee_id": person["id"]})
+        return total
+
+    with pytest.raises(AppError) as missing_registration:
+        workforce.punch_code(scope(9, "member"), person["id"])
+    assert missing_registration.value.message == "Informe a matrícula."
+    updated = workforce.update_employee(admin(), person["id"], {"registration_number": "A1"})
+    assert updated["registration_number"] == "A1"
+    with pytest.raises(AppError) as duplicated:
+        workforce.update_employee(admin(), other["id"], {"registration_number": "A1"})
+    assert duplicated.value.message == "Matrícula já cadastrada nesta empresa"
+    with pytest.raises(AppError) as missing_unit:
+        workforce.punch_code(scope(9, "member"), person["id"])
+    assert missing_unit.value.message == "O funcionário não tem unidade vigente."
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "unit",
+            "reference_id": unit.id,
+            "label": None,
+            "valid_from": date(2026, 10, 1),
+            "note": None,
+        },
+    )
+    code = workforce.punch_code(scope(9, "member"), person["id"])
+    assert code["content"] == f"{unit.id}|22222222222|A1"
+    assert code["unit_name"] == "Matriz"
+    selfie = "1/selfies/foto.jpg"
+    with pytest.raises(AppError) as bad_selfie:
+        workforce.punch_qr(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(9, 0, 6),
+                "content": code["content"],
+                "selfie_key": "1/certificates/foto.jpg",
+                "note": None,
+            },
+        )
+    assert bad_selfie.value.message == "A selfie não foi aceita."
+    assert counted() == 1
+    with pytest.raises(AppError) as bad_code:
+        workforce.punch_qr(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(9, 0, 6),
+                "content": "99|22222222222|A1",
+                "selfie_key": selfie,
+                "note": None,
+            },
+        )
+    assert bad_code.value.message == "O QR Code não foi aceito."
+    assert counted() == 1
+    marked = workforce.punch_qr(
+        scope(9, "member"),
+        {
+            "employee_id": person["id"],
+            "occurred_at": at(9, 0, 6),
+            "content": code["content"],
+            "selfie_key": selfie,
+            "note": None,
+        },
+    )
+    assert marked.source == "qr"
+    assert marked.channel is None
+    with pytest.raises(AppError) as face:
+        workforce.punch_face(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(10, 0, 6),
+                "recognized": False,
+                "channel": "offline",
+                "note": None,
+            },
+        )
+    assert face.value.message == "O rosto não foi reconhecido."
+    assert counted() == 2
+    offline = workforce.punch_face(
+        scope(9, "member"),
+        {
+            "employee_id": person["id"],
+            "occurred_at": at(10, 0, 6),
+            "recognized": True,
+            "channel": "offline",
+            "note": None,
+        },
+    )
+    online = workforce.punch_face(
+        scope(9, "member"),
+        {
+            "employee_id": person["id"],
+            "occurred_at": at(11, 0, 7),
+            "recognized": True,
+            "channel": "online",
+            "note": None,
+        },
+    )
+    assert offline.source == "face" and offline.channel == "offline"
+    assert online.source == "face" and online.channel == "online"
+    with pytest.raises(AppError) as stranger:
+        workforce.punch_qr(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(12, 0, 6),
+                "content": code["content"],
+                "selfie_key": selfie,
+                "note": None,
+            },
+        )
+    with pytest.raises(AppError) as hidden:
+        workforce.punch_code(scope(10, "member"), person["id"])
+    assert stranger.value.status_code == 403
+    assert hidden.value.status_code == 404
+    with pytest.raises(AppError) as image:
+        workforce.store_selfie(scope(9, "member"), "application/pdf", b"abc")
+    assert image.value.message == "A selfie precisa ser uma imagem"
+    opened = workforce.create_closing(
+        admin(),
+        {"starts_on": date(2026, 10, 3), "ends_on": date(2026, 10, 4), "note": None},
+    )
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    before = counted()
+    with pytest.raises(AppError) as closed:
+        workforce.punch_face(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(8, 0, 3),
+                "recognized": True,
+                "channel": "offline",
+                "note": None,
+            },
+        )
+    assert closed.value.message == "Período fechado"
+    assert counted() == before
