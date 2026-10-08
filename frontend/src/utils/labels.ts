@@ -68,6 +68,34 @@ export const noticePhrase: Record<string, string> = {
   trial_ending: "O período de teste termina em 3 dias. Contrate um plano.",
   plan_limit_near: "A capacidade de funcionários está próxima do limite.",
   plan_limit: "A capacidade de funcionários foi atingida.",
+  billing_overdue: "Há uma cobrança em atraso.",
+}
+
+export const paymentMethodLabel: Record<string, string> = {
+  pix: "Pix",
+  boleto: "Boleto",
+  debit: "Cartão de débito",
+  credit: "Cartão de crédito",
+}
+
+export const subscriptionStatusLabel: Record<string, string> = {
+  active: "Ativo",
+  delinquent: "Em atraso",
+  blocked: "Bloqueado",
+}
+
+export const chargeKindLabel: Record<string, string> = {
+  monthly: "Mensalidade",
+  upgrade: "Upgrade",
+}
+
+export const chargeStatusLabel: Record<string, string> = {
+  open: "Em aberto",
+  paid: "Pago",
+}
+
+export function showMoney(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 export function punchOrigin(source: string) {
