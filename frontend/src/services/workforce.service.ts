@@ -29,6 +29,7 @@ export type Employee = {
   admission_date: string
   note: string | null
   hour_bank: boolean
+  registration_number: string | null
   situation: string | null
   job_label: string | null
   journey_label: string | null
@@ -60,7 +61,17 @@ export type Punch = {
   note: string | null
   valid: boolean
   voided_at: string | null
+  channel: string | null
   created_at: string
+}
+
+export type PunchCode = {
+  employee_id: number
+  unit_id: number
+  unit_name: string
+  cpf: string
+  registration_number: string
+  content: string
 }
 
 export type Occurrence = {
@@ -346,6 +357,16 @@ export function uploadCertificatePhoto(file: File) {
   const body = new FormData()
   body.append("file", file)
   return write<{ key: string }>(() => api.post<ApiResponse<{ key: string }>>("/certificate-photos", body))
+}
+
+export function uploadSelfie(file: File) {
+  const body = new FormData()
+  body.append("file", file)
+  return write<{ key: string }>(() => api.post<ApiResponse<{ key: string }>>("/selfie-photos", body))
+}
+
+export function getPunchCode(employeeId: number) {
+  return read<PunchCode>(() => api.get<ApiResponse<PunchCode>>("/punch-codes", { params: { employee_id: employeeId } }))
 }
 
 export function createRecord<T>(path: string, body: Record<string, unknown>) {

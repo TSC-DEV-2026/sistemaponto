@@ -9,10 +9,12 @@ import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDra
 import {
   createRecord,
   getPayroll,
+  getPunchCode,
   getReport,
   listRecords,
   updateRecord,
   uploadCertificatePhoto,
+  uploadSelfie,
   type Closing,
   type Employee,
   type FiscalFile,
@@ -49,14 +51,185 @@ import {
 } from "@/utils/labels"
 
 export function TimeClockPage() {
+  const personId = useAuthStore((state) => state.user?.person_id)
+  const role = useAuthStore((state) => state.user?.role)
+  const isAdmin = role === "admin"
+  const tenantId = useAuthStore((state) => state.activeTenant?.id)
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [selected, setSelected] = useState("")
+  const [code, setCode] = useState("")
+  const [selfie, setSelfie] = useState<File | null>(null)
+  const [channel, setChannel] = useState("online")
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+  const mine = employees.find((item) => item.person_id === personId) ?? null
+
+  useEffect(() => {
+    let active = true
+    listRecords<Employee>("/employees", { page: 1, limit: 100 })
+      .then((page) => {
+        if (active) {
+          setEmployees(page.items)
+        }
+      })
+      .catch((caught: unknown) => {
+        if (active) {
+          setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [tenantId])
+
+  async function punchSimple(employeeId: number) {
+    setError("")
+    setMessage("")
+    try {
+      await createRecord("/punches", { employee_id: employeeId, occurred_at: new Date().toISOString(), note: null })
+      setMessage("Marcação registrada.")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
+    }
+  }
+
+  async function loadCode() {
+    if (!mine) {
+      return
+    }
+    setError("")
+    try {
+      const row = await getPunchCode(mine.id)
+      setCode(row.content)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o QR.")
+    }
+  }
+
+  async function punchQr(event: FormEvent) {
+    event.preventDefault()
+    if (!mine || !selfie) {
+      return
+    }
+    setError("")
+    setMessage("")
+    try {
+      const current = code || (await getPunchCode(mine.id)).content
+      setCode(current)
+      const photo = await uploadSelfie(selfie)
+      await createRecord("/punches/qr-selfies", {
+        employee_id: mine.id,
+        occurred_at: new Date().toISOString(),
+        content: current,
+        selfie_key: photo.key,
+        note: null,
+      })
+      setSelfie(null)
+      setMessage("Marcação por QR registrada.")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
+    }
+  }
+
+  async function punchFace(recognized: boolean) {
+    if (!mine) {
+      return
+    }
+    setError("")
+    setMessage("")
+    try {
+      await createRecord("/punches/faces", {
+        employee_id: mine.id,
+        occurred_at: new Date().toISOString(),
+        recognized,
+        channel,
+        note: null,
+      })
+      setMessage("Marcação por rosto registrada.")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Registro de Ponto</h1>
-      <p className="text-sm text-muted-foreground">O app registra a marcação do próprio funcionário quando o cadastro está ligado ao acesso.</p>
-      <section className="rounded-md border border-border bg-card px-4 py-3 text-sm">
-        <h2 className="font-medium">Registro simples, QR Code e reconhecimento facial</h2>
-        <p className="mt-1 text-muted-foreground">O comportamento dessas modalidades ainda não foi definido. As marcações já feitas ficam em Jornada e Ponto.</p>
-      </section>
+    <div className="mx-auto max-w-3xl space-y-8">
+      <div>
+        <h1 className="text-xl font-semibold">Registro de Ponto</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          O botão simples registra a marcação. O QR leva a unidade vigente, o CPF e a matrícula, junto com a selfie. O reconhecimento vale online e offline. Se a selfie, o QR ou o rosto falhar, a marcação não entra e a pessoa tenta de novo.
+        </p>
+      </div>
+      {mine ? (
+        <section className="space-y-3 rounded-md border border-border bg-card p-3">
+          <h2 className="text-sm font-medium">Registro simples</h2>
+          <p className="text-sm text-muted-foreground">{mine.full_name}</p>
+          <Button type="button" onClick={() => void punchSimple(mine.id)}>
+            Registrar
+          </Button>
+        </section>
+      ) : (
+        <p className="text-sm text-muted-foreground">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p>
+      )}
+      {isAdmin ? (
+        <section className="space-y-3 rounded-md border border-border bg-card p-3">
+          <h2 className="text-sm font-medium">Registro do administrador</h2>
+          <div className="space-y-2">
+            <Label htmlFor="clock-employee">Funcionário</Label>
+            <select id="clock-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)}>
+              <option value="">Selecione</option>
+              {employees.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" disabled={!selected} onClick={() => void punchSimple(Number(selected))}>
+            Registrar
+          </Button>
+        </section>
+      ) : null}
+      {mine ? (
+        <form className="space-y-3 rounded-md border border-border bg-card p-3" onSubmit={punchQr}>
+          <h2 className="text-sm font-medium">QR Code e selfie</h2>
+          <p className="text-sm text-muted-foreground">O QR deste corte é o texto unidade, CPF e matrícula. Não há imagem. A selfie precisa ser uma foto enviada desta empresa.</p>
+          <Button type="button" variant="outline" onClick={() => void loadCode()}>
+            Gerar QR
+          </Button>
+          <div className="space-y-2">
+            <Label htmlFor="qr-code">Código</Label>
+            <Input id="qr-code" value={code} onChange={(event) => setCode(event.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="selfie">Selfie</Label>
+            <input id="selfie" className={fieldClass} type="file" accept="image/png,image/jpeg" onChange={(event) => setSelfie(event.target.files?.[0] ?? null)} required />
+          </div>
+          <Button type="submit">Registrar com QR</Button>
+        </form>
+      ) : null}
+      {mine ? (
+        <section className="space-y-3 rounded-md border border-border bg-card p-3">
+          <h2 className="text-sm font-medium">Reconhecimento facial</h2>
+          <p className="text-sm text-muted-foreground">A comparação biométrica fica fora deste corte. O registro entra quando o reconhecimento é informado, online ou offline. Reconhecimento falho não grava a marcação.</p>
+          <div className="space-y-2">
+            <Label htmlFor="face-channel">Canal</Label>
+            <select id="face-channel" className={fieldClass} value={channel} onChange={(event) => setChannel(event.target.value)}>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => void punchFace(true)}>
+              Rosto reconhecido
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void punchFace(false)}>
+              Rosto não reconhecido
+            </Button>
+          </div>
+        </section>
+      ) : null}
+      {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   )
 }
