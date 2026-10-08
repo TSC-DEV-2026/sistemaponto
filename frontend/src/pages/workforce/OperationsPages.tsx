@@ -18,6 +18,8 @@ import {
   type FiscalImport,
   type NamedRecord,
   type Notice,
+  type NoticeEmail,
+  type NoticePreference,
   type Occurrence,
   type Payroll,
   type TimeRequest,
@@ -27,6 +29,7 @@ import {
   closingEventLabel,
   closingStatusLabel,
   fiscalKindLabel,
+  noticePhrase,
   occurrenceKindLabel,
   reasonKindLabel,
   certificateText,
@@ -713,13 +716,24 @@ export function ReasonsPage() {
 }
 
 export function NotificationsPage() {
+  const role = useAuthStore((state) => state.user?.role)
+  const canSend = role === "admin" || role === "manager"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [items, setItems] = useState<Notice[]>([])
+  const [preferences, setPreferences] = useState<NoticePreference[]>([])
+  const [emails, setEmails] = useState<NoticeEmail[]>([])
+  const [sent, setSent] = useState<number | null>(null)
   const [error, setError] = useState("")
 
   async function load() {
-    const page = await listRecords<Notice>("/notifications", { page: 1, limit: 100 })
-    setItems(page.items)
+    const [notices, prefs, mailed] = await Promise.all([
+      listRecords<Notice>("/notifications", { page: 1, limit: 100 }),
+      listRecords<NoticePreference>("/notification-preferences", { page: 1, limit: 100 }),
+      listRecords<NoticeEmail>("/notice-emails", { page: 1, limit: 100 }),
+    ])
+    setItems(notices.items)
+    setPreferences(prefs.items)
+    setEmails(mailed.items)
   }
 
   useEffect(() => {
@@ -734,6 +748,11 @@ export function NotificationsPage() {
     }
   }, [tenantId])
 
+  function enabled(kind: string) {
+    const row = preferences.find((item) => item.kind === kind)
+    return row ? row.enabled : true
+  }
+
   async function mark(id: number) {
     setError("")
     try {
@@ -744,29 +763,98 @@ export function NotificationsPage() {
     }
   }
 
+  async function setEnabled(kind: string, next: boolean) {
+    setError("")
+    try {
+      const row = preferences.find((item) => item.kind === kind)
+      if (row) {
+        await updateRecord("/notification-preferences", row.id, { enabled: next })
+      } else if (!next) {
+        await createRecord("/notification-preferences", { kind, enabled: false })
+      }
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o aviso.")
+    }
+  }
+
+  async function sendDaily() {
+    setError("")
+    try {
+      const result = await createRecord<{ created: number }>("/notification-runs", {})
+      setSent(result.created)
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível enviar.")
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Notificações</h1>
-      <p className="text-sm text-muted-foreground">Eventos deste sistema. Canal, frequência e modelo de mensagem ainda não foram definidos.</p>
+    <div className="mx-auto max-w-3xl space-y-8">
+      <div>
+        <h1 className="text-xl font-semibold">Notificações</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          O texto no sistema é o mesmo do e-mail. Cada aviso pode ser desligado. Sem preferência gravada, ele fica ligado. O envio é diário. Fechamento próximo e trial terminando começam 3 dias antes. A frequência customizável fica para depois.
+        </p>
+      </div>
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">Avisos</h2>
+        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+          {Object.entries(noticePhrase).map(([kind, phrase]) => (
+            <li key={kind} className="px-4 py-3 text-sm">
+              <label className="flex items-start gap-2" htmlFor={`notice-${kind}`}>
+                <input id={`notice-${kind}`} type="checkbox" className="mt-1" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
+                <span>{phrase}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        {canSend ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" onClick={() => void sendDaily()}>
+              Enviar os avisos do dia
+            </Button>
+            {sent !== null ? <p className="text-sm text-muted-foreground">{sent} avisos enviados.</p> : null}
+          </div>
+        ) : null}
+      </section>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {items.map((item) => (
-          <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
-            <span>
-              <span className="font-medium">{item.title}</span>
-              <span className="mt-1 block text-muted-foreground">
-                {item.body} · {showDateTime(item.created_at)}
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">No sistema</h2>
+        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+              <span>
+                {item.body}
+                <span className="mt-1 block text-muted-foreground">{showDateTime(item.created_at)}</span>
               </span>
-            </span>
-            {item.read_at ? <span className="text-muted-foreground">Lida</span> : (
-              <Button type="button" size="sm" variant="outline" onClick={() => void mark(item.id)}>
-                Marcar lida
-              </Button>
-            )}
-          </li>
-        ))}
-        {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma notificação.</li> : null}
-      </ul>
+              {item.read_at ? (
+                <span className="text-muted-foreground">Lida</span>
+              ) : (
+                <Button type="button" size="sm" variant="outline" onClick={() => void mark(item.id)}>
+                  Marcar lida
+                </Button>
+              )}
+            </li>
+          ))}
+          {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma notificação.</li> : null}
+        </ul>
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">No e-mail</h2>
+        <p className="text-sm text-muted-foreground">O e-mail fica gravado com o mesmo texto.</p>
+        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+          {emails.map((item) => (
+            <li key={item.id} className="px-4 py-3 text-sm">
+              {item.body}
+              <span className="mt-1 block text-muted-foreground">
+                {item.address || "Sem endereço"} · {showDateTime(item.created_at)}
+              </span>
+            </li>
+          ))}
+          {emails.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum e-mail gravado.</li> : null}
+        </ul>
+      </section>
     </div>
   )
 }

@@ -137,7 +137,7 @@ export const navGroups: NavGroup[] = [
         to: "/notifications",
         label: "Notificações",
         icon: Bell,
-        lead: "Eventos deste sistema.",
+        lead: "O texto é o mesmo no sistema e no e-mail.",
         sections: [
           { title: "Solicitações", text: "Nova, aprovada, recusada ou cancelada." },
           { title: "Ponto", text: "Ponto incompleto e pendência de fechamento." },
