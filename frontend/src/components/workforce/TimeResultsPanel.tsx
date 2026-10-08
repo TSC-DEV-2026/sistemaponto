@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { getTimeResults, type Employee, type TimeResult, type TimeResults } from "@/services/workforce.service"
-import { punchDay, showDate, showMinutes } from "@/utils/labels"
+import { punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
 
 function today() {
   return punchDay(new Date().toISOString())
@@ -17,6 +17,8 @@ function hasSignal(item: TimeResult) {
     item.delay_minutes > 0 ||
     item.early_leave_minutes > 0 ||
     item.overtime_minutes > 0 ||
+    item.shortage_minutes > 0 ||
+    item.bank_minutes !== 0 ||
     item.night_minutes > 0 ||
     item.absence ||
     item.incomplete ||
@@ -60,7 +62,7 @@ export function TimeResultsPanel({ employeeId, employees }: { employeeId?: numbe
     <section className="space-y-3">
       <h2 className="text-sm font-medium">Apuração</h2>
       <p className="text-sm text-muted-foreground">
-        Usa as marcações que valem, a jornada vigente, o feriado e as ocorrências. Escala 5x2. Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Hora extra é o que passa do previsto. Adicional noturno de 20% entre 22:00 e 05:00. O banco de horas ainda não entra nesta conta.
+        Usa as marcações que valem, a jornada vigente, o feriado e as ocorrências. Escala 5x2. Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Com banco, o excedente soma no saldo e o que fica abaixo compensa. Sem banco, o excedente é hora extra e a falta de tempo desconta. O adicional noturno não entra no saldo.
       </p>
       <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
         {employees ? (
@@ -98,7 +100,7 @@ export function TimeResultsPanel({ employeeId, employees }: { employeeId?: numbe
                 Previsto {showMinutes(item.expected_minutes)} · Trabalhado {showMinutes(item.worked_minutes)} · Atraso {showMinutes(item.delay_minutes)} · Saída antecipada {showMinutes(item.early_leave_minutes)}
               </p>
               <p className="text-muted-foreground">
-                Hora extra {showMinutes(item.overtime_minutes)} · Noturno {showMinutes(item.night_minutes)} · Adicional {showMinutes(item.night_additional_minutes)}
+                Hora extra {showMinutes(item.overtime_minutes)} · Falta de tempo {showMinutes(item.shortage_minutes)} · Banco {showSignedMinutes(item.bank_minutes)} · Noturno {showMinutes(item.night_minutes)} · Adicional {showMinutes(item.night_additional_minutes)}
               </p>
               {marks(item) ? <p>{marks(item)}</p> : null}
             </li>

@@ -28,6 +28,7 @@ export type Employee = {
   person_id: number | null
   admission_date: string
   note: string | null
+  hour_bank: boolean
   situation: string | null
   job_label: string | null
   journey_label: string | null
@@ -184,6 +185,8 @@ export type TimeResult = {
   delay_minutes: number
   early_leave_minutes: number
   overtime_minutes: number
+  shortage_minutes: number
+  bank_minutes: number
   night_minutes: number
   night_additional_minutes: number
   absence: boolean
@@ -197,6 +200,28 @@ export type TimeResults = {
   starts_on: string
   ends_on: string
   items: TimeResult[]
+}
+
+export type HourBank = {
+  employee_id: number
+  balance_minutes: number
+  credit_minutes: number
+  debit_minutes: number
+  paid_overtime_minutes: number
+  discounted_absence_minutes: number
+  warning: string | null
+}
+
+export type HourBankEntry = {
+  id: number
+  employee_id: number
+  kind: string
+  minutes: number
+  effect: string | null
+  note: string | null
+  entry_on: string
+  created_by_person_id: number
+  created_at: string
 }
 
 async function read<T>(work: () => Promise<{ data: ApiResponse<T> }>): Promise<T> {
@@ -244,6 +269,10 @@ export function getDashboard() {
 
 export function getPayroll(year: number, month: number) {
   return read<Payroll>(() => api.get<ApiResponse<Payroll>>("/payroll-totals", { params: { year, month } }))
+}
+
+export function getHourBank(employeeId: number) {
+  return read<HourBank>(() => api.get<ApiResponse<HourBank>>("/hour-bank", { params: { employee_id: employeeId } }))
 }
 
 export function getTimeResults(employeeId: number, startsOn: string, endsOn: string) {

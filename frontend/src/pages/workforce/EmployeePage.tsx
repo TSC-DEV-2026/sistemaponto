@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import {
@@ -78,6 +79,7 @@ export function EmployeePage() {
   const [personId, setPersonId] = useState("")
   const [admission, setAdmission] = useState("")
   const [note, setNote] = useState("")
+  const [hourBank, setHourBank] = useState(false)
   const [kind, setKind] = useState("job")
   const [referenceId, setReferenceId] = useState("")
   const [statusLabel, setStatusLabel] = useState("active")
@@ -109,6 +111,7 @@ export function EmployeePage() {
     setPersonId(person.person_id ? String(person.person_id) : "")
     setAdmission(person.admission_date)
     setNote(person.note || "")
+    setHourBank(Boolean(person.hour_bank))
     setVigencies(history.items)
     setPunches(marks.items)
     setOccurrences(events.items)
@@ -176,6 +179,7 @@ export function EmployeePage() {
         person_id: personId.trim() ? Number(personId) : null,
         admission_date: admission,
         note: note.trim() || null,
+        hour_bank: hourBank,
       })
       setEmployee(saved)
     } catch (caught) {
@@ -273,6 +277,10 @@ export function EmployeePage() {
             <Label htmlFor="admission">Admissão</Label>
             <input id="admission" className={fieldClass} type="date" value={admission} onChange={(event) => setAdmission(event.target.value)} required disabled={!isAdmin} />
           </div>
+          <label className="flex items-center gap-2 text-sm" htmlFor="hour-bank">
+            <input id="hour-bank" type="checkbox" checked={hourBank} onChange={(event) => setHourBank(event.target.checked)} disabled={!isAdmin} />
+            Usa banco de horas
+          </label>
           <div className="space-y-2">
             <Label htmlFor="note">Observação</Label>
             <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} onChange={(event) => setNote(event.target.value)} disabled={!isAdmin} />
@@ -350,6 +358,7 @@ export function EmployeePage() {
             </p>
           </section>
           <TimeResultsPanel employeeId={id} />
+          {employee ? <HourBankPanel employeeId={id} canLaunch={isAdmin || role === "manager"} usesBank={employee.hour_bank} /> : null}
           {isAdmin ? <PunchCorrectionForm employeeId={id} onSaved={load} /> : null}
           <PunchLists punches={punches} />
           <section className="text-sm">
