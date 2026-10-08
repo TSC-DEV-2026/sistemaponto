@@ -7,6 +7,7 @@ from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.workforce import (
     Audit,
+    Charge,
     Closing,
     ClosingEvent,
     Employee,
@@ -21,6 +22,7 @@ from app.models.workforce import (
     Punch,
     RequestEvent,
     RequestPunch,
+    Subscription,
     TimeRequest,
 )
 
@@ -100,6 +102,17 @@ class WorkforceRepository:
         return (
             self.db.query(Closing)
             .filter(Closing.tenant_id == tenant_id, Closing.status == "open")
+            .all()
+        )
+
+    def subscription_for(self, tenant_id: int) -> Subscription | None:
+        return self.db.query(Subscription).filter(Subscription.tenant_id == tenant_id).one_or_none()
+
+    def open_charges(self, tenant_id: int) -> list[Charge]:
+        return (
+            self.db.query(Charge)
+            .filter(Charge.tenant_id == tenant_id, Charge.status == "open")
+            .order_by(Charge.due_on.asc(), Charge.id.asc())
             .all()
         )
 

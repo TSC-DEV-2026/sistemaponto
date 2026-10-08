@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
+from app.core.billing import MAX_CAPACITY, MIN_CAPACITY, PRICE_CENTS, monthly_amount, prorate
 from app.core.cpf import normalize_cpf
 from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
-from app.core.hour_bank import project_balance
+from app.core.hour_bank import add_months, project_balance
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.notices import PHRASES
@@ -27,6 +28,7 @@ from app.core.workforce import (
 )
 from app.models.workforce import (
     Audit,
+    Charge,
     Closing,
     ClosingEvent,
     CostCenter,
@@ -49,6 +51,7 @@ from app.models.workforce import (
     RequestEvent,
     RequestPunch,
     Sector,
+    Subscription,
     Team,
     TimeRequest,
     Unit,
@@ -1679,6 +1682,122 @@ class WorkforceService:
             self.get_notice_email(scope, row_id)
         raise AppError(409, "E-mail de aviso é gerado pelo sistema.")
 
+    def assert_usable(self, scope: Scope) -> None:
+        self._known(scope)
+        if self._needs_plan(scope):
+            raise AppError(403, "Contrate um plano.")
+        subscription = self._prepare_billing(scope)
+        if subscription is not None and subscription.status == "blocked":
+            raise AppError(403, "O uso está bloqueado por inadimplência.")
+
+    def list_subscriptions(self, scope: Scope, page: int, limit: int, equals: dict):
+        self._admin(scope)
+        row = self._prepare_billing(scope)
+        if row is None:
+            return [], 0
+        if equals.get("status") not in (None, row.status):
+            return [], 0
+        items = [self._subscription_out(row)]
+        start = (page - 1) * limit
+        return items[start : start + limit], len(items)
+
+    def get_subscription(self, scope: Scope, row_id: int) -> dict:
+        self._admin(scope)
+        row = self._prepare_billing(scope)
+        if row is None or row.id != row_id:
+            raise AppError(404, "Registro não encontrado")
+        return self._subscription_out(row)
+
+    def create_subscription(self, scope: Scope, data: dict) -> dict:
+        self._admin(scope)
+        if self.repo.subscription_for(scope.tenant_id) is not None:
+            raise AppError(409, "A empresa já tem um plano")
+        capacity = self._capacity_block(int(data["capacity"]))
+        self._fit_capacity(scope, capacity)
+        tenant = self._billing_tenant(scope)
+        start = self.today()
+        end = add_months(start, 1)
+        row = self.repo.add(
+            Subscription(
+                tenant_id=scope.tenant_id,
+                status="active",
+                capacity=capacity,
+                payment_method=data["payment_method"],
+                period_start=start,
+                period_end=end,
+                contracted_at=self.clock(),
+            )
+        )
+        tenant.employee_capacity = capacity
+        self._open_charge(scope, row, "monthly", monthly_amount(capacity), capacity, start, end)
+        return self._subscription_out(row)
+
+    def update_subscription(self, scope: Scope, row_id: int, data: dict) -> dict:
+        self._admin(scope)
+        row = self._prepare_billing(scope)
+        if row is None or row.id != row_id:
+            raise AppError(404, "Registro não encontrado")
+        changed = False
+        if data.get("payment_method"):
+            row.payment_method = data["payment_method"]
+            changed = True
+        if data.get("capacity") is not None:
+            capacity = self._capacity_block(int(data["capacity"]))
+            if capacity != row.capacity:
+                if capacity > row.capacity:
+                    amount = prorate(row.capacity, capacity, row.period_start, row.period_end, self.today())
+                    if amount > 0:
+                        self._open_charge(scope, row, "upgrade", amount, capacity, self.today(), row.period_end)
+                else:
+                    self._fit_capacity(scope, capacity)
+                row.capacity = capacity
+                self._billing_tenant(scope).employee_capacity = capacity
+                changed = True
+            elif not changed:
+                raise AppError(400, "A capacidade informada já é a do plano")
+        if not changed:
+            raise AppError(400, "Informe a capacidade ou a forma de pagamento")
+        self.repo.add(row)
+        self._refresh_billing(scope, row)
+        return self._subscription_out(row)
+
+    def refuse_subscription_delete(self, scope: Scope, row_id: int) -> None:
+        self.get_subscription(scope, row_id)
+        raise AppError(409, "Assinatura permanece no histórico.")
+
+    def list_charges(self, scope: Scope, page: int, limit: int, equals: dict):
+        self._admin(scope)
+        self._prepare_billing(scope)
+        return self.repo.list_rows(Charge, scope.tenant_id, page=page, limit=limit, equals=equals, descending=True)
+
+    def get_charge(self, scope: Scope, row_id: int) -> Charge:
+        self._admin(scope)
+        self._prepare_billing(scope)
+        return self._row(Charge, scope, row_id)
+
+    def refuse_charge_create(self, scope: Scope) -> None:
+        self._admin(scope)
+        raise AppError(409, "Cobrança é gerada pelo sistema.")
+
+    def pay_charge(self, scope: Scope, row_id: int, data: dict) -> Charge:
+        self._admin(scope)
+        if data.get("paid") is not True:
+            raise AppError(400, "Informe o pagamento")
+        row = self._row(Charge, scope, row_id)
+        if row.status == "paid":
+            raise AppError(409, "Esta cobrança já está paga")
+        row.status = "paid"
+        row.paid_at = self.clock()
+        self.repo.add(row)
+        subscription = self.repo.subscription_for(scope.tenant_id)
+        if subscription is not None:
+            self._refresh_billing(scope, subscription)
+        return row
+
+    def refuse_charge_delete(self, scope: Scope, row_id: int) -> None:
+        self.get_charge(scope, row_id)
+        raise AppError(409, "Cobrança permanece no histórico.")
+
     def dispatch_notices(self, scope: Scope) -> dict:
         self._can_manage_period(scope)
         before = self.repo.count_model(Notification, tenant_id=scope.tenant_id)
@@ -1688,6 +1807,103 @@ class WorkforceService:
         self._plan_notice(scope)
         created = self.repo.count_model(Notification, tenant_id=scope.tenant_id) - before
         return {"created": created}
+
+    def _needs_plan(self, scope: Scope) -> bool:
+        if self.repo.subscription_for(scope.tenant_id) is not None:
+            return False
+        tenant = self.repo.get_tenant(scope.tenant_id)
+        ends = None if tenant is None else getattr(tenant, "trial_ends_at", None)
+        if ends is None:
+            return False
+        if ends.tzinfo is None:
+            ends = ends.replace(tzinfo=BR)
+        return self.clock() >= ends
+
+    def _prepare_billing(self, scope: Scope) -> Subscription | None:
+        row = self.repo.subscription_for(scope.tenant_id)
+        if row is None:
+            return None
+        while row.period_end <= self.today():
+            start = row.period_end
+            end = add_months(start, 1)
+            row.period_start = start
+            row.period_end = end
+            self.repo.add(row)
+            self._open_charge(scope, row, "monthly", monthly_amount(row.capacity), row.capacity, start, end)
+        self._refresh_billing(scope, row)
+        return row
+
+    def _refresh_billing(self, scope: Scope, row: Subscription) -> None:
+        opened = self.repo.open_charges(scope.tenant_id)
+        if not opened:
+            row.status = "active"
+            self.repo.add(row)
+            return
+        oldest = min(item.due_on for item in opened)
+        if self.today() >= oldest + timedelta(days=7):
+            row.status = "blocked"
+        elif self.today() > oldest:
+            row.status = "delinquent"
+            for person_id in self._admin_ids(scope):
+                self._deliver(scope, person_id, None, "billing_overdue", daily=True)
+        else:
+            row.status = "active"
+        self.repo.add(row)
+
+    def _open_charge(
+        self,
+        scope: Scope,
+        row: Subscription,
+        kind: str,
+        amount: int,
+        capacity: int,
+        start: date,
+        end: date,
+    ) -> Charge:
+        return self.repo.add(
+            Charge(
+                tenant_id=scope.tenant_id,
+                subscription_id=row.id,
+                kind=kind,
+                amount_cents=amount,
+                capacity=capacity,
+                due_on=start,
+                status="open",
+                payment_method=row.payment_method,
+                period_start=start,
+                period_end=end,
+                paid_at=None,
+                created_at=self.clock(),
+            )
+        )
+
+    def _subscription_out(self, row: Subscription) -> dict:
+        return {
+            "id": row.id,
+            "status": row.status,
+            "capacity": row.capacity,
+            "payment_method": row.payment_method,
+            "price_cents": PRICE_CENTS,
+            "monthly_amount_cents": monthly_amount(row.capacity),
+            "period_start": row.period_start,
+            "period_end": row.period_end,
+            "contracted_at": row.contracted_at,
+        }
+
+    def _capacity_block(self, capacity: int) -> int:
+        if capacity < MIN_CAPACITY or capacity > MAX_CAPACITY or capacity % 10 != 0:
+            raise AppError(400, "A capacidade é um múltiplo de 10, de 10 a 200")
+        return capacity
+
+    def _fit_capacity(self, scope: Scope, capacity: int) -> None:
+        if self.repo.count_active(scope.tenant_id, self.today()) > capacity:
+            raise AppError(409, "A nova capacidade não cabe nos funcionários contabilizados")
+
+    def _billing_tenant(self, scope: Scope):
+        tenant = self.repo.get_tenant(scope.tenant_id)
+        if tenant is None:
+            raise AppError(404, "Empresa não encontrada")
+        return tenant
 
     def _notify_reviewers(self, scope: Scope, employee: Employee, kind: str) -> None:
         for person_id in self._reviewer_ids(scope, employee):

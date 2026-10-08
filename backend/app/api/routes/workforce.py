@@ -26,6 +26,8 @@ from app.schemas.workforce import (
     AgreementUpdate,
     AuditOut,
     CertificatePhotoOut,
+    ChargeOut,
+    ChargeUpdate,
     ClosingCreate,
     ClosingOut,
     ClosingUpdate,
@@ -78,6 +80,9 @@ from app.schemas.workforce import (
     RequestCreate,
     RequestOut,
     RequestUpdate,
+    SubscriptionCreate,
+    SubscriptionOut,
+    SubscriptionUpdate,
     SectorCreate,
     SectorOut,
     SectorUpdate,
@@ -109,6 +114,13 @@ def as_scope(actor: Actor) -> Scope:
     return Scope(person_id=actor.person_id, tenant_id=actor.tenant_id, role=actor.role)
 
 
+def require_use(
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+) -> None:
+    service.assert_usable(as_scope(actor))
+
+
 def read_filters(request: Request, names: tuple[str, ...]) -> dict:
     found = {}
     for name in names:
@@ -129,7 +141,7 @@ def read_filters(request: Request, names: tuple[str, ...]) -> dict:
 
 
 def mount_named(prefix: str, tag: str, model, create_schema, update_schema, out_schema, filters: tuple[str, ...]):
-    router = APIRouter(prefix=prefix, tags=[tag])
+    router = APIRouter(prefix=prefix, tags=[tag], dependencies=[Depends(require_use)])
     slug = tag.replace("-", "_")
 
     def list_rows(
@@ -213,21 +225,23 @@ routers = [
 ]
 
 
-employees = APIRouter(prefix="/employees", tags=["employees"])
-vigencies = APIRouter(prefix="/employee-vigencies", tags=["employee-vigencies"])
-punches = APIRouter(prefix="/punches", tags=["punches"])
-occurrences = APIRouter(prefix="/occurrences", tags=["occurrences"])
-certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-photos"])
-requests = APIRouter(prefix="/requests", tags=["requests"])
-closings = APIRouter(prefix="/closings", tags=["closings"])
-hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"])
-fiscal_files = APIRouter(prefix="/fiscal-files", tags=["fiscal-files"])
+employees = APIRouter(prefix="/employees", tags=["employees"], dependencies=[Depends(require_use)])
+vigencies = APIRouter(prefix="/employee-vigencies", tags=["employee-vigencies"], dependencies=[Depends(require_use)])
+punches = APIRouter(prefix="/punches", tags=["punches"], dependencies=[Depends(require_use)])
+occurrences = APIRouter(prefix="/occurrences", tags=["occurrences"], dependencies=[Depends(require_use)])
+certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-photos"], dependencies=[Depends(require_use)])
+requests = APIRouter(prefix="/requests", tags=["requests"], dependencies=[Depends(require_use)])
+closings = APIRouter(prefix="/closings", tags=["closings"], dependencies=[Depends(require_use)])
+hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"], dependencies=[Depends(require_use)])
+fiscal_files = APIRouter(prefix="/fiscal-files", tags=["fiscal-files"], dependencies=[Depends(require_use)])
 notifications = APIRouter(prefix="/notifications", tags=["notifications"])
 notification_preferences = APIRouter(prefix="/notification-preferences", tags=["notification-preferences"])
 notice_emails = APIRouter(prefix="/notice-emails", tags=["notice-emails"])
-notification_runs = APIRouter(prefix="/notification-runs", tags=["notification-runs"])
-audits = APIRouter(prefix="/audits", tags=["audits"])
-reads = APIRouter(tags=["reads"])
+notification_runs = APIRouter(prefix="/notification-runs", tags=["notification-runs"], dependencies=[Depends(require_use)])
+audits = APIRouter(prefix="/audits", tags=["audits"], dependencies=[Depends(require_use)])
+reads = APIRouter(tags=["reads"], dependencies=[Depends(require_use)])
+subscriptions = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
+charges = APIRouter(prefix="/charges", tags=["charges"])
 
 
 @employees.get("", summary="Listar funcionários", description="Filtros: cpf, person_id.")
@@ -974,6 +988,113 @@ def delete_hour_bank_entry(
     return json_data(None)
 
 
+@subscriptions.get("", summary="Listar assinatura", description="Filtros: status.")
+def list_subscriptions(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_subscriptions(as_scope(actor), page, limit, read_filters(request, ("status",)))
+    return json_data(dump_page(items, total, page, limit, SubscriptionOut, fields))
+
+
+@subscriptions.get("/{row_id}", summary="Detalhe da assinatura")
+def get_subscription(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_subscription(as_scope(actor), row_id), SubscriptionOut, fields))
+
+
+@subscriptions.post("", status_code=201, summary="Contratar plano")
+def create_subscription(
+    body: SubscriptionCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.create_subscription(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, SubscriptionOut, None), status_code=201)
+
+
+@subscriptions.put("/{row_id}", summary="Alterar plano")
+def update_subscription(
+    row_id: int,
+    body: SubscriptionUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.update_subscription(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, SubscriptionOut, None))
+
+
+@subscriptions.delete("/{row_id}", summary="Excluir assinatura")
+def delete_subscription(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_subscription_delete(as_scope(actor), row_id)
+    return json_data(None)
+
+
+@charges.get("", summary="Listar cobranças", description="Filtros: status, kind.")
+def list_charges(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_charges(as_scope(actor), page, limit, read_filters(request, ("status", "kind")))
+    return json_data(dump_page(items, total, page, limit, ChargeOut, fields))
+
+
+@charges.get("/{row_id}", summary="Detalhe da cobrança")
+def get_charge(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_charge(as_scope(actor), row_id), ChargeOut, fields))
+
+
+@charges.post("", status_code=201, summary="Criar cobrança")
+def create_charge(
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_charge_create(as_scope(actor))
+    return json_data(None)
+
+
+@charges.put("/{row_id}", summary="Pagar cobrança")
+def pay_charge(
+    row_id: int,
+    body: ChargeUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.pay_charge(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, ChargeOut, None))
+
+
+@charges.delete("/{row_id}", summary="Excluir cobrança")
+def delete_charge(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.refuse_charge_delete(as_scope(actor), row_id)
+    return json_data(None)
+
+
 routers.extend(
     [
         employees,
@@ -989,6 +1110,8 @@ routers.extend(
         notification_preferences,
         notice_emails,
         notification_runs,
+        subscriptions,
+        charges,
         audits,
         reads,
     ]

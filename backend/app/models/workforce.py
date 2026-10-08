@@ -351,3 +351,35 @@ class Audit(Base):
     new_label = Column(String(255), nullable=True)
     valid_from = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (UniqueConstraint("tenant_id", name="uq_subscription_tenant"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    status = Column(String(32), nullable=False)
+    capacity = Column(Integer, nullable=False)
+    payment_method = Column(String(16), nullable=False)
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
+    contracted_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class Charge(Base):
+    __tablename__ = "charges"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    subscription_id = Column(BigInteger, ForeignKey("subscriptions.id"), nullable=False, index=True)
+    kind = Column(String(16), nullable=False)
+    amount_cents = Column(Integer, nullable=False)
+    capacity = Column(Integer, nullable=False)
+    due_on = Column(Date, nullable=False)
+    status = Column(String(16), nullable=False)
+    payment_method = Column(String(16), nullable=False)
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
