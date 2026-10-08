@@ -68,10 +68,18 @@ export type Occurrence = {
   kind: string
   starts_on: string
   ends_on: string
+  starts_at: string | null
+  ends_at: string | null
   reason_id: number | null
   note: string | null
   source: string
   request_id: number | null
+  cid: string | null
+  crm: string | null
+  doctor_name: string | null
+  photo_key: string | null
+  photo_url: string | null
+  warning: string | null
   created_at: string
 }
 
@@ -93,6 +101,13 @@ export type TimeRequest = {
   starts_on: string | null
   ends_on: string | null
   occurred_at: string | null
+  starts_at: string | null
+  ends_at: string | null
+  cid: string | null
+  crm: string | null
+  doctor_name: string | null
+  photo_key: string | null
+  photo_url: string | null
   punches: string[]
   decision_note: string | null
   decided_at: string | null
@@ -150,6 +165,8 @@ export type Dashboard = {
   pending_adjustments: number
   pending_allowances: number
   pending_certificates: number
+  pending_leaves: number
+  pending_vacations: number
   open_closings: number
   employee_capacity: number
 }
@@ -179,6 +196,12 @@ export function listRecords<T>(path: string, params?: Record<string, string | nu
 
 export function getRecord<T>(path: string, id: number) {
   return read<T>(() => api.get<ApiResponse<T>>(`${path}/${id}`))
+}
+
+export function uploadCertificatePhoto(file: File) {
+  const body = new FormData()
+  body.append("file", file)
+  return write<{ key: string }>(() => api.post<ApiResponse<{ key: string }>>("/certificate-photos", body))
 }
 
 export function createRecord<T>(path: string, body: Record<string, unknown>) {

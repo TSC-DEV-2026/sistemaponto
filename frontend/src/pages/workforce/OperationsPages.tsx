@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CatalogPanel, fieldClass, optionsOf } from "@/components/workforce/CatalogPanel"
 import { DayTimesFields, momentsOf } from "@/components/workforce/PunchDay"
+import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
   getPayroll,
   listRecords,
   updateRecord,
+  uploadCertificatePhoto,
   type Closing,
   type Employee,
   type NamedRecord,
@@ -23,9 +25,12 @@ import {
   closingStatusLabel,
   occurrenceKindLabel,
   reasonKindLabel,
+  certificateText,
+  manualTimeOffKinds,
+  periodText,
+  punchOrigin,
   requestKindLabel,
   requestStatusLabel,
-  showDate,
   showDateTime,
 } from "@/utils/labels"
 
@@ -43,7 +48,8 @@ export function TimeClockPage() {
 }
 
 export function OccurrencesPage() {
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const role = useAuthStore((state) => state.user?.role)
+  const isAdmin = role === "admin"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [kind, setKind] = useState("absence")
   const [items, setItems] = useState<Occurrence[]>([])
@@ -54,7 +60,11 @@ export function OccurrencesPage() {
   const [endsOn, setEndsOn] = useState("")
   const [reasonId, setReasonId] = useState("")
   const [note, setNote] = useState("")
+  const [draft, setDraft] = useState<TimeOffDraft>(emptyTimeOff)
+  const [fileKey, setFileKey] = useState(0)
   const [error, setError] = useState("")
+  const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
+  const canLaunch = isAdmin || (role === "manager" && manual)
 
   async function load(nextKind: string) {
     const reasonKind = nextKind === "vacation" || nextKind === "leave" || nextKind === "punch_entry" ? undefined : nextKind
@@ -84,15 +94,20 @@ export function OccurrencesPage() {
     event.preventDefault()
     setError("")
     try {
+      const span: Record<string, unknown> = manual ? timeOffBody(draft, kind) : { starts_on: startsOn, ends_on: endsOn || null }
+      if (manual && kind === "certificate" && draft.photo) {
+        span.photo_key = (await uploadCertificatePhoto(draft.photo)).key
+      }
       await createRecord("/occurrences", {
         employee_id: Number(employeeId),
         kind,
-        starts_on: startsOn,
-        ends_on: endsOn || null,
+        ...span,
         reason_id: reasonId ? Number(reasonId) : null,
         note: note.trim() || null,
       })
       setNote("")
+      setDraft(emptyTimeOff())
+      setFileKey((current) => current + 1)
       await load(kind)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
@@ -102,7 +117,7 @@ export function OccurrencesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-semibold">Ajustes e Ocorrências</h1>
-      <p className="text-sm text-muted-foreground">Lançamento da gestão. Férias aqui são ocorrência, sem fluxo de solicitação.</p>
+      <p className="text-sm text-muted-foreground">O gestor e o administrador lançam abono, atestado, afastamento e férias aqui. A origem desse lançamento é manual. O funcionário pede os quatro em Solicitações.</p>
       <div className="flex flex-wrap gap-2">
         {Object.entries(occurrenceKindLabel).map(([value, label]) => (
           <Button key={value} type="button" size="sm" variant={kind === value ? "default" : "outline"} onClick={() => setKind(value)}>
@@ -110,8 +125,9 @@ export function OccurrencesPage() {
           </Button>
         ))}
       </div>
-      {isAdmin ? (
+      {canLaunch ? (
         <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
+          {manual ? <p className="text-sm text-muted-foreground">Origem: manual. Um atestado com marcação no período entra e o ponto avisa o conflito.</p> : null}
           <div className="space-y-2">
             <Label htmlFor="employee">Funcionário</Label>
             <select id="employee" className={fieldClass} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} required>
@@ -123,14 +139,20 @@ export function OccurrencesPage() {
               ))}
             </select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="start">Início</Label>
-            <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="end">Fim</Label>
-            <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
-          </div>
+          {manual ? (
+            <TimeOffFields idPrefix="occurrence" kind={kind} draft={draft} fileKey={fileKey} onChange={setDraft} />
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="start">Início</Label>
+                <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end">Fim</Label>
+                <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
+              </div>
+            </>
+          )}
           {reasons.length > 0 ? (
             <div className="space-y-2">
               <Label htmlFor="reason">Motivo</Label>
@@ -155,8 +177,16 @@ export function OccurrencesPage() {
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
         {items.map((item) => (
           <li key={item.id} className="px-4 py-3 text-sm">
-            {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {showDate(item.starts_on)} a {showDate(item.ends_on)}
+            {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {periodText(item)} · {punchOrigin(item.source)}
+            {certificateText(item) ? ` · ${certificateText(item)}` : ""}
             {item.note ? ` · ${item.note}` : ""}
+            {item.warning ? ` · ${item.warning}` : ""}
+            {item.photo_url ? (
+              <>
+                {" · "}
+                <DocumentLink href={item.photo_url} />
+              </>
+            ) : null}
           </li>
         ))}
         {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum lançamento.</li> : null}
@@ -180,6 +210,12 @@ export function RequestsPage() {
   const [times, setTimes] = useState(["", ""])
   const [requestNote, setRequestNote] = useState("")
   const [reasonId, setReasonId] = useState("")
+  const [offKind, setOffKind] = useState<(typeof manualTimeOffKinds)[number]>("allowance")
+  const [offDraft, setOffDraft] = useState<TimeOffDraft>(emptyTimeOff)
+  const [offFileKey, setOffFileKey] = useState(0)
+  const [offNote, setOffNote] = useState("")
+  const [offReasonId, setOffReasonId] = useState("")
+  const [offReasons, setOffReasons] = useState<NamedRecord[]>([])
 
   async function load(next: string) {
     const [inbox, people, motive] = await Promise.all([
@@ -203,6 +239,18 @@ export function RequestsPage() {
       active = false
     }
   }, [status, tenantId])
+
+  useEffect(() => {
+    const reasonKind = offKind === "allowance" || offKind === "certificate" ? offKind : ""
+    if (!reasonKind) {
+      setOffReasons([])
+      setOffReasonId("")
+      return
+    }
+    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true })
+      .then((page) => setOffReasons(page.items))
+      .catch(() => setOffReasons([]))
+  }, [offKind, tenantId])
 
   async function decide(id: number, next: "approved" | "rejected") {
     setError("")
@@ -234,6 +282,30 @@ export function RequestsPage() {
     }
   }
 
+  async function requestTimeOff(event: FormEvent) {
+    event.preventDefault()
+    setError("")
+    try {
+      const body = timeOffBody(offDraft, offKind)
+      if (offKind === "certificate" && offDraft.photo) {
+        body.photo_key = (await uploadCertificatePhoto(offDraft.photo)).key
+      }
+      await createRecord("/requests", {
+        kind: offKind,
+        ...body,
+        note: offNote.trim() || null,
+        reason_id: offReasonId ? Number(offReasonId) : null,
+      })
+      setOffDraft(emptyTimeOff())
+      setOffFileKey((current) => current + 1)
+      setOffNote("")
+      setStatus("pending")
+      await load("pending")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível solicitar.")
+    }
+  }
+
   function ownRequest(item: TimeRequest) {
     const employee = employees.find((person) => person.id === item.employee_id)
     return employee?.person_id != null && employee.person_id === personId
@@ -254,13 +326,15 @@ export function RequestsPage() {
     adjustment: pending.filter((item) => item.kind === "adjustment").length,
     allowance: pending.filter((item) => item.kind === "allowance").length,
     certificate: pending.filter((item) => item.kind === "certificate").length,
+    leave: pending.filter((item) => item.kind === "leave").length,
+    vacation: pending.filter((item) => item.kind === "vacation").length,
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-semibold">Solicitações</h1>
       <p className="text-sm text-muted-foreground">
-        {status === "pending" ? `${items.length} pendentes · ${counts.adjustment} ajustes · ${counts.allowance} abonos · ${counts.certificate} atestados. ` : ""}
+        {status === "pending" ? `${items.length} pendentes · ${counts.adjustment} ajustes · ${counts.allowance} abonos · ${counts.certificate} atestados · ${counts.leave} afastamentos · ${counts.vacation} férias. ` : ""}
         O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
       </p>
       <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestAdjustment}>
@@ -286,6 +360,39 @@ export function RequestsPage() {
         </div>
         <Button type="submit">Enviar ajuste</Button>
       </form>
+      <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestTimeOff}>
+        <h2 className="text-sm font-medium">Solicitar abono, atestado, afastamento ou férias</h2>
+        <p className="text-sm text-muted-foreground">Pendente não altera o ponto. Depois da aprovação, a origem é solicitação. O atestado pede CID, CRM e o nome do médico. A foto é opcional.</p>
+        <div className="space-y-2">
+          <Label htmlFor="off-kind">Tipo</Label>
+          <select id="off-kind" className={fieldClass} value={offKind} onChange={(event) => setOffKind(event.target.value as (typeof manualTimeOffKinds)[number])}>
+            {manualTimeOffKinds.map((value) => (
+              <option key={value} value={value}>
+                {requestKindLabel[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <TimeOffFields idPrefix="request-off" kind={offKind} draft={offDraft} fileKey={offFileKey} onChange={setOffDraft} />
+        {offReasons.length > 0 ? (
+          <div className="space-y-2">
+            <Label htmlFor="off-reason">Motivo</Label>
+            <select id="off-reason" className={fieldClass} value={offReasonId} onChange={(event) => setOffReasonId(event.target.value)} required>
+              <option value="">Selecione</option>
+              {offReasons.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="off-note">Observação</Label>
+          <Input id="off-note" value={offNote} onChange={(event) => setOffNote(event.target.value)} />
+        </div>
+        <Button type="submit">Enviar solicitação</Button>
+      </form>
       <div className="flex flex-wrap gap-2">
         {Object.entries(requestStatusLabel).map(([value, label]) => (
           <Button key={value} type="button" size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)}>
@@ -308,14 +415,15 @@ export function RequestsPage() {
             </p>
             <p className="text-muted-foreground">
               {item.kind === "adjustment"
-                ? `Marcações pedidas: ${item.punches.length > 0 ? item.punches.map((value) => showDateTime(value)).join(", ") : "—"}`
-                : item.occurred_at
-                  ? showDateTime(item.occurred_at)
-                  : `${showDate(item.starts_on)} a ${showDate(item.ends_on)}`}
+                ? `Marcações pedidas: ${(item.punches ?? []).length > 0 ? item.punches.map((value) => showDateTime(value)).join(", ") : "—"}`
+                : periodText(item)}
+              {certificateText(item) ? ` · ${certificateText(item)}` : ""}
               {item.note ? ` · ${item.note}` : ""}
+              {item.photo_url ? " · " : ""}
+              <DocumentLink href={item.photo_url} />
             </p>
-            {item.kind === "adjustment" && item.status === "pending" ? <p className="text-muted-foreground">Pendente. Não altera as marcações que valem.</p> : null}
-            {item.kind === "adjustment" && item.status === "approved" ? <p className="text-muted-foreground">Origem: solicitação.</p> : null}
+            {item.status === "pending" ? <p className="text-muted-foreground">{item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto."}</p> : null}
+            {item.status === "approved" ? <p className="text-muted-foreground">Origem: solicitação.</p> : null}
             {role === "manager" && item.status === "pending" && ownRequest(item) ? <p className="text-muted-foreground">Você não decide a própria solicitação.</p> : null}
             <p className="text-muted-foreground">{item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")}</p>
             {mayDecide(item) ? (

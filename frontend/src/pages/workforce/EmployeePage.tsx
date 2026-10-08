@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
   getRecord,
   listRecords,
   updateRecord,
+  uploadCertificatePhoto,
   type Audit,
   type Employee,
   type NamedRecord,
@@ -22,7 +24,10 @@ import {
 import { useAuthStore } from "@/store/auth.store"
 import { onlyDigits } from "@/utils/digits"
 import {
+  certificateText,
+  manualTimeOffKinds,
   occurrenceKindLabel,
+  periodText,
   punchOrigin,
   requestKindLabel,
   requestStatusLabel,
@@ -54,7 +59,8 @@ const links = [
 export function EmployeePage() {
   const params = useParams()
   const id = Number(params.id)
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const role = useAuthStore((state) => state.user?.role)
+  const isAdmin = role === "admin"
   const [tab, setTab] = useState<(typeof tabs)[number][0]>("data")
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [vigencies, setVigencies] = useState<Vigency[]>([])
@@ -76,7 +82,9 @@ export function EmployeePage() {
   const [statusLabel, setStatusLabel] = useState("active")
   const [validFrom, setValidFrom] = useState("")
   const [vigencyNote, setVigencyNote] = useState("")
-  const [occurrenceKind, setOccurrenceKind] = useState("absence")
+  const [occurrenceKind, setOccurrenceKind] = useState(role === "manager" ? "allowance" : "absence")
+  const [offDraft, setOffDraft] = useState<TimeOffDraft>(emptyTimeOff)
+  const [offFileKey, setOffFileKey] = useState(0)
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
   const [reasonId, setReasonId] = useState("")
@@ -198,15 +206,21 @@ export function EmployeePage() {
     event.preventDefault()
     setError("")
     try {
+      const manual = manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number])
+      const span: Record<string, unknown> = manual ? timeOffBody(offDraft, occurrenceKind) : { starts_on: startsOn, ends_on: endsOn || null }
+      if (manual && occurrenceKind === "certificate" && offDraft.photo) {
+        span.photo_key = (await uploadCertificatePhoto(offDraft.photo)).key
+      }
       await createRecord("/occurrences", {
         employee_id: id,
         kind: occurrenceKind,
-        starts_on: startsOn,
-        ends_on: endsOn || null,
+        ...span,
         reason_id: reasonId ? Number(reasonId) : null,
         note: occurrenceNote.trim() || null,
       })
       setOccurrenceNote("")
+      setOffDraft(emptyTimeOff())
+      setOffFileKey((current) => current + 1)
       await load()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
@@ -345,7 +359,9 @@ export function EmployeePage() {
                 <li key={item.id} className="px-4 py-3">
                   {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
                   {item.kind === "adjustment" && item.punches.length > 0 ? ` · ${item.punches.map((value) => showDateTime(value)).join(", ")}` : ""}
-                  {item.kind === "adjustment" && item.status === "approved" ? ` · ${punchOrigin("approved_request")}` : ""}
+                  {item.kind !== "adjustment" ? ` · ${periodText(item)}` : ""}
+                  {certificateText(item) ? ` · ${certificateText(item)}` : ""}
+                  {item.status === "approved" ? ` · ${punchOrigin("approved_request")}` : ""}
                 </li>
               ))}
               {requests.length === 0 ? <li className="px-4 py-3 text-muted-foreground">Nenhuma solicitação.</li> : null}
@@ -355,26 +371,35 @@ export function EmployeePage() {
       ) : null}
       {tab === "events" ? (
         <div className="space-y-4">
-          {isAdmin ? (
+          {isAdmin || role === "manager" ? (
             <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveOccurrence}>
+              <p className="text-sm text-muted-foreground">Abono, atestado, afastamento e férias lançados aqui têm origem manual.</p>
               <div className="space-y-2">
                 <Label htmlFor="okind">Tipo</Label>
                 <select id="okind" className={fieldClass} value={occurrenceKind} onChange={(event) => setOccurrenceKind(event.target.value)}>
-                  {Object.entries(occurrenceKindLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(occurrenceKindLabel)
+                    .filter(([value]) => isAdmin || manualTimeOffKinds.includes(value as (typeof manualTimeOffKinds)[number]))
+                    .map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                 </select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="start">Início</Label>
-                <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end">Fim</Label>
-                <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
-              </div>
+              {manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number]) ? (
+                <TimeOffFields idPrefix="employee-off" kind={occurrenceKind} draft={offDraft} fileKey={offFileKey} onChange={setOffDraft} />
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="start">Início</Label>
+                    <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end">Fim</Label>
+                    <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
+                  </div>
+                </>
+              )}
               {reasons.length > 0 ? (
                 <div className="space-y-2">
                   <Label htmlFor="reason">Motivo</Label>
@@ -398,8 +423,16 @@ export function EmployeePage() {
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {occurrences.map((item) => (
               <li key={item.id} className="px-4 py-3 text-sm">
-                {occurrenceKindLabel[item.kind] || item.kind} · {showDate(item.starts_on)} a {showDate(item.ends_on)}
+                {occurrenceKindLabel[item.kind] || item.kind} · {periodText(item)} · {punchOrigin(item.source)}
+                {certificateText(item) ? ` · ${certificateText(item)}` : ""}
                 {item.note ? ` · ${item.note}` : ""}
+                {item.warning ? ` · ${item.warning}` : ""}
+                {item.photo_url ? (
+                  <>
+                    {" · "}
+                    <DocumentLink href={item.photo_url} />
+                  </>
+                ) : null}
               </li>
             ))}
             {occurrences.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma ocorrência.</li> : null}
