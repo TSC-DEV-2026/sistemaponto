@@ -150,6 +150,7 @@ function PunchGroup({
           <li key={item.id} className="px-4 py-3 text-sm">
             {employeeName ? `${employeeName(item.employee_id)} · ` : ""}
             {showDateTime(item.occurred_at)} · {punchOrigin(item.source)}
+            {item.channel === "online" ? " · online" : item.channel === "offline" ? " · offline" : ""}
             {item.note ? ` · ${item.note}` : ""}
             {item.voided_at ? ` · deixou de valer em ${showDateTime(item.voided_at)}` : ""}
           </li>

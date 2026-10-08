@@ -80,6 +80,7 @@ export function EmployeePage() {
   const [admission, setAdmission] = useState("")
   const [note, setNote] = useState("")
   const [hourBank, setHourBank] = useState(false)
+  const [registration, setRegistration] = useState("")
   const [kind, setKind] = useState("job")
   const [referenceId, setReferenceId] = useState("")
   const [statusLabel, setStatusLabel] = useState("active")
@@ -112,6 +113,7 @@ export function EmployeePage() {
     setAdmission(person.admission_date)
     setNote(person.note || "")
     setHourBank(Boolean(person.hour_bank))
+    setRegistration(person.registration_number || "")
     setVigencies(history.items)
     setPunches(marks.items)
     setOccurrences(events.items)
@@ -180,6 +182,7 @@ export function EmployeePage() {
         admission_date: admission,
         note: note.trim() || null,
         hour_bank: hourBank,
+        registration_number: registration.trim() || null,
       })
       setEmployee(saved)
     } catch (caught) {
@@ -276,6 +279,11 @@ export function EmployeePage() {
           <div className="space-y-2">
             <Label htmlFor="admission">Admissão</Label>
             <input id="admission" className={fieldClass} type="date" value={admission} onChange={(event) => setAdmission(event.target.value)} required disabled={!isAdmin} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="registration">Matrícula</Label>
+            <Input id="registration" value={registration} onChange={(event) => setRegistration(event.target.value)} disabled={!isAdmin} />
+            <p className="text-sm text-muted-foreground">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
           </div>
           <label className="flex items-center gap-2 text-sm" htmlFor="hour-bank">
             <input id="hour-bank" type="checkbox" checked={hourBank} onChange={(event) => setHourBank(event.target.checked)} disabled={!isAdmin} />

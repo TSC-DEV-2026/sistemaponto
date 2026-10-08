@@ -64,8 +64,8 @@ export const navGroups: NavGroup[] = [
         icon: Smartphone,
         lead: "Modalidades do registro feito pelo funcionário no app.",
         sections: [
-          { title: "Registro Simples", text: "Modalidade prevista." },
-          { title: "QR Code + Selfie", text: "Modalidade prevista." },
+          { title: "Registro Simples", text: "Botão do funcionário." },
+          { title: "QR Code + Selfie", text: "Unidade, CPF e matrícula." },
           { title: "Reconhecimento facial", text: "Online e offline." },
         ],
       },

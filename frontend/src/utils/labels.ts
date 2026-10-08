@@ -48,6 +48,8 @@ export const punchSourceLabel: Record<string, string> = {
   manual: "Manual",
   approved_request: "Solicitação",
   afd: "AFD",
+  qr: "QR Code",
+  face: "Rosto",
 }
 
 export const fiscalKindLabel: Record<string, string> = {
