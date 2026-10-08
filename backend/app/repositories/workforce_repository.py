@@ -296,6 +296,50 @@ class WorkforceRepository:
             .one_or_none()
         )
 
+    def closing_overlapping(self, tenant_id: int, start: date, end: date) -> Closing | None:
+        return (
+            self.db.query(Closing)
+            .filter(Closing.tenant_id == tenant_id, Closing.starts_on <= end, Closing.ends_on >= start)
+            .first()
+        )
+
+    def closed_covering(self, tenant_id: int, day: date) -> Closing | None:
+        return (
+            self.db.query(Closing)
+            .filter(
+                Closing.tenant_id == tenant_id,
+                Closing.status == "closed",
+                Closing.starts_on <= day,
+                Closing.ends_on >= day,
+            )
+            .first()
+        )
+
+    def pending_overlapping(self, tenant_id: int, start: date, end: date) -> list[TimeRequest]:
+        return (
+            self.db.query(TimeRequest)
+            .filter(
+                TimeRequest.tenant_id == tenant_id,
+                TimeRequest.status == "pending",
+                TimeRequest.starts_on.is_not(None),
+                TimeRequest.starts_on <= end,
+                or_(TimeRequest.ends_on.is_(None), TimeRequest.ends_on >= start),
+            )
+            .all()
+        )
+
+    def blocking_occurrences(self, tenant_id: int, start: date, end: date) -> list[Occurrence]:
+        return (
+            self.db.query(Occurrence)
+            .filter(
+                Occurrence.tenant_id == tenant_id,
+                Occurrence.kind.in_(("allowance", "certificate")),
+                Occurrence.starts_on <= end,
+                Occurrence.ends_on >= start,
+            )
+            .all()
+        )
+
     def events_for(self, request_ids: list[int]) -> dict[int, list[RequestEvent]]:
         if not request_ids:
             return {}
