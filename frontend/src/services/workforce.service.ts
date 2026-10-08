@@ -149,6 +149,24 @@ export type Notice = {
   created_at: string
 }
 
+export type NoticePreference = {
+  id: number
+  person_id: number
+  kind: string
+  enabled: boolean
+  created_at: string
+}
+
+export type NoticeEmail = {
+  id: number
+  person_id: number
+  employee_id: number | null
+  kind: string
+  body: string
+  address: string | null
+  created_at: string
+}
+
 export type Audit = {
   id: number
   person_id: number
