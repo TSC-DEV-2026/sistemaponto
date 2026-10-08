@@ -611,6 +611,30 @@ class TimeResultsOut(BaseModel):
     items: list[TimeResultOut]
 
 
+class ReportCatalogOut(BaseModel):
+    kind: str
+    name: str
+
+
+class ReportLineOut(BaseModel):
+    employee_id: int | None
+    full_name: str | None
+    occurred_on: date
+    title: str
+    detail: str
+
+
+class ReportOut(BaseModel):
+    kind: str
+    name: str
+    starts_on: date
+    ends_on: date
+    items: list[ReportLineOut]
+    total: int
+    page: int
+    limit: int
+
+
 class HourBankEntryCreate(BaseModel):
     employee_id: int
     kind: Literal["settlement", "credit", "debit"]
