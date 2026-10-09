@@ -3,6 +3,7 @@ import secrets
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from app.api.transport import use_cookie_transport
 from app.core.config import settings
 from app.core.security import CSRF_COOKIE, new_secret
 
@@ -19,7 +20,9 @@ def _needs_csrf(request: Request) -> bool:
     if not request.url.path.startswith("/api/v1"):
         return False
     authorization = request.headers.get("authorization", "")
-    return not authorization.lower().startswith("bearer ")
+    if authorization.lower().startswith("bearer "):
+        return False
+    return use_cookie_transport(request)
 
 
 def _cookie_header() -> bytes:
