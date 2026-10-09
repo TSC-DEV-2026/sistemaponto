@@ -22,6 +22,7 @@ from app.repositories.tenant_repository import TenantRepository
 from app.schemas.auth import RegisterCreate, SessionOut
 from app.schemas.tenant import TenantOut
 from app.services.authenticator_client import AuthenticatorClient, RemotePerson
+from app.services.company_defaults import ensure_company_defaults
 from app.services.tenant_service import TenantService
 
 logger = logging.getLogger("base.auth")
@@ -69,6 +70,7 @@ class AuthService:
         )
         tenant = self.tenant_service.create_public(data.company_name)
         self.memberships.create(person_id=person_id, tenant_id=tenant.id, role="admin")
+        self._defaults(tenant.id)
         person = self.authenticator.person_state(person_id)
         view = self._view(person, tenant.id if created else None, must_login=not created)
         if not created:
@@ -76,6 +78,11 @@ class AuthService:
             return RegisterResult(view=view, session=None)
         logger.info("cadastro aceito person_id=%s", person_id)
         return RegisterResult(view=view, session=self._issue(person, tenant.id, view))
+
+    def _defaults(self, tenant_id: int) -> None:
+        db = getattr(self.tenants, "db", None)
+        if db is not None:
+            ensure_company_defaults(db, tenant_id)
 
     def login(self, cpf: str, password: str) -> IssuedSession:
         person = self.authenticator.verify(normalize_cpf(cpf), password)
