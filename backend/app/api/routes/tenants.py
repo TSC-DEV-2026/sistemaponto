@@ -11,6 +11,7 @@ from app.core.exceptions import AppError
 from app.repositories.membership_repository import MembershipRepository
 from app.schemas.common import Envelope, Page
 from app.schemas.tenant import TenantCreate, TenantOut, TenantUpdate
+from app.services.company_defaults import ensure_company_defaults
 from app.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -85,6 +86,7 @@ def create_tenant(
 ):
     row = service.create(body)
     MembershipRepository(db).create(person_id=actor.person_id, tenant_id=row.id, role="admin")
+    ensure_company_defaults(db, row.id)
     return json_data(dump_one(row, TenantOut, None), status_code=201)
 
 

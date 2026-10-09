@@ -8,6 +8,7 @@ from app.models.membership import Membership
 from app.repositories.membership_repository import MembershipRepository
 from app.schemas.membership import MembershipCreate, MembershipUpdate
 from app.services.authenticator_client import AuthenticatorClient
+from app.services.company_defaults import ensure_company_defaults
 
 logger = logging.getLogger("base.membership")
 
@@ -67,15 +68,20 @@ class MembershipService:
         if self.memberships.get_by_person_and_tenant(person_id, tenant_id) is not None:
             raise AppError(400, "Pessoa já vinculada")
         row = self.memberships.create(person_id=person_id, tenant_id=tenant_id, role=role)
+        if role == "admin":
+            self._defaults(tenant_id)
         logger.info("vínculo criado person_id=%s tenant_id=%s", person_id, tenant_id)
         return self.view(row)
 
     def update(self, row: Membership, data: MembershipUpdate) -> MembershipView:
         if data.role is not None:
             role = self._role(data.role)
+            became_admin = row.role != "admin" and role == "admin"
             self._keep_admin(row, deleting=False, new_role=role)
             row.role = role
             row = self.memberships.save(row)
+            if became_admin:
+                self._defaults(row.tenant_id)
         return self.view(row)
 
     def delete(self, row: Membership) -> None:
@@ -89,6 +95,11 @@ class MembershipService:
             return
         if self.memberships.count_admins(row.tenant_id) <= 1:
             raise AppError(400, "A empresa precisa de um administrador")
+
+    def _defaults(self, tenant_id: int) -> None:
+        db = getattr(self.memberships, "db", None)
+        if db is not None:
+            ensure_company_defaults(db, tenant_id)
 
     @staticmethod
     def _role(value: str) -> str:

@@ -7,6 +7,7 @@ from app.core.cpf import normalize_cpf
 from app.repositories.membership_repository import MembershipRepository
 from app.repositories.tenant_repository import TenantRepository
 from app.services.authenticator_client import AuthenticatorClient
+from app.services.company_defaults import ensure_company_defaults
 from app.services.tenant_service import TenantService
 
 logger = logging.getLogger("sistemaponto.seed")
@@ -36,6 +37,7 @@ def seed_operator(db: Session) -> None:
             return
         tenant = TenantService(TenantRepository(db)).create_public(settings.SEED_COMPANY_NAME)
         memberships.create(person_id=person_id, tenant_id=tenant.id, role="admin")
+        ensure_company_defaults(db, tenant.id)
         db.commit()
         logger.info("empresa inicial criada person_id=%s", person_id)
     except Exception:
