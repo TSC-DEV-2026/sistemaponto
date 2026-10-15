@@ -2,9 +2,9 @@ import { FormEvent, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
-import { Input } from "@/components/ui/input"
 import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
 import { login } from "@/services/auth.service"
@@ -36,7 +36,7 @@ export function LoginPage() {
 
   return (
     <PublicFrame title="Entrar">
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <ActionForm className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="cpf">CPF</Label>
           <CpfField id="cpf" autoComplete="username" value={cpf} onValueChange={setCpf} required />
@@ -50,7 +50,7 @@ export function LoginPage() {
         <Button type="submit" className="w-full">Entrar</Button>
         <Link to="/forgot-password" className="block text-center text-sm text-muted-foreground">Esqueci a senha</Link>
         <Link to="/register" className="block text-center text-sm text-muted-foreground">Criar conta</Link>
-      </form>
+      </ActionForm>
     </PublicFrame>
   )
 }

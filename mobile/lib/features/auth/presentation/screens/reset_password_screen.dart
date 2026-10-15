@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../../shared/widgets/secret_field.dart';
 import '../../providers/auth_provider.dart';
 
@@ -75,7 +76,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 16),
-            FilledButton(onPressed: _submit, child: const Text('Salvar')),
+            BusyButton(onPressed: _submit, label: 'Salvar'),
           ],
         ),
       ),

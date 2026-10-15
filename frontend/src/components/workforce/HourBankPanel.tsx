@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -113,7 +114,7 @@ export function HourBankPanel({
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {canLaunch && chosenId && enabled ? (
-        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
+        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor="bank-kind">Lançamento</Label>
             <select id="bank-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
@@ -142,7 +143,7 @@ export function HourBankPanel({
             <Input id="bank-note" value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
           <Button type="submit">Lançar</Button>
-        </form>
+        </ActionForm>
       ) : null}
       {entries.length > 0 ? (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">

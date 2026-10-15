@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -163,7 +164,7 @@ export function TimeClockPage() {
         <section className="space-y-3 rounded-md border border-border bg-card p-3">
           <h2 className="text-sm font-medium">Registro simples</h2>
           <p className="text-sm text-muted-foreground">{mine.full_name}</p>
-          <Button type="button" onClick={() => void punchSimple(mine.id)}>
+          <Button type="button" onClick={() => punchSimple(mine.id)}>
             Registrar
           </Button>
         </section>
@@ -184,16 +185,16 @@ export function TimeClockPage() {
               ))}
             </select>
           </div>
-          <Button type="button" disabled={!selected} onClick={() => void punchSimple(Number(selected))}>
+          <Button type="button" disabled={!selected} onClick={() => punchSimple(Number(selected))}>
             Registrar
           </Button>
         </section>
       ) : null}
       {mine ? (
-        <form className="space-y-3 rounded-md border border-border bg-card p-3" onSubmit={punchQr}>
+        <ActionForm className="space-y-3 rounded-md border border-border bg-card p-3" onSubmit={punchQr}>
           <h2 className="text-sm font-medium">QR Code e selfie</h2>
           <p className="text-sm text-muted-foreground">O QR deste corte é o texto unidade, CPF e matrícula. Não há imagem. A selfie precisa ser uma foto enviada desta empresa.</p>
-          <Button type="button" variant="outline" onClick={() => void loadCode()}>
+          <Button type="button" variant="outline" onClick={() => loadCode()}>
             Gerar QR
           </Button>
           <div className="space-y-2">
@@ -205,7 +206,7 @@ export function TimeClockPage() {
             <input id="selfie" className={fieldClass} type="file" accept="image/png,image/jpeg" onChange={(event) => setSelfie(event.target.files?.[0] ?? null)} required />
           </div>
           <Button type="submit">Registrar com QR</Button>
-        </form>
+        </ActionForm>
       ) : null}
       {mine ? (
         <section className="space-y-3 rounded-md border border-border bg-card p-3">
@@ -219,10 +220,10 @@ export function TimeClockPage() {
             </select>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void punchFace(true)}>
+            <Button type="button" onClick={() => punchFace(true)}>
               Rosto reconhecido
             </Button>
-            <Button type="button" variant="outline" onClick={() => void punchFace(false)}>
+            <Button type="button" variant="outline" onClick={() => punchFace(false)}>
               Rosto não reconhecido
             </Button>
           </div>
@@ -313,7 +314,7 @@ export function OccurrencesPage() {
         ))}
       </div>
       {canLaunch ? (
-        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
+        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
           {manual ? <p className="text-sm text-muted-foreground">Origem: manual. Um atestado com marcação no período entra e o ponto avisa o conflito.</p> : null}
           <div className="space-y-2">
             <Label htmlFor="employee">Funcionário</Label>
@@ -358,7 +359,7 @@ export function OccurrencesPage() {
             <Input id="note" value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
           <Button type="submit">Registrar</Button>
-        </form>
+        </ActionForm>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
@@ -524,7 +525,7 @@ export function RequestsPage() {
         {status === "pending" ? `${items.length} pendentes · ${counts.adjustment} ajustes · ${counts.allowance} abonos · ${counts.certificate} atestados · ${counts.leave} afastamentos · ${counts.vacation} férias. ` : ""}
         O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
       </p>
-      <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestAdjustment}>
+      <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestAdjustment}>
         <h2 className="text-sm font-medium">Solicitar ajuste</h2>
         <p className="text-sm text-muted-foreground">Informe todas as marcações que devem valer naquele dia. A origem, depois da aprovação, é solicitação.</p>
         <DayTimesFields dayId="request-day" day={day} times={times} onDay={setDay} onTimes={setTimes} />
@@ -546,8 +547,8 @@ export function RequestsPage() {
           <Input id="request-note" value={requestNote} onChange={(event) => setRequestNote(event.target.value)} />
         </div>
         <Button type="submit">Enviar ajuste</Button>
-      </form>
-      <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestTimeOff}>
+      </ActionForm>
+      <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestTimeOff}>
         <h2 className="text-sm font-medium">Solicitar abono, atestado, afastamento ou férias</h2>
         <p className="text-sm text-muted-foreground">Pendente não altera o ponto. Depois da aprovação, a origem é solicitação. O atestado pede CID, CRM e o nome do médico. A foto é opcional.</p>
         <div className="space-y-2">
@@ -579,7 +580,7 @@ export function RequestsPage() {
           <Input id="off-note" value={offNote} onChange={(event) => setOffNote(event.target.value)} />
         </div>
         <Button type="submit">Enviar solicitação</Button>
-      </form>
+      </ActionForm>
       <div className="flex flex-wrap gap-2">
         {Object.entries(requestStatusLabel).map(([value, label]) => (
           <Button key={value} type="button" size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)}>
@@ -615,10 +616,10 @@ export function RequestsPage() {
             <p className="text-muted-foreground">{item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")}</p>
             {mayDecide(item) ? (
               <div className="flex gap-2">
-                <Button type="button" size="sm" onClick={() => void decide(item.id, "approved")}>
+                <Button type="button" size="sm" onClick={() => decide(item.id, "approved")}>
                   Aprovar
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => void decide(item.id, "rejected")}>
+                <Button type="button" size="sm" variant="outline" onClick={() => decide(item.id, "rejected")}>
                   Recusar
                 </Button>
               </div>
@@ -702,7 +703,7 @@ export function ClosingsPage() {
         O gestor ou o administrador fecha o mês, ou um intervalo, num passo. Não fecha se houver solicitação pendente, ponto incompleto ou conflito entre abono ou atestado e marcação. O aviso de intervalo menor não impede. Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados até reabrir. Cancelar e reabrir exigem motivo.
       </p>
       {canManage ? (
-        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={closeNewPeriod}>
+        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={closeNewPeriod}>
           <div className="space-y-2">
             <Label htmlFor="closing-mode">Período</Label>
             <select id="closing-mode" className={fieldClass} value={mode} onChange={(event) => setMode(event.target.value)}>
@@ -734,7 +735,7 @@ export function ClosingsPage() {
             </div>
           )}
           <Button type="submit">Fechar período</Button>
-        </form>
+        </ActionForm>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
@@ -747,7 +748,7 @@ export function ClosingsPage() {
               {item.events.map((event) => `${closingEventLabel[event.kind] || event.kind}${event.note ? ` (${event.note})` : ""}`).join(" → ")}
             </p>
             {canManage && item.status === "open" ? (
-              <Button type="button" size="sm" onClick={() => void changePeriod(item.id, "closed")}>
+              <Button type="button" size="sm" onClick={() => changePeriod(item.id, "closed")}>
                 Fechar
               </Button>
             ) : null}
@@ -757,11 +758,11 @@ export function ClosingsPage() {
                 <Input id={`reason-${item.id}`} value={reasons[item.id] || ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))} />
                 <div className="flex flex-wrap gap-2">
                   {item.status === "closed" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={() => void changePeriod(item.id, "cancelled")}>
+                    <Button type="button" size="sm" variant="outline" onClick={() => changePeriod(item.id, "cancelled")}>
                       Cancelar
                     </Button>
                   ) : null}
-                  <Button type="button" size="sm" variant="outline" onClick={() => void changePeriod(item.id, "open")}>
+                  <Button type="button" size="sm" variant="outline" onClick={() => changePeriod(item.id, "open")}>
                     Reabrir
                   </Button>
                 </div>
@@ -988,7 +989,7 @@ export function NotificationsPage() {
         </ul>
         {canSend ? (
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" onClick={() => void sendDaily()}>
+            <Button type="button" onClick={() => sendDaily()}>
               Enviar os avisos do dia
             </Button>
             {sent !== null ? <p className="text-sm text-muted-foreground">{sent} avisos enviados.</p> : null}
@@ -1008,7 +1009,7 @@ export function NotificationsPage() {
               {item.read_at ? (
                 <span className="text-muted-foreground">Lida</span>
               ) : (
-                <Button type="button" size="sm" variant="outline" onClick={() => void mark(item.id)}>
+                <Button type="button" size="sm" variant="outline" onClick={() => mark(item.id)}>
                   Marcar lida
                 </Button>
               )}
@@ -1107,7 +1108,7 @@ export function ReportsPage() {
         Um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão. A consulta é analítica e histórica, de até 366 dias. Dia futuro não entra no ponto nem no movimento do banco. O dashboard continua operacional. O gestor vê a própria equipe. O fechamento, sem filtro de funcionário, continua da empresa.
       </p>
       {canRead ? (
-        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={consult}>
+        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={consult}>
           <div className="space-y-2">
             <Label htmlFor="report-kind">Relatório</Label>
             <select id="report-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
@@ -1140,7 +1141,7 @@ export function ReportsPage() {
             </select>
           </div>
           <Button type="submit">Consultar</Button>
-        </form>
+        </ActionForm>
       ) : (
         <p className="text-sm text-muted-foreground">O funcionário não consulta relatório gerencial.</p>
       )}
@@ -1164,13 +1165,13 @@ export function ReportsPage() {
           </ul>
           {result.total > result.limit ? (
             <div className="flex items-center gap-3">
-              <Button type="button" size="sm" variant="outline" disabled={result.page <= 1} onClick={() => void openPage(result.page - 1)}>
+              <Button type="button" size="sm" variant="outline" disabled={result.page <= 1} onClick={() => openPage(result.page - 1)}>
                 Anterior
               </Button>
               <span className="text-sm text-muted-foreground">
                 Página {result.page} de {pages}
               </span>
-              <Button type="button" size="sm" variant="outline" disabled={result.page >= pages} onClick={() => void openPage(result.page + 1)}>
+              <Button type="button" size="sm" variant="outline" disabled={result.page >= pages} onClick={() => openPage(result.page + 1)}>
                 Próxima
               </Button>
             </div>
@@ -1275,7 +1276,7 @@ export function PayrollPage() {
       {canManage ? (
         <section className="space-y-4">
           <h2 className="text-sm font-medium">Gerar arquivo</h2>
-          <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={generateFile}>
+          <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={generateFile}>
             <div className="space-y-2">
               <Label htmlFor="file-kind">Tipo</Label>
               <select id="file-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
@@ -1317,8 +1318,8 @@ export function PayrollPage() {
               </div>
             )}
             <Button type="submit">Gerar</Button>
-          </form>
-          <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={importAfd}>
+          </ActionForm>
+          <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={importAfd}>
             <h2 className="text-sm font-medium">Importar AFD</h2>
             <p className="text-sm text-muted-foreground">A marcação entra com origem AFD. Se já existir no mesmo instante, só ela é ignorada e as demais seguem.</p>
             <div className="space-y-2">
@@ -1326,7 +1327,7 @@ export function PayrollPage() {
               <textarea id="afd-text" className="min-h-28 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={importText} onChange={(event) => setImportText(event.target.value)} required />
             </div>
             <Button type="submit">Importar</Button>
-          </form>
+          </ActionForm>
           {imported ? (
             <p className="text-sm text-muted-foreground">
               {imported.created} criadas, {imported.ignored} já existiam e foram ignoradas, {imported.blocked} não entraram.
@@ -1350,7 +1351,7 @@ export function PayrollPage() {
       {isAdmin ? (
         <section className="space-y-4">
           <h2 className="text-sm font-medium">Totais da folha</h2>
-          <form className="flex flex-wrap items-end gap-3" onSubmit={onSubmit}>
+          <ActionForm className="flex flex-wrap items-end gap-3" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="month">Mês</Label>
               <Input id="month" value={month} onChange={(event) => setMonth(event.target.value)} required />
@@ -1360,7 +1361,7 @@ export function PayrollPage() {
               <Input id="year" value={year} onChange={(event) => setYear(event.target.value)} required />
             </div>
             <Button type="submit">Consultar totais</Button>
-          </form>
+          </ActionForm>
           {result ? (
             <ul className="divide-y divide-border rounded-lg border border-border bg-card">
               {result.items.map((item) => (

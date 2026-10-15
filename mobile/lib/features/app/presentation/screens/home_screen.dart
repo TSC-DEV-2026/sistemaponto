@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../data/network/dio_client.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
@@ -244,24 +245,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (employee['unit_label'] != null) Text('Unidade: ${employee['unit_label']}'),
             if (_journey != null) Text(_journeyLine(_journey!)),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: dismissed ? null : _punchSimple,
-              child: const Text('Registrar marcação'),
-            ),
+            BusyButton(onPressed: dismissed ? null : _punchSimple, label: 'Registrar marcação'),
             const SizedBox(height: 24),
             Text('QR Code e selfie', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             const Text('A marcação só entra quando o código da unidade, do CPF e da matrícula e a selfie são aceitos. Se falhar, nada é gravado e você tenta de novo.'),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: dismissed ? null : _loadCode, child: const Text('Carregar meu código')),
+            BusyButton(kind: BusyButtonKind.outlined, onPressed: dismissed ? null : _loadCode, label: 'Carregar meu código'),
             TextField(
               decoration: const InputDecoration(labelText: 'Código'),
               controller: _codeField,
             ),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: dismissed ? null : _pickSelfie, child: Text(_selfie == null ? 'Tirar selfie' : 'Selfie pronta')),
+            BusyButton(
+              kind: BusyButtonKind.outlined,
+              onPressed: dismissed ? null : _pickSelfie,
+              label: _selfie == null ? 'Tirar selfie' : 'Selfie pronta',
+            ),
             const SizedBox(height: 8),
-            FilledButton(onPressed: dismissed ? null : _punchQr, child: const Text('Registrar com QR')),
+            BusyButton(onPressed: dismissed ? null : _punchQr, label: 'Registrar com QR'),
             const SizedBox(height: 24),
             Text('Reconhecimento facial', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -277,9 +279,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onChanged: dismissed ? null : (value) => setState(() => _channel = value ?? 'online'),
             ),
             const SizedBox(height: 8),
-            FilledButton(onPressed: dismissed ? null : () => _punchFace(true), child: const Text('Rosto reconhecido')),
+            BusyButton(onPressed: dismissed ? null : () => _punchFace(true), label: 'Rosto reconhecido'),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: dismissed ? null : () => _punchFace(false), child: const Text('Rosto não reconhecido')),
+            BusyButton(kind: BusyButtonKind.outlined, onPressed: dismissed ? null : () => _punchFace(false), label: 'Rosto não reconhecido'),
             const SizedBox(height: 24),
             Text('Banco de horas', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),

@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
@@ -42,7 +43,7 @@ export function EmployeeFormPage() {
   }
 
   return (
-    <form className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+    <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">Novo funcionário</h1>
       <p className="text-sm text-muted-foreground">O funcionário nasce ativo. A senha não fica neste sistema. O número de acesso, se houver, está em Permissões e Acessos.</p>
       <div className="space-y-2">
@@ -80,6 +81,6 @@ export function EmployeeFormPage() {
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit">Salvar</Button>
-    </form>
+    </ActionForm>
   )
 }

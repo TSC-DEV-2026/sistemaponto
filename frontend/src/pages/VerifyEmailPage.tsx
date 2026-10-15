@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,7 +49,7 @@ export function VerifyEmailPage() {
           <Link to="/login" className="block text-center text-sm text-muted-foreground">Ir para o login</Link>
         </div>
       ) : (
-        <form className="space-y-4" onSubmit={onSubmit}>
+        <ActionForm className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
@@ -57,7 +58,7 @@ export function VerifyEmailPage() {
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" className="w-full">Reenviar</Button>
           <Link to="/login" className="block text-center text-sm text-muted-foreground">Voltar ao login</Link>
-        </form>
+        </ActionForm>
       )}
     </PublicFrame>
   )

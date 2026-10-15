@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,7 +27,7 @@ export function ForgotPasswordPage() {
 
   return (
     <PublicFrame title="Esqueci a senha">
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <ActionForm className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
           <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
@@ -35,7 +36,7 @@ export function ForgotPasswordPage() {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" className="w-full">Enviar</Button>
         <Link to="/login" className="block text-center text-sm text-muted-foreground">Voltar ao login</Link>
-      </form>
+      </ActionForm>
     </PublicFrame>
   )
 }

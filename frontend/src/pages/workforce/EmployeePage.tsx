@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
@@ -260,7 +261,7 @@ export function EmployeePage() {
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {tab === "data" ? (
-        <form className="space-y-4" onSubmit={saveEmployee}>
+        <ActionForm className="space-y-4" onSubmit={saveEmployee}>
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
             <Input id="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required disabled={!isAdmin} />
@@ -295,7 +296,7 @@ export function EmployeePage() {
             <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} onChange={(event) => setNote(event.target.value)} disabled={!isAdmin} />
           </div>
           {isAdmin ? <Button type="submit">Salvar</Button> : null}
-        </form>
+        </ActionForm>
       ) : null}
       {tab === "work" ? (
         <div className="space-y-4">
@@ -310,7 +311,7 @@ export function EmployeePage() {
             <li>Gestor: {employee?.manager_label || "—"}</li>
           </ul>
           {isAdmin ? (
-            <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveVigency}>
+            <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveVigency}>
               <div className="space-y-2">
                 <Label htmlFor="kind">Vínculo</Label>
                 <select id="kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
@@ -352,7 +353,7 @@ export function EmployeePage() {
                 <Input id="vnote" value={vigencyNote} onChange={(event) => setVigencyNote(event.target.value)} />
               </div>
               <Button type="submit">Registrar vigência</Button>
-            </form>
+            </ActionForm>
           ) : null}
         </div>
       ) : null}
@@ -391,7 +392,7 @@ export function EmployeePage() {
       {tab === "events" ? (
         <div className="space-y-4">
           {isAdmin || role === "manager" ? (
-            <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveOccurrence}>
+            <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveOccurrence}>
               <p className="text-sm text-muted-foreground">Abono, atestado, afastamento e férias lançados aqui têm origem manual.</p>
               <div className="space-y-2">
                 <Label htmlFor="okind">Tipo</Label>
@@ -437,7 +438,7 @@ export function EmployeePage() {
                 <Input id="onote" value={occurrenceNote} onChange={(event) => setOccurrenceNote(event.target.value)} />
               </div>
               <Button type="submit">Registrar ocorrência</Button>
-            </form>
+            </ActionForm>
           ) : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {occurrences.map((item) => (

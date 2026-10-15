@@ -7,6 +7,7 @@ import '../../../../core/errors/api_exception.dart';
 import '../../../../core/utils/cpf_formatter.dart';
 import '../../../../core/utils/digits.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../../shared/widgets/secret_field.dart';
 import '../../providers/auth_provider.dart';
 
@@ -71,11 +72,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _submit,
-              icon: const Icon(LucideIcons.logIn),
-              label: const Text('Entrar'),
-            ),
+            BusyButton(onPressed: _submit, icon: LucideIcons.logIn, label: 'Entrar'),
             TextButton(onPressed: () => context.go('/forgot-password'), child: const Text('Esqueci a senha')),
             TextButton(onPressed: () => context.go('/register'), child: const Text('Criar conta')),
           ],

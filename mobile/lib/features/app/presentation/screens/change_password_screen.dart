@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../../shared/widgets/secret_field.dart';
 import '../../../auth/providers/auth_provider.dart';
 
@@ -70,7 +71,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
           const SizedBox(height: 16),
-          FilledButton(onPressed: _submit, child: const Text('Salvar')),
+          BusyButton(onPressed: _submit, label: 'Salvar'),
         ],
       ),
     );
