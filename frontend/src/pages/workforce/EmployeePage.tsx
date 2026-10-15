@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
@@ -266,7 +267,7 @@ export function EmployeePage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="cpf">CPF</Label>
-            <Input id="cpf" inputMode="numeric" value={cpf} onChange={(event) => setCpf(formatCpf(event.target.value))} required disabled={!isAdmin} />
+            <CpfField id="cpf" value={cpf} onValueChange={setCpf} required disabled={!isAdmin} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>

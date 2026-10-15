@@ -3,11 +3,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
 import { Button } from "@/components/ui/button"
+import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
-import { formatCpf, onlyDigits } from "@/utils/digits"
+import { onlyDigits } from "@/utils/digits"
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -37,7 +38,7 @@ export function LoginPage() {
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="cpf">CPF</Label>
-          <Input id="cpf" inputMode="numeric" autoComplete="username" value={cpf} onChange={(event) => setCpf(formatCpf(event.target.value))} required />
+          <CpfField id="cpf" autoComplete="username" value={cpf} onValueChange={setCpf} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>
