@@ -132,9 +132,7 @@ O olho alterna entre ocultar e mostrar. Oculto, o ícone é o olho. Visível, o 
 
 ## Ponto 13 — Carregamento
 
-A espera de uma ação usa um indicador circular no centro da tela, com o texto "Carregando". A barra de progresso deixa de existir.
-
-O indicador aparece ao enviar o formulário e some quando a resposta chega, seja sucesso ou erro. No login, clicar em Entrar liga esse indicador até a sessão abrir ou a mensagem de erro aparecer.
+Ao acionar um botão aonde ele executa uma ação, como logar, ele tem que bloquear o botão, no caso, não deve permetir que a pessoa clique nele enquanto a ação não for terminada, e durante o carregamento, o texto do botão deve ser trocado por um spinner, indicando assim o carregamento.
 
 ## Ponto 14 — Tela de solicitações
 
