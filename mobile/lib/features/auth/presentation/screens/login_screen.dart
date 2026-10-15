@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/errors/api_exception.dart';
+import '../../../../core/utils/cpf_formatter.dart';
 import '../../../../core/utils/digits.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/secret_field.dart';
@@ -56,6 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             TextField(
               controller: _cpf,
               keyboardType: TextInputType.number,
+              inputFormatters: [CpfInputFormatter()],
               decoration: const InputDecoration(labelText: 'CPF'),
             ),
             const SizedBox(height: 12),

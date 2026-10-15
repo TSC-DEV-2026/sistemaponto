@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
@@ -24,7 +25,7 @@ import {
   type Vigency,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
-import { onlyDigits } from "@/utils/digits"
+import { formatCpf, onlyDigits } from "@/utils/digits"
 import {
   certificateText,
   manualTimeOffKinds,
@@ -107,7 +108,7 @@ export function EmployeePage() {
     ])
     setEmployee(person)
     setFullName(person.full_name)
-    setCpf(person.cpf)
+    setCpf(formatCpf(person.cpf))
     setEmail(person.email || "")
     setPersonId(person.person_id ? String(person.person_id) : "")
     setAdmission(person.admission_date)
@@ -266,7 +267,7 @@ export function EmployeePage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="cpf">CPF</Label>
-            <Input id="cpf" value={cpf} onChange={(event) => setCpf(event.target.value)} required disabled={!isAdmin} />
+            <CpfField id="cpf" value={cpf} onValueChange={setCpf} required disabled={!isAdmin} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>

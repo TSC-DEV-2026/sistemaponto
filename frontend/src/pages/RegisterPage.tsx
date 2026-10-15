@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
 import { Button } from "@/components/ui/button"
+import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
 import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
@@ -51,7 +52,7 @@ export function RegisterPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="cpf">CPF</Label>
-          <Input id="cpf" inputMode="numeric" value={cpf} onChange={(event) => setCpf(event.target.value)} required />
+          <CpfField id="cpf" value={cpf} onValueChange={setCpf} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
