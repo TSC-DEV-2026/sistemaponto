@@ -36,7 +36,6 @@ class _BusyButtonState extends State<BusyButton> {
 
   @override
   Widget build(BuildContext context) {
-    final onPressed = widget.onPressed == null || _busy ? null : _run;
     final spinner = SizedBox(
       width: 18,
       height: 18,
@@ -45,23 +44,32 @@ class _BusyButtonState extends State<BusyButton> {
         color: widget.kind == BusyButtonKind.filled ? Theme.of(context).colorScheme.onPrimary : null,
       ),
     );
-    final Widget button;
-    if (!_busy && widget.icon != null) {
-      final icon = Icon(widget.icon);
-      final label = Text(widget.label);
-      button = switch (widget.kind) {
-        BusyButtonKind.filled => FilledButton.icon(onPressed: onPressed, icon: icon, label: label),
-        BusyButtonKind.outlined => OutlinedButton.icon(onPressed: onPressed, icon: icon, label: label),
-        BusyButtonKind.text => TextButton.icon(onPressed: onPressed, icon: icon, label: label),
-      };
-    } else {
-      final child = _busy ? spinner : Text(widget.label);
-      button = switch (widget.kind) {
+    final label = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.icon != null) ...[
+          Icon(widget.icon),
+          const SizedBox(width: 8),
+        ],
+        Text(widget.label),
+      ],
+    );
+    final child = Stack(
+      alignment: Alignment.center,
+      children: [
+        Visibility(visible: !_busy, maintainSize: true, maintainAnimation: true, maintainState: true, child: label),
+        if (_busy) spinner,
+      ],
+    );
+    final onPressed = widget.onPressed == null ? null : _run;
+    final button = AbsorbPointer(
+      absorbing: _busy,
+      child: switch (widget.kind) {
         BusyButtonKind.filled => FilledButton(onPressed: onPressed, child: child),
         BusyButtonKind.outlined => OutlinedButton(onPressed: onPressed, child: child),
         BusyButtonKind.text => TextButton(onPressed: onPressed, child: child),
-      };
-    }
+      },
+    );
     return Semantics(button: true, label: _busy ? 'Carregando' : null, child: button);
   }
 }

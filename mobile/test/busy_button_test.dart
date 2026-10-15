@@ -22,10 +22,11 @@ void main() {
       ),
     );
 
+    final before = tester.getSize(find.byType(FilledButton));
     await tester.tap(find.text('Entrar'));
     await tester.pump();
 
-    expect(find.text('Entrar'), findsNothing);
+    expect(tester.getSize(find.byType(FilledButton)), before);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(taps, 1);
 
