@@ -2,6 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 
 import { useAuthStore } from "@/store/auth.store"
 import { useLoaderStore } from "@/store/loader.store"
+import { waitsForAction } from "@/utils/action-loader"
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
 
@@ -30,7 +31,7 @@ api.interceptors.request.use((config: RequestConfig) => {
       config.headers.set("X-CSRF-Token", csrf)
     }
   }
-  if (!config.skipLoader) {
+  if (waitsForAction(config.method, config.skipLoader)) {
     useLoaderStore.getState().start()
   }
   return config
@@ -45,14 +46,14 @@ function isPublicPath(path: string): boolean {
 api.interceptors.response.use(
   (response) => {
     const config = response.config as RequestConfig
-    if (!config.skipLoader) {
+    if (waitsForAction(config.method, config.skipLoader)) {
       useLoaderStore.getState().stop()
     }
     return response
   },
   async (error: AxiosError) => {
     const config = error.config as RequestConfig | undefined
-    if (config && !config.skipLoader) {
+    if (waitsForAction(config?.method, config?.skipLoader)) {
       useLoaderStore.getState().stop()
     }
     const url = config?.url || ""

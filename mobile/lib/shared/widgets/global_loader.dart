@@ -15,11 +15,20 @@ class GlobalLoader extends ConsumerWidget {
       children: [
         child,
         if (loading)
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: LinearProgressIndicator(minHeight: 3),
+          const Positioned.fill(
+            child: ColoredBox(
+              color: Color(0xCCF8FAFC),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Carregando'),
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
     );

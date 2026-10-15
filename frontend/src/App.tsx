@@ -3,7 +3,6 @@ import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom"
 import { GlobalLoader } from "@/components/GlobalLoader"
 import { AppShell } from "@/components/layouts/AppShell"
 import { PrivateRoute } from "@/components/PrivateRoute"
-import { RouteLoader } from "@/components/RouteLoader"
 import { TenantRoute } from "@/components/TenantRoute"
 import { ChangePasswordPage } from "@/pages/ChangePasswordPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
@@ -37,18 +36,9 @@ import {
 } from "@/pages/workforce/OperationsPages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
 
-function RootLayout() {
-  return (
-    <>
-      <RouteLoader />
-      <Outlet />
-    </>
-  )
-}
-
 const router = createBrowserRouter([
   {
-    element: <RootLayout />,
+    element: <Outlet />,
     children: [
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
