@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
-import { onlyDigits } from "@/utils/digits"
+import { formatCpf, onlyDigits } from "@/utils/digits"
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -37,7 +37,7 @@ export function LoginPage() {
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="cpf">CPF</Label>
-          <Input id="cpf" inputMode="numeric" autoComplete="username" value={cpf} onChange={(event) => setCpf(event.target.value)} required />
+          <Input id="cpf" inputMode="numeric" autoComplete="username" value={cpf} onChange={(event) => setCpf(formatCpf(event.target.value))} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>

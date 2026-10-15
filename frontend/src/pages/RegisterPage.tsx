@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { register } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
-import { onlyDigits } from "@/utils/digits"
+import { formatCpf, onlyDigits } from "@/utils/digits"
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -50,7 +50,7 @@ export function RegisterPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="cpf">CPF</Label>
-          <Input id="cpf" inputMode="numeric" value={cpf} onChange={(event) => setCpf(event.target.value)} required />
+          <Input id="cpf" inputMode="numeric" value={cpf} onChange={(event) => setCpf(formatCpf(event.target.value))} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>

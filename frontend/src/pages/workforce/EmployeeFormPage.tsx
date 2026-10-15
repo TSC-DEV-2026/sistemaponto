@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { createRecord, type Employee } from "@/services/workforce.service"
-import { onlyDigits } from "@/utils/digits"
+import { formatCpf, onlyDigits } from "@/utils/digits"
 
 export function EmployeeFormPage() {
   const navigate = useNavigate()
@@ -50,7 +50,7 @@ export function EmployeeFormPage() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="cpf">CPF</Label>
-        <Input id="cpf" value={cpf} onChange={(event) => setCpf(event.target.value)} required />
+        <Input id="cpf" inputMode="numeric" value={cpf} onChange={(event) => setCpf(formatCpf(event.target.value))} required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">E-mail</Label>

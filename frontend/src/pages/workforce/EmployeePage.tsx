@@ -24,7 +24,7 @@ import {
   type Vigency,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
-import { onlyDigits } from "@/utils/digits"
+import { formatCpf, onlyDigits } from "@/utils/digits"
 import {
   certificateText,
   manualTimeOffKinds,
@@ -107,7 +107,7 @@ export function EmployeePage() {
     ])
     setEmployee(person)
     setFullName(person.full_name)
-    setCpf(person.cpf)
+    setCpf(formatCpf(person.cpf))
     setEmail(person.email || "")
     setPersonId(person.person_id ? String(person.person_id) : "")
     setAdmission(person.admission_date)
@@ -266,7 +266,7 @@ export function EmployeePage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="cpf">CPF</Label>
-            <Input id="cpf" value={cpf} onChange={(event) => setCpf(event.target.value)} required disabled={!isAdmin} />
+            <Input id="cpf" inputMode="numeric" value={cpf} onChange={(event) => setCpf(formatCpf(event.target.value))} required disabled={!isAdmin} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
