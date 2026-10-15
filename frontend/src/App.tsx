@@ -36,6 +36,7 @@ import {
   TimeClockPage,
 } from "@/pages/workforce/OperationsPages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
+import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
 
 function RootLayout() {
   return (
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
                   { path: "/time-clock", element: <TimeClockPage /> },
                   { path: "/occurrences", element: <OccurrencesPage /> },
                   { path: "/requests", element: <RequestsPage /> },
+                  { path: "/requests/new", element: <RequestFormPage /> },
                   { path: "/closings", element: <ClosingsPage /> },
                   { path: "/people/new", element: <EmployeeFormPage /> },
                   { path: "/people/:id", element: <EmployeePage /> },
