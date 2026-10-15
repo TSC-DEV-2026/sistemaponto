@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { PublicFrame } from "@/components/PublicFrame"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
 import { login } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -41,7 +42,7 @@ export function LoginPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <PasswordField id="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         </div>
         {message ? <p className="text-sm">{message}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}

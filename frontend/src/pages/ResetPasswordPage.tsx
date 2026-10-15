@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
 import { resetPassword } from "@/services/auth.service"
 
@@ -44,11 +44,11 @@ export function ResetPasswordPage() {
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="password">Senha nova</Label>
-          <Input id="password" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <PasswordField id="password" autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirm">Confirmar senha</Label>
-          <Input id="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
+          <PasswordField id="confirm" autoComplete="new-password" minLength={8} maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
         </div>
         {message ? <p className="text-sm">{message}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
