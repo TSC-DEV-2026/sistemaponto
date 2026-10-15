@@ -72,7 +72,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         {...props}
-        className={cn(buttonVariants({ variant, size }), "relative", waiting && "pointer-events-none", className)}
+        className={cn(buttonVariants({ variant, size }), waiting && "pointer-events-none", className)}
         ref={ref}
         type={type}
         disabled={disabled}
@@ -81,8 +81,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         aria-label={waiting ? "Carregando" : props["aria-label"]}
         onClick={handleClick}
       >
-        <span className={cn("inline-flex items-center gap-2", waiting && "invisible")}>{children}</span>
-        {waiting ? <Loader2 className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 animate-spin" aria-hidden /> : null}
+        <span className="inline-grid place-items-center">
+          <span className={cn("col-start-1 row-start-1 inline-flex items-center gap-2", waiting && "invisible")}>{children}</span>
+          {waiting ? <Loader2 className="col-start-1 row-start-1 h-4 w-4 animate-spin" aria-hidden /> : null}
+        </span>
       </button>
     )
   },

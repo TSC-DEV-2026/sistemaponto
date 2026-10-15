@@ -35,7 +35,8 @@
 
 ## 🐛 Problemas encontrados e soluções
 
-- Trocar o texto pelo spinner diminuía o botão, como o Reenviar em Configurações → o texto fica invisível e o spinner é posicionado por cima
+- Trocar o texto pelo spinner diminuía o botão, como o Reenviar em Configurações → o texto fica invisível e o spinner fica na mesma célula
+- A animação de giro anulava o deslocamento que centralizava o spinner, e o botão parecia sair do lugar → o spinner não usa mais esse deslocamento
 
 ## 📌 Pendências / próximos passos
 
