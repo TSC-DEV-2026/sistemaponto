@@ -1,7 +1,9 @@
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { forwardRef, type ButtonHTMLAttributes } from "react"
+import { Loader2 } from "lucide-react"
+import { forwardRef, useContext, useRef, useState, type ButtonHTMLAttributes, type MouseEvent } from "react"
 
+import { FormPendingContext } from "@/components/ui/action-form"
 import { cn } from "@/utils/cn"
 
 const buttonVariants = cva(
@@ -26,13 +28,61 @@ const buttonVariants = cva(
   },
 )
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
-  VariantProps<typeof buttonVariants> & { asChild?: boolean }
+type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+    pending?: boolean
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>
+  }
+
+function isPromise(value: unknown): value is Promise<unknown> {
+  return typeof value === "object" && value !== null && typeof (value as Promise<unknown>).then === "function"
+}
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    return <Comp className={cn(buttonVariants({ variant, size }), className)} ref={ref} {...props} />
+  ({ className, variant, size, asChild = false, pending = false, type, onClick, disabled, children, ...props }, ref) => {
+    const formPending = useContext(FormPendingContext)
+    const [clickPending, setClickPending] = useState(false)
+    const lock = useRef(false)
+    const waiting = pending || clickPending || (type === "submit" && formPending)
+
+    if (asChild) {
+      return (
+        <Slot className={cn(buttonVariants({ variant, size }), className)} ref={ref} {...props}>
+          {children}
+        </Slot>
+      )
+    }
+
+    function handleClick(event: MouseEvent<HTMLButtonElement>) {
+      if (lock.current) {
+        event.preventDefault()
+        return
+      }
+      const result = onClick?.(event)
+      if (!isPromise(result)) return
+      lock.current = true
+      setClickPending(true)
+      void result.finally(() => {
+        lock.current = false
+        setClickPending(false)
+      })
+    }
+
+    return (
+      <button
+        {...props}
+        className={cn(buttonVariants({ variant, size }), className)}
+        ref={ref}
+        type={type}
+        disabled={disabled || waiting}
+        aria-busy={waiting || undefined}
+        aria-label={waiting ? "Carregando" : props["aria-label"]}
+        onClick={handleClick}
+      >
+        {waiting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : children}
+      </button>
+    )
   },
 )
 Button.displayName = "Button"

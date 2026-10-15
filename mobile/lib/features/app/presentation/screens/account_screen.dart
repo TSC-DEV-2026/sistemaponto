@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 
 class AccountScreen extends ConsumerWidget {
@@ -57,10 +58,11 @@ class AccountScreen extends ConsumerWidget {
             label: const Text('Trocar senha'),
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
+          BusyButton(
+            kind: BusyButtonKind.outlined,
             onPressed: () => ref.read(authProvider.notifier).logout(),
-            icon: const Icon(LucideIcons.logOut),
-            label: const Text('Sair'),
+            icon: LucideIcons.logOut,
+            label: 'Sair',
           ),
         ],
       ),

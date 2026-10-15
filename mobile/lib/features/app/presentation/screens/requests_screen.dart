@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
@@ -296,11 +297,15 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
             TextField(controller: _crm, decoration: const InputDecoration(labelText: 'CRM')),
             TextField(controller: _doctor, decoration: const InputDecoration(labelText: 'Nome do médico')),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: _pickPhoto, child: Text(_photo == null ? 'Foto do atestado (opcional)' : 'Foto selecionada')),
+            BusyButton(
+              kind: BusyButtonKind.outlined,
+              onPressed: _pickPhoto,
+              label: _photo == null ? 'Foto do atestado (opcional)' : 'Foto selecionada',
+            ),
           ],
           TextField(controller: _note, decoration: const InputDecoration(labelText: 'Observação'), maxLines: 3),
           const SizedBox(height: 12),
-          FilledButton(onPressed: _submit, child: const Text('Enviar solicitação')),
+          BusyButton(onPressed: _submit, label: 'Enviar solicitação'),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -333,7 +338,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                 ],
               ),
               trailing: status == 'pending'
-                  ? TextButton(onPressed: () => _cancel(item['id'] as int), child: const Text('Cancelar'))
+                  ? BusyButton(kind: BusyButtonKind.text, onPressed: () => _cancel(item['id'] as int), label: 'Cancelar')
                   : null,
             );
           }),

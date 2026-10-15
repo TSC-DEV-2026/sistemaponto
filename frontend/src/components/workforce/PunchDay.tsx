@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -93,7 +94,7 @@ export function PunchCorrectionForm({
   }
 
   return (
-    <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
+    <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
       <p className="text-sm text-muted-foreground">A correção manual substitui as marcações que valem neste dia. As antigas deixam de valer e ficam no histórico. Origem: manual.</p>
       {employees ? (
         <div className="space-y-2">
@@ -115,7 +116,7 @@ export function PunchCorrectionForm({
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit">Corrigir o dia</Button>
-    </form>
+    </ActionForm>
   )
 }
 

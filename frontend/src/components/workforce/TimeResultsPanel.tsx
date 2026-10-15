@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
@@ -64,7 +65,7 @@ export function TimeResultsPanel({ employeeId, employees }: { employeeId?: numbe
       <p className="text-sm text-muted-foreground">
         Usa as marcações que valem, a jornada vigente, o feriado e as ocorrências. Escala 5x2. Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Com banco, o excedente soma no saldo e o que fica abaixo compensa. Sem banco, o excedente é hora extra e a falta de tempo desconta. O adicional noturno não entra no saldo.
       </p>
-      <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
+      <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
         {employees ? (
           <div className="space-y-2">
             <Label htmlFor="result-employee">Funcionário</Label>
@@ -89,7 +90,7 @@ export function TimeResultsPanel({ employeeId, employees }: { employeeId?: numbe
           </div>
         </div>
         <Button type="submit">Apurar</Button>
-      </form>
+      </ActionForm>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {result ? (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">

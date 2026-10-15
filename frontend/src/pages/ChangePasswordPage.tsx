@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
@@ -32,7 +33,7 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <form className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+    <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">Trocar senha</h1>
       <div className="space-y-2">
         <Label htmlFor="current">Senha atual</Label>
@@ -49,6 +50,6 @@ export function ChangePasswordPage() {
       {message ? <p className="text-sm">{message}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit">Salvar</Button>
-    </form>
+    </ActionForm>
   )
 }

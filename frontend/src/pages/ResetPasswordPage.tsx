@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
@@ -41,7 +42,7 @@ export function ResetPasswordPage() {
 
   return (
     <PublicFrame title="Definir senha">
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <ActionForm className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="password">Senha nova</Label>
           <PasswordField id="password" autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
@@ -54,7 +55,7 @@ export function ResetPasswordPage() {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" className="w-full">Salvar</Button>
         <Link to="/login" className="block text-center text-sm text-muted-foreground">Ir para o login</Link>
-      </form>
+      </ActionForm>
     </PublicFrame>
   )
 }

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
@@ -168,7 +169,7 @@ export function PlanPage() {
         </section>
       )}
       {isAdmin ? (
-        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={plan ? changePlan : contract}>
+        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={plan ? changePlan : contract}>
           <h2 className="text-sm font-medium">{plan ? "Alterar plano" : "Contratar plano"}</h2>
           <div className="space-y-2">
             <Label htmlFor="capacity">Capacidade</Label>
@@ -192,7 +193,7 @@ export function PlanPage() {
           </div>
           <p className="text-sm text-muted-foreground">A capacidade é um múltiplo de 10, de 10 a 200. Não há gateway neste corte: o pagamento é o registro da cobrança gerada pelo sistema.</p>
           <Button type="submit">{plan ? "Alterar" : "Contratar"}</Button>
-        </form>
+        </ActionForm>
       ) : (
         <p className="text-sm text-muted-foreground">Contratar, alterar e pagar o plano fica com o administrador.</p>
       )}
@@ -211,7 +212,7 @@ export function PlanPage() {
                 {item.status === "paid" ? (
                   <span className="text-muted-foreground">Pago</span>
                 ) : (
-                  <Button type="button" size="sm" onClick={() => void pay(item.id)}>
+                  <Button type="button" size="sm" onClick={() => pay(item.id)}>
                     Registrar pagamento
                   </Button>
                 )}

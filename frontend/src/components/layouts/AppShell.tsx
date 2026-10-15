@@ -76,7 +76,7 @@ export function AppShell() {
             <KeyRound className="h-4 w-4" />
             Senha
           </Link>
-          <Button type="button" variant="ghost" size="sm" onClick={() => void sair()}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => sair()}>
             <LogOut className="h-4 w-4" />
             Sair
           </Button>

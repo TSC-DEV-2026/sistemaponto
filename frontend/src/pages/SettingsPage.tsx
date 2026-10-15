@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,13 +38,13 @@ export function SettingsPage() {
         <Link to="/tenants">Empresas</Link>
         <Link to="/change-password">Trocar senha</Link>
       </div>
-      <form className="space-y-3" onSubmit={onSubmit}>
+      <ActionForm className="space-y-3" onSubmit={onSubmit}>
         <Label htmlFor="email">Reenviar verificação</Label>
         <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         {message ? <p className="text-sm">{message}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" variant="outline">Reenviar</Button>
-      </form>
+      </ActionForm>
     </div>
   )
 }

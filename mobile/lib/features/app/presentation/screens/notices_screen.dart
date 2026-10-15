@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
@@ -115,7 +116,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
               contentPadding: EdgeInsets.zero,
               title: Text('${item['body'] ?? ''}'),
               subtitle: Text(showWhen('${item['created_at']}')),
-              trailing: read ? const Text('Lida') : TextButton(onPressed: () => _mark(item['id'] as int), child: const Text('Marcar lida')),
+              trailing: read ? const Text('Lida') : BusyButton(kind: BusyButtonKind.text, onPressed: () => _mark(item['id'] as int), label: 'Marcar lida'),
             );
           }),
           if (_items.isEmpty) const Text('Nenhum aviso.'),

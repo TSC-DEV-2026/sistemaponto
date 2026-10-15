@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../providers/auth_provider.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -59,7 +60,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 16),
-            FilledButton(onPressed: _submit, child: const Text('Enviar')),
+            BusyButton(onPressed: _submit, label: 'Enviar'),
             TextButton(onPressed: () => context.go('/reset-password'), child: const Text('Já tenho o token')),
             TextButton(onPressed: () => context.go('/login'), child: const Text('Voltar')),
           ],

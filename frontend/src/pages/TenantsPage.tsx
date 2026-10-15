@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -54,7 +55,7 @@ export function TenantsPage() {
         ))}
       </ul>
       {isAdmin ? (
-        <form className="max-w-lg space-y-3" onSubmit={onSubmit}>
+        <ActionForm className="max-w-lg space-y-3" onSubmit={onSubmit}>
           <h2 className="text-sm font-medium">Nova empresa</h2>
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
@@ -65,7 +66,7 @@ export function TenantsPage() {
             <Input id="document" inputMode="numeric" value={document} onChange={(event) => setDocument(event.target.value)} required />
           </div>
           <Button type="submit">Criar</Button>
-        </form>
+        </ActionForm>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>

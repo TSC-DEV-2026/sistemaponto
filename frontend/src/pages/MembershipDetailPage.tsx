@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { getMembership, removeMembership, updateMembership } from "@/services/membership.service"
@@ -57,7 +58,7 @@ export function MembershipDetailPage() {
   }
 
   return (
-    <form className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+    <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">
         {item ? `${item.person_id} — ${item.full_name}` : ""}
       </h1>
@@ -73,9 +74,9 @@ export function MembershipDetailPage() {
       {isAdmin ? (
         <div className="flex gap-2">
           <Button type="submit">Salvar</Button>
-          <Button type="button" variant="destructive" onClick={() => void onDelete()}>Excluir</Button>
+          <Button type="button" variant="destructive" onClick={() => onDelete()}>Excluir</Button>
         </div>
       ) : null}
-    </form>
+    </ActionForm>
   )
 }

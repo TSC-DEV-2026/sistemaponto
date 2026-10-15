@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { PublicFrame } from "@/components/PublicFrame"
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
@@ -45,7 +46,7 @@ export function RegisterPage() {
 
   return (
     <PublicFrame title="Criar conta">
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <ActionForm className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="name">Nome</Label>
           <Input id="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
@@ -69,7 +70,7 @@ export function RegisterPage() {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" className="w-full">Cadastrar</Button>
         <Link to="/login" className="block text-center text-sm text-muted-foreground">Já tenho conta</Link>
-      </form>
+      </ActionForm>
     </PublicFrame>
   )
 }

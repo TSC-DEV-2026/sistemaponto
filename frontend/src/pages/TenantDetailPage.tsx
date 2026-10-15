@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,7 +61,7 @@ export function TenantDetailPage() {
   const canEdit = isAdmin && activeId === id
 
   return (
-    <form className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+    <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">Empresa</h1>
       <div className="space-y-2">
         <Label htmlFor="name">Nome</Label>
@@ -75,9 +76,9 @@ export function TenantDetailPage() {
       {canEdit ? (
         <div className="flex gap-2">
           <Button type="submit">Salvar</Button>
-          <Button type="button" variant="destructive" onClick={() => void onDelete()}>Excluir</Button>
+          <Button type="button" variant="destructive" onClick={() => onDelete()}>Excluir</Button>
         </div>
       ) : null}
-    </form>
+    </ActionForm>
   )
 }

@@ -6,6 +6,7 @@ import '../../../../core/errors/api_exception.dart';
 import '../../../../core/utils/cpf_formatter.dart';
 import '../../../../core/utils/digits.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/busy_button.dart';
 import '../../../../shared/widgets/secret_field.dart';
 import '../../providers/auth_provider.dart';
 
@@ -87,7 +88,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 16),
-            FilledButton(onPressed: _submit, child: const Text('Cadastrar')),
+            BusyButton(onPressed: _submit, label: 'Cadastrar'),
             TextButton(onPressed: () => context.go('/login'), child: const Text('Já tenho conta')),
           ],
         ),

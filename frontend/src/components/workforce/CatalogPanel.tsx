@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react"
 
+import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -161,7 +162,7 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
         <p className="text-sm text-muted-foreground">{hint}</p>
       </div>
       {isAdmin ? (
-        <form className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
+        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
           {fields.map((field) => (
             <div key={field.name} className="space-y-2">
               <Label htmlFor={`${path}-${field.name}`}>{field.label}</Label>
@@ -225,7 +226,7 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
               </Button>
             ) : null}
           </div>
-        </form>
+        </ActionForm>
       ) : null}
       {!isAdmin && error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
@@ -240,7 +241,7 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
               ))}
             </button>
             {isAdmin ? (
-              <Button type="button" variant="destructive" size="sm" onClick={() => void onDelete(item.id)}>
+              <Button type="button" variant="destructive" size="sm" onClick={() => onDelete(item.id)}>
                 Excluir
               </Button>
             ) : null}
