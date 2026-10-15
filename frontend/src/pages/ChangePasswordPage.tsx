@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
 import { changePassword } from "@/services/auth.service"
 
@@ -36,15 +36,15 @@ export function ChangePasswordPage() {
       <h1 className="text-xl font-semibold">Trocar senha</h1>
       <div className="space-y-2">
         <Label htmlFor="current">Senha atual</Label>
-        <Input id="current" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required />
+        <PasswordField id="current" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="next">Senha nova</Label>
-        <Input id="next" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required />
+        <PasswordField id="next" autoComplete="new-password" minLength={8} maxLength={72} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirm">Confirmar senha</Label>
-        <Input id="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
+        <PasswordField id="confirm" autoComplete="new-password" minLength={8} maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
       </div>
       {message ? <p className="text-sm">{message}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

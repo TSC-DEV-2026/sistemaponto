@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/secret_field.dart';
 import '../../../auth/providers/auth_provider.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -55,23 +56,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         children: [
           Text('Trocar senha', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 24),
-          TextField(
-            controller: _current,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Senha atual'),
-          ),
+          SecretField(controller: _current, label: 'Senha atual'),
           const SizedBox(height: 12),
-          TextField(
-            controller: _next,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Nova senha'),
-          ),
+          SecretField(controller: _next, label: 'Nova senha'),
           const SizedBox(height: 12),
-          TextField(
-            controller: _confirm,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Confirmação'),
-          ),
+          SecretField(controller: _confirm, label: 'Confirmação'),
           if (_message.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(_message),

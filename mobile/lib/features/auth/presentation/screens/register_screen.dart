@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../core/utils/digits.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/secret_field.dart';
 import '../../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -78,11 +79,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             TextField(controller: _company, decoration: const InputDecoration(labelText: 'Empresa')),
             const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Senha'),
-            ),
+            SecretField(controller: _password, label: 'Senha'),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),

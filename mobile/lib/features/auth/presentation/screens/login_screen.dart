@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../core/utils/digits.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/secret_field.dart';
 import '../../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -58,11 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               decoration: const InputDecoration(labelText: 'CPF'),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Senha'),
-            ),
+            SecretField(controller: _password, label: 'Senha'),
             if ((notice ?? '').isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(notice!),

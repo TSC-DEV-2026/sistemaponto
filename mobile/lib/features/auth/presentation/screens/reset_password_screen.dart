@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
+import '../../../../shared/widgets/secret_field.dart';
 import '../../providers/auth_provider.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
@@ -66,17 +67,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             const SizedBox(height: 24),
             TextField(controller: _token, decoration: const InputDecoration(labelText: 'Token')),
             const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Nova senha'),
-            ),
+            SecretField(controller: _password, label: 'Nova senha'),
             const SizedBox(height: 12),
-            TextField(
-              controller: _confirm,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirmação'),
-            ),
+            SecretField(controller: _confirm, label: 'Confirmação'),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),

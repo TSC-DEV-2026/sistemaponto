@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { PublicFrame } from "@/components/PublicFrame"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
 import { register } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -62,7 +63,7 @@ export function RegisterPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <PasswordField id="password" autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" className="w-full">Cadastrar</Button>
