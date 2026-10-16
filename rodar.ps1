@@ -120,7 +120,7 @@ function Start-Dev($file, $arguments, $directory) {
 $backend = $null
 $frontend = $null
 try {
-    $backend = Start-Dev $python @("-m", "uvicorn", "main:app", "--reload", "--port", "8003") (Join-Path $root "backend")
+    $backend = Start-Dev $python @("-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8003") (Join-Path $root "backend")
     $frontend = Start-Dev "$env:ComSpec" @("/c", "npm run dev") (Join-Path $root "frontend")
     Write-Host ""
     Write-Host "Backend: http://127.0.0.1:8003"
