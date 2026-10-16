@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
+import '../../../../shared/widgets/screen_back_button.dart';
 import '../../../../shared/widgets/secret_field.dart';
 import '../../../auth/providers/auth_provider.dart';
 
@@ -55,6 +57,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          ScreenBackButton(onPressed: () => context.go('/account')),
           Text('Trocar senha', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 24),
           SecretField(controller: _current, label: 'Senha atual'),

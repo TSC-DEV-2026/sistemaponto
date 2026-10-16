@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
@@ -44,6 +45,7 @@ export function EmployeeFormPage() {
 
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+      <BackLink to="/people" />
       <h1 className="text-xl font-semibold">Novo funcionário</h1>
       <p className="text-sm text-muted-foreground">O funcionário nasce ativo. A senha não fica neste sistema. O número de acesso, se houver, está em Permissões e Acessos.</p>
       <div className="space-y-2">

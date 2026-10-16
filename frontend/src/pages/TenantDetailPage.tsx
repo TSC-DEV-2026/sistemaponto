@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -62,6 +63,7 @@ export function TenantDetailPage() {
 
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+      <BackLink to="/tenants" />
       <h1 className="text-xl font-semibold">Empresa</h1>
       <div className="space-y-2">
         <Label htmlFor="name">Nome</Label>
