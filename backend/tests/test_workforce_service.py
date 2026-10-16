@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.exceptions import AppError
+from app.core.listing import employee_matches, name_matches
 from app.core.workforce import previous_end
 from app.models.membership import Membership
 from app.models.workforce import (
@@ -23,6 +24,7 @@ from app.models.workforce import (
     NotificationPreference,
     Occurrence,
     Punch,
+    Reason,
     RequestEvent,
     RequestPunch,
     Sector,
@@ -120,10 +122,14 @@ class Memory:
         if employee_ids is not None and len(employee_ids) == 0:
             return [], 0
         found = []
+        filters = dict(equals)
+        term = str(filters.pop("q", "") or "").strip()
         for row in self._of(model, tenant_id):
             if employee_ids is not None and row.employee_id not in employee_ids:
                 continue
-            if all(getattr(row, key) == value for key, value in equals.items()):
+            if term and not name_matches(getattr(row, "name", None), term):
+                continue
+            if all(getattr(row, key) == value for key, value in filters.items()):
                 found.append(row)
         found.sort(key=lambda item: item.id, reverse=descending)
         total = len(found)
@@ -155,10 +161,14 @@ class Memory:
         if ids is not None and len(ids) == 0:
             return [], 0
         found = []
+        filters = dict(equals)
+        term = str(filters.pop("q", "") or "").strip()
         for row in self._of(Employee, tenant_id):
             if ids is not None and row.id not in ids:
                 continue
-            if all(getattr(row, key) == value for key, value in equals.items()):
+            if term and not employee_matches(row.full_name, row.cpf, term):
+                continue
+            if all(getattr(row, key) == value for key, value in filters.items()):
                 found.append(row)
         found.sort(key=lambda item: item.id)
         total = len(found)
@@ -2113,3 +2123,35 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
         )
     assert closed.value.message == "Período fechado"
     assert counted() == before
+
+
+def test_pesquisa_filtra_nome_e_no_funcionario_tambem_o_cpf():
+    workforce, _repo = service()
+    workforce.create_named(Job, admin(), {"name": "Ana"})
+    workforce.create_named(Job, admin(), {"name": "Ana Lima"})
+    exact, exact_total = workforce.list_named(Job, admin(), 1, 20, {"name": "Ana"})
+    assert exact_total == 1
+    assert exact[0].name == "Ana"
+    partial, partial_total = workforce.list_named(Job, admin(), 1, 20, {"q": "ana"})
+    assert partial_total == 2
+    assert {row.name for row in partial} == {"Ana", "Ana Lima"}
+    _wildcard, wildcard_total = workforce.list_named(Job, admin(), 1, 20, {"q": "%"})
+    assert wildcard_total == 0
+    workforce.create_named(Reason, admin(), {"name": "Atraso", "kind": "adjustment", "active": True})
+    workforce.create_named(Reason, admin(), {"name": "Atestado médico", "kind": "certificate", "active": True})
+    reasons, reason_total = workforce.list_named(Reason, admin(), 1, 20, {"q": "atra", "kind": "adjustment"})
+    assert reason_total == 1
+    assert reasons[0].name == "Atraso"
+    first = workforce.create_employee(admin(), employee_payload("22222222222", 7))
+    workforce.create_employee(admin(), employee_payload("33333333333", None))
+    _by_name, name_total = workforce.list_employees(admin(), 1, 20, {"q": "lima"})
+    assert name_total == 2
+    by_cpf, cpf_total = workforce.list_employees(admin(), 1, 20, {"q": "222.222"})
+    assert cpf_total == 1
+    assert by_cpf[0].id == first["id"]
+    page, total = workforce.list_named(Job, admin(), 1, 1, {})
+    assert total == 2
+    assert len(page) == 1
+    with pytest.raises(AppError) as long_search:
+        workforce.list_named(Job, admin(), 1, 20, {"q": "a" * 101})
+    assert long_search.value.message == "Pesquisa longa demais"

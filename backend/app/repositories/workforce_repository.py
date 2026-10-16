@@ -3,6 +3,7 @@ from datetime import date, datetime
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
+from app.core.listing import like_pattern
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.workforce import (
@@ -132,12 +133,27 @@ class WorkforceRepository:
         query = self.db.query(model).filter(model.tenant_id == tenant_id)
         if employee_ids is not None:
             query = query.filter(model.employee_id.in_(employee_ids))
-        for key, value in equals.items():
-            query = query.filter(getattr(model, key) == value)
+        query = self._searched(query, model, equals)
         total = query.count()
         order = model.id.desc() if descending else model.id.asc()
         items = query.order_by(order).offset((page - 1) * limit).limit(limit).all()
         return items, total
+
+    def _searched(self, query, model, equals: dict):
+        filters = dict(equals)
+        term = str(filters.pop("q", "") or "").strip()
+        if term:
+            if model is Employee:
+                digits = "".join(character for character in term if character.isdigit())
+                clauses = [Employee.full_name.ilike(like_pattern(term), escape="\\")]
+                if digits:
+                    clauses.append(Employee.cpf.ilike(like_pattern(digits), escape="\\"))
+                query = query.filter(or_(*clauses))
+            elif hasattr(model, "name"):
+                query = query.filter(model.name.ilike(like_pattern(term), escape="\\"))
+        for key, value in filters.items():
+            query = query.filter(getattr(model, key) == value)
+        return query
 
     def get_row(self, model, tenant_id: int, row_id: int):
         return (
@@ -166,8 +182,7 @@ class WorkforceRepository:
         query = self.db.query(Employee).filter(Employee.tenant_id == tenant_id)
         if ids is not None:
             query = query.filter(Employee.id.in_(ids))
-        for key, value in equals.items():
-            query = query.filter(getattr(Employee, key) == value)
+        query = self._searched(query, Employee, equals)
         total = query.count()
         items = query.order_by(Employee.id.asc()).offset((page - 1) * limit).limit(limit).all()
         return items, total

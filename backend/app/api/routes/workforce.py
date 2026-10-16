@@ -146,14 +146,24 @@ def read_filters(request: Request, names: tuple[str, ...]) -> dict:
     return found
 
 
-def mount_named(prefix: str, tag: str, model, create_schema, update_schema, out_schema, filters: tuple[str, ...]):
+def mount_named(
+    prefix: str,
+    tag: str,
+    model,
+    create_schema,
+    update_schema,
+    out_schema,
+    filters: tuple[str, ...],
+    *,
+    page_size: int = 10,
+):
     router = APIRouter(prefix=prefix, tags=[tag], dependencies=[Depends(require_use)])
     slug = tag.replace("-", "_")
 
     def list_rows(
         request: Request,
         page: int = Query(1, ge=1),
-        limit: int = Query(10, ge=1, le=100),
+        limit: int = Query(page_size, ge=1, le=100),
         fields: str | None = Query(default=None, max_length=500),
         actor: Actor = Depends(require_tenant),
         service: WorkforceService = Depends(get_workforce_service),
@@ -209,13 +219,19 @@ def mount_named(prefix: str, tag: str, model, create_schema, update_schema, out_
 
 
 routers = [
-    mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name",)),
-    mount_named("/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name",)),
-    mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",)),
-    mount_named("/sectors", "sectors", Sector, SectorCreate, SectorUpdate, SectorOut, ("name", "unit_id")),
-    mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "sector_id")),
+    mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name", "q"), page_size=20),
+    mount_named(
+        "/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name", "q"), page_size=20
+    ),
+    mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name", "q"), page_size=20),
+    mount_named(
+        "/sectors", "sectors", Sector, SectorCreate, SectorUpdate, SectorOut, ("name", "unit_id", "q"), page_size=20
+    ),
+    mount_named(
+        "/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "sector_id", "q"), page_size=20
+    ),
     mount_named("/journeys", "journeys", Journey, JourneyCreate, JourneyUpdate, JourneyOut, ("name",)),
-    mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name",)),
+    mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name", "q"), page_size=20),
     mount_named(
         "/labor-agreements",
         "labor-agreements",
@@ -223,11 +239,30 @@ routers = [
         AgreementCreate,
         AgreementUpdate,
         AgreementOut,
-        ("name", "union_id"),
+        ("name", "union_id", "q"),
+        page_size=20,
     ),
-    mount_named("/holidays", "holidays", Holiday, HolidayCreate, HolidayUpdate, HolidayOut, ("name",)),
-    mount_named("/punch-rules", "punch-rules", PunchRule, PunchRuleCreate, PunchRuleUpdate, PunchRuleOut, ("name",)),
-    mount_named("/reasons", "reasons", Reason, ReasonCreate, ReasonUpdate, ReasonOut, ("name", "kind", "active")),
+    mount_named("/holidays", "holidays", Holiday, HolidayCreate, HolidayUpdate, HolidayOut, ("name", "q"), page_size=20),
+    mount_named(
+        "/punch-rules",
+        "punch-rules",
+        PunchRule,
+        PunchRuleCreate,
+        PunchRuleUpdate,
+        PunchRuleOut,
+        ("name", "q"),
+        page_size=20,
+    ),
+    mount_named(
+        "/reasons",
+        "reasons",
+        Reason,
+        ReasonCreate,
+        ReasonUpdate,
+        ReasonOut,
+        ("name", "kind", "active", "q"),
+        page_size=20,
+    ),
 ]
 
 
@@ -251,17 +286,17 @@ subscriptions = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 charges = APIRouter(prefix="/charges", tags=["charges"])
 
 
-@employees.get("", summary="Listar funcionários", description="Filtros: cpf, person_id.")
+@employees.get("", summary="Listar funcionários", description="Filtros: cpf, person_id, q.")
 def list_employees(
     request: Request,
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100),
     fields: str | None = Query(default=None, max_length=500),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
     scope = as_scope(actor)
-    items, total = service.list_employees(scope, page, limit, read_filters(request, ("cpf", "person_id")))
+    items, total = service.list_employees(scope, page, limit, read_filters(request, ("cpf", "person_id", "q")))
     return json_data(dump_page(service.employees_out(items), total, page, limit, EmployeeOut, fields))
 
 

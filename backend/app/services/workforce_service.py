@@ -119,7 +119,9 @@ class WorkforceService:
 
     def list_named(self, model, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
-        return self.repo.list_rows(model, scope.tenant_id, page=page, limit=limit, equals=equals, descending=False)
+        return self.repo.list_rows(
+            model, scope.tenant_id, page=page, limit=limit, equals=self._listing_filters(equals), descending=False
+        )
 
     def get_named(self, model, scope: Scope, row_id: int):
         self._known(scope)
@@ -162,7 +164,9 @@ class WorkforceService:
             )[0]
             if not own or own[0].id not in ids:
                 return [], 0
-        return self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=limit, equals=equals)
+        return self.repo.list_employees(
+            scope.tenant_id, ids=ids, page=page, limit=limit, equals=self._listing_filters(equals)
+        )
 
     def employees_out(self, rows: list[Employee]) -> list[dict]:
         labels = self.repo.labels_on([row.id for row in rows], self.today())
@@ -1761,6 +1765,19 @@ class WorkforceService:
         ids = self._visible_ids(scope) or []
         if employee.id not in ids:
             raise AppError(403, "Sem permissão")
+
+    def _listing_filters(self, equals: dict) -> dict:
+        filters = dict(equals)
+        if "q" not in filters:
+            return filters
+        text = str(filters.get("q") or "").strip()
+        if not text:
+            filters.pop("q")
+            return filters
+        if len(text) > 100:
+            raise AppError(400, "Pesquisa longa demais")
+        filters["q"] = text
+        return filters
 
     def _registration(self, scope: Scope, value, current: Employee | None) -> str | None:
         if value is None or not str(value).strip():
