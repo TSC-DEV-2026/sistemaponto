@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -141,6 +142,7 @@ export function RequestFormPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackLink to="/requests" />
       <h1 className="text-xl font-semibold">Nova solicitação</h1>
       {ready && blocked ? <p className="text-sm text-muted-foreground">{blocked}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

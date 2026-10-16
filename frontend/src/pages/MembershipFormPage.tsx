@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
@@ -35,6 +36,7 @@ export function MembershipFormPage() {
 
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+      <BackLink to="/memberships" />
       <h1 className="text-xl font-semibold">Vincular pessoa</h1>
       <p className="text-sm text-muted-foreground">A senha não é definida aqui. A pessoa recebe o convite do autenticador. O gestor aprova solicitações da própria equipe. O administrador também pode.</p>
       <div className="space-y-2">

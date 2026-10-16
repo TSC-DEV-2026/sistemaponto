@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { PasswordField } from "@/components/ui/password-field"
 import { Label } from "@/components/ui/label"
@@ -34,6 +35,7 @@ export function ChangePasswordPage() {
 
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+      <BackLink to="/settings" />
       <h1 className="text-xl font-semibold">Trocar senha</h1>
       <div className="space-y-2">
         <Label htmlFor="current">Senha atual</Label>

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -43,6 +44,7 @@ export function TenantsPage() {
 
   return (
     <div className="space-y-6">
+      <BackLink to="/settings" />
       <h1 className="text-xl font-semibold">Empresas</h1>
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
         {items.map((item) => (

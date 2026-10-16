@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
+import '../../../../shared/widgets/screen_back_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
@@ -227,6 +228,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          ScreenBackButton(onPressed: () => context.go('/requests')),
           Text('Nova solicitação', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           if (_blocked != null)

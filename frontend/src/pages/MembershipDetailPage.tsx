@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { getMembership, removeMembership, updateMembership } from "@/services/membership.service"
@@ -59,6 +60,7 @@ export function MembershipDetailPage() {
 
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
+      <BackLink to="/memberships" />
       <h1 className="text-xl font-semibold">
         {item ? `${item.person_id} — ${item.full_name}` : ""}
       </h1>

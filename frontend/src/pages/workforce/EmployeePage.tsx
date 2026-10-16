@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
@@ -242,10 +243,8 @@ export function EmployeePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackLink to="/people" />
       <div>
-        <Link to="/people" className="text-sm text-muted-foreground">
-          Pessoas
-        </Link>
         <h1 className="text-xl font-semibold">{employee?.full_name || "Funcionário"}</h1>
         <p className="text-sm text-muted-foreground">
           {situationLabel[employee?.situation || ""] || "Sem situação"}
