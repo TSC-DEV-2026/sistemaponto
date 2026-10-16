@@ -13,6 +13,69 @@ function Stop-Tree($process) {
     & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null
 }
 
+function Update-Code {
+    Write-Host "Atualizando o código..."
+    Push-Location $root
+    try {
+        & git pull
+        if ($LASTEXITCODE -ne 0) {
+            throw "Não consegui atualizar o código. Nada foi iniciado."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Install-Backend {
+    $backendDir = Join-Path $root "backend"
+    $venvPython = Join-Path $backendDir ".venv\Scripts\python.exe"
+    if (-not (Test-Path $venvPython)) {
+        Write-Host "Criando o ambiente do backend..."
+        $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $pythonCmd) {
+            $pythonCmd = Get-Command py -ErrorAction SilentlyContinue
+        }
+        if (-not $pythonCmd) {
+            throw "Não encontrei o Python para criar o ambiente do backend."
+        }
+        Push-Location $backendDir
+        try {
+            if ($pythonCmd.Name -eq "py.exe" -or $pythonCmd.Name -eq "py") {
+                & py -3 -m venv .venv
+            }
+            else {
+                & python -m venv .venv
+            }
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $venvPython)) {
+                throw "Não consegui criar o ambiente do backend."
+            }
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    Write-Host "Conferindo dependências do backend..."
+    & $venvPython -m pip install -r (Join-Path $backendDir "requirements.txt")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Não consegui instalar as dependências do backend."
+    }
+}
+
+function Install-Frontend {
+    Write-Host "Conferindo dependências do site..."
+    Push-Location (Join-Path $root "frontend")
+    try {
+        & npm install
+        if ($LASTEXITCODE -ne 0) {
+            throw "Não consegui instalar as dependências do site."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 if (Test-Listening 8003) {
     Write-Host "A porta 8003 já está em uso. Feche o backend que estiver rodando e tente de novo."
     exit 1
@@ -22,15 +85,17 @@ if (Test-Listening 5175) {
     exit 1
 }
 
+try {
+    Update-Code
+    Install-Backend
+    Install-Frontend
+}
+catch {
+    Write-Host $_.Exception.Message
+    exit 1
+}
+
 $python = Join-Path $root "backend\.venv\Scripts\python.exe"
-if (-not (Test-Path $python)) {
-    Write-Host "Não encontrei backend\.venv. Crie o ambiente e instale as dependências antes de rodar."
-    exit 1
-}
-if (-not (Test-Path (Join-Path $root "frontend\node_modules"))) {
-    Write-Host "Não encontrei frontend\node_modules. Rode npm install na pasta frontend antes de rodar."
-    exit 1
-}
 
 Add-Type @"
 using System;
