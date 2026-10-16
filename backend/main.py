@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.middleware import CsrfMiddleware, SecurityHeadersMiddleware
+from app.api.openapi import install_docs_security
 from app.api.routes import auth, memberships, meta, tenants, workforce
 from app.core.config import settings
 from app.core.exceptions import AppError
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
         docs_url=docs,
         redoc_url=redoc,
         openapi_url=openapi,
+        swagger_ui_parameters={"persistAuthorization": True},
     )
     app.state.limiter = limiter
     app.add_exception_handler(AppError, app_error_handler)
@@ -69,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(meta.router, prefix="/api/v1")
     for router in workforce.routers:
         app.include_router(router, prefix="/api/v1")
+    install_docs_security(app)
     return app
 
 
