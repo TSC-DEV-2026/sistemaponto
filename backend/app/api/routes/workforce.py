@@ -1,3 +1,4 @@
+import inspect
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
@@ -146,6 +147,48 @@ def read_filters(request: Request, names: tuple[str, ...]) -> dict:
     return found
 
 
+def _filter_parameter(name: str) -> inspect.Parameter:
+    if name in INT_FILTERS:
+        annotation = int | None
+        default = Query(default=None, ge=1)
+    elif name in BOOL_FILTERS:
+        annotation = bool | None
+        default = Query(default=None)
+    elif name in {"name", "full_name"}:
+        annotation = str | None
+        default = Query(default=None, max_length=255, description="Trecho do nome")
+    elif name == "cpf":
+        annotation = str | None
+        default = Query(default=None, max_length=14)
+    else:
+        annotation = str | None
+        default = Query(default=None, max_length=64)
+    return inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=default, annotation=annotation)
+
+
+def declare_filters(func, names: tuple[str, ...]) -> None:
+    signature = inspect.signature(func)
+    parameters = list(signature.parameters.values())
+    extra = [_filter_parameter(name) for name in names if name not in signature.parameters]
+    if not extra:
+        return
+    anchor = next(index for index, item in enumerate(parameters) if item.name in {"actor", "service"})
+    parameters[anchor:anchor] = extra
+    func.__signature__ = signature.replace(parameters=parameters)
+    annotations = dict(getattr(func, "__annotations__", {}))
+    for item in extra:
+        annotations[item.name] = item.annotation
+    func.__annotations__ = annotations
+
+
+def searchable(*names: str):
+    def decorate(func):
+        declare_filters(func, names)
+        return func
+
+    return decorate
+
+
 def mount_named(
     prefix: str,
     tag: str,
@@ -165,14 +208,10 @@ def mount_named(
         page: int = Query(1, ge=1),
         limit: int = Query(page_size, ge=1, le=100),
         fields: str | None = Query(default=None, max_length=500),
-        name: str | None = Query(default=None, max_length=255, description="Trecho do nome"),
         actor: Actor = Depends(require_tenant),
         service: WorkforceService = Depends(get_workforce_service),
     ):
-        found = read_filters(request, filters)
-        if name is not None and name.strip():
-            found["name"] = name.strip()
-        items, total = service.list_named(model, as_scope(actor), page, limit, found)
+        items, total = service.list_named(model, as_scope(actor), page, limit, read_filters(request, filters))
         return json_data(dump_page(items, total, page, limit, out_schema, fields))
 
     def get_row(
@@ -209,6 +248,7 @@ def mount_named(
         service.delete_named(model, as_scope(actor), row_id)
         return json_data(None)
 
+    declare_filters(list_rows, filters)
     list_rows.__name__ = f"list_{slug}"
     get_row.__name__ = f"get_{slug}"
     create_row.__name__ = f"create_{slug}"
@@ -285,6 +325,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 
 
 @employees.get("", summary="Listar funcionários", description="Filtros: full_name, cpf, person_id.")
+@searchable("full_name", "cpf", "person_id")
 def list_employees(
     request: Request,
     page: int = Query(1, ge=1),
@@ -340,6 +381,7 @@ def delete_employee(
 
 
 @vigencies.get("", summary="Listar vigências", description="Filtros: employee_id, kind.")
+@searchable("employee_id", "kind")
 def list_vigencies(
     request: Request,
     page: int = Query(1, ge=1),
@@ -396,6 +438,7 @@ def delete_vigency(
 
 
 @punches.get("", summary="Listar marcações", description="Filtros: employee_id, valid.")
+@searchable("employee_id", "valid")
 def list_punches(
     request: Request,
     page: int = Query(1, ge=1),
@@ -506,6 +549,7 @@ def upload_selfie(
 
 
 @occurrences.get("", summary="Listar ocorrências", description="Filtros: employee_id, kind.")
+@searchable("employee_id", "kind")
 def list_occurrences(
     request: Request,
     page: int = Query(1, ge=1),
@@ -562,6 +606,7 @@ def delete_occurrence(
 
 
 @requests.get("", summary="Listar solicitações", description="Filtros: employee_id, kind, status.")
+@searchable("employee_id", "kind", "status")
 def list_requests(
     request: Request,
     page: int = Query(1, ge=1),
@@ -618,6 +663,7 @@ def delete_request(
 
 
 @closings.get("", summary="Listar fechamentos", description="Filtros: year, month, status.")
+@searchable("year", "month", "status")
 def list_closings(
     request: Request,
     page: int = Query(1, ge=1),
@@ -673,7 +719,8 @@ def delete_closing(
     return json_data(None)
 
 
-@notifications.get("", summary="Listar notificações")
+@notifications.get("", summary="Listar notificações", description="Filtros: employee_id.")
+@searchable("employee_id")
 def list_notifications(
     request: Request,
     page: int = Query(1, ge=1),
@@ -717,6 +764,7 @@ def update_notification(
 
 
 @notification_preferences.get("", summary="Listar preferências de aviso", description="Filtros: kind.")
+@searchable("kind")
 def list_notification_preferences(
     request: Request,
     page: int = Query(1, ge=1),
@@ -775,6 +823,7 @@ def delete_notification_preference(
 
 
 @notice_emails.get("", summary="Listar e-mails de aviso", description="Filtros: kind.")
+@searchable("kind")
 def list_notice_emails(
     request: Request,
     page: int = Query(1, ge=1),
@@ -846,6 +895,7 @@ def delete_notification(
 
 
 @audits.get("", summary="Listar auditoria", description="Filtro: employee_id.")
+@searchable("employee_id")
 def list_audits(
     request: Request,
     page: int = Query(1, ge=1),
@@ -975,6 +1025,7 @@ def hour_bank(
 
 
 @fiscal_files.get("", summary="Listar arquivos fiscais", description="Filtros: kind, valid.")
+@searchable("kind", "valid")
 def list_fiscal_files(
     request: Request,
     page: int = Query(1, ge=1),
@@ -1039,6 +1090,7 @@ def delete_fiscal_file(
 
 
 @hour_bank_entries.get("", summary="Listar lançamentos do banco", description="Filtros: employee_id, kind.")
+@searchable("employee_id", "kind")
 def list_hour_bank_entries(
     request: Request,
     page: int = Query(1, ge=1),
@@ -1095,6 +1147,7 @@ def delete_hour_bank_entry(
 
 
 @subscriptions.get("", summary="Listar assinatura", description="Filtros: status.")
+@searchable("status")
 def list_subscriptions(
     request: Request,
     page: int = Query(1, ge=1),
@@ -1149,6 +1202,7 @@ def delete_subscription(
 
 
 @charges.get("", summary="Listar cobranças", description="Filtros: status, kind.")
+@searchable("status", "kind")
 def list_charges(
     request: Request,
     page: int = Query(1, ge=1),
