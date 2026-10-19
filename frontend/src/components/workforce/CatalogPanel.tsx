@@ -1,9 +1,11 @@
+import { Save } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPager, ListSearch, usePagedList } from "@/components/workforce/list-controls"
 import { createRecord, listRecords, removeRecord, updateRecord, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
@@ -35,11 +37,12 @@ type Props = {
 export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const [items, setItems] = useState<NamedRecord[]>([])
+  const [query, setQuery] = useState("")
   const [error, setError] = useState("")
   const [editing, setEditing] = useState<number | null>(null)
   const [form, setForm] = useState<Record<string, string>>({})
   const [options, setOptions] = useState<Record<string, { value: string; label: string }[]>>({})
+  const list = usePagedList<NamedRecord>(path, query.trim() ? { name: query.trim() } : {})
 
   function blank() {
     const next: Record<string, string> = {}
@@ -47,11 +50,6 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
       next[field.name] = field.type === "checkbox" ? "true" : ""
     }
     return next
-  }
-
-  async function load() {
-    const page = await listRecords<NamedRecord>(path, { page: 1, limit: 100 })
-    setItems(page.items)
   }
 
   useEffect(() => {
@@ -71,12 +69,6 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
       .catch((caught: unknown) => {
         if (active) {
           setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
-        }
-      })
-    load()
-      .catch((caught: unknown) => {
-        if (active) {
-          setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
         }
       })
     return () => {
@@ -121,7 +113,7 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
       }
       setEditing(null)
       setForm(blank())
-      await load()
+      list.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
     }
@@ -135,7 +127,7 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
         setEditing(null)
         setForm(blank())
       }
-      await load()
+      list.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
     }
@@ -212,7 +204,10 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
           ))}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex gap-2">
-            <Button type="submit">{editing === null ? "Salvar" : "Atualizar"}</Button>
+            <Button type="submit">
+              {editing === null ? <Save className="h-4 w-4" /> : null}
+              {editing === null ? "Salvar" : "Atualizar"}
+            </Button>
             {editing !== null ? (
               <Button
                 type="button"
@@ -229,8 +224,10 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
         </ActionForm>
       ) : null}
       {!isAdmin && error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <ListSearch id={`search-${path}`} value={query} onChange={setQuery} onSearch={list.reload} />
+      {list.error ? <p className="text-sm text-destructive">{list.error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {items.map((item) => (
+        {list.items.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
             <button type="button" className="text-left" onClick={() => edit(item)}>
               {columns.map((column) => (
@@ -247,8 +244,9 @@ export function CatalogPanel({ title, hint, path, columns, fields }: Props) {
             ) : null}
           </li>
         ))}
-        {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum cadastro.</li> : null}
+        {list.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum cadastro.</li> : null}
       </ul>
+      <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} />
     </section>
   )
 }

@@ -1,3 +1,4 @@
+import { Save } from "lucide-react"
 import { FormEvent, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -51,7 +52,10 @@ export function ChangePasswordPage() {
       </div>
       {message ? <p className="text-sm">{message}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit">Salvar</Button>
+      <Button type="submit">
+        <Save className="h-4 w-4" />
+        Salvar
+      </Button>
     </ActionForm>
   )
 }

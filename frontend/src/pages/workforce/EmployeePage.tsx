@@ -4,10 +4,10 @@ import { useParams } from "react-router-dom"
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
-import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
@@ -16,18 +16,16 @@ import {
   createRecord,
   getRecord,
   listRecords,
-  updateRecord,
   uploadCertificatePhoto,
   type Audit,
   type Employee,
   type NamedRecord,
   type Occurrence,
-  type Punch,
   type TimeRequest,
   type Vigency,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
-import { formatCpf, onlyDigits } from "@/utils/digits"
+import { formatCpf } from "@/utils/digits"
 import {
   certificateText,
   manualTimeOffKinds,
@@ -69,11 +67,17 @@ export function EmployeePage() {
   const [tab, setTab] = useState<(typeof tabs)[number][0]>("data")
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [vigencies, setVigencies] = useState<Vigency[]>([])
-  const [punches, setPunches] = useState<Punch[]>([])
-  const [occurrences, setOccurrences] = useState<Occurrence[]>([])
-  const [audits, setAudits] = useState<Audit[]>([])
-  const [requests, setRequests] = useState<TimeRequest[]>([])
   const [journeys, setJourneys] = useState<NamedRecord[]>([])
+  const [saved, setSaved] = useState(0)
+  const [historyKind, setHistoryKind] = useState("")
+  const [eventKind, setEventKind] = useState("")
+  const [requestKind, setRequestKind] = useState("")
+  const [requestState, setRequestState] = useState("")
+  const ready = Number.isInteger(id) && id > 0
+  const history = usePagedList<Vigency>("/employee-vigencies", { employee_id: id, ...(historyKind ? { kind: historyKind } : {}) }, ready, saved)
+  const events = usePagedList<Occurrence>("/occurrences", { employee_id: id, ...(eventKind ? { kind: eventKind } : {}) }, ready, saved)
+  const inbox = usePagedList<TimeRequest>("/requests", { employee_id: id, ...(requestKind ? { kind: requestKind } : {}), ...(requestState ? { status: requestState } : {}) }, ready, saved)
+  const trail = usePagedList<Audit>("/audits", { employee_id: id }, ready && isAdmin, saved)
   const [choices, setChoices] = useState<{ value: string; label: string }[]>([])
   const [error, setError] = useState("")
   const [fullName, setFullName] = useState("")
@@ -99,13 +103,9 @@ export function EmployeePage() {
   const [reasons, setReasons] = useState<NamedRecord[]>([])
 
   async function load() {
-    const [person, history, marks, events, trail, inbox, journeyPage] = await Promise.all([
+    const [person, links, journeyPage] = await Promise.all([
       getRecord<Employee>("/employees", id),
-      listRecords<Vigency>("/employee-vigencies", { page: 1, limit: 100, employee_id: id }),
-      listRecords<Punch>("/punches", { page: 1, limit: 100, employee_id: id }),
-      listRecords<Occurrence>("/occurrences", { page: 1, limit: 100, employee_id: id }),
-      isAdmin ? listRecords<Audit>("/audits", { page: 1, limit: 100, employee_id: id }) : Promise.resolve({ items: [] as Audit[], total: 0, page: 1, limit: 100 }),
-      listRecords<TimeRequest>("/requests", { page: 1, limit: 100, employee_id: id }),
+      listRecords<Vigency>("/employee-vigencies", { page: 1, limit: 100, employee_id: id, kind: "journey" }),
       listRecords<NamedRecord>("/journeys", { page: 1, limit: 100 }),
     ])
     setEmployee(person)
@@ -117,12 +117,9 @@ export function EmployeePage() {
     setNote(person.note || "")
     setHourBank(Boolean(person.hour_bank))
     setRegistration(person.registration_number || "")
-    setVigencies(history.items)
-    setPunches(marks.items)
-    setOccurrences(events.items)
-    setAudits(trail.items)
-    setRequests(inbox.items)
+    setVigencies(links.items)
     setJourneys(journeyPage.items)
+    setSaved((current) => current + 1)
   }
 
   useEffect(() => {
@@ -172,26 +169,6 @@ export function EmployeePage() {
       .then((page) => setReasons(page.items))
       .catch(() => setReasons([]))
   }, [occurrenceKind])
-
-  async function saveEmployee(event: FormEvent) {
-    event.preventDefault()
-    setError("")
-    try {
-      const saved = await updateRecord<Employee>("/employees", id, {
-        full_name: fullName.trim(),
-        cpf: onlyDigits(cpf),
-        email: email.trim() || null,
-        person_id: personId.trim() ? Number(personId) : null,
-        admission_date: admission,
-        note: note.trim() || null,
-        hour_bank: hourBank,
-        registration_number: registration.trim() || null,
-      })
-      setEmployee(saved)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
-    }
-  }
 
   async function saveVigency(event: FormEvent) {
     event.preventDefault()
@@ -260,42 +237,38 @@ export function EmployeePage() {
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {tab === "data" ? (
-        <ActionForm className="space-y-4" onSubmit={saveEmployee}>
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required disabled={!isAdmin} />
+            <Input id="name" value={fullName} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cpf">CPF</Label>
-            <CpfField id="cpf" value={cpf} onValueChange={setCpf} required disabled={!isAdmin} />
+            <Input id="cpf" value={cpf} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={!isAdmin} />
+            <Input id="email" value={email} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="person">Acesso (person id)</Label>
-            <Input id="person" value={personId} onChange={(event) => setPersonId(event.target.value)} disabled={!isAdmin} />
+            <Input id="person" value={personId} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="admission">Admissão</Label>
-            <input id="admission" className={fieldClass} type="date" value={admission} onChange={(event) => setAdmission(event.target.value)} required disabled={!isAdmin} />
+            <input id="admission" className={fieldClass} type="date" value={admission} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="registration">Matrícula</Label>
-            <Input id="registration" value={registration} onChange={(event) => setRegistration(event.target.value)} disabled={!isAdmin} />
+            <Input id="registration" value={registration} readOnly />
             <p className="text-sm text-muted-foreground">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
           </div>
-          <label className="flex items-center gap-2 text-sm" htmlFor="hour-bank">
-            <input id="hour-bank" type="checkbox" checked={hourBank} onChange={(event) => setHourBank(event.target.checked)} disabled={!isAdmin} />
-            Usa banco de horas
-          </label>
+          <p className="text-sm">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</p>
           <div className="space-y-2">
             <Label htmlFor="note">Observação</Label>
-            <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} onChange={(event) => setNote(event.target.value)} disabled={!isAdmin} />
+            <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} readOnly />
           </div>
-          {isAdmin ? <Button type="submit">Salvar</Button> : null}
-        </ActionForm>
+        </div>
       ) : null}
       {tab === "work" ? (
         <div className="space-y-4">
@@ -368,13 +341,18 @@ export function EmployeePage() {
           </section>
           <TimeResultsPanel employeeId={id} />
           {employee ? <HourBankPanel employeeId={id} canLaunch={isAdmin || role === "manager"} usesBank={employee.hour_bank} /> : null}
-          {isAdmin ? <PunchCorrectionForm employeeId={id} onSaved={load} /> : null}
-          <PunchLists punches={punches} />
-          <section className="text-sm">
+          {isAdmin ? <PunchCorrectionForm employeeId={id} onSaved={async () => setSaved((current) => current + 1)} /> : null}
+          <PunchLists employeeId={id} reloadKey={saved} />
+          <section className="space-y-3 text-sm">
             <h2 className="font-medium">Solicitações</h2>
             <p className="text-muted-foreground">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
-            <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
-              {requests.map((item) => (
+            <div className="flex flex-wrap gap-3">
+              <FilterSelect id="employee-request-kind" label="Tipo" value={requestKind} options={Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))} onChange={setRequestKind} />
+              <FilterSelect id="employee-request-status" label="Situação" value={requestState} options={Object.entries(requestStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setRequestState} />
+            </div>
+            {inbox.error ? <p className="text-destructive">{inbox.error}</p> : null}
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {inbox.items.map((item) => (
                 <li key={item.id} className="px-4 py-3">
                   {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
                   {item.kind === "adjustment" && item.punches.length > 0 ? ` · ${item.punches.map((value) => showDateTime(value)).join(", ")}` : ""}
@@ -383,8 +361,9 @@ export function EmployeePage() {
                   {item.status === "approved" ? ` · ${punchOrigin("approved_request")}` : ""}
                 </li>
               ))}
-              {requests.length === 0 ? <li className="px-4 py-3 text-muted-foreground">Nenhuma solicitação.</li> : null}
+              {inbox.items.length === 0 ? <li className="px-4 py-3 text-muted-foreground">Nenhuma solicitação.</li> : null}
             </ul>
+            <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
           </section>
         </div>
       ) : null}
@@ -439,8 +418,12 @@ export function EmployeePage() {
               <Button type="submit">Registrar ocorrência</Button>
             </ActionForm>
           ) : null}
+          <div className="flex flex-wrap gap-3">
+            <FilterSelect id="employee-event-kind" label="Tipo" value={eventKind} options={Object.entries(occurrenceKindLabel).map(([value, label]) => ({ value, label }))} onChange={setEventKind} />
+          </div>
+          {events.error ? <p className="text-sm text-destructive">{events.error}</p> : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {occurrences.map((item) => (
+            {events.items.map((item) => (
               <li key={item.id} className="px-4 py-3 text-sm">
                 {occurrenceKindLabel[item.kind] || item.kind} · {periodText(item)} · {punchOrigin(item.source)}
                 {certificateText(item) ? ` · ${certificateText(item)}` : ""}
@@ -454,34 +437,40 @@ export function EmployeePage() {
                 ) : null}
               </li>
             ))}
-            {occurrences.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma ocorrência.</li> : null}
+            {events.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma ocorrência.</li> : null}
           </ul>
+          <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} />
         </div>
       ) : null}
       {tab === "history" ? (
         <div className="space-y-4">
-          <section>
+          <section className="space-y-3">
             <h2 className="text-sm font-medium">Vigências</h2>
-            <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
-              {vigencies.map((item) => (
+            <FilterSelect id="employee-vigency-kind" label="Vínculo" value={historyKind} options={Object.entries(vigencyKindLabel).map(([value, label]) => ({ value, label }))} onChange={setHistoryKind} />
+            {history.error ? <p className="text-sm text-destructive">{history.error}</p> : null}
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {history.items.map((item) => (
                 <li key={item.id} className="px-4 py-3 text-sm">
                   {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}
                 </li>
               ))}
-              {vigencies.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma vigência.</li> : null}
+              {history.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma vigência.</li> : null}
             </ul>
+            <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} />
           </section>
-          <section>
+          <section className="space-y-3">
             <h2 className="text-sm font-medium">Auditoria</h2>
-            <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
-              {audits.map((item) => (
+            {trail.error ? <p className="text-sm text-destructive">{trail.error}</p> : null}
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {trail.items.map((item) => (
                 <li key={item.id} className="px-4 py-3 text-sm">
                   {showDateTime(item.created_at)} · pessoa {item.person_id} · {item.action}
                   {item.previous_label ? ` · de ${item.previous_label}` : ""} {item.new_label ? `para ${item.new_label}` : ""}
                 </li>
               ))}
-              {audits.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma auditoria.</li> : null}
+              {trail.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma auditoria.</li> : null}
             </ul>
+            <ListPager page={trail.page} pageSize={trail.pageSize} total={trail.total} onPage={trail.setPage} onPageSize={trail.setPageSize} />
           </section>
         </div>
       ) : null}
