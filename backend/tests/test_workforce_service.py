@@ -2113,3 +2113,30 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
         )
     assert closed.value.message == "Período fechado"
     assert counted() == before
+
+
+def test_listagem_filtra_o_nome_inteiro_e_o_cpf_em_paginas_de_vinte():
+    workforce, _repo = service()
+    workforce.create_named(Job, admin(), {"name": "Ana"})
+    workforce.create_named(Job, admin(), {"name": "Ana Lima"})
+    exact, exact_total = workforce.list_named(Job, admin(), 1, 20, {"name": "Ana"})
+    assert exact_total == 1
+    assert exact[0].name == "Ana"
+    for index in range(21):
+        workforce.create_named(Job, admin(), {"name": f"Cargo {index:02d}"})
+    page, total = workforce.list_named(Job, admin(), 1, 20, {})
+    assert total == 23
+    assert len(page) == 20
+    following, _total = workforce.list_named(Job, admin(), 2, 20, {})
+    assert len(following) == 3
+    first = workforce.create_employee(admin(), employee_payload("22222222222", 7))
+    workforce.create_employee(admin(), employee_payload("33333333333", None))
+    by_name, name_total = workforce.list_employees(admin(), 1, 20, {"full_name": "Ana Lima"})
+    assert name_total == 2
+    by_cpf, cpf_total = workforce.list_employees(admin(), 1, 20, {"cpf": "222.222.222-22"})
+    assert cpf_total == 1
+    assert by_cpf[0].id == first["id"]
+    assert {row.id for row in by_name} >= {first["id"]}
+    with pytest.raises(AppError) as bad_cpf:
+        workforce.list_employees(admin(), 1, 20, {"cpf": "222"})
+    assert bad_cpf.value.message == "CPF inválido"
