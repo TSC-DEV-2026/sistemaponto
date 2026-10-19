@@ -165,10 +165,14 @@ def mount_named(
         page: int = Query(1, ge=1),
         limit: int = Query(page_size, ge=1, le=100),
         fields: str | None = Query(default=None, max_length=500),
+        name: str | None = Query(default=None, max_length=255, description="Nome inteiro"),
         actor: Actor = Depends(require_tenant),
         service: WorkforceService = Depends(get_workforce_service),
     ):
-        items, total = service.list_named(model, as_scope(actor), page, limit, read_filters(request, filters))
+        found = read_filters(request, filters)
+        if name is not None and name.strip():
+            found["name"] = name.strip()
+        items, total = service.list_named(model, as_scope(actor), page, limit, found)
         return json_data(dump_page(items, total, page, limit, out_schema, fields))
 
     def get_row(
