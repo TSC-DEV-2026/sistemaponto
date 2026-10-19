@@ -8,7 +8,7 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { listRecords } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
-export const pageSizes = [1, 10, 20]
+export const pageSizes = [5, 10, 20]
 
 const fieldClass = "h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
 

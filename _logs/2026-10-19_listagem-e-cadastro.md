@@ -10,7 +10,7 @@
 - Cada entidade do ponto 16 ficou numa aba só com a lista. O botão Novo fica na mesma linha das abas, no canto direito. Ao lado do campo fica o botão Pesquisar
 - A mesma paginação e a pesquisa pelos filtros da API entraram nas outras listas: jornada, marcação, vigência, ocorrência, solicitação, fechamento, aviso, e-mail, auditoria, arquivo fiscal, banco de horas, assinatura e cobrança. No aplicativo, solicitações e avisos também paginam
 - A pesquisa filtra enquanto se digita e também ao clicar em Pesquisar. Em funcionário, texto com letra busca o nome e texto só com número busca o CPF. A busca volta para a página 1
-- A lista começa com 20 registros. O rodapé deixa escolher 1, 10 ou 20 neste teste e mostra "Página X de Y (N itens)"
+- A lista começa com 20 registros. O rodapé deixa escolher 5, 10 ou 20 e mostra "Página X de Y (N itens)"
 - A paginação segue o componente do shadcn: Anterior, o número da página atual, as páginas vizinhas e Próxima. A página atual fica marcada. Muitas páginas mostram reticências
 - Cada linha tem olho, lápis e lixeira. O olho abre a ficha somente leitura. O lápis abre o formulário preenchido. A lixeira pede confirmação antes de excluir
 - O formulário é outra tela, com os campos, Salvar e Voltar. Voltar cai na aba da entidade
