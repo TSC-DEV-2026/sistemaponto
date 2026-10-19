@@ -1,3 +1,4 @@
+import inspect
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
@@ -146,14 +147,74 @@ def read_filters(request: Request, names: tuple[str, ...]) -> dict:
     return found
 
 
-def mount_named(prefix: str, tag: str, model, create_schema, update_schema, out_schema, filters: tuple[str, ...]):
+def _filter_parameter(name: str) -> inspect.Parameter:
+    if name in INT_FILTERS:
+        annotation = int | None
+        default = Query(default=None, ge=1)
+    elif name in BOOL_FILTERS:
+        annotation = bool | None
+        default = Query(default=None)
+    elif name in {"name", "full_name"}:
+        annotation = str | None
+        default = Query(default=None, max_length=255, description="Trecho do nome")
+    elif name == "cpf":
+        annotation = str | None
+        default = Query(default=None, max_length=14)
+    else:
+        annotation = str | None
+        default = Query(default=None, max_length=64)
+    return inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=default, annotation=annotation)
+
+
+def accept_filters(func, names: tuple[str, ...]):
+    def wrapped(*args, **kwargs):
+        for name in names:
+            kwargs.pop(name, None)
+        return func(*args, **kwargs)
+
+    signature = inspect.signature(func)
+    parameters = [
+        item
+        for item in signature.parameters.values()
+        if item.kind not in {inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL}
+    ]
+    extra = [_filter_parameter(name) for name in names if name not in signature.parameters]
+    anchor = next(index for index, item in enumerate(parameters) if item.name in {"actor", "service"})
+    parameters[anchor:anchor] = extra
+    wrapped.__signature__ = signature.replace(parameters=parameters)
+    wrapped.__name__ = func.__name__
+    wrapped.__doc__ = func.__doc__
+    wrapped.__annotations__ = dict(getattr(func, "__annotations__", {}))
+    for item in extra:
+        wrapped.__annotations__[item.name] = item.annotation
+    return wrapped
+
+
+def searchable(*names: str):
+    def decorate(func):
+        return accept_filters(func, names)
+
+    return decorate
+
+
+def mount_named(
+    prefix: str,
+    tag: str,
+    model,
+    create_schema,
+    update_schema,
+    out_schema,
+    filters: tuple[str, ...],
+    *,
+    page_size: int = 10,
+):
     router = APIRouter(prefix=prefix, tags=[tag], dependencies=[Depends(require_use)])
     slug = tag.replace("-", "_")
 
     def list_rows(
         request: Request,
         page: int = Query(1, ge=1),
-        limit: int = Query(10, ge=1, le=100),
+        limit: int = Query(page_size, ge=1, le=100),
         fields: str | None = Query(default=None, max_length=500),
         actor: Actor = Depends(require_tenant),
         service: WorkforceService = Depends(get_workforce_service),
@@ -195,6 +256,7 @@ def mount_named(prefix: str, tag: str, model, create_schema, update_schema, out_
         service.delete_named(model, as_scope(actor), row_id)
         return json_data(None)
 
+    list_rows = accept_filters(list_rows, filters)
     list_rows.__name__ = f"list_{slug}"
     get_row.__name__ = f"get_{slug}"
     create_row.__name__ = f"create_{slug}"
@@ -209,13 +271,13 @@ def mount_named(prefix: str, tag: str, model, create_schema, update_schema, out_
 
 
 routers = [
-    mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name",)),
-    mount_named("/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name",)),
-    mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",)),
-    mount_named("/sectors", "sectors", Sector, SectorCreate, SectorUpdate, SectorOut, ("name", "unit_id")),
-    mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "sector_id")),
+    mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named("/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named("/sectors", "sectors", Sector, SectorCreate, SectorUpdate, SectorOut, ("name", "unit_id"), page_size=20),
+    mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "sector_id"), page_size=20),
     mount_named("/journeys", "journeys", Journey, JourneyCreate, JourneyUpdate, JourneyOut, ("name",)),
-    mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name",)),
+    mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named(
         "/labor-agreements",
         "labor-agreements",
@@ -224,10 +286,29 @@ routers = [
         AgreementUpdate,
         AgreementOut,
         ("name", "union_id"),
+        page_size=20,
     ),
-    mount_named("/holidays", "holidays", Holiday, HolidayCreate, HolidayUpdate, HolidayOut, ("name",)),
-    mount_named("/punch-rules", "punch-rules", PunchRule, PunchRuleCreate, PunchRuleUpdate, PunchRuleOut, ("name",)),
-    mount_named("/reasons", "reasons", Reason, ReasonCreate, ReasonUpdate, ReasonOut, ("name", "kind", "active")),
+    mount_named("/holidays", "holidays", Holiday, HolidayCreate, HolidayUpdate, HolidayOut, ("name",), page_size=20),
+    mount_named(
+        "/punch-rules",
+        "punch-rules",
+        PunchRule,
+        PunchRuleCreate,
+        PunchRuleUpdate,
+        PunchRuleOut,
+        ("name",),
+        page_size=20,
+    ),
+    mount_named(
+        "/reasons",
+        "reasons",
+        Reason,
+        ReasonCreate,
+        ReasonUpdate,
+        ReasonOut,
+        ("name", "kind", "active"),
+        page_size=20,
+    ),
 ]
 
 
@@ -251,17 +332,18 @@ subscriptions = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 charges = APIRouter(prefix="/charges", tags=["charges"])
 
 
-@employees.get("", summary="Listar funcionários", description="Filtros: cpf, person_id.")
+@employees.get("", summary="Listar funcionários", description="Filtros: full_name, cpf, person_id.")
+@searchable("full_name", "cpf", "person_id")
 def list_employees(
     request: Request,
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100),
     fields: str | None = Query(default=None, max_length=500),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
     scope = as_scope(actor)
-    items, total = service.list_employees(scope, page, limit, read_filters(request, ("cpf", "person_id")))
+    items, total = service.list_employees(scope, page, limit, read_filters(request, ("full_name", "cpf", "person_id")))
     return json_data(dump_page(service.employees_out(items), total, page, limit, EmployeeOut, fields))
 
 
@@ -307,6 +389,7 @@ def delete_employee(
 
 
 @vigencies.get("", summary="Listar vigências", description="Filtros: employee_id, kind.")
+@searchable("employee_id", "kind")
 def list_vigencies(
     request: Request,
     page: int = Query(1, ge=1),
@@ -363,6 +446,7 @@ def delete_vigency(
 
 
 @punches.get("", summary="Listar marcações", description="Filtros: employee_id, valid.")
+@searchable("employee_id", "valid")
 def list_punches(
     request: Request,
     page: int = Query(1, ge=1),
@@ -473,6 +557,7 @@ def upload_selfie(
 
 
 @occurrences.get("", summary="Listar ocorrências", description="Filtros: employee_id, kind.")
+@searchable("employee_id", "kind")
 def list_occurrences(
     request: Request,
     page: int = Query(1, ge=1),
@@ -529,6 +614,7 @@ def delete_occurrence(
 
 
 @requests.get("", summary="Listar solicitações", description="Filtros: employee_id, kind, status.")
+@searchable("employee_id", "kind", "status")
 def list_requests(
     request: Request,
     page: int = Query(1, ge=1),
@@ -585,6 +671,7 @@ def delete_request(
 
 
 @closings.get("", summary="Listar fechamentos", description="Filtros: year, month, status.")
+@searchable("year", "month", "status")
 def list_closings(
     request: Request,
     page: int = Query(1, ge=1),
@@ -640,7 +727,8 @@ def delete_closing(
     return json_data(None)
 
 
-@notifications.get("", summary="Listar notificações")
+@notifications.get("", summary="Listar notificações", description="Filtros: employee_id.")
+@searchable("employee_id")
 def list_notifications(
     request: Request,
     page: int = Query(1, ge=1),
@@ -684,6 +772,7 @@ def update_notification(
 
 
 @notification_preferences.get("", summary="Listar preferências de aviso", description="Filtros: kind.")
+@searchable("kind")
 def list_notification_preferences(
     request: Request,
     page: int = Query(1, ge=1),
@@ -742,6 +831,7 @@ def delete_notification_preference(
 
 
 @notice_emails.get("", summary="Listar e-mails de aviso", description="Filtros: kind.")
+@searchable("kind")
 def list_notice_emails(
     request: Request,
     page: int = Query(1, ge=1),
@@ -813,6 +903,7 @@ def delete_notification(
 
 
 @audits.get("", summary="Listar auditoria", description="Filtro: employee_id.")
+@searchable("employee_id")
 def list_audits(
     request: Request,
     page: int = Query(1, ge=1),
@@ -942,6 +1033,7 @@ def hour_bank(
 
 
 @fiscal_files.get("", summary="Listar arquivos fiscais", description="Filtros: kind, valid.")
+@searchable("kind", "valid")
 def list_fiscal_files(
     request: Request,
     page: int = Query(1, ge=1),
@@ -1006,6 +1098,7 @@ def delete_fiscal_file(
 
 
 @hour_bank_entries.get("", summary="Listar lançamentos do banco", description="Filtros: employee_id, kind.")
+@searchable("employee_id", "kind")
 def list_hour_bank_entries(
     request: Request,
     page: int = Query(1, ge=1),
@@ -1062,6 +1155,7 @@ def delete_hour_bank_entry(
 
 
 @subscriptions.get("", summary="Listar assinatura", description="Filtros: status.")
+@searchable("status")
 def list_subscriptions(
     request: Request,
     page: int = Query(1, ge=1),
@@ -1116,6 +1210,7 @@ def delete_subscription(
 
 
 @charges.get("", summary="Listar cobranças", description="Filtros: status, kind.")
+@searchable("status", "kind")
 def list_charges(
     request: Request,
     page: int = Query(1, ge=1),

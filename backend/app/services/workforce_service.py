@@ -155,14 +155,23 @@ class WorkforceService:
 
     def list_employees(self, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
+        filters = dict(equals)
+        if "cpf" in filters:
+            filters["cpf"] = normalize_cpf(str(filters["cpf"]))
+        if "full_name" in filters:
+            name = str(filters["full_name"]).strip()
+            if name:
+                filters["full_name"] = name
+            else:
+                filters.pop("full_name")
         ids = self._visible_ids(scope)
-        if "person_id" in equals and ids is not None:
+        if "person_id" in filters and ids is not None:
             own = self.repo.list_employees(
-                scope.tenant_id, ids=None, page=1, limit=1, equals={"person_id": equals["person_id"]}
+                scope.tenant_id, ids=None, page=1, limit=1, equals={"person_id": filters["person_id"]}
             )[0]
             if not own or own[0].id not in ids:
                 return [], 0
-        return self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=limit, equals=equals)
+        return self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=limit, equals=filters)
 
     def employees_out(self, rows: list[Employee]) -> list[dict]:
         labels = self.repo.labels_on([row.id for row in rows], self.today())

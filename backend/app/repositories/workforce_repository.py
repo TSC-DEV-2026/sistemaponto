@@ -27,6 +27,30 @@ from app.models.workforce import (
 )
 
 
+CONTAINS_KEYS = frozenset({"name", "full_name"})
+
+
+def contains_pattern(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def filter_matches(key: str, current, wanted) -> bool:
+    if key in CONTAINS_KEYS and isinstance(current, str) and isinstance(wanted, str):
+        return wanted.casefold() in current.casefold()
+    return current == wanted
+
+
+def _apply_filters(query, model, equals: dict):
+    for key, value in equals.items():
+        column = getattr(model, key)
+        if key in CONTAINS_KEYS:
+            query = query.filter(column.ilike(contains_pattern(str(value)), escape="\\"))
+        else:
+            query = query.filter(column == value)
+    return query
+
+
 class WorkforceRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -132,8 +156,7 @@ class WorkforceRepository:
         query = self.db.query(model).filter(model.tenant_id == tenant_id)
         if employee_ids is not None:
             query = query.filter(model.employee_id.in_(employee_ids))
-        for key, value in equals.items():
-            query = query.filter(getattr(model, key) == value)
+        query = _apply_filters(query, model, equals)
         total = query.count()
         order = model.id.desc() if descending else model.id.asc()
         items = query.order_by(order).offset((page - 1) * limit).limit(limit).all()
@@ -166,8 +189,7 @@ class WorkforceRepository:
         query = self.db.query(Employee).filter(Employee.tenant_id == tenant_id)
         if ids is not None:
             query = query.filter(Employee.id.in_(ids))
-        for key, value in equals.items():
-            query = query.filter(getattr(Employee, key) == value)
+        query = _apply_filters(query, Employee, equals)
         total = query.count()
         items = query.order_by(Employee.id.asc()).offset((page - 1) * limit).limit(limit).all()
         return items, total
