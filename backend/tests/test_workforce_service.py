@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.exceptions import AppError
+from app.repositories.workforce_repository import contains_pattern, filter_matches
 from app.core.workforce import previous_end
 from app.models.membership import Membership
 from app.models.workforce import (
@@ -123,7 +124,7 @@ class Memory:
         for row in self._of(model, tenant_id):
             if employee_ids is not None and row.employee_id not in employee_ids:
                 continue
-            if all(getattr(row, key) == value for key, value in equals.items()):
+            if all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
                 found.append(row)
         found.sort(key=lambda item: item.id, reverse=descending)
         total = len(found)
@@ -158,7 +159,7 @@ class Memory:
         for row in self._of(Employee, tenant_id):
             if ids is not None and row.id not in ids:
                 continue
-            if all(getattr(row, key) == value for key, value in equals.items()):
+            if all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
                 found.append(row)
         found.sort(key=lambda item: item.id)
         total = len(found)
@@ -2115,13 +2116,15 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
     assert counted() == before
 
 
-def test_listagem_filtra_o_nome_inteiro_e_o_cpf_em_paginas_de_vinte():
+def test_listagem_filtra_o_nome_pelo_trecho_e_o_cpf_em_paginas_de_vinte():
     workforce, _repo = service()
     workforce.create_named(Job, admin(), {"name": "Ana"})
     workforce.create_named(Job, admin(), {"name": "Ana Lima"})
-    exact, exact_total = workforce.list_named(Job, admin(), 1, 20, {"name": "Ana"})
-    assert exact_total == 1
-    assert exact[0].name == "Ana"
+    by_piece, piece_total = workforce.list_named(Job, admin(), 1, 20, {"name": "ana"})
+    assert piece_total == 2
+    assert {row.name for row in by_piece} == {"Ana", "Ana Lima"}
+    assert contains_pattern("100%") == "%100\\%%"
+    assert contains_pattern("a_b") == "%a\\_b%"
     for index in range(21):
         workforce.create_named(Job, admin(), {"name": f"Cargo {index:02d}"})
     page, total = workforce.list_named(Job, admin(), 1, 20, {})
@@ -2131,8 +2134,11 @@ def test_listagem_filtra_o_nome_inteiro_e_o_cpf_em_paginas_de_vinte():
     assert len(following) == 3
     first = workforce.create_employee(admin(), employee_payload("22222222222", 7))
     workforce.create_employee(admin(), employee_payload("33333333333", None))
-    by_name, name_total = workforce.list_employees(admin(), 1, 20, {"full_name": "Ana Lima"})
+    by_name, name_total = workforce.list_employees(admin(), 1, 20, {"full_name": "lima"})
     assert name_total == 2
+    cargo, cargo_total = workforce.list_named(Job, admin(), 1, 20, {"name": "cargo"})
+    assert cargo_total == 21
+    assert len(cargo) == 20
     by_cpf, cpf_total = workforce.list_employees(admin(), 1, 20, {"cpf": "222.222.222-22"})
     assert cpf_total == 1
     assert by_cpf[0].id == first["id"]

@@ -165,7 +165,7 @@ def mount_named(
         page: int = Query(1, ge=1),
         limit: int = Query(page_size, ge=1, le=100),
         fields: str | None = Query(default=None, max_length=500),
-        name: str | None = Query(default=None, max_length=255, description="Nome inteiro"),
+        name: str | None = Query(default=None, max_length=255, description="Trecho do nome"),
         actor: Actor = Depends(require_tenant),
         service: WorkforceService = Depends(get_workforce_service),
     ):
