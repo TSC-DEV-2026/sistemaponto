@@ -59,3 +59,18 @@ def test_listas_mostram_os_campos_de_busca_no_swagger():
     for path, expected in LIST_FILTERS.items():
         assert expected <= _query_names(schema["paths"][path]["get"]), path
         assert expected.isdisjoint(_query_names(schema["paths"][path + "/{row_id}"]["get"])), path
+
+
+def test_listas_aceitam_os_campos_de_busca():
+    app = create_app()
+    endpoints = {
+        route.path: route.endpoint
+        for route in app.routes
+        if getattr(route, "methods", None) and "GET" in route.methods and route.path in LIST_FILTERS
+    }
+    assert set(endpoints) == set(LIST_FILTERS)
+    for path, expected in LIST_FILTERS.items():
+        try:
+            endpoints[path](**{name: None for name in expected})
+        except TypeError as error:
+            assert "unexpected keyword" not in str(error), path

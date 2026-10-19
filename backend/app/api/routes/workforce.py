@@ -166,25 +166,33 @@ def _filter_parameter(name: str) -> inspect.Parameter:
     return inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=default, annotation=annotation)
 
 
-def declare_filters(func, names: tuple[str, ...]) -> None:
+def accept_filters(func, names: tuple[str, ...]):
+    def wrapped(*args, **kwargs):
+        for name in names:
+            kwargs.pop(name, None)
+        return func(*args, **kwargs)
+
     signature = inspect.signature(func)
-    parameters = list(signature.parameters.values())
+    parameters = [
+        item
+        for item in signature.parameters.values()
+        if item.kind not in {inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL}
+    ]
     extra = [_filter_parameter(name) for name in names if name not in signature.parameters]
-    if not extra:
-        return
     anchor = next(index for index, item in enumerate(parameters) if item.name in {"actor", "service"})
     parameters[anchor:anchor] = extra
-    func.__signature__ = signature.replace(parameters=parameters)
-    annotations = dict(getattr(func, "__annotations__", {}))
+    wrapped.__signature__ = signature.replace(parameters=parameters)
+    wrapped.__name__ = func.__name__
+    wrapped.__doc__ = func.__doc__
+    wrapped.__annotations__ = dict(getattr(func, "__annotations__", {}))
     for item in extra:
-        annotations[item.name] = item.annotation
-    func.__annotations__ = annotations
+        wrapped.__annotations__[item.name] = item.annotation
+    return wrapped
 
 
 def searchable(*names: str):
     def decorate(func):
-        declare_filters(func, names)
-        return func
+        return accept_filters(func, names)
 
     return decorate
 
@@ -248,7 +256,7 @@ def mount_named(
         service.delete_named(model, as_scope(actor), row_id)
         return json_data(None)
 
-    declare_filters(list_rows, filters)
+    list_rows = accept_filters(list_rows, filters)
     list_rows.__name__ = f"list_{slug}"
     get_row.__name__ = f"get_{slug}"
     create_row.__name__ = f"create_{slug}"
