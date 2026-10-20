@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Bell,
   Building2,
   ClipboardList,
   Clock,
@@ -131,17 +130,6 @@ export const navGroups: NavGroup[] = [
           { title: "Banco de Horas", text: "Saldo e lançamentos." },
           { title: "Ocorrências", text: "O que já foi lançado." },
           { title: "Gestão", text: "Fechamento e solicitação." },
-        ],
-      },
-      {
-        to: "/notifications",
-        label: "Notificações",
-        icon: Bell,
-        lead: "O texto é o mesmo no sistema e no e-mail.",
-        sections: [
-          { title: "Solicitações", text: "Nova, aprovada, recusada ou cancelada." },
-          { title: "Ponto", text: "Ponto incompleto e pendência de fechamento." },
-          { title: "Plano", text: "Trial terminando, limite próximo e limite atingido." },
         ],
       },
     ],

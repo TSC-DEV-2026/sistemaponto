@@ -1,3 +1,4 @@
+import { Bell } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -37,6 +38,12 @@ export function SettingsPage() {
       <div className="flex flex-col gap-2 text-sm">
         <Link to="/tenants">Empresas</Link>
         <Link to="/change-password">Trocar senha</Link>
+        <Button variant="outline" className="w-fit" asChild>
+          <Link to="/notifications">
+            <Bell className="h-4 w-4" />
+            Notificações
+          </Link>
+        </Button>
       </div>
       <ActionForm className="space-y-3" onSubmit={onSubmit}>
         <Label htmlFor="email">Reenviar verificação</Label>
