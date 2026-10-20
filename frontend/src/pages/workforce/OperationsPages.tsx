@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -807,11 +808,14 @@ export function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Notificações</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          O texto no sistema é o mesmo do e-mail. Cada aviso pode ser desligado. Sem preferência gravada, ele fica ligado. O envio é diário. Fechamento próximo e trial terminando começam 3 dias antes. A frequência customizável fica para depois.
-        </p>
+      <div className="space-y-4">
+        <BackLink to="/settings" />
+        <div>
+          <h1 className="text-xl font-semibold">Notificações</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            O texto no sistema é o mesmo do e-mail. Cada aviso pode ser desligado. Sem preferência gravada, ele fica ligado. O envio é diário. Fechamento próximo e trial terminando começam 3 dias antes. A frequência customizável fica para depois.
+          </p>
+        </div>
       </div>
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Avisos</h2>
