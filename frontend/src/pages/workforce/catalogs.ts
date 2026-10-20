@@ -33,7 +33,7 @@ export const catalogs: Record<string, Catalog> = {
     editTitle: "Editar unidade",
     empty: "Nenhuma unidade.",
     backTo: "/organization?aba=unidades",
-    fields: [{ name: "name", label: "Nome", type: "text", required: true }],
+    fields: [{ name: "name", label: "Nome da unidade", type: "text", required: true }],
   },
   sectors: {
     path: "/sectors",
@@ -42,7 +42,7 @@ export const catalogs: Record<string, Catalog> = {
     empty: "Nenhum setor.",
     backTo: "/organization?aba=setores",
     fields: [
-      { name: "name", label: "Nome", type: "text", required: true },
+      { name: "name", label: "Nome do setor", type: "text", required: true },
       { name: "unit_id", label: "Unidade", type: "select", required: true, loadOptions: () => optionsOf("/units") },
     ],
   },
@@ -53,7 +53,7 @@ export const catalogs: Record<string, Catalog> = {
     empty: "Nenhuma equipe.",
     backTo: "/organization?aba=equipes",
     fields: [
-      { name: "name", label: "Nome", type: "text", required: true },
+      { name: "name", label: "Nome da equipe", type: "text", required: true },
       { name: "sector_id", label: "Setor", type: "select", required: true, loadOptions: () => optionsOf("/sectors") },
     ],
   },
