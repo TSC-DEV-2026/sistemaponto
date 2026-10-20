@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { me } from "@/services/auth.service"
 import { createRecord, getDashboard, listRecords, updateRecord, type Charge, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -24,20 +25,29 @@ export function PlanPage() {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setSession = useAuthStore((state) => state.setSession)
   const [plan, setPlan] = useState<Subscription | null>(null)
-  const [charges, setCharges] = useState<Charge[]>([])
+  const [chargeStatus, setChargeStatus] = useState("")
+  const [chargeKind, setChargeKind] = useState("")
+  const [planStatus, setPlanStatus] = useState("")
   const [capacity, setCapacity] = useState("10")
   const [method, setMethod] = useState("pix")
   const [activeEmployees, setActiveEmployees] = useState<number | null>(null)
   const [error, setError] = useState("")
+  const billed = usePagedList<Charge>(
+    "/charges",
+    {
+      ...(chargeStatus ? { status: chargeStatus } : {}),
+      ...(chargeKind ? { kind: chargeKind } : {}),
+    },
+    isAdmin,
+  )
+  const plans = usePagedList<Subscription>("/subscriptions", planStatus ? { status: planStatus } : {}, isAdmin)
 
   async function load() {
-    const [subscriptions, billed] = await Promise.all([
-      listRecords<Subscription>("/subscriptions", { page: 1, limit: 10 }),
-      listRecords<Charge>("/charges", { page: 1, limit: 100 }),
-    ])
+    const subscriptions = await listRecords<Subscription>("/subscriptions", { page: 1, limit: 1 })
     const current = subscriptions.items[0] ?? null
     setPlan(current)
-    setCharges(billed.items)
+    billed.reload()
+    plans.reload()
     if (current) {
       setCapacity(String(current.capacity))
       setMethod(current.payment_method)
@@ -199,9 +209,30 @@ export function PlanPage() {
       )}
       {isAdmin ? (
         <section className="space-y-3">
-          <h2 className="text-sm font-medium">Cobranças</h2>
+          <h2 className="text-sm font-medium">Assinaturas</h2>
+          <FilterSelect id="plan-status" label="Situação" value={planStatus} options={Object.entries(subscriptionStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setPlanStatus} />
+          {plans.error ? <p className="text-sm text-destructive">{plans.error}</p> : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {charges.map((item) => (
+            {plans.items.map((item) => (
+              <li key={item.id} className="px-4 py-3 text-sm">
+                {subscriptionStatusLabel[item.status] || item.status} · {item.capacity} pessoas · {showMoney(item.monthly_amount_cents)} · {showDate(item.period_start)} a {showDate(item.period_end)}
+              </li>
+            ))}
+            {plans.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma assinatura.</li> : null}
+          </ul>
+          <ListPager page={plans.page} pageSize={plans.pageSize} total={plans.total} onPage={plans.setPage} onPageSize={plans.setPageSize} />
+        </section>
+      ) : null}
+      {isAdmin ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">Cobranças</h2>
+          <div className="flex flex-wrap gap-3">
+            <FilterSelect id="charge-status" label="Situação" value={chargeStatus} options={Object.entries(chargeStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setChargeStatus} />
+            <FilterSelect id="charge-kind" label="Tipo" value={chargeKind} options={Object.entries(chargeKindLabel).map(([value, label]) => ({ value, label }))} onChange={setChargeKind} />
+          </div>
+          {billed.error ? <p className="text-sm text-destructive">{billed.error}</p> : null}
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+            {billed.items.map((item) => (
               <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span>
                   {chargeKindLabel[item.kind] || item.kind} · {showMoney(item.amount_cents)} · {paymentMethodLabel[item.payment_method] || item.payment_method}
@@ -218,8 +249,9 @@ export function PlanPage() {
                 )}
               </li>
             ))}
-            {charges.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma cobrança.</li> : null}
+            {billed.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma cobrança.</li> : null}
           </ul>
+          <ListPager page={billed.page} pageSize={billed.pageSize} total={billed.total} onPage={billed.setPage} onPageSize={billed.setPageSize} />
         </section>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

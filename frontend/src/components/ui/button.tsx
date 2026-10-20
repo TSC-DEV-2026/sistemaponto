@@ -6,7 +6,7 @@ import { forwardRef, useContext, useRef, useState, type ButtonHTMLAttributes, ty
 import { FormPendingContext } from "@/components/ui/action-form"
 import { cn } from "@/utils/cn"
 
-const buttonVariants = cva(
+export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
@@ -19,6 +19,7 @@ const buttonVariants = cva(
       size: {
         default: "h-10 px-4",
         sm: "h-8 px-3",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: {

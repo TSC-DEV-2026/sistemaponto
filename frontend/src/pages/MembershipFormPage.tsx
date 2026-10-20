@@ -1,3 +1,4 @@
+import { Save } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -60,7 +61,10 @@ export function MembershipFormPage() {
         </select>
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit">Salvar</Button>
+      <Button type="submit">
+        <Save className="h-4 w-4" />
+        Salvar
+      </Button>
     </ActionForm>
   )
 }

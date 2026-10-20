@@ -4,29 +4,25 @@ import { CatalogPanel } from "@/components/workforce/CatalogPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
-import { listRecords, type Employee, type Punch } from "@/services/workforce.service"
+import { listRecords, type Employee } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
 export function JourneyPage() {
   const role = useAuthStore((state) => state.user?.role)
   const isAdmin = role === "admin"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const [punches, setPunches] = useState<Punch[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [marksTick, setMarksTick] = useState(0)
   const [error, setError] = useState("")
 
-  async function loadPunches() {
-    const [marks, people] = await Promise.all([
-      listRecords<Punch>("/punches", { page: 1, limit: 100 }),
-      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-    ])
-    setPunches(marks.items)
+  async function loadPeople() {
+    const people = await listRecords<Employee>("/employees", { page: 1, limit: 100 })
     setEmployees(people.items)
   }
 
   useEffect(() => {
     let active = true
-    loadPunches().catch((caught: unknown) => {
+    loadPeople().catch((caught: unknown) => {
       if (active) {
         setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       }
@@ -58,9 +54,16 @@ export function JourneyPage() {
       />
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Marcações</h2>
-        {isAdmin ? <PunchCorrectionForm employees={employees} onSaved={loadPunches} /> : null}
+        {isAdmin ? (
+          <PunchCorrectionForm
+            employees={employees}
+            onSaved={async () => {
+              setMarksTick((current) => current + 1)
+            }}
+          />
+        ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <PunchLists punches={punches} employeeName={(id) => employees.find((person) => person.id === id)?.full_name || String(id)} />
+        <PunchLists employees={employees} reloadKey={marksTick} />
       </section>
       <TimeResultsPanel employees={employees} />
       <HourBankPanel employees={employees} canLaunch={isAdmin || role === "manager"} />

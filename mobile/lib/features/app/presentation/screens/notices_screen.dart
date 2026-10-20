@@ -19,6 +19,10 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _preferences = [];
   String? _error;
+  int _page = 1;
+  int _total = 0;
+  String _kind = '';
+  static const _limit = 20;
 
   @override
   void initState() {
@@ -31,10 +35,11 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
     ref.read(loaderProvider.notifier).state = true;
     setState(() => _error = null);
     try {
-      final notices = await client.get('/api/v1/notifications', query: {'page': 1, 'limit': 100});
-      final preferences = await client.get('/api/v1/notification-preferences', query: {'page': 1, 'limit': 100});
+      final notices = await client.get('/api/v1/notifications', query: {'page': _page, 'limit': _limit});
+      final preferences = await client.get('/api/v1/notification-preferences', query: {'page': 1, 'limit': 100, if (_kind.isNotEmpty) 'kind': _kind});
       setState(() {
         _items = pageItems(notices);
+        _total = notices['total'] is int ? notices['total'] as int : 0;
         _preferences = pageItems(preferences);
       });
     } on ApiException catch (error) {
@@ -95,7 +100,22 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
           const SizedBox(height: 8),
           const Text('O texto no aplicativo é o mesmo do e-mail. Cada aviso seu pode ser desligado. Sem preferência gravada, ele fica ligado.'),
           const SizedBox(height: 16),
-          ...employeeNoticeLabel.entries.map(
+          DropdownButtonFormField<String>(
+            initialValue: _kind,
+            decoration: const InputDecoration(labelText: 'Tipo'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Todos')),
+              ...employeeNoticeLabel.entries.map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _kind = value ?? '';
+                _page = 1;
+              });
+              _load();
+            },
+          ),
+          ...employeeNoticeLabel.entries.where((item) => _kind.isEmpty || item.key == _kind).map(
             (item) => SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(item.value),
@@ -120,6 +140,32 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
             );
           }),
           if (_items.isEmpty) const Text('Nenhum aviso.'),
+          if (_total > 0) ...[
+            const SizedBox(height: 12),
+            Text('Página $_page de ${(_total / _limit).ceil()} ($_total ${_total == 1 ? 'item' : 'itens'})'),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: _page <= 1
+                      ? null
+                      : () {
+                          setState(() => _page -= 1);
+                          _load();
+                        },
+                  child: const Text('Anterior'),
+                ),
+                TextButton(
+                  onPressed: _page * _limit >= _total
+                      ? null
+                      : () {
+                          setState(() => _page += 1);
+                          _load();
+                        },
+                  child: const Text('Próxima'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

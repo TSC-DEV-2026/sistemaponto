@@ -1,3 +1,4 @@
+import { FilePlus, QrCode, Search } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -5,7 +6,9 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CatalogPanel, fieldClass, optionsOf } from "@/components/workforce/CatalogPanel"
+import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
@@ -37,7 +40,6 @@ import {
   fiscalKindLabel,
   noticePhrase,
   occurrenceKindLabel,
-  reasonKindLabel,
   certificateText,
   manualTimeOffKinds,
   periodText,
@@ -195,6 +197,7 @@ export function TimeClockPage() {
           <h2 className="text-sm font-medium">QR Code e selfie</h2>
           <p className="text-sm text-muted-foreground">O QR deste corte é o texto unidade, CPF e matrícula. Não há imagem. A selfie precisa ser uma foto enviada desta empresa.</p>
           <Button type="button" variant="outline" onClick={() => loadCode()}>
+            <QrCode className="h-4 w-4" />
             Gerar QR
           </Button>
           <div className="space-y-2">
@@ -240,7 +243,7 @@ export function OccurrencesPage() {
   const isAdmin = role === "admin"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [kind, setKind] = useState("absence")
-  const [items, setItems] = useState<Occurrence[]>([])
+  const [listEmployee, setListEmployee] = useState("")
   const [employees, setEmployees] = useState<Employee[]>([])
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [employeeId, setEmployeeId] = useState("")
@@ -253,15 +256,14 @@ export function OccurrencesPage() {
   const [error, setError] = useState("")
   const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
   const canLaunch = isAdmin || (role === "manager" && manual)
+  const events = usePagedList<Occurrence>("/occurrences", { kind, ...(listEmployee ? { employee_id: Number(listEmployee) } : {}) })
 
   async function load(nextKind: string) {
     const reasonKind = nextKind === "vacation" || nextKind === "leave" || nextKind === "punch_entry" ? undefined : nextKind
-    const [events, people, motive] = await Promise.all([
-      listRecords<Occurrence>("/occurrences", { page: 1, limit: 100, kind: nextKind }),
+    const [people, motive] = await Promise.all([
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
       reasonKind ? listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true }) : Promise.resolve({ items: [] as NamedRecord[] }),
     ])
-    setItems(events.items)
     setEmployees(people.items)
     setReasons(motive.items)
   }
@@ -296,6 +298,7 @@ export function OccurrencesPage() {
       setNote("")
       setDraft(emptyTimeOff())
       setFileKey((current) => current + 1)
+      events.reload()
       await load(kind)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
@@ -362,8 +365,16 @@ export function OccurrencesPage() {
         </ActionForm>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <FilterSelect
+        id="occurrence-employee"
+        label="Funcionário"
+        value={listEmployee}
+        options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
+        onChange={setListEmployee}
+      />
+      {events.error ? <p className="text-sm text-destructive">{events.error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {items.map((item) => (
+        {events.items.map((item) => (
           <li key={item.id} className="px-4 py-3 text-sm">
             {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {periodText(item)} · {punchOrigin(item.source)}
             {certificateText(item) ? ` · ${certificateText(item)}` : ""}
@@ -377,8 +388,9 @@ export function OccurrencesPage() {
             ) : null}
           </li>
         ))}
-        {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum lançamento.</li> : null}
+        {events.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum lançamento.</li> : null}
       </ul>
+      <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} />
     </div>
   )
 }
@@ -389,19 +401,23 @@ export function RequestsPage() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const canDecide = role === "admin" || role === "manager"
   const [status, setStatus] = useState("pending")
-  const [items, setItems] = useState<TimeRequest[]>([])
+  const [listEmployee, setListEmployee] = useState("")
+  const [listKind, setListKind] = useState("")
   const [employees, setEmployees] = useState<Employee[]>([])
   const [canRequest, setCanRequest] = useState(false)
   const [error, setError] = useState("")
   const [note, setNote] = useState("")
+  const inbox = usePagedList<TimeRequest>("/requests", {
+    status,
+    ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
+    ...(listKind ? { kind: listKind } : {}),
+  })
 
-  async function load(next: string) {
-    const [inbox, people, own] = await Promise.all([
-      listRecords<TimeRequest>("/requests", { page: 1, limit: 100, status: next }),
+  async function load() {
+    const [people, own] = await Promise.all([
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
       personId ? listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId }) : Promise.resolve(null),
     ])
-    setItems(inbox.items)
     setEmployees(people.items)
     const employee = own?.items[0]
     setCanRequest(employee != null && employee.situation !== "dismissed")
@@ -409,7 +425,7 @@ export function RequestsPage() {
 
   useEffect(() => {
     let active = true
-    load(status).catch((caught: unknown) => {
+    load().catch((caught: unknown) => {
       if (active) {
         setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       }
@@ -417,14 +433,14 @@ export function RequestsPage() {
     return () => {
       active = false
     }
-  }, [status, tenantId, personId])
+  }, [tenantId, personId])
 
   async function decide(id: number, next: "approved" | "rejected") {
     setError("")
     try {
       await updateRecord("/requests", id, { status: next, decision_note: note.trim() || null })
       setNote("")
-      await load(status)
+      inbox.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível decidir.")
     }
@@ -445,20 +461,11 @@ export function RequestsPage() {
     return true
   }
 
-  const pending = items.filter((item) => item.status === "pending")
-  const counts = {
-    adjustment: pending.filter((item) => item.kind === "adjustment").length,
-    allowance: pending.filter((item) => item.kind === "allowance").length,
-    certificate: pending.filter((item) => item.kind === "certificate").length,
-    leave: pending.filter((item) => item.kind === "leave").length,
-    vacation: pending.filter((item) => item.kind === "vacation").length,
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-semibold">Solicitações</h1>
       <p className="text-sm text-muted-foreground">
-        {status === "pending" ? `${items.length} pendentes · ${counts.adjustment} ajustes · ${counts.allowance} abonos · ${counts.certificate} atestados · ${counts.leave} afastamentos · ${counts.vacation} férias. ` : ""}
+        {status === "pending" ? `${inbox.total} pendentes. ` : ""}
         O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
       </p>
       {canRequest ? (
@@ -473,15 +480,26 @@ export function RequestsPage() {
           </Button>
         ))}
       </div>
-      {items.some((item) => mayDecide(item)) ? (
+      <div className="flex flex-wrap gap-3">
+        <FilterSelect
+          id="request-employee"
+          label="Funcionário"
+          value={listEmployee}
+          options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
+          onChange={setListEmployee}
+        />
+        <FilterSelect id="request-kind" label="Tipo" value={listKind} options={Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))} onChange={setListKind} />
+      </div>
+      {inbox.items.some((item) => mayDecide(item)) ? (
         <div className="space-y-2">
           <Label htmlFor="decision">Observação da decisão</Label>
           <Input id="decision" value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {inbox.error ? <p className="text-sm text-destructive">{inbox.error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {items.map((item) => (
+        {inbox.items.map((item) => (
           <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
             <p>
               {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
@@ -511,8 +529,9 @@ export function RequestsPage() {
             ) : null}
           </li>
         ))}
-        {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma solicitação.</li> : null}
+        {inbox.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma solicitação.</li> : null}
       </ul>
+      <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
     </div>
   )
 }
@@ -520,32 +539,21 @@ export function RequestsPage() {
 export function ClosingsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const [items, setItems] = useState<Closing[]>([])
   const [mode, setMode] = useState("month")
   const [year, setYear] = useState(String(new Date().getFullYear()))
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
+  const [filterYear, setFilterYear] = useState("")
+  const [filterMonth, setFilterMonth] = useState("")
+  const [filterStatus, setFilterStatus] = useState("")
   const [reasons, setReasons] = useState<Record<number, string>>({})
   const [error, setError] = useState("")
-
-  async function load() {
-    const page = await listRecords<Closing>("/closings", { page: 1, limit: 100 })
-    setItems(page.items)
-  }
-
-  useEffect(() => {
-    let active = true
-    load().catch((caught: unknown) => {
-      if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
+  const periods = usePagedList<Closing>("/closings", {
+    ...(/^\d+$/.test(filterYear) ? { year: Number(filterYear) } : {}),
+    ...(/^\d+$/.test(filterMonth) ? { month: Number(filterMonth) } : {}),
+    ...(filterStatus ? { status: filterStatus } : {}),
+  })
 
   async function closeNewPeriod(event: FormEvent) {
     event.preventDefault()
@@ -556,10 +564,10 @@ export function ClosingsPage() {
       try {
         await updateRecord("/closings", created.id, { status: "closed" })
       } catch (caught) {
-        await load()
+        periods.reload()
         throw caught
       }
-      await load()
+      periods.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível fechar.")
     }
@@ -575,7 +583,7 @@ export function ClosingsPage() {
     try {
       await updateRecord("/closings", id, { status, note: note || null })
       setReasons((current) => ({ ...current, [id]: "" }))
-      await load()
+      periods.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o período.")
     }
@@ -623,8 +631,20 @@ export function ClosingsPage() {
         </ActionForm>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="closing-filter-year">Ano</Label>
+          <Input id="closing-filter-year" inputMode="numeric" value={filterYear} onChange={(event) => setFilterYear(event.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="closing-filter-month">Mês</Label>
+          <Input id="closing-filter-month" inputMode="numeric" value={filterMonth} onChange={(event) => setFilterMonth(event.target.value)} />
+        </div>
+        <FilterSelect id="closing-filter-status" label="Situação" value={filterStatus} options={Object.entries(closingStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setFilterStatus} />
+      </div>
+      {periods.error ? <p className="text-sm text-destructive">{periods.error}</p> : null}
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {items.map((item) => (
+        {periods.items.map((item) => (
           <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
             <p>
               {showDate(item.starts_on)} a {showDate(item.ends_on)} · {closingStatusLabel[item.status] || item.status}
@@ -655,126 +675,54 @@ export function ClosingsPage() {
             ) : null}
           </li>
         ))}
-        {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum fechamento.</li> : null}
+        {periods.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum fechamento.</li> : null}
       </ul>
+      <ListPager page={periods.page} pageSize={periods.pageSize} total={periods.total} onPage={periods.setPage} onPageSize={periods.setPageSize} />
     </div>
   )
 }
 
 export function OrganizationPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Estrutura Organizacional</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Unidades, setores e equipes. A mudança do funcionário preserva vigência.</p>
-      </div>
-      <CatalogPanel title="Unidades" hint="Nenhuma unidade até o primeiro cadastro." path="/units" columns={[{ key: "name", label: "Nome" }]} fields={[{ name: "name", label: "Nome", type: "text", required: true }]} />
-      <CatalogPanel
-        title="Setores"
-        hint="O setor pertence a uma unidade."
-        path="/sectors"
-        columns={[
-          { key: "name", label: "Nome" },
-          { key: "unit_id", label: "Unidade" },
-        ]}
-        fields={[
-          { name: "name", label: "Nome", type: "text", required: true },
-          { name: "unit_id", label: "Unidade", type: "select", required: true, loadOptions: () => optionsOf("/units") },
-        ]}
-      />
-      <CatalogPanel
-        title="Equipes"
-        hint="A equipe pertence a um setor."
-        path="/teams"
-        columns={[
-          { key: "name", label: "Nome" },
-          { key: "sector_id", label: "Setor" },
-        ]}
-        fields={[
-          { name: "name", label: "Nome", type: "text", required: true },
-          { name: "sector_id", label: "Setor", type: "select", required: true, loadOptions: () => optionsOf("/sectors") },
-        ]}
-      />
-    </div>
+    <DomainTabs
+      title="Estrutura Organizacional"
+      lead="Unidades, setores e equipes. A mudança do funcionário preserva vigência."
+      tabs={[
+        { id: "unidades", label: "Unidades", panel: <CatalogList catalog="units" /> },
+        { id: "setores", label: "Setores", panel: <CatalogList catalog="sectors" /> },
+        { id: "equipes", label: "Equipes", panel: <CatalogList catalog="teams" /> },
+      ]}
+    />
   )
 }
 
 export function LaborPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Regras Trabalhistas</h1>
-        <p className="mt-2 text-sm text-muted-foreground">A apuração usa o feriado. Sindicato e acordo ainda não alteram tolerância, intervalo nem adicional.</p>
-      </div>
-      <CatalogPanel title="Sindicatos" hint="O vínculo do funcionário fica na vigência." path="/unions" columns={[{ key: "name", label: "Nome" }]} fields={[{ name: "name", label: "Nome", type: "text", required: true }]} />
-      <CatalogPanel
-        title="Convenções e acordos"
-        hint="Período de validade do acordo. Sem regra de cálculo."
-        path="/labor-agreements"
-        columns={[{ key: "name", label: "Nome" }]}
-        fields={[
-          { name: "name", label: "Nome", type: "text", required: true },
-          { name: "union_id", label: "Sindicato", type: "select", loadOptions: () => optionsOf("/unions") },
-          { name: "valid_from", label: "Início", type: "date", required: true },
-          { name: "valid_to", label: "Fim", type: "date" },
-          { name: "note", label: "Observação", type: "textarea" },
-        ]}
-      />
-      <CatalogPanel
-        title="Feriados"
-        hint="Data da empresa."
-        path="/holidays"
-        columns={[
-          { key: "name", label: "Nome" },
-          { key: "holiday_date", label: "Data" },
-        ]}
-        fields={[
-          { name: "name", label: "Nome", type: "text", required: true },
-          { name: "holiday_date", label: "Data", type: "date", required: true },
-          { name: "note", label: "Observação", type: "textarea" },
-        ]}
-      />
-      <CatalogPanel
-        title="Regras de ponto"
-        hint="Somente o nome e a observação. Tolerância e adicionais não são gravados aqui."
-        path="/punch-rules"
-        columns={[{ key: "name", label: "Nome" }]}
-        fields={[
-          { name: "name", label: "Nome", type: "text", required: true },
-          { name: "note", label: "Observação", type: "textarea" },
-        ]}
-      />
-    </div>
+    <DomainTabs
+      title="Regras Trabalhistas"
+      lead="A apuração usa o feriado. Sindicato e acordo ainda não alteram tolerância, intervalo nem adicional."
+      tabs={[
+        { id: "sindicatos", label: "Sindicatos", panel: <CatalogList catalog="unions" /> },
+        { id: "convencoes", label: "Convenções e acordos", panel: <CatalogList catalog="agreements" /> },
+        { id: "feriados", label: "Feriados", panel: <CatalogList catalog="holidays" /> },
+        { id: "regras", label: "Regras de ponto", panel: <CatalogList catalog="punch-rules" /> },
+      ]}
+    />
   )
 }
 
 export function ReasonsPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Motivos</h1>
-      <p className="text-sm text-muted-foreground">Catálogo da empresa. A observação complementar continua possível no lançamento.</p>
-      <CatalogPanel
-        title="Catálogo"
-        hint="Ajustes, faltas, abonos e atestados."
-        path="/reasons"
-        columns={[
-          { key: "name", label: "Nome" },
-          { key: "kind", label: "Tipo" },
-          { key: "active", label: "Situação" },
-        ]}
-        fields={[
-          { name: "name", label: "Nome", type: "text", required: true },
-          {
-            name: "kind",
-            label: "Tipo",
-            type: "select",
-            required: true,
-            options: Object.entries(reasonKindLabel).map(([value, label]) => ({ value, label })),
-          },
-          { name: "active", label: "Situação", type: "checkbox" },
-        ]}
-      />
-    </div>
+    <DomainTabs
+      title="Motivos"
+      lead="Catálogo da empresa. A observação complementar continua possível no lançamento."
+      tabs={[
+        { id: "ajustes", label: "Ajustes", panel: <CatalogList catalog="reason-adjustment" /> },
+        { id: "faltas", label: "Faltas", panel: <CatalogList catalog="reason-absence" /> },
+        { id: "abonos", label: "Abonos", panel: <CatalogList catalog="reason-allowance" /> },
+        { id: "atestados", label: "Atestados", panel: <CatalogList catalog="reason-certificate" /> },
+      ]}
+    />
   )
 }
 
@@ -782,21 +730,24 @@ export function NotificationsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canSend = role === "admin" || role === "manager"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const [items, setItems] = useState<Notice[]>([])
   const [preferences, setPreferences] = useState<NoticePreference[]>([])
-  const [emails, setEmails] = useState<NoticeEmail[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [preferenceKind, setPreferenceKind] = useState("")
+  const [noticeEmployee, setNoticeEmployee] = useState("")
+  const [emailKind, setEmailKind] = useState("")
   const [sent, setSent] = useState<number | null>(null)
   const [error, setError] = useState("")
+  const noticeKinds = Object.entries(noticePhrase).map(([value, label]) => ({ value, label }))
+  const notices = usePagedList<Notice>("/notifications", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
+  const emails = usePagedList<NoticeEmail>("/notice-emails", emailKind ? { kind: emailKind } : {})
 
   async function load() {
-    const [notices, prefs, mailed] = await Promise.all([
-      listRecords<Notice>("/notifications", { page: 1, limit: 100 }),
+    const [prefs, people] = await Promise.all([
       listRecords<NoticePreference>("/notification-preferences", { page: 1, limit: 100 }),
-      listRecords<NoticeEmail>("/notice-emails", { page: 1, limit: 100 }),
+      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
     ])
-    setItems(notices.items)
     setPreferences(prefs.items)
-    setEmails(mailed.items)
+    setEmployees(people.items)
   }
 
   useEffect(() => {
@@ -820,7 +771,7 @@ export function NotificationsPage() {
     setError("")
     try {
       await updateRecord("/notifications", id, { read: true })
-      await load()
+      notices.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível marcar.")
     }
@@ -846,6 +797,8 @@ export function NotificationsPage() {
     try {
       const result = await createRecord<{ created: number }>("/notification-runs", {})
       setSent(result.created)
+      notices.reload()
+      emails.reload()
       await load()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível enviar.")
@@ -862,8 +815,11 @@ export function NotificationsPage() {
       </div>
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Avisos</h2>
+        <FilterSelect id="preference-kind" label="Tipo" value={preferenceKind} options={noticeKinds} onChange={setPreferenceKind} />
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {Object.entries(noticePhrase).map(([kind, phrase]) => (
+          {Object.entries(noticePhrase)
+            .filter(([kind]) => !preferenceKind || kind === preferenceKind)
+            .map(([kind, phrase]) => (
             <li key={kind} className="px-4 py-3 text-sm">
               <label className="flex items-start gap-2" htmlFor={`notice-${kind}`}>
                 <input id={`notice-${kind}`} type="checkbox" className="mt-1" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
@@ -884,8 +840,16 @@ export function NotificationsPage() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <section className="space-y-3">
         <h2 className="text-sm font-medium">No sistema</h2>
+        <FilterSelect
+          id="notice-employee"
+          label="Funcionário"
+          value={noticeEmployee}
+          options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
+          onChange={setNoticeEmployee}
+        />
+        {notices.error ? <p className="text-sm text-destructive">{notices.error}</p> : null}
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {items.map((item) => (
+          {notices.items.map((item) => (
             <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
               <span>
                 {item.body}
@@ -900,14 +864,17 @@ export function NotificationsPage() {
               )}
             </li>
           ))}
-          {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma notificação.</li> : null}
+          {notices.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma notificação.</li> : null}
         </ul>
+        <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} />
       </section>
       <section className="space-y-3">
         <h2 className="text-sm font-medium">No e-mail</h2>
         <p className="text-sm text-muted-foreground">O e-mail fica gravado com o mesmo texto.</p>
+        <FilterSelect id="email-kind" label="Tipo" value={emailKind} options={noticeKinds} onChange={setEmailKind} />
+        {emails.error ? <p className="text-sm text-destructive">{emails.error}</p> : null}
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {emails.map((item) => (
+          {emails.items.map((item) => (
             <li key={item.id} className="px-4 py-3 text-sm">
               {item.body}
               <span className="mt-1 block text-muted-foreground">
@@ -915,8 +882,9 @@ export function NotificationsPage() {
               </span>
             </li>
           ))}
-          {emails.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum e-mail gravado.</li> : null}
+          {emails.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum e-mail gravado.</li> : null}
         </ul>
+        <ListPager page={emails.page} pageSize={emails.pageSize} total={emails.total} onPage={emails.setPage} onPageSize={emails.setPageSize} />
       </section>
     </div>
   )
@@ -1025,7 +993,10 @@ export function ReportsPage() {
               ))}
             </select>
           </div>
-          <Button type="submit">Consultar</Button>
+          <Button type="submit">
+            <Search className="h-4 w-4" />
+            Consultar
+          </Button>
         </ActionForm>
       ) : (
         <p className="text-sm text-muted-foreground">O funcionário não consulta relatório gerencial.</p>
@@ -1081,7 +1052,6 @@ export function PayrollPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
   const isAdmin = role === "admin"
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [year, setYear] = useState(String(new Date().getFullYear()))
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [result, setResult] = useState<Payroll | null>(null)
@@ -1091,30 +1061,19 @@ export function PayrollPage() {
   const [fileMonth, setFileMonth] = useState(String(new Date().getMonth() + 1))
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
-  const [files, setFiles] = useState<FiscalFile[]>([])
+  const [filterKind, setFilterKind] = useState("")
+  const [filterValid, setFilterValid] = useState("")
+  const files = usePagedList<FiscalFile>(
+    "/fiscal-files",
+    {
+      ...(filterKind ? { kind: filterKind } : {}),
+      ...(filterValid ? { valid: filterValid === "true" } : {}),
+    },
+    canManage,
+  )
   const [importText, setImportText] = useState("")
   const [imported, setImported] = useState<FiscalImport | null>(null)
   const [error, setError] = useState("")
-
-  async function loadFiles() {
-    const page = await listRecords<FiscalFile>("/fiscal-files", { page: 1, limit: 100 })
-    setFiles(page.items)
-  }
-
-  useEffect(() => {
-    if (!canManage) {
-      return
-    }
-    let active = true
-    loadFiles().catch((caught: unknown) => {
-      if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar os arquivos.")
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [canManage, tenantId])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -1132,7 +1091,7 @@ export function PayrollPage() {
     try {
       const body = mode === "range" ? { kind, starts_on: startsOn, ends_on: endsOn || null } : { kind, year: Number(fileYear), month: Number(fileMonth) }
       await createRecord<FiscalFile>("/fiscal-files", body)
-      await loadFiles()
+      files.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
     }
@@ -1202,7 +1161,10 @@ export function PayrollPage() {
                 </div>
               </div>
             )}
-            <Button type="submit">Gerar</Button>
+            <Button type="submit">
+              <FilePlus className="h-4 w-4" />
+              Gerar
+            </Button>
           </ActionForm>
           <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={importAfd}>
             <h2 className="text-sm font-medium">Importar AFD</h2>
@@ -1218,8 +1180,22 @@ export function PayrollPage() {
               {imported.created} criadas, {imported.ignored} já existiam e foram ignoradas, {imported.blocked} não entraram.
             </p>
           ) : null}
+          <div className="flex flex-wrap gap-3">
+            <FilterSelect id="fiscal-kind" label="Tipo" value={filterKind} options={Object.entries(fiscalKindLabel).map(([value, label]) => ({ value, label }))} onChange={setFilterKind} />
+            <FilterSelect
+              id="fiscal-valid"
+              label="Validade"
+              value={filterValid}
+              options={[
+                { value: "true", label: "Vale" },
+                { value: "false", label: "Não vale" },
+              ]}
+              onChange={setFilterValid}
+            />
+          </div>
+          {files.error ? <p className="text-sm text-destructive">{files.error}</p> : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {files.map((item) => (
+            {files.items.map((item) => (
               <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span>
                   {fiscalKindLabel[item.kind] || item.kind} · {showDate(item.starts_on)} a {showDate(item.ends_on)} · {item.valid ? "Vale" : "Não vale. Gere de novo."}
@@ -1229,8 +1205,9 @@ export function PayrollPage() {
                 </Button>
               </li>
             ))}
-            {files.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum arquivo gerado.</li> : null}
+            {files.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum arquivo gerado.</li> : null}
           </ul>
+          <ListPager page={files.page} pageSize={files.pageSize} total={files.total} onPage={files.setPage} onPageSize={files.setPageSize} />
         </section>
       ) : null}
       {isAdmin ? (
@@ -1245,7 +1222,10 @@ export function PayrollPage() {
               <Label htmlFor="year">Ano</Label>
               <Input id="year" value={year} onChange={(event) => setYear(event.target.value)} required />
             </div>
-            <Button type="submit">Consultar totais</Button>
+            <Button type="submit">
+              <Search className="h-4 w-4" />
+              Consultar totais
+            </Button>
           </ActionForm>
           {result ? (
             <ul className="divide-y divide-border rounded-lg border border-border bg-card">

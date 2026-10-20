@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
 import { brazilMoment, punchOrigin, showDateTime } from "@/utils/labels"
 
@@ -120,14 +121,31 @@ export function PunchCorrectionForm({
   )
 }
 
-export function PunchLists({ punches, employeeName }: { punches: Punch[]; employeeName?: (id: number) => string }) {
-  const current = punches.filter((item) => item.valid !== false).sort(byTime)
-  const history = punches.filter((item) => item.valid === false).sort(byTime)
+export function PunchLists({ employeeId, employees, reloadKey = 0 }: { employeeId?: number; employees?: Employee[]; reloadKey?: number }) {
+  const [person, setPerson] = useState(employeeId ? String(employeeId) : "")
+  const chosen = employeeId ?? (person ? Number(person) : undefined)
+  const scope = chosen ? { employee_id: chosen } : {}
+  const current = usePagedList<Punch>("/punches", { ...scope, valid: true }, true, reloadKey)
+  const history = usePagedList<Punch>("/punches", { ...scope, valid: false }, true, reloadKey)
+  const employeeName = employees ? (id: number) => employees.find((item) => item.id === id)?.full_name || String(id) : undefined
 
   return (
     <div className="space-y-4">
-      <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." punches={current} employeeName={employeeName} />
-      <PunchGroup title="Histórico — deixaram de valer" empty="Nenhuma marcação antiga." punches={history} employeeName={employeeName} />
+      {employeeId ? null : (
+        <FilterSelect
+          id="punch-employee"
+          label="Funcionário"
+          value={person}
+          options={(employees || []).map((item) => ({ value: String(item.id), label: item.full_name }))}
+          onChange={setPerson}
+        />
+      )}
+      <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." punches={current.items} employeeName={employeeName} />
+      <ListPager page={current.page} pageSize={current.pageSize} total={current.total} onPage={current.setPage} onPageSize={current.setPageSize} />
+      {current.error ? <p className="text-sm text-destructive">{current.error}</p> : null}
+      <PunchGroup title="Histórico — deixaram de valer" empty="Nenhuma marcação antiga." punches={history.items} employeeName={employeeName} />
+      <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} />
+      {history.error ? <p className="text-sm text-destructive">{history.error}</p> : null}
     </div>
   )
 }
@@ -160,8 +178,4 @@ function PunchGroup({
       </ul>
     </section>
   )
-}
-
-function byTime(left: Punch, right: Punch) {
-  return left.occurred_at.localeCompare(right.occurred_at)
 }

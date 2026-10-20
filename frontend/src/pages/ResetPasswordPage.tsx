@@ -1,3 +1,4 @@
+import { Save } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 
@@ -53,7 +54,10 @@ export function ResetPasswordPage() {
         </div>
         {message ? <p className="text-sm">{message}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" className="w-full">Salvar</Button>
+        <Button type="submit" className="w-full">
+          <Save className="h-4 w-4" />
+          Salvar
+        </Button>
         <Link to="/login" className="block text-center text-sm text-muted-foreground">Ir para o login</Link>
       </ActionForm>
     </PublicFrame>

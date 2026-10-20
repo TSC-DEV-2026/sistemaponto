@@ -20,6 +20,11 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   List<Map<String, dynamic>> _items = [];
   String? _error;
   bool _canRequest = false;
+  int _page = 1;
+  int _total = 0;
+  String _kind = '';
+  String _status = '';
+  static const _limit = 20;
 
   @override
   void initState() {
@@ -39,12 +44,20 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
         final rows = pageItems(people);
         canRequest = rows.isNotEmpty && rows.first['situation'] != 'dismissed';
       }
-      final page = await client.get('/api/v1/requests', query: {'page': 1, 'limit': 50});
+      final query = <String, dynamic>{'page': _page, 'limit': _limit};
+      if (_kind.isNotEmpty) {
+        query['kind'] = _kind;
+      }
+      if (_status.isNotEmpty) {
+        query['status'] = _status;
+      }
+      final page = await client.get('/api/v1/requests', query: query);
       if (!mounted) {
         return;
       }
       setState(() {
         _items = pageItems(page);
+        _total = page['total'] is int ? page['total'] as int : 0;
         _canRequest = canRequest;
       });
     } on ApiException catch (error) {
@@ -98,6 +111,37 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
           const SizedBox(height: 24),
           Text('Minhas solicitações', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: _kind,
+            decoration: const InputDecoration(labelText: 'Tipo'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Todos')),
+              ...requestKindLabel.entries.map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _kind = value ?? '';
+                _page = 1;
+              });
+              _load();
+            },
+          ),
+          DropdownButtonFormField<String>(
+            initialValue: _status,
+            decoration: const InputDecoration(labelText: 'Situação'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Todas')),
+              ...requestStatusLabel.entries.map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _status = value ?? '';
+                _page = 1;
+              });
+              _load();
+            },
+          ),
+          const SizedBox(height: 8),
           ..._items.map((item) {
             final punches = item['punches'];
             final moments = punches is List ? punches.map((value) => showWhen('$value')).where((value) => value.isNotEmpty).join(', ') : '';
@@ -128,6 +172,32 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
             );
           }),
           if (_items.isEmpty) const Text('Nenhuma solicitação.'),
+          if (_total > 0) ...[
+            const SizedBox(height: 12),
+            Text('Página $_page de ${(_total / _limit).ceil()} ($_total ${_total == 1 ? 'item' : 'itens'})'),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: _page <= 1
+                      ? null
+                      : () {
+                          setState(() => _page -= 1);
+                          _load();
+                        },
+                  child: const Text('Anterior'),
+                ),
+                TextButton(
+                  onPressed: _page * _limit >= _total
+                      ? null
+                      : () {
+                          setState(() => _page += 1);
+                          _load();
+                        },
+                  child: const Text('Próxima'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

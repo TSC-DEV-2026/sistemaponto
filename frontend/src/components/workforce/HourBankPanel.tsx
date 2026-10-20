@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import {
   createRecord,
   getHourBank,
-  listRecords,
   type Employee,
   type HourBank,
   type HourBankEntry,
@@ -28,7 +28,8 @@ export function HourBankPanel({
 }) {
   const [selected, setSelected] = useState(employeeId ? String(employeeId) : "")
   const [balance, setBalance] = useState<HourBank | null>(null)
-  const [entries, setEntries] = useState<HourBankEntry[]>([])
+  const [entryKind, setEntryKind] = useState("")
+  const [saved, setSaved] = useState(0)
   const [kind, setKind] = useState("settlement")
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
@@ -37,14 +38,16 @@ export function HourBankPanel({
   const chosenId = employeeId ?? (selected ? Number(selected) : 0)
   const person = employees?.find((item) => item.id === chosenId)
   const enabled = employees ? Boolean(person?.hour_bank) : usesBank
+  const entries = usePagedList<HourBankEntry>(
+    "/hour-bank-entries",
+    { ...(chosenId ? { employee_id: chosenId } : {}), ...(entryKind ? { kind: entryKind } : {}) },
+    chosenId > 0,
+    saved,
+  )
 
   async function load(nextId: number) {
-    const [bank, page] = await Promise.all([
-      getHourBank(nextId),
-      listRecords<HourBankEntry>("/hour-bank-entries", { page: 1, limit: 100, employee_id: nextId }),
-    ])
-    setBalance(bank)
-    setEntries(page.items)
+    setBalance(await getHourBank(nextId))
+    setSaved((current) => current + 1)
   }
 
   useEffect(() => {
@@ -55,7 +58,6 @@ export function HourBankPanel({
     load(chosenId).catch((caught: unknown) => {
       if (active) {
         setBalance(null)
-        setEntries([])
         setError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
       }
     })
@@ -145,16 +147,28 @@ export function HourBankPanel({
           <Button type="submit">Lançar</Button>
         </ActionForm>
       ) : null}
-      {entries.length > 0 ? (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {entries.map((item) => (
-            <li key={item.id} className="px-4 py-3 text-sm">
-              {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
-              {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
-              {item.note ? ` · ${item.note}` : ""}
-            </li>
-          ))}
-        </ul>
+      {chosenId ? (
+        <div className="space-y-3">
+          <FilterSelect
+            id="bank-entry-kind"
+            label="Tipo"
+            value={entryKind}
+            options={Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))}
+            onChange={setEntryKind}
+          />
+          {entries.error ? <p className="text-sm text-destructive">{entries.error}</p> : null}
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+            {entries.items.map((item) => (
+              <li key={item.id} className="px-4 py-3 text-sm">
+                {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
+                {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
+                {item.note ? ` · ${item.note}` : ""}
+              </li>
+            ))}
+            {entries.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum lançamento.</li> : null}
+          </ul>
+          <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} />
+        </div>
       ) : null}
     </section>
   )

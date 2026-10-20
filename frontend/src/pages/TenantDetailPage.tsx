@@ -1,3 +1,4 @@
+import { Save } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
@@ -77,7 +78,10 @@ export function TenantDetailPage() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {canEdit ? (
         <div className="flex gap-2">
-          <Button type="submit">Salvar</Button>
+          <Button type="submit">
+            <Save className="h-4 w-4" />
+            Salvar
+          </Button>
           <Button type="button" variant="destructive" onClick={() => onDelete()}>Excluir</Button>
         </div>
       ) : null}
