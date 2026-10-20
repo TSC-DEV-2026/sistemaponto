@@ -273,14 +273,14 @@ export function EmployeePage() {
       {tab === "work" ? (
         <div className="space-y-4">
           <ul className="grid gap-2 text-sm">
-            <li>Cargo: {employee?.job_label || "—"}</li>
-            <li>Jornada: {employee?.journey_label || "—"}</li>
-            <li>Centro de custo: {employee?.cost_center_label || "—"}</li>
-            <li>Unidade: {employee?.unit_label || "—"}</li>
-            <li>Setor: {employee?.sector_label || "—"}</li>
-            <li>Equipe: {employee?.team_label || "—"}</li>
-            <li>Sindicato: {employee?.union_label || "—"}</li>
-            <li>Gestor: {employee?.manager_label || "—"}</li>
+            <li>Cargo: {employee?.job_label || "Não possui"}</li>
+            <li>Jornada: {employee?.journey_label || "Não possui"}</li>
+            <li>Centro de custo: {employee?.cost_center_label || "Não possui"}</li>
+            <li>Unidade: {employee?.unit_label || "Não possui"}</li>
+            <li>Setor: {employee?.sector_label || "Não possui"}</li>
+            <li>Equipe: {employee?.team_label || "Não possui"}</li>
+            <li>Sindicato: {employee?.union_label || "Não possui"}</li>
+            <li>Gestor: {employee?.manager_label || "Não possui"}</li>
           </ul>
           {isAdmin ? (
             <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveVigency}>
