@@ -31,6 +31,7 @@ export type SessionUser = {
   person_id: number
   full_name: string
   email: string
+  cpf: string
   email_verified: boolean
   role: string | null
   active_tenant: Tenant | null

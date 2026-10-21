@@ -43,6 +43,21 @@ export function me(): Promise<SessionUser> {
   return request(() => api.get<ApiResponse<SessionUser>>("/auth/me"))
 }
 
+export function updateAccount(fullName: string, email: string): Promise<SessionUser> {
+  return ensureCsrf().then(() =>
+    request(() =>
+      api.put<ApiResponse<SessionUser>>("/auth/me", {
+        full_name: fullName,
+        email,
+      }),
+    ),
+  )
+}
+
+export function leaveAccount(): Promise<null> {
+  return ensureCsrf().then(() => request(() => api.delete<ApiResponse<null>>("/auth/me")))
+}
+
 export function logout(): Promise<null> {
   return ensureCsrf().then(() => request(() => api.post<ApiResponse<null>>("/auth/logout")))
 }
