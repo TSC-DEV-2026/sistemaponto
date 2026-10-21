@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react"
 import { FormEvent, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -47,7 +48,8 @@ export function DayTimesFields({
             <input className={fieldClass} type="time" value={time} aria-label={`Marcação ${index + 1}`} onChange={(event) => changeTime(index, event.target.value)} required={index === 0} />
             {times.length > 1 ? (
               <Button type="button" variant="outline" onClick={() => onTimes(times.filter((_, position) => position !== index))}>
-                Tirar
+                <Trash2 className="h-4 w-4" />
+                Remover
               </Button>
             ) : null}
           </div>
