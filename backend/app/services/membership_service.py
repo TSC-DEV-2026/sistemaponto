@@ -94,7 +94,7 @@ class MembershipService:
         if not deleting and new_role == "admin":
             return
         if self.memberships.count_admins(row.tenant_id) <= 1:
-            raise AppError(400, "A empresa precisa de um administrador")
+            raise AppError(400, "A empresa precisa de um administrador.")
 
     def _defaults(self, tenant_id: int) -> None:
         db = getattr(self.memberships, "db", None)

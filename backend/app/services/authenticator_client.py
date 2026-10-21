@@ -62,7 +62,23 @@ class AuthenticatorClient:
         data = self._request("GET", f"/people/{person_id}")
         return RemotePerson(
             person_id=person_id,
-            cpf="",
+            cpf=str(data["cpf"]),
+            email=str(data["email"]),
+            full_name=str(data["full_name"]),
+            email_verified=bool(data["email_verified"]),
+            is_active=bool(data["is_active"]),
+            auth_version=int(data["auth_version"]),
+        )
+
+    def update_account(self, person_id: int, *, full_name: str, email: str, redirect_url: str) -> RemotePerson:
+        data = self._request(
+            "PUT",
+            f"/people/{person_id}",
+            {"full_name": full_name, "email": email, "redirect_url": redirect_url},
+        )
+        return RemotePerson(
+            person_id=person_id,
+            cpf=str(data["cpf"]),
             email=str(data["email"]),
             full_name=str(data["full_name"]),
             email_verified=bool(data["email_verified"]),
