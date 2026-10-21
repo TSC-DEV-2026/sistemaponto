@@ -441,6 +441,7 @@ class WorkforceService:
         else:
             self._admin(scope)
             origin = "admin"
+        self._days_only(kind, data)
         start, end, starts_at, ends_at = self._span(data)
         self._assert_span_open(scope.tenant_id, start, end)
         cid, crm, doctor = self._medical(kind, data)
@@ -531,6 +532,7 @@ class WorkforceService:
         else:
             if data.get("punches"):
                 raise AppError(400, "Marcações do dia só entram no ajuste")
+            self._days_only(kind, data)
             start, end, starts_at, ends_at = self._span(data)
             self._assert_span_open(scope.tenant_id, start, end)
             cid, crm, doctor = self._medical(kind, data)
@@ -1695,6 +1697,13 @@ class WorkforceService:
             raise AppError(400, "Horário parcial vale para um dia")
         return start, end, starts_at, ends_at
 
+    def _days_only(self, kind: str, data: dict) -> None:
+        if kind != "vacation":
+            return
+        timed = any(data.get(name) is not None for name in ("starts_at", "ends_at", "occurred_at"))
+        if timed or data.get("punches"):
+            raise AppError(400, "Férias aceitam só período de dias")
+
     def _assert_span_open(self, tenant_id: int, start: date, end: date) -> None:
         day = start
         while day <= end:
@@ -1709,8 +1718,8 @@ class WorkforceService:
             if cid or crm or doctor:
                 raise AppError(400, "CID, CRM e médico só entram no atestado")
             return None, None, None
-        if not cid or not crm or not doctor:
-            raise AppError(400, "Informe CID, CRM e o nome do médico")
+        if not crm or not doctor:
+            raise AppError(400, "Informe o CRM e o nome do médico")
         return cid, crm, doctor
 
     def _photo_key(self, scope: Scope, kind: str, value) -> str | None:

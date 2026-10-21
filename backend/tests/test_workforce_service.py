@@ -766,6 +766,39 @@ def test_horario_parcial_ignora_marcacao_invalida_e_fora_da_faixa():
     assert warned[0].starts_at == at(8, 0).astimezone(ZoneInfo("UTC"))
 
 
+def test_ferias_recusam_horario_e_atestado_aceita_cid_vazio():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    with pytest.raises(AppError) as hours:
+        workforce.create_request(admin(), period("vacation", starts_at=at(8, 0), ends_at=at(12, 0)))
+    assert hours.value.status_code == 400
+    assert hours.value.message == "Férias aceitam só período de dias"
+    with pytest.raises(AppError) as launched:
+        workforce.create_occurrence(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "vacation",
+                "starts_on": date(2026, 10, 6),
+                "ends_on": date(2026, 10, 6),
+                "starts_at": at(8, 0),
+                "ends_at": at(12, 0),
+                "reason_id": None,
+                "note": None,
+                "cid": None,
+                "crm": None,
+                "doctor_name": None,
+                "photo_key": None,
+            },
+        )
+    assert launched.value.message == "Férias aceitam só período de dias"
+    created = workforce.create_request(admin(), period("certificate", crm="12345", doctor_name="Dra. Luz"))
+    assert created["cid"] is None
+    assert created["crm"] == "12345"
+    assert created["doctor_name"] == "Dra. Luz"
+    assert created["photo_key"] is None
+
+
 def test_atestado_exige_medico_e_rejeita_foto_de_outro_tipo():
     workforce, _repo = service()
     workforce.create_employee(admin(), employee_payload())
