@@ -63,7 +63,7 @@ export const catalogs: Record<string, Catalog> = {
     editTitle: "Editar sindicato",
     empty: "Nenhum sindicato.",
     backTo: "/labor-rules?aba=sindicatos",
-    fields: [{ name: "name", label: "Nome", type: "text", required: true }],
+    fields: [{ name: "name", label: "Nome do sindicato", type: "text", required: true }],
   },
   agreements: {
     path: "/labor-agreements",
@@ -72,7 +72,7 @@ export const catalogs: Record<string, Catalog> = {
     empty: "Nenhuma convenção.",
     backTo: "/labor-rules?aba=convencoes",
     fields: [
-      { name: "name", label: "Nome", type: "text", required: true },
+      { name: "name", label: "Nome da convenção ou do acordo", type: "text", required: true },
       { name: "union_id", label: "Sindicato", type: "select", loadOptions: () => optionsOf("/unions") },
       { name: "valid_from", label: "Início", type: "date", required: true },
       { name: "valid_to", label: "Fim", type: "date" },
@@ -86,7 +86,7 @@ export const catalogs: Record<string, Catalog> = {
     empty: "Nenhum feriado.",
     backTo: "/labor-rules?aba=feriados",
     fields: [
-      { name: "name", label: "Nome", type: "text", required: true },
+      { name: "name", label: "Nome do feriado", type: "text", required: true },
       { name: "holiday_date", label: "Data", type: "date", required: true },
       { name: "note", label: "Observação", type: "textarea" },
     ],
@@ -98,7 +98,7 @@ export const catalogs: Record<string, Catalog> = {
     empty: "Nenhuma regra de ponto.",
     backTo: "/labor-rules?aba=regras",
     fields: [
-      { name: "name", label: "Nome", type: "text", required: true },
+      { name: "name", label: "Nome da regra de ponto", type: "text", required: true },
       { name: "note", label: "Observação", type: "textarea" },
     ],
   },
