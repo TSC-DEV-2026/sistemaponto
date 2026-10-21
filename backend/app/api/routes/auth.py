@@ -8,6 +8,7 @@ from app.api.transport import read_refresh, respond_session, use_cookie_transpor
 from app.core.exceptions import AppError
 from app.core.limiter import limiter
 from app.schemas.auth import (
+    AccountUpdate,
     ChangePasswordIn,
     ForgotIn,
     LoginIn,
@@ -91,12 +92,36 @@ def logout(request: Request, service: AuthService = Depends(get_auth_service)):
     "/me",
     response_model=Envelope[SessionOut],
     summary="Sessão atual",
-    description="Pessoa, papel e empresas desta sessão. O nome vem do autenticador.",
+    description="Nome, e-mail e CPF da pessoa logada, com o papel e as empresas. O CPF não é editado aqui.",
 )
 def me(request: Request, service: AuthService = Depends(get_auth_service)):
     actor = get_actor(request)
     view = service.session_view(actor.person_id, actor.tenant_id)
     return json_data(view.model_dump(mode="json"))
+
+
+@router.put(
+    "/me",
+    response_model=Envelope[SessionOut],
+    summary="Atualizar minha conta",
+    description="Salva nome e e-mail no autenticador. O CPF permanece o mesmo.",
+)
+def update_me(request: Request, body: AccountUpdate, service: AuthService = Depends(get_auth_service)):
+    actor = get_actor(request)
+    view = service.update_account(actor.person_id, actor.tenant_id, body)
+    return json_data(view.model_dump(mode="json"))
+
+
+@router.delete(
+    "/me",
+    response_model=Envelope[None],
+    summary="Sair desta empresa",
+    description="Remove o acesso desta pessoa nesta empresa. A única administradora não é removida.",
+)
+def leave_me(request: Request, service: AuthService = Depends(get_auth_service)):
+    actor = get_actor(request)
+    service.leave_tenant(actor.person_id, actor.tenant_id)
+    return json_data(None)
 
 
 @router.post(

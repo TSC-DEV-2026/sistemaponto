@@ -19,7 +19,7 @@ from app.core.security import (
 from app.repositories.membership_repository import MembershipRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.repositories.tenant_repository import TenantRepository
-from app.schemas.auth import RegisterCreate, SessionOut
+from app.schemas.auth import AccountUpdate, RegisterCreate, SessionOut
 from app.schemas.tenant import TenantOut
 from app.services.authenticator_client import AuthenticatorClient, RemotePerson
 from app.services.company_defaults import ensure_company_defaults
@@ -149,6 +149,33 @@ class AuthService:
             raise AppError(403, "Sem vínculo neste sistema")
         return self._view(person, tenant_id, must_login=False)
 
+    def update_account(self, person_id: int, tenant_id: int | None, data: AccountUpdate) -> SessionOut:
+        if tenant_id is None:
+            raise AppError(403, "Sem permissão")
+        if data.full_name is None and data.email is None:
+            raise AppError(400, "Informe o nome ou o e-mail")
+        current = self.session_view(person_id, tenant_id)
+        full_name = data.full_name.strip() if data.full_name is not None else current.full_name
+        email = normalize_email(str(data.email)) if data.email is not None else current.email
+        self.authenticator.update_account(
+            person_id,
+            full_name=full_name,
+            email=email,
+            redirect_url=settings.PUBLIC_APP_URL,
+        )
+        return self.session_view(person_id, tenant_id)
+
+    def leave_tenant(self, person_id: int, tenant_id: int | None) -> None:
+        if tenant_id is None:
+            raise AppError(403, "Sem permissão")
+        row = self.memberships.get_by_person_and_tenant(person_id, tenant_id)
+        if row is None:
+            raise AppError(404, "Vínculo não encontrado")
+        if row.role == "admin" and self.memberships.count_admins(tenant_id) <= 1:
+            raise AppError(400, "A empresa precisa de um administrador.")
+        self.memberships.delete(row)
+        logger.info("acesso removido person_id=%s tenant_id=%s", person_id, tenant_id)
+
     def forgot(self, email: str) -> None:
         self.authenticator.forgot_password(normalize_email(email), settings.PUBLIC_APP_URL)
 
@@ -203,6 +230,7 @@ class AuthService:
             person_id=person.person_id,
             full_name=person.full_name,
             email=person.email,
+            cpf=person.cpf,
             email_verified=person.email_verified,
             role=role,
             active_tenant=active,

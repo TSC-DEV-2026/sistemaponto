@@ -185,6 +185,17 @@ class FakeAuthenticator:
             raise AppError(404, "Pessoa não encontrada")
         return person
 
+    def update_account(self, person_id: int, *, full_name: str, email: str, redirect_url: str) -> RemotePerson:
+        person = self.person_state(person_id)
+        taken = next((row for row in self.people.values() if row.email == email and row.person_id != person_id), None)
+        if taken is not None:
+            raise AppError(400, "E-mail já cadastrado")
+        if email != person.email:
+            person.email = email
+            person.email_verified = False
+        person.full_name = full_name
+        return person
+
 
 def future() -> datetime:
     return datetime.now(timezone.utc) + timedelta(days=1)

@@ -42,10 +42,16 @@ class ResendIn(BaseModel):
     email: EmailStr
 
 
+class AccountUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: EmailStr | None = None
+
+
 class SessionOut(BaseModel):
     person_id: int
     full_name: str
     email: str
+    cpf: str
     email_verified: bool
     role: str | None
     active_tenant: TenantOut | None

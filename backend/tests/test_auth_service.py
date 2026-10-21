@@ -1,6 +1,8 @@
+import pytest
+
 from app.core.exceptions import AppError
 from app.core.security import decode_access_token
-from app.schemas.auth import RegisterCreate
+from app.schemas.auth import AccountUpdate, RegisterCreate
 from app.services.auth_service import AuthService
 from app.services.tenant_service import TenantService
 from tests.fakes import FakeAuthenticator, FakeMembershipRepo, FakeRefreshRepo, FakeTenantRepo
@@ -106,6 +108,42 @@ def test_login_com_varios_vinculos_nao_escolhe_tenant():
     assert "tenant_id" not in payload
     assert issued.view.active_tenant is None
     assert len(issued.view.tenants) == 2
+
+
+def test_minha_conta_mostra_nome_email_e_cpf_e_salva_sem_trocar_cpf():
+    service, tenants, memberships, _refreshes, authenticator = build()
+    person = authenticator.add(cpf="12345678900", email="ana@x.com", full_name="Ana", password="senha1234")
+    tenant = tenants.create(name="Oficina", slug="oficina", document=None)
+    memberships.create(person_id=person.person_id, tenant_id=tenant.id, role="member")
+    view = service.session_view(person.person_id, tenant.id)
+    assert view.full_name == "Ana"
+    assert view.email == "ana@x.com"
+    assert view.cpf == "12345678900"
+    saved = service.update_account(
+        person.person_id,
+        tenant.id,
+        AccountUpdate(full_name="Ana Lima", email="ana.lima@x.com"),
+    )
+    assert saved.full_name == "Ana Lima"
+    assert saved.email == "ana.lima@x.com"
+    assert saved.cpf == "12345678900"
+    assert person.cpf == "12345678900"
+
+
+def test_unica_administradora_nao_sai_da_empresa():
+    service, tenants, memberships, _refreshes, authenticator = build()
+    person = authenticator.add(cpf="12345678900", email="ana@x.com", full_name="Ana", password="senha1234")
+    other = authenticator.add(cpf="22222222222", email="bia@x.com", full_name="Bia", password="senha1234")
+    tenant = tenants.create(name="Oficina", slug="oficina", document=None)
+    memberships.create(person_id=person.person_id, tenant_id=tenant.id, role="admin")
+    memberships.create(person_id=other.person_id, tenant_id=tenant.id, role="member")
+    with pytest.raises(AppError) as blocked:
+        service.leave_tenant(person.person_id, tenant.id)
+    assert blocked.value.status_code == 400
+    assert blocked.value.message == "A empresa precisa de um administrador."
+    assert memberships.get_by_person_and_tenant(person.person_id, tenant.id) is not None
+    service.leave_tenant(other.person_id, tenant.id)
+    assert memberships.get_by_person_and_tenant(other.person_id, tenant.id) is None
 
 
 def test_refresh_com_auth_version_diferente_revoga():
