@@ -1,7 +1,9 @@
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from app.core.billing import MAX_CAPACITY, MIN_CAPACITY, PRICE_CENTS, monthly_amount, prorate
+from app.core.config import settings
 from app.core.cpf import normalize_cpf
 from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
 from app.core.hour_bank import add_months, project_balance
@@ -36,6 +38,7 @@ from app.core.workforce import (
     previous_end,
     today_in_brazil,
 )
+from app.models.membership import Membership
 from app.models.workforce import (
     Audit,
     Charge,
@@ -67,7 +70,10 @@ from app.models.workforce import (
     Unit,
 )
 from app.repositories.workforce_repository import WorkforceRepository
+from app.services.authenticator_client import AuthenticatorClient
 from app.services.storage_service import StorageService
+
+logger = logging.getLogger("sistemaponto.workforce")
 
 UNIQUE_MODELS = {
     Job,
@@ -112,8 +118,16 @@ class Scope:
 
 
 class WorkforceService:
-    def __init__(self, repo: WorkforceRepository, *, today=today_in_brazil, clock=now_utc) -> None:
+    def __init__(
+        self,
+        repo: WorkforceRepository,
+        *,
+        authenticator: AuthenticatorClient | None = None,
+        today=today_in_brazil,
+        clock=now_utc,
+    ) -> None:
         self.repo = repo
+        self.authenticator = authenticator
         self.today = today
         self.clock = clock
 
@@ -1465,6 +1479,31 @@ class WorkforceService:
         ):
             raise AppError(409, "O motivo está em uso.")
 
+    def _resolve_access(self, scope: Scope, *, cpf: str, email: str | None, full_name: str) -> int:
+        if self.authenticator is None:
+            raise AppError(503, "Autenticador indisponível")
+        person_id, _created = self.authenticator.upsert_person(
+            cpf=cpf,
+            email=email,
+            full_name=full_name,
+            password=None,
+            redirect_url=settings.PUBLIC_APP_URL,
+        )
+        taken, _total = self.repo.list_rows(
+            Employee,
+            scope.tenant_id,
+            page=1,
+            limit=1,
+            equals={"person_id": person_id},
+            descending=False,
+        )
+        if taken:
+            raise AppError(409, "Esse acesso já está ligado a outro funcionário")
+        if self.repo.membership(person_id, scope.tenant_id) is None:
+            self.repo.add(Membership(person_id=person_id, tenant_id=scope.tenant_id, role="member"))
+            logger.info("vínculo criado person_id=%s tenant_id=%s", person_id, scope.tenant_id)
+        return person_id
+
     def _employee_payload(self, scope: Scope, data: dict, current: Employee | None) -> dict:
         payload = {}
         if current is None or "full_name" in data:
@@ -1482,22 +1521,13 @@ class WorkforceService:
             payload["cpf"] = cpf
         if current is None or "email" in data:
             payload["email"] = self._email(data.get("email"))
-        if current is None or "person_id" in data:
-            person_id = data.get("person_id")
-            if person_id is not None:
-                if self.repo.membership(int(person_id), scope.tenant_id) is None:
-                    raise AppError(400, "Esse acesso não está nesta empresa")
-                taken, _total = self.repo.list_rows(
-                    Employee,
-                    scope.tenant_id,
-                    page=1,
-                    limit=1,
-                    equals={"person_id": int(person_id)},
-                    descending=False,
-                )
-                if taken and (current is None or taken[0].id != current.id):
-                    raise AppError(409, "Esse acesso já está ligado a outro funcionário")
-            payload["person_id"] = int(person_id) if person_id is not None else None
+        if current is None:
+            payload["person_id"] = self._resolve_access(
+                scope,
+                cpf=payload["cpf"],
+                email=payload.get("email"),
+                full_name=payload["full_name"],
+            )
         if current is None or "admission_date" in data:
             if data.get("admission_date") is None:
                 raise AppError(400, "Informe a admissão")

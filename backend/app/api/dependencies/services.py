@@ -28,8 +28,11 @@ def get_membership_service(
     return MembershipService(MembershipRepository(db), authenticator)
 
 
-def get_workforce_service(db: Session = Depends(get_db)) -> WorkforceService:
-    return WorkforceService(WorkforceRepository(db))
+def get_workforce_service(
+    db: Session = Depends(get_db),
+    authenticator: AuthenticatorClient = Depends(get_authenticator),
+) -> WorkforceService:
+    return WorkforceService(WorkforceRepository(db), authenticator=authenticator)
 
 
 def get_auth_service(

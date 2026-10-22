@@ -357,7 +357,12 @@ def get_employee(
     return json_data(dump_one(service.get_employee(as_scope(actor), row_id), EmployeeOut, fields))
 
 
-@employees.post("", status_code=201, summary="Criar funcionário")
+@employees.post(
+    "",
+    status_code=201,
+    summary="Criar funcionário",
+    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta empresa, cria o papel member.",
+)
 def create_employee(
     body: EmployeeCreate,
     actor: Actor = Depends(require_tenant),
@@ -367,7 +372,11 @@ def create_employee(
     return json_data(dump_one(row, EmployeeOut, None), status_code=201)
 
 
-@employees.put("/{row_id}", summary="Atualizar funcionário")
+@employees.put(
+    "/{row_id}",
+    summary="Atualizar funcionário",
+    description="Altera a ficha. O person_id gravado permanece.",
+)
 def update_employee(
     row_id: int,
     body: EmployeeUpdate,

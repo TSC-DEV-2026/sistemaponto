@@ -42,17 +42,18 @@ class AuthenticatorClient:
         self,
         *,
         cpf: str,
-        email: str,
+        email: str | None,
         full_name: str,
         password: str | None,
         redirect_url: str,
     ) -> tuple[int, bool]:
         body: dict = {
             "cpf": cpf,
-            "email": email,
             "full_name": full_name,
             "redirect_url": redirect_url,
         }
+        if email:
+            body["email"] = email
         if password:
             body["password"] = password
         data = self._request("POST", "/people", body)

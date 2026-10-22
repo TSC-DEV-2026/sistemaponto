@@ -170,6 +170,8 @@ class FakeAuthenticator:
         existing = self.by_cpf.get(cpf)
         if existing is not None:
             return existing.person_id, False
+        if not email:
+            raise AppError(400, "Informe o e-mail")
         person = self.add(
             cpf=cpf,
             email=email,
