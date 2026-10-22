@@ -2474,3 +2474,37 @@ def test_rosto_so_entra_quando_a_comparacao_e_deste_funcionario():
             },
         )
     assert missing_event.value.message == "Informe o evento do aparelho."
+
+
+def test_lista_de_qr_so_traz_quem_pode_imprimir():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    ready = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "22222222222", 9))
+    no_registration = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    no_unit = workforce.create_employee(admin(), employee_payload("52998224725", 11))
+    plain = workforce.create_employee(admin(), employee_payload("39053344705", 12))
+    workforce.update_employee(admin(), ready["id"], {"clock_method": "qr", "registration_number": "A1"})
+    workforce.update_employee(admin(), no_registration["id"], {"clock_method": "qr"})
+    workforce.update_employee(admin(), no_unit["id"], {"clock_method": "qr", "registration_number": "B2"})
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": ready["id"],
+            "kind": "unit",
+            "reference_id": unit.id,
+            "label": None,
+            "valid_from": date(2026, 10, 1),
+            "note": None,
+        },
+    )
+    cards, total = workforce.list_qr_cards(admin(), 1, 20)
+    assert total == 1
+    assert cards[0]["full_name"] == ready["full_name"]
+    assert cards[0]["unit_name"] == "Matriz"
+    assert cards[0]["content"] == f"{unit.id}|22222222222|A1"
+    own, own_total = workforce.list_qr_cards(scope(9, "member"), 1, 20)
+    assert own_total == 1 and own[0]["employee_id"] == ready["id"]
+    hidden, hidden_total = workforce.list_qr_cards(scope(10, "member"), 1, 20)
+    assert hidden_total == 0 and hidden == []
+    assert plain["clock_method"] == "simple"

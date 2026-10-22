@@ -70,6 +70,7 @@ from app.schemas.workforce import (
     ReportOut,
     TimeResultsOut,
     PunchCodeOut,
+    QrCardOut,
     PunchCorrectionCreate,
     PunchCorrectionOut,
     PunchCreate,
@@ -1010,6 +1011,18 @@ def time_results(
 ):
     result = service.time_results(as_scope(actor), employee_id, starts_on, ends_on)
     return json_data(dump_one(result, TimeResultsOut, None))
+
+
+@reads.get("/qr-cards", summary="QR Codes para imprimir")
+def list_qr_cards(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_qr_cards(as_scope(actor), page, limit)
+    return json_data(dump_page(items, total, page, limit, QrCardOut, fields))
 
 
 @reads.get("/punch-codes", summary="QR Code da unidade, do CPF e da matrícula")
