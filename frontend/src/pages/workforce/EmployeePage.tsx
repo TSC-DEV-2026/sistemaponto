@@ -389,11 +389,11 @@ export function EmployeePage() {
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="start">Início</Label>
+                    <Label htmlFor="start">De</Label>
                     <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="end">Fim</Label>
+                    <Label htmlFor="end">Até</Label>
                     <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
                   </div>
                 </>
