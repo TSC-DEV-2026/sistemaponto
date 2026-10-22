@@ -74,6 +74,7 @@ from app.schemas.workforce import (
     PunchCorrectionOut,
     PunchCreate,
     QrPunchCreate,
+    FaceEmbeddingOut,
     FacePunchCreate,
     SelfiePhotoOut,
     PunchOut,
@@ -315,6 +316,9 @@ routers = [
 employees = APIRouter(prefix="/employees", tags=["employees"], dependencies=[Depends(require_use)])
 vigencies = APIRouter(prefix="/employee-vigencies", tags=["employee-vigencies"], dependencies=[Depends(require_use)])
 punches = APIRouter(prefix="/punches", tags=["punches"], dependencies=[Depends(require_use)])
+face_embeddings = APIRouter(
+    prefix="/face-embeddings", tags=["face-embeddings"], dependencies=[Depends(require_use)]
+)
 occurrences = APIRouter(prefix="/occurrences", tags=["occurrences"], dependencies=[Depends(require_use)])
 certificate_photos = APIRouter(prefix="/certificate-photos", tags=["certificate-photos"], dependencies=[Depends(require_use)])
 selfie_photos = APIRouter(prefix="/selfie-photos", tags=["selfie-photos"], dependencies=[Depends(require_use)])
@@ -361,7 +365,7 @@ def get_employee(
     "",
     status_code=201,
     summary="Criar funcionário",
-    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta empresa, cria o papel member.",
+    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta empresa, cria o papel member. O tipo de registro padrão é simple. O tipo face exige a foto de referência.",
 )
 def create_employee(
     body: EmployeeCreate,
@@ -375,7 +379,7 @@ def create_employee(
 @employees.put(
     "/{row_id}",
     summary="Atualizar funcionário",
-    description="Altera a ficha. O person_id gravado permanece.",
+    description="Altera a ficha, inclusive o tipo de registro. O person_id gravado permanece. Trocar para face exige a foto de referência quando ela ainda não existe.",
 )
 def update_employee(
     row_id: int,
@@ -502,6 +506,18 @@ def correct_punches(
         punches=[PunchOut.model_validate(item) for item in result["punches"]],
     )
     return json_data(dump_one(payload, PunchCorrectionOut, None), status_code=201)
+
+
+@face_embeddings.get("", summary="Baixar os rostos da empresa")
+def list_face_embeddings(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_face_embeddings(as_scope(actor), page, limit)
+    return json_data(dump_page(items, total, page, limit, FaceEmbeddingOut, fields))
 
 
 @punches.post("/qr-selfies", status_code=201, summary="Registrar marcação por QR Code e selfie")
@@ -1277,6 +1293,7 @@ routers.extend(
         employees,
         vigencies,
         punches,
+        face_embeddings,
         occurrences,
         certificate_photos,
         selfie_photos,

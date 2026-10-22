@@ -50,6 +50,7 @@ def test_lista_e_filtro_sem_sql():
         "punch-rules",
         "reasons",
         "employees",
+        "face-embeddings",
         "employee-vigencies",
         "punches",
         "occurrences",

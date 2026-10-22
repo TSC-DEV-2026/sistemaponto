@@ -1,4 +1,17 @@
-from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
 
 from app.db.base import Base
 
@@ -139,6 +152,7 @@ class Employee(Base):
     note = Column(Text, nullable=True)
     hour_bank = Column(Boolean, nullable=False, default=False)
     registration_number = Column(String(32), nullable=True)
+    clock_method = Column(String(16), nullable=False, default="simple")
 
 
 class EmployeeVigency(Base):
@@ -168,7 +182,23 @@ class Punch(Base):
     valid = Column(Boolean, nullable=False, default=True)
     voided_at = Column(DateTime(timezone=True), nullable=True)
     channel = Column(String(16), nullable=True)
+    qr_image = Column(LargeBinary, nullable=True)
+    selfie_image = Column(LargeBinary, nullable=True)
+    face_image = Column(LargeBinary, nullable=True)
+    client_event_id = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class FaceEmbedding(Base):
+    __tablename__ = "face_embeddings"
+    __table_args__ = (UniqueConstraint("tenant_id", "employee_id", name="uq_face_embedding_employee"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    employee_id = Column(BigInteger, ForeignKey("employees.id"), nullable=False, index=True)
+    model_name = Column(String(64), nullable=False)
+    model_version = Column(String(64), nullable=False)
+    embedding = Column(JSON, nullable=False)
 
 
 class Occurrence(Base):
