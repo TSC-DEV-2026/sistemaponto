@@ -237,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text('Meu ponto', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           if (_missing)
-            const Text('Seu acesso ainda não está ligado a um funcionário. O identificador da pessoa aparece em Permissões e Acessos.')
+            const Text('Seu acesso ainda não está ligado a um funcionário.')
           else if (employee != null) ...[
             Text('${employee['full_name']}'),
             Text('Situação: ${employee['situation'] == 'dismissed' ? 'Desligado' : 'Ativo'}'),

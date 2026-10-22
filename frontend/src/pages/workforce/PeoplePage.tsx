@@ -4,7 +4,7 @@ export function PeoplePage() {
   return (
     <DomainTabs
       title="Pessoas"
-      lead="Funcionários, cargos e centros de custo. Quem entra no sistema continua em Permissões e Acessos."
+      lead="Funcionários, cargos e centros de custo. O acesso do funcionário nasce no cadastro. O papel continua em Permissões e Acessos."
       tabs={[
         { id: "funcionarios", label: "Funcionários", panel: <EmployeeList /> },
         { id: "cargos", label: "Cargos", panel: <CatalogList catalog="jobs" /> },

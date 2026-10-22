@@ -83,7 +83,6 @@ export function EmployeePage() {
   const [fullName, setFullName] = useState("")
   const [cpf, setCpf] = useState("")
   const [email, setEmail] = useState("")
-  const [personId, setPersonId] = useState("")
   const [admission, setAdmission] = useState("")
   const [note, setNote] = useState("")
   const [hourBank, setHourBank] = useState(false)
@@ -112,7 +111,6 @@ export function EmployeePage() {
     setFullName(person.full_name)
     setCpf(formatCpf(person.cpf))
     setEmail(person.email || "")
-    setPersonId(person.person_id ? String(person.person_id) : "")
     setAdmission(person.admission_date)
     setNote(person.note || "")
     setHourBank(Boolean(person.hour_bank))
@@ -249,10 +247,6 @@ export function EmployeePage() {
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input id="email" value={email} readOnly />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="person">Acesso (person id)</Label>
-            <Input id="person" value={personId} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="admission">Admissão</Label>

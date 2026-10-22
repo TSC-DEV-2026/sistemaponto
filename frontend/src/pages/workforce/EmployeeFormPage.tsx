@@ -19,7 +19,6 @@ export function EmployeeFormPage() {
   const [fullName, setFullName] = useState("")
   const [cpf, setCpf] = useState("")
   const [email, setEmail] = useState("")
-  const [personId, setPersonId] = useState("")
   const [admission, setAdmission] = useState("")
   const [note, setNote] = useState("")
   const [hourBank, setHourBank] = useState(false)
@@ -35,7 +34,6 @@ export function EmployeeFormPage() {
         setFullName(person.full_name)
         setCpf(formatCpf(person.cpf))
         setEmail(person.email || "")
-        setPersonId(person.person_id ? String(person.person_id) : "")
         setAdmission(person.admission_date)
         setNote(person.note || "")
         setHourBank(Boolean(person.hour_bank))
@@ -56,7 +54,6 @@ export function EmployeeFormPage() {
       full_name: fullName.trim(),
       cpf: onlyDigits(cpf),
       email: email.trim() || null,
-      person_id: personId.trim() ? Number(personId) : null,
       admission_date: admission,
       note: note.trim() || null,
       hour_bank: hourBank,
@@ -78,7 +75,11 @@ export function EmployeeFormPage() {
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <BackLink to="/people" />
       <h1 className="text-xl font-semibold">{id === null ? "Novo funcionário" : "Editar funcionário"}</h1>
-      <p className="text-sm text-muted-foreground">O funcionário nasce ativo. A senha não fica neste sistema. O número de acesso, se houver, está em Permissões e Acessos.</p>
+      <p className="text-sm text-muted-foreground">
+        {id === null
+          ? "O funcionário nasce ativo. O acesso nasce deste CPF. O e-mail é obrigatório quando a pessoa ainda não existe. A senha não fica neste sistema. O papel continua em Permissões e Acessos."
+          : "A alteração não troca o acesso já gravado. A senha não fica neste sistema. O papel continua em Permissões e Acessos."}
+      </p>
       <div className="space-y-2">
         <Label htmlFor="name">Nome</Label>
         <Input id="name" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
@@ -90,10 +91,7 @@ export function EmployeeFormPage() {
       <div className="space-y-2">
         <Label htmlFor="email">E-mail</Label>
         <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="person">Acesso (person id)</Label>
-        <Input id="person" value={personId} onChange={(event) => setPersonId(event.target.value)} />
+        {id === null ? <p className="text-sm text-muted-foreground">Obrigatório se este CPF ainda não tiver pessoa.</p> : null}
       </div>
       <div className="space-y-2">
         <Label htmlFor="admission">Admissão</Label>
