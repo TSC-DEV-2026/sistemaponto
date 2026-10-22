@@ -549,6 +549,7 @@ export function ClosingsPage() {
   const [filterMonth, setFilterMonth] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
   const [reasons, setReasons] = useState<Record<number, string>>({})
+  const [reopenId, setReopenId] = useState<number | null>(null)
   const [error, setError] = useState("")
   const periods = usePagedList<Closing>("/closings", {
     ...(/^\d+$/.test(filterYear) ? { year: Number(filterYear) } : {}),
@@ -584,6 +585,7 @@ export function ClosingsPage() {
     try {
       await updateRecord("/closings", id, { status, note: note || null })
       setReasons((current) => ({ ...current, [id]: "" }))
+      setReopenId(null)
       periods.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o período.")
@@ -660,17 +662,41 @@ export function ClosingsPage() {
             ) : null}
             {canManage && item.status !== "open" ? (
               <div className="grid gap-2">
+                {reopenId === item.id ? (
+                  <p>O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer.</p>
+                ) : null}
                 <Label htmlFor={`reason-${item.id}`}>Motivo</Label>
                 <Input id={`reason-${item.id}`} value={reasons[item.id] || ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))} />
                 <div className="flex flex-wrap gap-2">
-                  {item.status === "closed" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={() => changePeriod(item.id, "cancelled")}>
-                      Cancelar
-                    </Button>
-                  ) : null}
-                  <Button type="button" size="sm" variant="outline" onClick={() => changePeriod(item.id, "open")}>
-                    Reabrir
-                  </Button>
+                  {reopenId === item.id ? (
+                    <>
+                      <Button type="button" size="sm" onClick={() => changePeriod(item.id, "open")}>
+                        Confirmar
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setReopenId(null)}>
+                        Cancelar
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {item.status === "closed" ? (
+                        <Button type="button" size="sm" variant="outline" onClick={() => changePeriod(item.id, "cancelled")}>
+                          Cancelar
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setError("")
+                          setReopenId(item.id)
+                        }}
+                      >
+                        Reabrir
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}
