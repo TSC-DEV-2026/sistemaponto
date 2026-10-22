@@ -411,6 +411,30 @@ class WorkforceService:
             "content": render_code(unit.reference_id, employee.cpf, registration),
         }
 
+    def list_qr_cards(self, scope: Scope, page: int, limit: int):
+        self._known(scope)
+        ids = self._visible_ids(scope)
+        ready = []
+        cursor = 1
+        while True:
+            rows, total = self.repo.list_employees(
+                scope.tenant_id,
+                ids=ids,
+                page=cursor,
+                limit=100,
+                equals={"clock_method": "qr"},
+            )
+            for employee in rows:
+                card = self._qr_card(employee)
+                if card is not None:
+                    ready.append(card)
+            if not rows or cursor * 100 >= total:
+                break
+            cursor += 1
+        ready.sort(key=lambda item: (item["full_name"].casefold(), item["employee_id"]))
+        start = (page - 1) * limit
+        return ready[start : start + limit], len(ready)
+
     def punch_qr(self, scope: Scope, data: dict) -> Punch:
         employee = self._employee(scope, int(data["employee_id"]))
         self._own_clock(scope, employee)
@@ -2012,6 +2036,23 @@ class WorkforceService:
         if taken and (current is None or taken[0].id != current.id):
             raise AppError(409, "Matrícula já cadastrada nesta empresa")
         return number
+
+    def _qr_card(self, employee: Employee) -> dict | None:
+        if not employee.registration_number:
+            return None
+        unit = self.repo.applicable(employee.id, "unit", self.today())
+        if unit is None or unit.reference_id is None:
+            return None
+        registration = employee.registration_number
+        return {
+            "employee_id": employee.id,
+            "full_name": employee.full_name,
+            "unit_id": unit.reference_id,
+            "unit_name": unit.label,
+            "cpf": employee.cpf,
+            "registration_number": registration,
+            "content": render_code(unit.reference_id, employee.cpf, registration),
+        }
 
     def _clock_identity(self, employee: Employee, day: date):
         if not employee.registration_number:

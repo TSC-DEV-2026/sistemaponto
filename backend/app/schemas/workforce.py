@@ -263,6 +263,16 @@ class PunchCodeOut(BaseModel):
     content: str
 
 
+class QrCardOut(BaseModel):
+    employee_id: int
+    full_name: str
+    unit_id: int
+    unit_name: str
+    cpf: str
+    registration_number: str
+    content: str
+
+
 class QrPunchCreate(BaseModel):
     employee_id: int
     occurred_at: datetime
