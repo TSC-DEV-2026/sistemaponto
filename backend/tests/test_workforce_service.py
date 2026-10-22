@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.core.config import settings
 from app.core.exceptions import AppError
 from app.repositories.workforce_repository import contains_pattern, filter_matches
 from app.core.workforce import previous_end
@@ -51,6 +52,10 @@ class Memory:
         if getattr(row, "id", None) is None:
             row.id = self.seq
             self.seq += 1
+        if isinstance(row, Membership):
+            if row not in self.memberships:
+                self.memberships.append(row)
+            return row
         if row not in self.rows:
             self.rows.append(row)
         return row
@@ -377,9 +382,43 @@ class Memory:
         return 0
 
 
+BOUND: dict[str, int] = {}
+
+
+def _digits(value: str) -> str:
+    return "".join(character for character in value if character.isdigit())
+
+
+class Directory:
+    def __init__(self) -> None:
+        self.upserts: list[dict] = []
+
+    def upsert_person(self, *, cpf, email, full_name, password, redirect_url):
+        self.upserts.append(
+            {
+                "cpf": cpf,
+                "email": email,
+                "full_name": full_name,
+                "password": password,
+                "redirect_url": redirect_url,
+            }
+        )
+        known = BOUND.get(cpf)
+        if known is not None:
+            return known, False
+        if not email:
+            raise AppError(400, "Informe o e-mail")
+        person_id = 100 + len(BOUND)
+        used = set(BOUND.values())
+        while person_id in used:
+            person_id += 1
+        BOUND[cpf] = person_id
+        return person_id, True
+
+
 def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
     repo = Memory(capacity)
-    return WorkforceService(repo, today=lambda: TODAY, clock=lambda: NOW), repo
+    return WorkforceService(repo, authenticator=Directory(), today=lambda: TODAY, clock=lambda: NOW), repo
 
 
 def admin() -> Scope:
@@ -407,11 +446,17 @@ def adjustment(moments: list[datetime], note: str | None = None) -> dict:
 
 
 def employee_payload(cpf: str = "12345678901", person_id: int | None = 7):
+    digits = _digits(cpf)
+    email = None
+    if person_id is None:
+        BOUND.pop(digits, None)
+        email = f"{digits}@example.com"
+    else:
+        BOUND[digits] = person_id
     return {
         "full_name": "Ana Lima",
         "cpf": cpf,
-        "email": None,
-        "person_id": person_id,
+        "email": email,
         "admission_date": date(2026, 10, 1),
         "note": None,
     }
@@ -2179,3 +2224,105 @@ def test_listagem_filtra_o_nome_pelo_trecho_e_o_cpf_em_paginas_de_vinte():
     with pytest.raises(AppError) as bad_cpf:
         workforce.list_employees(admin(), 1, 20, {"cpf": "222"})
     assert bad_cpf.value.message == "CPF inválido"
+
+
+def _ficha(cpf: str, email: str | None) -> dict:
+    return {
+        "full_name": "Ana Lima",
+        "cpf": cpf,
+        "email": email,
+        "admission_date": date(2026, 10, 1),
+        "note": None,
+    }
+
+
+def test_funcionario_novo_sem_email_nao_cria_pessoa():
+    cpf = "52998224725"
+    BOUND.pop(cpf, None)
+    workforce, repo = service()
+    with pytest.raises(AppError) as caught:
+        workforce.create_employee(admin(), _ficha(cpf, None))
+    assert caught.value.message == "Informe o e-mail"
+    assert repo.count_model(Employee, tenant_id=1) == 0
+    assert len(repo.memberships) == 1
+
+
+def test_funcionario_novo_cria_pessoa_e_vinculo_member():
+    cpf = "39053344705"
+    BOUND.pop(cpf, None)
+    workforce, repo = service()
+    created = workforce.create_employee(admin(), _ficha(cpf, "bia@example.com"))
+    assert created["person_id"] >= 100
+    assert created["email"] == "bia@example.com"
+    access = repo.membership(created["person_id"], 1)
+    assert access is not None and access.role == "member"
+    call = workforce.authenticator.upserts[0]
+    assert call["password"] is None
+    assert call["email"] == "bia@example.com"
+    assert call["cpf"] == cpf
+    assert call["redirect_url"] == settings.PUBLIC_APP_URL
+
+
+def test_cpf_existente_reusa_o_vinculo_e_grava_o_email_na_ficha():
+    cpf = "15350946056"
+    BOUND[cpf] = 7
+    workforce, repo = service()
+    created = workforce.create_employee(admin(), _ficha(cpf, "ficha@example.com"))
+    assert created["person_id"] == 7
+    assert created["email"] == "ficha@example.com"
+    assert repo.membership(7, 1).role == "admin"
+    assert sum(1 for row in repo.memberships if row.person_id == 7) == 1
+
+
+def test_cpf_existente_sem_vinculo_cria_member():
+    cpf = "11144477735"
+    BOUND[cpf] = 21
+    workforce, repo = service()
+    created = workforce.create_employee(admin(), _ficha(cpf, None))
+    assert created["person_id"] == 21
+    access = repo.membership(21, 1)
+    assert access is not None and access.role == "member"
+
+
+def test_pessoa_ja_ligada_recusa_sem_criar_outro_vinculo():
+    first = "28625587887"
+    second = "39053344716"
+    BOUND[first] = 8
+    BOUND[second] = 8
+    workforce, repo = service()
+    repo.memberships.append(Membership(person_id=8, tenant_id=1, role="manager"))
+    repo.memberships[-1].id = 2
+    workforce.create_employee(admin(), _ficha(first, None))
+    with pytest.raises(AppError) as caught:
+        workforce.create_employee(admin(), _ficha(second, "outra@example.com"))
+    assert caught.value.message == "Esse acesso já está ligado a outro funcionário"
+    assert sum(1 for row in repo.memberships if row.person_id == 8) == 1
+    assert repo.count_model(Employee, tenant_id=1) == 1
+
+
+def test_cpf_repetido_na_empresa_nao_chama_o_autenticador_de_novo():
+    cpf = "52998224725"
+    BOUND[cpf] = 7
+    workforce, _repo = service()
+    workforce.create_employee(admin(), _ficha(cpf, None))
+    assert len(workforce.authenticator.upserts) == 1
+    with pytest.raises(AppError) as caught:
+        workforce.create_employee(admin(), _ficha(cpf, "ana@example.com"))
+    assert caught.value.message == "CPF já cadastrado nesta empresa"
+    assert len(workforce.authenticator.upserts) == 1
+
+
+def test_edicao_nao_troca_o_person_id():
+    cpf = "15350946056"
+    BOUND[cpf] = 7
+    workforce, _repo = service()
+    created = workforce.create_employee(admin(), _ficha(cpf, None))
+    updated = workforce.update_employee(
+        admin(),
+        created["id"],
+        {"cpf": "39053344705", "person_id": 99, "full_name": "Ana Souza"},
+    )
+    assert updated["person_id"] == 7
+    assert updated["cpf"] == "39053344705"
+    assert updated["full_name"] == "Ana Souza"
+    assert len(workforce.authenticator.upserts) == 1

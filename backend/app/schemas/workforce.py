@@ -159,7 +159,6 @@ class EmployeeCreate(BaseModel):
     full_name: str = Field(min_length=1, max_length=255)
     cpf: str = Field(min_length=11, max_length=14)
     email: str | None = Field(default=None, max_length=255)
-    person_id: int | None = None
     admission_date: date
     note: str | None = Field(default=None, max_length=2000)
     hour_bank: bool = False
@@ -170,7 +169,6 @@ class EmployeeUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     cpf: str | None = Field(default=None, min_length=11, max_length=14)
     email: str | None = Field(default=None, max_length=255)
-    person_id: int | None = None
     admission_date: date | None = None
     note: str | None = Field(default=None, max_length=2000)
     hour_bank: bool | None = None
