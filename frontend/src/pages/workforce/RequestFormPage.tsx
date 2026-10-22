@@ -173,7 +173,7 @@ export function RequestFormPage() {
           </ActionForm>
           <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={requestTimeOff}>
             <h2 className="text-sm font-medium">Solicitar abono, atestado, afastamento ou férias</h2>
-            <p className="text-sm text-muted-foreground">Pendente não altera o ponto. Depois da aprovação, a origem é solicitação. O atestado pede CID, CRM e o nome do médico. A foto é opcional.</p>
+            <p className="text-sm text-muted-foreground">Pendente não altera o ponto. Depois da aprovação, a origem é solicitação. No atestado, o CID pode ficar vazio. CRM e o nome do médico são obrigatórios. A foto é opcional.</p>
             <div className="space-y-2">
               <Label htmlFor="off-kind">Tipo</Label>
               <select id="off-kind" className={fieldClass} value={offKind} onChange={(event) => setOffKind(event.target.value as (typeof manualTimeOffKinds)[number])}>

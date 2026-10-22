@@ -102,6 +102,9 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
   Future<void> _changeKind(String kind) async {
     setState(() {
       _kind = kind;
+      if (kind == 'vacation' && _span == 'hours') {
+        _span = 'day';
+      }
       _reasonId = null;
       _reasons = [];
       _error = null;
@@ -188,7 +191,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
         final sameDay = _span != 'days';
         body['starts_on'] = dayStamp(_start);
         body['ends_on'] = dayStamp(sameDay ? _start : _end);
-        if (_span == 'hours') {
+        if (_kind != 'vacation' && _span == 'hours') {
           body['starts_at'] = stampAt(_start, _from.hour, _from.minute);
           body['ends_at'] = stampAt(_start, _until.hour, _until.minute);
         }
@@ -234,7 +237,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
           if (_blocked != null)
             Text(_blocked!)
           else ...[
-            const Text('A solicitação pendente não altera o ponto. O ajuste pede as marcações do dia. A foto do atestado é opcional.'),
+            const Text('A solicitação pendente não altera o ponto. O ajuste pede as marcações do dia. No atestado, o CID pode ficar vazio. A foto é opcional.'),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _kind,
@@ -257,7 +260,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
               ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(_kind == 'adjustment' ? 'Dia ${dayStamp(_start)}' : 'Início ${dayStamp(_start)}'),
+              title: Text(_kind == 'adjustment' ? 'Dia ${dayStamp(_start)}' : 'De ${dayStamp(_start)}'),
               trailing: const Icon(LucideIcons.calendar),
               onTap: () => _pickDay(true),
             ),
@@ -281,24 +284,24 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _span,
                 decoration: const InputDecoration(labelText: 'Período'),
-                items: const [
-                  DropdownMenuItem(value: 'day', child: Text('Dia inteiro')),
-                  DropdownMenuItem(value: 'hours', child: Text('Algumas horas')),
-                  DropdownMenuItem(value: 'days', child: Text('Vários dias')),
+                items: [
+                  const DropdownMenuItem(value: 'day', child: Text('Dia inteiro')),
+                  if (_kind != 'vacation') const DropdownMenuItem(value: 'hours', child: Text('Algumas horas')),
+                  const DropdownMenuItem(value: 'days', child: Text('Vários dias')),
                 ],
                 onChanged: (value) => setState(() => _span = value ?? 'day'),
               ),
               if (_span == 'days')
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Fim ${dayStamp(_end)}'),
+                  title: Text('Até ${dayStamp(_end)}'),
                   trailing: const Icon(LucideIcons.calendar),
                   onTap: () => _pickDay(false),
                 ),
               if (_span == 'hours') ...[
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Das ${_from.format(context)}'),
+                  title: Text('De ${_from.format(context)}'),
                   onTap: () => _pickHour(true),
                 ),
                 ListTile(
@@ -309,7 +312,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
               ],
             ],
             if (certificate) ...[
-              TextField(controller: _cid, decoration: const InputDecoration(labelText: 'CID')),
+              TextField(controller: _cid, decoration: const InputDecoration(labelText: 'CID', helperText: 'Opcional')),
               TextField(controller: _crm, decoration: const InputDecoration(labelText: 'CRM')),
               TextField(controller: _doctor, decoration: const InputDecoration(labelText: 'Nome do médico')),
               const SizedBox(height: 8),

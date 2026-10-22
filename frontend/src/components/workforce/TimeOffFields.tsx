@@ -32,15 +32,16 @@ export function timeOffBody(draft: TimeOffDraft, kind: string) {
   if (!draft.startsOn) {
     throw new Error("Informe o período.")
   }
+  const hours = kind !== "vacation" && draft.mode === "hours"
   const body: Record<string, unknown> = {
     starts_on: draft.startsOn,
-    ends_on: draft.mode === "hours" ? draft.startsOn : draft.endsOn || null,
+    ends_on: hours ? draft.startsOn : draft.endsOn || null,
     starts_at: null,
     ends_at: null,
   }
-  if (draft.mode === "hours") {
+  if (hours) {
     if (!draft.startTime || !draft.endTime) {
-      throw new Error("Informe o início e o fim do horário.")
+      throw new Error("Informe o horário, de e até.")
     }
     body.starts_at = brazilMoment(draft.startsOn, draft.startTime)
     body.ends_at = brazilMoment(draft.startsOn, draft.endTime)
@@ -70,28 +71,33 @@ export function TimeOffFields({
     onChange({ ...draft, ...partial })
   }
 
+  const daysOnly = kind === "vacation"
+  const mode = daysOnly ? "days" : draft.mode
+
   return (
     <>
+      {daysOnly ? null : (
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-mode`}>Período</Label>
+          <select id={`${idPrefix}-mode`} className={fieldClass} value={mode} onChange={(event) => patch({ mode: event.target.value === "hours" ? "hours" : "days" })}>
+            <option value="days">Dia inteiro ou vários dias</option>
+            <option value="hours">Algumas horas de um dia</option>
+          </select>
+        </div>
+      )}
       <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-mode`}>Período</Label>
-        <select id={`${idPrefix}-mode`} className={fieldClass} value={draft.mode} onChange={(event) => patch({ mode: event.target.value === "hours" ? "hours" : "days" })}>
-          <option value="days">Dia inteiro ou vários dias</option>
-          <option value="hours">Algumas horas de um dia</option>
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-start`}>{draft.mode === "hours" ? "Dia" : "Início"}</Label>
+        <Label htmlFor={`${idPrefix}-start`}>{mode === "hours" ? "Dia" : "De"}</Label>
         <input id={`${idPrefix}-start`} className={fieldClass} type="date" value={draft.startsOn} onChange={(event) => patch({ startsOn: event.target.value })} required />
       </div>
-      {draft.mode === "days" ? (
+      {mode === "days" ? (
         <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-end`}>Fim</Label>
+          <Label htmlFor={`${idPrefix}-end`}>Até</Label>
           <input id={`${idPrefix}-end`} className={fieldClass} type="date" value={draft.endsOn} onChange={(event) => patch({ endsOn: event.target.value })} />
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-from`}>Das</Label>
+            <Label htmlFor={`${idPrefix}-from`}>De</Label>
             <input id={`${idPrefix}-from`} className={fieldClass} type="time" value={draft.startTime} onChange={(event) => patch({ startTime: event.target.value })} required />
           </div>
           <div className="space-y-2">
@@ -104,7 +110,7 @@ export function TimeOffFields({
         <>
           <div className="space-y-2">
             <Label htmlFor={`${idPrefix}-cid`}>CID</Label>
-            <input id={`${idPrefix}-cid`} className={fieldClass} value={draft.cid} maxLength={16} onChange={(event) => patch({ cid: event.target.value })} required />
+            <input id={`${idPrefix}-cid`} className={fieldClass} value={draft.cid} maxLength={16} onChange={(event) => patch({ cid: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label htmlFor={`${idPrefix}-crm`}>CRM</Label>
