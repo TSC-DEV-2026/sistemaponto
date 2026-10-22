@@ -1,3 +1,4 @@
+import base64
 from datetime import date, datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -416,9 +417,33 @@ class Directory:
         return person_id, True
 
 
+def photo(marker: bytes = b"self") -> str:
+    return base64.b64encode(b"\xff\xd8\xff" + marker).decode()
+
+
+def fake_embed(data: bytes) -> list[float]:
+    vector = [0.0] * 512
+    if b"other" in data:
+        vector[1] = 1.0
+    elif b"bia" in data:
+        vector[2] = 1.0
+    else:
+        vector[0] = 1.0
+    return vector
+
+
 def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
     repo = Memory(capacity)
-    return WorkforceService(repo, authenticator=Directory(), today=lambda: TODAY, clock=lambda: NOW), repo
+    return (
+        WorkforceService(
+            repo,
+            authenticator=Directory(),
+            today=lambda: TODAY,
+            clock=lambda: NOW,
+            embedder=fake_embed,
+        ),
+        repo,
+    )
 
 
 def admin() -> Scope:
@@ -2081,7 +2106,9 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
     code = workforce.punch_code(scope(9, "member"), person["id"])
     assert code["content"] == f"{unit.id}|22222222222|A1"
     assert code["unit_name"] == "Matriz"
-    selfie = "1/selfies/foto.jpg"
+    workforce.update_employee(admin(), person["id"], {"clock_method": "qr"})
+    qr_image = photo(b"qr")
+    selfie = photo(b"selfie")
     with pytest.raises(AppError) as bad_selfie:
         workforce.punch_qr(
             scope(9, "member"),
@@ -2089,7 +2116,8 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
                 "employee_id": person["id"],
                 "occurred_at": at(9, 0, 6),
                 "content": code["content"],
-                "selfie_key": "1/certificates/foto.jpg",
+                "qr_image": qr_image,
+                "selfie_image": base64.b64encode(b"pdf").decode(),
                 "note": None,
             },
         )
@@ -2102,7 +2130,8 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
                 "employee_id": person["id"],
                 "occurred_at": at(9, 0, 6),
                 "content": "99|22222222222|A1",
-                "selfie_key": selfie,
+                "qr_image": qr_image,
+                "selfie_image": selfie,
                 "note": None,
             },
         )
@@ -2114,20 +2143,29 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
             "employee_id": person["id"],
             "occurred_at": at(9, 0, 6),
             "content": code["content"],
-            "selfie_key": selfie,
+            "qr_image": qr_image,
+            "selfie_image": selfie,
             "note": None,
         },
     )
     assert marked.source == "qr"
     assert marked.channel is None
+    assert marked.qr_image.startswith(b"\xff\xd8\xff")
+    assert marked.selfie_image.startswith(b"\xff\xd8\xff")
+    workforce.update_employee(
+        admin(),
+        person["id"],
+        {"clock_method": "face", "face_image": photo(b"ana")},
+    )
     with pytest.raises(AppError) as face:
         workforce.punch_face(
             scope(9, "member"),
             {
                 "employee_id": person["id"],
                 "occurred_at": at(10, 0, 6),
-                "recognized": False,
+                "image": photo(b"other"),
                 "channel": "offline",
+                "client_event_id": "evt-unknown",
                 "note": None,
             },
         )
@@ -2138,8 +2176,9 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
         {
             "employee_id": person["id"],
             "occurred_at": at(10, 0, 6),
-            "recognized": True,
+            "image": photo(b"ana"),
             "channel": "offline",
+            "client_event_id": "evt-offline",
             "note": None,
         },
     )
@@ -2148,12 +2187,13 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
         {
             "employee_id": person["id"],
             "occurred_at": at(11, 0, 7),
-            "recognized": True,
+            "image": photo(b"ana"),
             "channel": "online",
             "note": None,
         },
     )
     assert offline.source == "face" and offline.channel == "offline"
+    assert offline.face_image.startswith(b"\xff\xd8\xff")
     assert online.source == "face" and online.channel == "online"
     with pytest.raises(AppError) as stranger:
         workforce.punch_qr(
@@ -2162,7 +2202,8 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
                 "employee_id": person["id"],
                 "occurred_at": at(12, 0, 6),
                 "content": code["content"],
-                "selfie_key": selfie,
+                "qr_image": qr_image,
+                "selfie_image": selfie,
                 "note": None,
             },
         )
@@ -2185,8 +2226,9 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
             {
                 "employee_id": person["id"],
                 "occurred_at": at(8, 0, 3),
-                "recognized": True,
+                "image": photo(b"ana"),
                 "channel": "offline",
+                "client_event_id": "evt-closed",
                 "note": None,
             },
         )
@@ -2325,4 +2367,110 @@ def test_edicao_nao_troca_o_person_id():
     assert updated["person_id"] == 7
     assert updated["cpf"] == "39053344705"
     assert updated["full_name"] == "Ana Souza"
+    assert updated["clock_method"] == "simple"
     assert len(workforce.authenticator.upserts) == 1
+
+
+def test_tipo_simples_recusa_qr_e_o_rosto():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "22222222222", 9))
+    assert person["clock_method"] == "simple"
+    with pytest.raises(AppError) as qr:
+        workforce.punch_qr(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(9, 0, 6),
+                "content": "1|22222222222|A1",
+                "qr_image": photo(),
+                "selfie_image": photo(),
+                "note": None,
+            },
+        )
+    assert qr.value.message == "Este funcionário não usa esse tipo de registro."
+    with pytest.raises(AppError) as face:
+        workforce.update_employee(admin(), person["id"], {"clock_method": "face"})
+    assert face.value.message == "Informe a foto de referência."
+    assert workforce.get_employee(admin(), person["id"])["clock_method"] == "simple"
+
+
+def test_rosto_so_entra_quando_a_comparacao_e_deste_funcionario():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    _access(repo, 10, "member")
+    person = workforce.create_employee(
+        admin(),
+        {**admitted(date(2026, 10, 1), "22222222222", 9), "clock_method": "face", "face_image": photo(b"ana")},
+    )
+    other = workforce.create_employee(
+        admin(),
+        {**employee_payload("33333333333", 10), "clock_method": "face", "face_image": photo(b"bia")},
+    )
+    downloaded, total = workforce.list_face_embeddings(scope(9, "member"), 1, 20)
+    assert total == 2
+    assert {item["employee_id"] for item in downloaded} == {person["id"], other["id"]}
+    assert downloaded[0]["threshold"] == 0.40
+    assert len(downloaded[0]["embedding"]) == 512
+    with pytest.raises(AppError) as unknown:
+        workforce.punch_face(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(8, 0, 6),
+                "image": photo(b"other"),
+                "channel": "online",
+                "note": None,
+            },
+        )
+    assert unknown.value.message == "O rosto não foi reconhecido."
+    saved = workforce.punch_face(
+        scope(9, "member"),
+        {
+            "employee_id": person["id"],
+            "occurred_at": at(8, 0, 6),
+            "image": photo(b"ana"),
+            "channel": "offline",
+            "client_event_id": "evt-1",
+            "note": None,
+        },
+    )
+    again = workforce.punch_face(
+        scope(9, "member"),
+        {
+            "employee_id": person["id"],
+            "occurred_at": at(8, 30, 6),
+            "image": photo(b"ana"),
+            "channel": "offline",
+            "client_event_id": "evt-1",
+            "note": None,
+        },
+    )
+    assert again.id == saved.id
+    _rows, punches = workforce.list_punches(admin(), 1, 20, {"employee_id": person["id"]})
+    assert punches == 1
+    with pytest.raises(AppError) as taken:
+        workforce.punch_face(
+            scope(10, "member"),
+            {
+                "employee_id": other["id"],
+                "occurred_at": at(9, 0, 6),
+                "image": photo(b"bia"),
+                "channel": "offline",
+                "client_event_id": "evt-1",
+                "note": None,
+            },
+        )
+    assert taken.value.status_code == 409
+    with pytest.raises(AppError) as missing_event:
+        workforce.punch_face(
+            scope(10, "member"),
+            {
+                "employee_id": other["id"],
+                "occurred_at": at(9, 0, 6),
+                "image": photo(b"bia"),
+                "channel": "offline",
+                "note": None,
+            },
+        )
+    assert missing_event.value.message == "Informe o evento do aparelho."

@@ -163,6 +163,8 @@ class EmployeeCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
     hour_bank: bool = False
     registration_number: str | None = Field(default=None, max_length=32)
+    clock_method: Literal["simple", "qr", "face"] = "simple"
+    face_image: str | None = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -173,6 +175,8 @@ class EmployeeUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
     hour_bank: bool | None = None
     registration_number: str | None = Field(default=None, max_length=32)
+    clock_method: Literal["simple", "qr", "face"] | None = None
+    face_image: str | None = None
 
 
 class EmployeeOut(BaseModel):
@@ -185,6 +189,7 @@ class EmployeeOut(BaseModel):
     note: str | None
     hour_bank: bool
     registration_number: str | None
+    clock_method: str
     situation: str | None
     job_label: str | None
     journey_label: str | None
@@ -262,16 +267,27 @@ class QrPunchCreate(BaseModel):
     employee_id: int
     occurred_at: datetime
     content: str = Field(min_length=1, max_length=200)
-    selfie_key: str = Field(min_length=1, max_length=512)
+    qr_image: str = Field(min_length=1)
+    selfie_image: str = Field(min_length=1)
     note: str | None = Field(default=None, max_length=2000)
 
 
 class FacePunchCreate(BaseModel):
     employee_id: int
     occurred_at: datetime
-    recognized: bool
+    image: str = Field(min_length=1)
     channel: Literal["online", "offline"]
+    client_event_id: str | None = Field(default=None, min_length=1, max_length=64)
     note: str | None = Field(default=None, max_length=2000)
+
+
+class FaceEmbeddingOut(BaseModel):
+    employee_id: int
+    person_id: int | None
+    embedding: list[float]
+    model_name: str
+    model_version: str
+    threshold: float
 
 
 class PunchCorrectionCreate(BaseModel):
