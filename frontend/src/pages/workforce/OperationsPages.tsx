@@ -1210,7 +1210,7 @@ export function PayrollPage() {
           <h2 className="text-sm font-medium">Gerar arquivo</h2>
           <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={generateFile}>
             <div className="space-y-2">
-              <Label htmlFor="file-kind">Tipo</Label>
+              <Label htmlFor="file-kind">Tipo de arquivo</Label>
               <select id="file-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
                 {Object.entries(fiscalKindLabel).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -1218,6 +1218,8 @@ export function PayrollPage() {
                   </option>
                 ))}
               </select>
+              {kind === "afd" ? <p className="text-sm text-muted-foreground">Arquivo com as marcações. Sai de qualquer período.</p> : null}
+              {kind === "aej" ? <p className="text-sm text-muted-foreground">Arquivo da jornada. Sai só de um período fechado.</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="file-mode">Período</Label>
@@ -1251,7 +1253,7 @@ export function PayrollPage() {
             )}
             <Button type="submit">
               <FilePlus className="h-4 w-4" />
-              Gerar
+              {kind === "aej" ? "Gerar AEJ" : kind === "afd" ? "Gerar AFD" : "Gerar"}
             </Button>
           </ActionForm>
           <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={importAfd}>
