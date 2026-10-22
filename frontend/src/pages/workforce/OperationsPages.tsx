@@ -1,4 +1,4 @@
-import { FilePlus, QrCode, Search } from "lucide-react"
+import { FilePlus, Printer, QrCode, Search } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -54,6 +54,7 @@ import {
   showMinutes,
   showSignedMinutes,
 } from "@/utils/labels"
+import { reportPdf } from "@/utils/report-pdf"
 
 function MonthField({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
   return (
@@ -992,6 +993,41 @@ export function ReportsPage() {
     await openPage(1, { kind, startsOn, endsOn, employeeId })
   }
 
+  async function printReport() {
+    setError("")
+    const employee = query.employeeId ? Number(query.employeeId) : undefined
+    try {
+      const first = await getReport(query.kind, query.startsOn, query.endsOn, 1, employee, 100)
+      const items = [...first.items]
+      const pageCount = Math.max(1, Math.ceil(first.total / first.limit))
+      for (let page = 2; page <= pageCount; page += 1) {
+        const next = await getReport(query.kind, query.startsOn, query.endsOn, page, employee, 100)
+        items.push(...next.items)
+      }
+      const bytes = reportPdf({
+        name: first.name,
+        from: showDate(first.starts_on),
+        until: showDate(first.ends_on),
+        total: first.total,
+        items: items.map((item) => ({
+          occurredOn: showDate(item.occurred_on),
+          title: item.title,
+          fullName: item.full_name || "",
+          detail: item.detail,
+        })),
+      })
+      const blob = new Blob([bytes], { type: "application/pdf" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${first.kind}-${first.starts_on}-${first.ends_on}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível imprimir.")
+    }
+  }
+
   const pages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
 
   return (
@@ -1003,7 +1039,7 @@ export function ReportsPage() {
       {canRead ? (
         <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={consult}>
           <div className="space-y-2">
-            <Label htmlFor="report-kind">Relatório</Label>
+            <Label htmlFor="report-kind">Tipo de relatório</Label>
             <select id="report-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
               {catalog.map((item) => (
                 <option key={item.kind} value={item.kind}>
@@ -1044,21 +1080,33 @@ export function ReportsPage() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {result ? (
         <section className="space-y-3">
-          <h2 className="text-sm font-medium">
-            {result.name} · {showDate(result.starts_on)} a {showDate(result.ends_on)} · {result.total} linhas
-          </h2>
-          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {result.items.map((item, index) => (
-              <li key={`${item.occurred_on}-${item.employee_id ?? "empresa"}-${item.title}-${index}`} className="px-4 py-3 text-sm">
-                <p className="font-medium">
-                  {showDate(item.occurred_on)} · {item.title}
-                  {item.full_name ? ` · ${item.full_name}` : ""}
-                </p>
-                <p className="mt-1 text-muted-foreground">{item.detail}</p>
-              </li>
-            ))}
-            {result.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma linha neste período.</li> : null}
-          </ul>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium">
+                {result.name} · {showDate(result.starts_on)} a {showDate(result.ends_on)}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {result.total === 0 ? "Nenhum registro neste período." : `${result.total} registros encontrados`}
+              </p>
+            </div>
+            <Button type="button" variant="outline" onClick={printReport}>
+              <Printer className="h-4 w-4" />
+              Imprimir
+            </Button>
+          </div>
+          {result.items.length > 0 ? (
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {result.items.map((item, index) => (
+                <li key={`${item.occurred_on}-${item.employee_id ?? "empresa"}-${item.title}-${index}`} className="px-4 py-3 text-sm">
+                  <p className="font-medium">
+                    {showDate(item.occurred_on)} · {item.title}
+                    {item.full_name ? ` · ${item.full_name}` : ""}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {result.total > result.limit ? (
             <div className="flex items-center gap-3">
               <Button type="button" size="sm" variant="outline" disabled={result.page <= 1} onClick={() => openPage(result.page - 1)}>
