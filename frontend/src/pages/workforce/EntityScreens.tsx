@@ -1,5 +1,5 @@
-import { createContext, FormEvent, useContext, useEffect, useState, type ReactNode } from "react"
-import { Eye, Pencil, Plus, Save, Trash2 } from "lucide-react"
+import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { Eye, Pencil, Plus, QrCode, Save, Trash2 } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass, optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
-import { createRecord, getRecord, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
+import { qrCardsPdf } from "@/utils/qr-cards-pdf"
 
 const TabAction = createContext<(node: ReactNode) => void>(() => {})
 
@@ -113,6 +114,7 @@ export function RecordList<T extends Row>({
   nameOf,
   detailOf,
   empty,
+  extra = null,
 }: {
   path: string
   filters?: (query: string) => ListParams
@@ -124,6 +126,7 @@ export function RecordList<T extends Row>({
   nameOf: (item: T) => string
   detailOf?: (item: T) => string
   empty: string
+  extra?: ReactNode
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setTabAction = useContext(TabAction)
@@ -136,20 +139,26 @@ export function RecordList<T extends Row>({
   })
 
   useEffect(() => {
-    if (!isAdmin) {
-      setTabAction(null)
-      return () => setTabAction(null)
-    }
-    setTabAction(
+    const create = isAdmin ? (
       <Button asChild>
         <Link to={newTo}>
           <Plus className="h-4 w-4" />
           {newLabel}
         </Link>
-      </Button>,
+      </Button>
+    ) : null
+    if (!create && !extra) {
+      setTabAction(null)
+      return () => setTabAction(null)
+    }
+    setTabAction(
+      <div className="flex flex-wrap justify-end gap-2">
+        {extra}
+        {create}
+      </div>,
     )
     return () => setTabAction(null)
-  }, [isAdmin, newLabel, newTo, setTabAction])
+  }, [extra, isAdmin, newLabel, newTo, setTabAction])
 
   async function onDelete(id: number) {
     list.setError("")
@@ -230,25 +239,69 @@ export function RecordList<T extends Row>({
   )
 }
 
+function downloadPdf(bytes: Uint8Array<ArrayBuffer>, filename: string) {
+  const blob = new Blob([bytes], { type: "application/pdf" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export function EmployeeList() {
+  const [note, setNote] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+  const printCards = useCallback(async () => {
+    setNote("")
+    setError("")
+    setBusy(true)
+    try {
+      const cards = await listQrCards()
+      if (cards.length === 0) {
+        setNote("Nenhum QR Code para imprimir. O funcionário precisa usar essa modalidade, ter matrícula e unidade vigente.")
+        return
+      }
+      downloadPdf(qrCardsPdf(cards), "qr-codes.pdf")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o PDF.")
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+  const extra = useMemo(
+    () => (
+      <Button type="button" variant="outline" disabled={busy} onClick={() => void printCards()}>
+        <QrCode className="h-4 w-4" />
+        Gerar QR Code
+      </Button>
+    ),
+    [busy, printCards],
+  )
   return (
-    <RecordList<Employee>
-      path="/employees"
-      filters={(query) => {
-        const text = query.trim()
-        if (!text) return {}
-        if (/[A-Za-zÀ-ÿ]/.test(text)) return { full_name: text }
-        const digits = onlyDigits(text)
-        return digits ? { cpf: digits } : { full_name: text }
-      }}
-      newTo="/people/new"
-      newLabel="Novo funcionário"
-      viewTo={(id) => `/people/${id}`}
-      editTo={(id) => `/people/${id}/edit`}
-      nameOf={(item) => item.full_name}
-      detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
-      empty="Nenhum funcionário."
-    />
+    <div className="space-y-3">
+      {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <RecordList<Employee>
+        path="/employees"
+        filters={(query) => {
+          const text = query.trim()
+          if (!text) return {}
+          if (/[A-Za-zÀ-ÿ]/.test(text)) return { full_name: text }
+          const digits = onlyDigits(text)
+          return digits ? { cpf: digits } : { full_name: text }
+        }}
+        newTo="/people/new"
+        newLabel="Novo funcionário"
+        viewTo={(id) => `/people/${id}`}
+        editTo={(id) => `/people/${id}/edit`}
+        nameOf={(item) => item.full_name}
+        detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
+        empty="Nenhum funcionário."
+        extra={extra}
+      />
+    </div>
   )
 }
 
