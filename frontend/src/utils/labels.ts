@@ -42,6 +42,12 @@ export const vigencyKindLabel: Record<string, string> = {
   status: "Situação",
 }
 
+export const clockMethodLabel: Record<string, string> = {
+  simple: "Simples",
+  qr: "QR Code",
+  face: "Reconhecimento facial",
+}
+
 export const punchSourceLabel: Record<string, string> = {
   employee: "Funcionário",
   admin: "Manual",

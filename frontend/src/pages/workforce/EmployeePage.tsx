@@ -28,6 +28,7 @@ import { useAuthStore } from "@/store/auth.store"
 import { formatCpf } from "@/utils/digits"
 import {
   certificateText,
+  clockMethodLabel,
   manualTimeOffKinds,
   occurrenceKindLabel,
   periodText,
@@ -257,6 +258,7 @@ export function EmployeePage() {
             <Input id="registration" value={registration} readOnly />
             <p className="text-sm text-muted-foreground">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
           </div>
+          <p className="text-sm">Tipo de registro: {clockMethodLabel[employee?.clock_method || ""] || "Simples"}</p>
           <p className="text-sm">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</p>
           <div className="space-y-2">
             <Label htmlFor="note">Observação</Label>

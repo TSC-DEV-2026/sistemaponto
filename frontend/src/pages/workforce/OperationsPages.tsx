@@ -1,4 +1,4 @@
-import { FilePlus, Printer, QrCode, Search } from "lucide-react"
+import { FilePlus, Printer, Search } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -14,12 +14,10 @@ import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDra
 import {
   createRecord,
   getPayroll,
-  getPunchCode,
   getReport,
   listRecords,
   updateRecord,
   uploadCertificatePhoto,
-  uploadSelfie,
   type Closing,
   type Employee,
   type FiscalFile,
@@ -35,6 +33,7 @@ import {
   type TimeRequest,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { clockMethodLabel } from "@/utils/labels"
 import {
   closingEventLabel,
   closingStatusLabel,
@@ -75,12 +74,10 @@ export function TimeClockPage() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selected, setSelected] = useState("")
-  const [code, setCode] = useState("")
-  const [selfie, setSelfie] = useState<File | null>(null)
-  const [channel, setChannel] = useState("online")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const mine = employees.find((item) => item.person_id === personId) ?? null
+  const method = mine?.clock_method || "simple"
 
   useEffect(() => {
     let active = true
@@ -111,79 +108,25 @@ export function TimeClockPage() {
     }
   }
 
-  async function loadCode() {
-    if (!mine) {
-      return
-    }
-    setError("")
-    try {
-      const row = await getPunchCode(mine.id)
-      setCode(row.content)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o QR.")
-    }
-  }
-
-  async function punchQr(event: FormEvent) {
-    event.preventDefault()
-    if (!mine || !selfie) {
-      return
-    }
-    setError("")
-    setMessage("")
-    try {
-      const current = code || (await getPunchCode(mine.id)).content
-      setCode(current)
-      const photo = await uploadSelfie(selfie)
-      await createRecord("/punches/qr-selfies", {
-        employee_id: mine.id,
-        occurred_at: new Date().toISOString(),
-        content: current,
-        selfie_key: photo.key,
-        note: null,
-      })
-      setSelfie(null)
-      setMessage("Marcação por QR registrada.")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
-    }
-  }
-
-  async function punchFace(recognized: boolean) {
-    if (!mine) {
-      return
-    }
-    setError("")
-    setMessage("")
-    try {
-      await createRecord("/punches/faces", {
-        employee_id: mine.id,
-        occurred_at: new Date().toISOString(),
-        recognized,
-        channel,
-        note: null,
-      })
-      setMessage("Marcação por rosto registrada.")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
-    }
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="text-xl font-semibold">Registro de Ponto</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          O botão simples registra a marcação. O QR leva a unidade vigente, o CPF e a matrícula, junto com a selfie. O reconhecimento vale online e offline. Se a selfie, o QR ou o rosto falhar, a marcação não entra e a pessoa tenta de novo.
+          O próprio funcionário registra pelo tipo da ficha. QR Code e reconhecimento facial são feitos no aplicativo. O administrador registra a marcação de outra pessoa por aqui.
         </p>
       </div>
       {mine ? (
         <section className="space-y-3 rounded-md border border-border bg-card p-3">
-          <h2 className="text-sm font-medium">Registro simples</h2>
+          <h2 className="text-sm font-medium">{clockMethodLabel[method] || method}</h2>
           <p className="text-sm text-muted-foreground">{mine.full_name}</p>
-          <Button type="button" onClick={() => punchSimple(mine.id)}>
-            Registrar
-          </Button>
+          {method === "simple" ? (
+            <Button type="button" onClick={() => punchSimple(mine.id)}>
+              Registrar
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">Este tipo de registro é feito no aplicativo, com a câmera.</p>
+          )}
         </section>
       ) : (
         <p className="text-sm text-muted-foreground">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p>
@@ -205,46 +148,6 @@ export function TimeClockPage() {
           <Button type="button" disabled={!selected} onClick={() => punchSimple(Number(selected))}>
             Registrar
           </Button>
-        </section>
-      ) : null}
-      {mine ? (
-        <ActionForm className="space-y-3 rounded-md border border-border bg-card p-3" onSubmit={punchQr}>
-          <h2 className="text-sm font-medium">QR Code e selfie</h2>
-          <p className="text-sm text-muted-foreground">O QR deste corte é o texto unidade, CPF e matrícula. Não há imagem. A selfie precisa ser uma foto enviada desta empresa.</p>
-          <Button type="button" variant="outline" onClick={() => loadCode()}>
-            <QrCode className="h-4 w-4" />
-            Gerar QR
-          </Button>
-          <div className="space-y-2">
-            <Label htmlFor="qr-code">Código</Label>
-            <Input id="qr-code" value={code} onChange={(event) => setCode(event.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="selfie">Selfie</Label>
-            <input id="selfie" className={fieldClass} type="file" accept="image/png,image/jpeg" onChange={(event) => setSelfie(event.target.files?.[0] ?? null)} required />
-          </div>
-          <Button type="submit">Registrar com QR</Button>
-        </ActionForm>
-      ) : null}
-      {mine ? (
-        <section className="space-y-3 rounded-md border border-border bg-card p-3">
-          <h2 className="text-sm font-medium">Reconhecimento facial</h2>
-          <p className="text-sm text-muted-foreground">A comparação biométrica fica fora deste corte. O registro entra quando o reconhecimento é informado, online ou offline. Reconhecimento falho não grava a marcação.</p>
-          <div className="space-y-2">
-            <Label htmlFor="face-channel">Canal</Label>
-            <select id="face-channel" className={fieldClass} value={channel} onChange={(event) => setChannel(event.target.value)}>
-              <option value="online">Online</option>
-              <option value="offline">Offline</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => punchFace(true)}>
-              Rosto reconhecido
-            </Button>
-            <Button type="button" variant="outline" onClick={() => punchFace(false)}>
-              Rosto não reconhecido
-            </Button>
-          </div>
         </section>
       ) : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}

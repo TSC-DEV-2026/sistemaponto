@@ -12,7 +12,7 @@ import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } fr
 import { createRecord, getRecord, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { formatCpf, onlyDigits } from "@/utils/digits"
-import { showDate, situationLabel } from "@/utils/labels"
+import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 
 const TabAction = createContext<(node: ReactNode) => void>(() => {})
@@ -246,7 +246,7 @@ export function EmployeeList() {
       viewTo={(id) => `/people/${id}`}
       editTo={(id) => `/people/${id}/edit`}
       nameOf={(item) => item.full_name}
-      detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${showDate(item.admission_date)}`}
+      detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
       empty="Nenhum funcionário."
     />
   )
