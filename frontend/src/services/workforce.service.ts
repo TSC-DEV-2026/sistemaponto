@@ -366,6 +366,27 @@ export function uploadSelfie(file: File) {
   return write<{ key: string }>(() => api.post<ApiResponse<{ key: string }>>("/selfie-photos", body))
 }
 
+export type QrCard = {
+  employee_id: number
+  full_name: string
+  unit_id: number
+  unit_name: string
+  cpf: string
+  registration_number: string
+  content: string
+}
+
+export async function listQrCards() {
+  const first = await listRecords<QrCard>("/qr-cards", { page: 1, limit: 100 })
+  const items = [...first.items]
+  const pages = Math.max(1, Math.ceil(first.total / first.limit))
+  for (let page = 2; page <= pages; page += 1) {
+    const next = await listRecords<QrCard>("/qr-cards", { page, limit: 100 })
+    items.push(...next.items)
+  }
+  return items
+}
+
 export function getPunchCode(employeeId: number) {
   return read<PunchCode>(() => api.get<ApiResponse<PunchCode>>("/punch-codes", { params: { employee_id: employeeId } }))
 }
