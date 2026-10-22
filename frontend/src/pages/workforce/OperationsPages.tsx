@@ -38,6 +38,7 @@ import { useAuthStore } from "@/store/auth.store"
 import {
   closingEventLabel,
   closingStatusLabel,
+  monthOptions,
   fiscalKindLabel,
   noticePhrase,
   occurrenceKindLabel,
@@ -53,6 +54,18 @@ import {
   showMinutes,
   showSignedMinutes,
 } from "@/utils/labels"
+
+function MonthField({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <select id={id} className={fieldClass} value={value} onChange={(event) => onChange(event.target.value)} required>
+      {monthOptions.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  )
+}
 
 export function TimeClockPage() {
   const personId = useAuthStore((state) => state.user?.person_id)
@@ -611,7 +624,7 @@ export function ClosingsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="month">Mês</Label>
-                <Input id="month" inputMode="numeric" value={month} onChange={(event) => setMonth(event.target.value)} required />
+                <MonthField id="month" value={month} onChange={setMonth} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="year">Ano</Label>
@@ -639,10 +652,7 @@ export function ClosingsPage() {
           <Label htmlFor="closing-filter-year">Ano</Label>
           <Input id="closing-filter-year" inputMode="numeric" value={filterYear} onChange={(event) => setFilterYear(event.target.value)} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="closing-filter-month">Mês</Label>
-          <Input id="closing-filter-month" inputMode="numeric" value={filterMonth} onChange={(event) => setFilterMonth(event.target.value)} />
-        </div>
+        <FilterSelect id="closing-filter-month" label="Mês" value={filterMonth} options={monthOptions} onChange={setFilterMonth} />
         <FilterSelect id="closing-filter-status" label="Situação" value={filterStatus} options={Object.entries(closingStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setFilterStatus} />
       </div>
       {periods.error ? <p className="text-sm text-destructive">{periods.error}</p> : null}
@@ -1172,7 +1182,7 @@ export function PayrollPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="file-month">Mês</Label>
-                  <Input id="file-month" inputMode="numeric" value={fileMonth} onChange={(event) => setFileMonth(event.target.value)} required />
+                  <MonthField id="file-month" value={fileMonth} onChange={setFileMonth} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="file-year">Ano</Label>
@@ -1246,7 +1256,7 @@ export function PayrollPage() {
           <ActionForm className="flex flex-wrap items-end gap-3" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="month">Mês</Label>
-              <Input id="month" value={month} onChange={(event) => setMonth(event.target.value)} required />
+              <MonthField id="month" value={month} onChange={setMonth} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="year">Ano</Label>
