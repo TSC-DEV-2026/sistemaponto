@@ -11,6 +11,20 @@ import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { createRecord, getRecord, updateRecord, type Employee } from "@/services/workforce.service"
 import { formatCpf, onlyDigits } from "@/utils/digits"
+import { clockMethodLabel } from "@/utils/labels"
+
+function readFaceImage(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      reject(new Error("A foto de referência não foi aceita."))
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ""))
+    reader.onerror = () => reject(new Error("A foto de referência não foi aceita."))
+    reader.readAsDataURL(file)
+  })
+}
 
 export function EmployeeFormPage() {
   const navigate = useNavigate()
@@ -23,6 +37,9 @@ export function EmployeeFormPage() {
   const [note, setNote] = useState("")
   const [hourBank, setHourBank] = useState(false)
   const [registration, setRegistration] = useState("")
+  const [clockMethod, setClockMethod] = useState("simple")
+  const [savedMethod, setSavedMethod] = useState("simple")
+  const [faceFile, setFaceFile] = useState<File | null>(null)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -38,6 +55,8 @@ export function EmployeeFormPage() {
         setNote(person.note || "")
         setHourBank(Boolean(person.hour_bank))
         setRegistration(person.registration_number || "")
+        setClockMethod(person.clock_method || "simple")
+        setSavedMethod(person.clock_method || "simple")
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -58,6 +77,18 @@ export function EmployeeFormPage() {
       note: note.trim() || null,
       hour_bank: hourBank,
       registration_number: registration.trim() || null,
+      clock_method: clockMethod,
+    }
+    if (clockMethod === "face" && faceFile) {
+      try {
+        Object.assign(body, { face_image: await readFaceImage(faceFile) })
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "A foto de referência não foi aceita.")
+        return
+      }
+    } else if (clockMethod === "face" && (id === null || savedMethod !== "face")) {
+      setError("Informe a foto de referência.")
+      return
     }
     try {
       if (id === null) {
@@ -97,6 +128,28 @@ export function EmployeeFormPage() {
         <Label htmlFor="admission">Admissão</Label>
         <input id="admission" className={fieldClass} type="date" value={admission} onChange={(event) => setAdmission(event.target.value)} required />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="clock-method">Tipo de registro</Label>
+        <select id="clock-method" className={fieldClass} value={clockMethod} onChange={(event) => setClockMethod(event.target.value)}>
+          {Object.entries(clockMethodLabel).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <p className="text-sm text-muted-foreground">O aplicativo mostra só este tipo. Quem já existe fica em Simples.</p>
+      </div>
+      {clockMethod === "face" ? (
+        <div className="space-y-2">
+          <Label htmlFor="face-image">Foto de referência</Label>
+          <input id="face-image" className={fieldClass} type="file" accept="image/png,image/jpeg" onChange={(event) => setFaceFile(event.target.files?.[0] ?? null)} />
+          <p className="text-sm text-muted-foreground">
+            {id === null || savedMethod !== "face"
+              ? "Obrigatória para o reconhecimento. O servidor guarda o embedding, não a comparação da foto em texto."
+              : "A foto já cadastrada permanece se você não enviar outra."}
+          </p>
+        </div>
+      ) : null}
       <div className="space-y-2">
         <Label htmlFor="registration">Matrícula</Label>
         <Input id="registration" value={registration} onChange={(event) => setRegistration(event.target.value)} />

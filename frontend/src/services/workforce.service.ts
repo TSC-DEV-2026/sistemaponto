@@ -30,6 +30,7 @@ export type Employee = {
   note: string | null
   hour_bank: boolean
   registration_number: string | null
+  clock_method: string
   situation: string | null
   job_label: string | null
   journey_label: string | null

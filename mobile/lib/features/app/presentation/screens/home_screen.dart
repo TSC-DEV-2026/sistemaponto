@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../data/network/dio_client.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../data/clock_flow.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
+import 'face_camera_screen.dart';
+import 'qr_punch_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,15 +28,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _error;
   String? _message;
   bool _missing = false;
-  final _codeField = TextEditingController();
-  String _channel = 'online';
-  XFile? _selfie;
-
-  @override
-  void dispose() {
-    _codeField.dispose();
-    super.dispose();
-  }
 
   @override
   void initState() {
@@ -82,6 +75,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _bank = results[2];
       });
       await _loadJourney(client, pageItems(results[3]), today);
+      if ('${employee['clock_method'] ?? 'simple'}' == 'face') {
+        await _prepareFace(client);
+      }
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } finally {
@@ -119,6 +115,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Future<void> _prepareFace(ApiClient client) async {
+    final flow = ClockFlow(client);
+    try {
+      final sent = await flow.syncPending();
+      if (sent > 0 && mounted) {
+        setState(() => _message = 'Marcações offline enviadas.');
+      }
+    } on ApiException {
+      return;
+    }
+    try {
+      await flow.refreshFaces();
+    } on ApiException {
+      return;
+    }
+  }
+
   Future<void> _punchSimple() async {
     await _sendPunch('/api/v1/punches', {
       'employee_id': _employee!['id'],
@@ -127,39 +140,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }, 'Marcação registrada.');
   }
 
-  Future<void> _loadCode() async {
-    final client = ref.read(apiClientProvider);
-    setState(() {
-      _error = null;
-      _message = null;
-    });
-    try {
-      final code = await client.get('/api/v1/punch-codes', query: {'employee_id': _employee!['id']});
-      _codeField.text = '${code['content'] ?? ''}';
-    } on ApiException catch (error) {
-      setState(() => _error = error.message);
+  Future<void> _openQr() async {
+    final message = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => QrPunchScreen(employeeId: _employee!['id'] as int)),
+    );
+    if (message == null || !mounted) {
+      return;
     }
+    setState(() => _message = message);
+    await _load();
   }
 
-  Future<void> _pickSelfie() async {
-    setState(() {
-      _error = null;
-      _message = null;
-    });
-    try {
-      final shot = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 80);
-      if (shot != null) {
-        setState(() => _selfie = shot);
-      }
-    } catch (_) {
-      setState(() => _error = 'A selfie não foi aceita.');
-    }
-  }
-
-  Future<void> _punchQr() async {
-    final selfie = _selfie;
-    if (_codeField.text.trim().isEmpty || selfie == null) {
-      setState(() => _error = 'Informe o QR Code e a selfie.');
+  Future<void> _openFace() async {
+    final path = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const FaceCameraScreen()),
+    );
+    if (path == null || !mounted) {
       return;
     }
     final client = ref.read(apiClientProvider);
@@ -169,43 +165,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _message = null;
     });
     try {
-      final bytes = await selfie.readAsBytes();
-      final type = selfie.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
-      final photo = await client.postFile('/api/v1/selfie-photos', selfie.name, bytes, type);
-      await client.post('/api/v1/punches/qr-selfies', {
-        'employee_id': _employee!['id'],
-        'occurred_at': DateTime.now().toUtc().toIso8601String(),
-        'content': _codeField.text.trim(),
-        'selfie_key': photo['key'],
-        'note': null,
-      });
-      setState(() {
-        _selfie = null;
-        _message = 'Marcação por QR registrada.';
-      });
+      final message = await ClockFlow(client).punchFace(employeeId: _employee!['id'] as int, imagePath: path);
+      setState(() => _message = message);
       await _load();
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } finally {
       ref.read(loaderProvider.notifier).state = false;
     }
-  }
-
-  Future<void> _punchFace(bool recognized) async {
-    if (!recognized) {
-      setState(() {
-        _message = null;
-        _error = 'O rosto não foi reconhecido.';
-      });
-      return;
-    }
-    await _sendPunch('/api/v1/punches/faces', {
-      'employee_id': _employee!['id'],
-      'occurred_at': DateTime.now().toUtc().toIso8601String(),
-      'recognized': true,
-      'channel': _channel,
-      'note': null,
-    }, 'Marcação por rosto registrada.');
   }
 
   Future<void> _sendPunch(String path, Map<String, dynamic> body, String success) async {
@@ -245,43 +212,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (employee['unit_label'] != null) Text('Unidade: ${employee['unit_label']}'),
             if (_journey != null) Text(_journeyLine(_journey!)),
             const SizedBox(height: 16),
-            BusyButton(onPressed: dismissed ? null : _punchSimple, label: 'Registrar marcação'),
-            const SizedBox(height: 24),
-            Text('QR Code e selfie', style: Theme.of(context).textTheme.titleMedium),
+            Text('Registro: ${_clockLabel('${employee['clock_method'] ?? 'simple'}')}'),
             const SizedBox(height: 8),
-            const Text('A marcação só entra quando o código da unidade, do CPF e da matrícula e a selfie são aceitos. Se falhar, nada é gravado e você tenta de novo.'),
-            const SizedBox(height: 8),
-            BusyButton(kind: BusyButtonKind.outlined, onPressed: dismissed ? null : _loadCode, label: 'Carregar meu código'),
-            TextField(
-              decoration: const InputDecoration(labelText: 'Código'),
-              controller: _codeField,
-            ),
-            const SizedBox(height: 8),
-            BusyButton(
-              kind: BusyButtonKind.outlined,
-              onPressed: dismissed ? null : _pickSelfie,
-              label: _selfie == null ? 'Tirar selfie' : 'Selfie pronta',
-            ),
-            const SizedBox(height: 8),
-            BusyButton(onPressed: dismissed ? null : _punchQr, label: 'Registrar com QR'),
-            const SizedBox(height: 24),
-            Text('Reconhecimento facial', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            const Text('Vale online e offline. Rosto não reconhecido não grava a marcação e permite nova tentativa.'),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _channel,
-              decoration: const InputDecoration(labelText: 'Canal'),
-              items: const [
-                DropdownMenuItem(value: 'online', child: Text('Online')),
-                DropdownMenuItem(value: 'offline', child: Text('Offline')),
-              ],
-              onChanged: dismissed ? null : (value) => setState(() => _channel = value ?? 'online'),
-            ),
-            const SizedBox(height: 8),
-            BusyButton(onPressed: dismissed ? null : () => _punchFace(true), label: 'Rosto reconhecido'),
-            const SizedBox(height: 8),
-            BusyButton(kind: BusyButtonKind.outlined, onPressed: dismissed ? null : () => _punchFace(false), label: 'Rosto não reconhecido'),
+            _clockButton(dismissed, '${employee['clock_method'] ?? 'simple'}'),
             const SizedBox(height: 24),
             Text('Banco de horas', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -320,6 +253,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _clockButton(bool dismissed, String method) {
+    if (method == 'qr') {
+      return BusyButton(onPressed: dismissed ? null : _openQr, label: 'Registrar com QR');
+    }
+    if (method == 'face') {
+      return BusyButton(onPressed: dismissed ? null : _openFace, label: 'Registrar com o rosto');
+    }
+    return BusyButton(onPressed: dismissed ? null : _punchSimple, label: 'Registrar marcação');
+  }
+
   Widget _dayTile(Map<String, dynamic> day) {
     final warnings = day['warnings'];
     final lines = warnings is List ? warnings.map((item) => '$item').where((item) => item.isNotEmpty).toList() : <String>[];
@@ -353,6 +296,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       subtitle: Text(valid ? source : '$source · Não vale mais'),
     );
   }
+}
+
+String _clockLabel(String method) {
+  if (method == 'qr') {
+    return 'QR Code';
+  }
+  if (method == 'face') {
+    return 'Reconhecimento facial';
+  }
+  return 'Simples';
 }
 
 String _journeyLine(Map<String, dynamic> journey) {
