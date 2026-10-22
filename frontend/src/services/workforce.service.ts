@@ -393,7 +393,7 @@ export function getHourBank(employeeId: number) {
   return read<HourBank>(() => api.get<ApiResponse<HourBank>>("/hour-bank", { params: { employee_id: employeeId } }))
 }
 
-export function getReport(kind: string, startsOn: string, endsOn: string, page: number, employeeId?: number) {
+export function getReport(kind: string, startsOn: string, endsOn: string, page: number, employeeId?: number, limit = 20) {
   return read<Report>(() =>
     api.get<ApiResponse<Report>>("/reports", {
       params: {
@@ -401,7 +401,7 @@ export function getReport(kind: string, startsOn: string, endsOn: string, page: 
         starts_on: startsOn,
         ends_on: endsOn,
         page,
-        limit: 20,
+        limit,
         employee_id: employeeId,
       },
     }),
