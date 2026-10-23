@@ -22,7 +22,7 @@ import { TenantsPage } from "@/pages/TenantsPage"
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage"
 import { EmployeeFormPage } from "@/pages/workforce/EmployeeFormPage"
 import { EmployeePage } from "@/pages/workforce/EmployeePage"
-import { JourneyPage } from "@/pages/workforce/JourneyPage"
+import { HourBankEntryPage, JourneyPage, PunchAdjustPage } from "@/pages/workforce/JourneyPage"
 import {
   ClosingsPage,
   LaborPage,
@@ -76,6 +76,11 @@ const router = createBrowserRouter([
                   { path: "/tenants", element: <TenantsPage /> },
                   { path: "/tenants/:id", element: <TenantDetailPage /> },
                   { path: "/change-password", element: <ChangePasswordPage /> },
+                  { path: "/schedules/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
+                  { path: "/schedules/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },
+                  { path: "/schedules/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
+                  { path: "/schedules/adjustments", element: <PunchAdjustPage /> },
+                  { path: "/schedules/hour-bank/new", element: <HourBankEntryPage /> },
                   { path: "/schedules", element: <JourneyPage /> },
                   { path: "/time-clock", element: <TimeClockPage /> },
                   { path: "/occurrences", element: <OccurrencesPage /> },

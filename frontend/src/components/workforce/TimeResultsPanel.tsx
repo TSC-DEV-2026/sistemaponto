@@ -38,7 +38,15 @@ function marks(item: TimeResult) {
   return labels.join(" · ")
 }
 
-export function TimeResultsPanel({ employeeId, employees }: { employeeId?: number; employees?: Employee[] }) {
+export function TimeResultsPanel({
+  employeeId,
+  employees,
+  heading = true,
+}: {
+  employeeId?: number
+  employees?: Employee[]
+  heading?: boolean
+}) {
   const [selected, setSelected] = useState("")
   const [startsOn, setStartsOn] = useState(() => `${today().slice(0, 8)}01`)
   const [endsOn, setEndsOn] = useState(today)
@@ -61,7 +69,7 @@ export function TimeResultsPanel({ employeeId, employees }: { employeeId?: numbe
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium">Apuração</h2>
+      {heading ? <h2 className="text-sm font-medium">Apuração</h2> : null}
       <p className="text-sm text-muted-foreground">
         Usa as marcações que valem, a jornada vigente, o feriado e as ocorrências. Escala 5x2. Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Com banco, o excedente soma no saldo e o que fica abaixo compensa. Sem banco, o excedente é hora extra e a falta de tempo desconta. O adicional noturno não entra no saldo.
       </p>
