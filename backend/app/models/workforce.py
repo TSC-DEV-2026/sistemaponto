@@ -153,6 +153,7 @@ class Employee(Base):
     hour_bank = Column(Boolean, nullable=False, default=False)
     registration_number = Column(String(32), nullable=True)
     clock_method = Column(String(16), nullable=False, default="simple")
+    face_key = Column(String(255), nullable=True)
 
 
 class EmployeeVigency(Base):
@@ -185,6 +186,9 @@ class Punch(Base):
     qr_image = Column(LargeBinary, nullable=True)
     selfie_image = Column(LargeBinary, nullable=True)
     face_image = Column(LargeBinary, nullable=True)
+    qr_key = Column(String(255), nullable=True)
+    selfie_key = Column(String(255), nullable=True)
+    face_key = Column(String(255), nullable=True)
     client_event_id = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
 

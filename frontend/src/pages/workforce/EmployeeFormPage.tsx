@@ -40,6 +40,7 @@ export function EmployeeFormPage() {
   const [clockMethod, setClockMethod] = useState("simple")
   const [savedMethod, setSavedMethod] = useState("simple")
   const [faceFile, setFaceFile] = useState<File | null>(null)
+  const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export function EmployeeFormPage() {
         setRegistration(person.registration_number || "")
         setClockMethod(person.clock_method || "simple")
         setSavedMethod(person.clock_method || "simple")
+        setFaceUrl(person.face_url)
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -143,9 +145,14 @@ export function EmployeeFormPage() {
         <div className="space-y-2">
           <Label htmlFor="face-image">Foto de referência</Label>
           <input id="face-image" className={fieldClass} type="file" accept="image/png,image/jpeg" onChange={(event) => setFaceFile(event.target.files?.[0] ?? null)} />
+          {faceUrl ? (
+            <a className="text-sm font-medium" href={faceUrl} target="_blank" rel="noreferrer">
+              Ver foto de referência
+            </a>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {id === null || savedMethod !== "face"
-              ? "Obrigatória para o reconhecimento. O servidor guarda o embedding, não a comparação da foto em texto."
+              ? "Obrigatória para o reconhecimento. O servidor guarda o embedding e a foto."
               : "A foto já cadastrada permanece se você não enviar outra."}
           </p>
         </div>

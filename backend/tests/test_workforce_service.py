@@ -432,6 +432,27 @@ def fake_embed(data: bytes) -> list[float]:
     return vector
 
 
+class KeptFiles:
+    def __init__(self) -> None:
+        self.bodies: dict[str, bytes] = {}
+        self._n = 0
+
+    def _keep(self, key: str, body: bytes) -> str:
+        self.bodies[key] = body
+        return key
+
+    def save_punch(self, day: date, body: bytes) -> str:
+        self._n += 1
+        return self._keep(f"marcacoes/{day.isoformat()}/{self._n}.jpg", body)
+
+    def save_reference(self, body: bytes) -> str:
+        self._n += 1
+        return self._keep(f"referencias/{self._n}.jpg", body)
+
+    def presign_get(self, key: str, expires_in: int = 60) -> str:
+        return f"https://files.example/{key}"
+
+
 def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
     repo = Memory(capacity)
     return (
@@ -441,6 +462,7 @@ def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
             today=lambda: TODAY,
             clock=lambda: NOW,
             embedder=fake_embed,
+            files=KeptFiles(),
         ),
         repo,
     )
@@ -2172,8 +2194,12 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
     )
     assert marked.source == "qr"
     assert marked.channel is None
-    assert marked.qr_image.startswith(b"\xff\xd8\xff")
-    assert marked.selfie_image.startswith(b"\xff\xd8\xff")
+    assert marked.qr_key.startswith("marcacoes/2026-10-06/")
+    assert marked.selfie_key.startswith("marcacoes/2026-10-06/")
+    assert marked.qr_image is None
+    assert marked.selfie_image is None
+    assert workforce.files.bodies[marked.qr_key].startswith(b"\xff\xd8\xff")
+    assert workforce.files.bodies[marked.selfie_key].startswith(b"\xff\xd8\xff")
     workforce.update_employee(
         admin(),
         person["id"],
@@ -2215,8 +2241,13 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
         },
     )
     assert offline.source == "face" and offline.channel == "offline"
-    assert offline.face_image.startswith(b"\xff\xd8\xff")
+    assert offline.face_key.startswith("marcacoes/2026-10-06/")
+    assert online.face_key.startswith("marcacoes/2026-10-07/")
+    assert offline.face_image is None
     assert online.source == "face" and online.channel == "online"
+    reference = workforce.get_employee(admin(), person["id"])
+    assert reference["face_key"].startswith("referencias/")
+    assert reference["face_url"].startswith("https://files.example/referencias/")
     with pytest.raises(AppError) as stranger:
         workforce.punch_qr(
             admin(),

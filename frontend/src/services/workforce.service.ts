@@ -31,6 +31,8 @@ export type Employee = {
   hour_bank: boolean
   registration_number: string | null
   clock_method: string
+  face_key: string | null
+  face_url: string | null
   situation: string | null
   job_label: string | null
   journey_label: string | null
@@ -64,6 +66,12 @@ export type Punch = {
   voided_at: string | null
   channel: string | null
   created_at: string
+  qr_key: string | null
+  selfie_key: string | null
+  face_key: string | null
+  qr_url: string | null
+  selfie_url: string | null
+  face_url: string | null
 }
 
 export type PunchCode = {

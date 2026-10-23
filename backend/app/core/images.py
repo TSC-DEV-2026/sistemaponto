@@ -22,3 +22,11 @@ def decode_image(value: str, *, message: str) -> bytes:
     if not data.startswith(_JPEG) and not data.startswith(_PNG):
         raise AppError(400, message)
     return data
+
+
+def image_content_type(data: bytes) -> str:
+    if data.startswith(_JPEG):
+        return "image/jpeg"
+    if data.startswith(_PNG):
+        return "image/png"
+    raise AppError(400, "A foto não foi aceita.")

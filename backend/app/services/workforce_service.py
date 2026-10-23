@@ -130,12 +130,14 @@ class WorkforceService:
         today=today_in_brazil,
         clock=now_utc,
         embedder=None,
+        files: StorageService | None = None,
     ) -> None:
         self.repo = repo
         self.authenticator = authenticator
         self.today = today
         self.clock = clock
         self.embedder = embedder or embed_image
+        self.files = files or StorageService()
 
     def list_named(self, model, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
@@ -207,12 +209,12 @@ class WorkforceService:
     def create_employee(self, scope: Scope, data: dict) -> dict:
         self._admin(scope)
         payload = self._employee_payload(scope, data, current=None)
-        vector = self._reference_vector(data, payload["clock_method"])
+        vector, face_key = self._reference_photo(data, payload["clock_method"])
         if payload["clock_method"] == "face" and vector is None:
             raise AppError(400, "Informe a foto de referência.")
         self._assert_open(scope.tenant_id, payload["admission_date"])
         self._assert_capacity(scope)
-        row = self.repo.add(Employee(tenant_id=scope.tenant_id, **payload))
+        row = self.repo.add(Employee(tenant_id=scope.tenant_id, face_key=face_key, **payload))
         self.repo.add(
             EmployeeVigency(
                 tenant_id=scope.tenant_id,
@@ -236,13 +238,15 @@ class WorkforceService:
         row = self._employee(scope, employee_id)
         payload = self._employee_payload(scope, data, current=row)
         next_method = payload.get("clock_method", row.clock_method or "simple")
-        vector = self._reference_vector(data, next_method)
+        vector, face_key = self._reference_photo(data, next_method)
         if next_method == "face" and vector is None and self._embedding(scope, row.id) is None:
             raise AppError(400, "Informe a foto de referência.")
         if "admission_date" in payload:
             self._assert_open(scope.tenant_id, payload["admission_date"])
         for key, value in payload.items():
             setattr(row, key, value)
+        if face_key is not None:
+            row.face_key = face_key
         self.repo.add(row)
         if vector is not None:
             self._write_embedding(scope, row.id, vector)
@@ -348,12 +352,21 @@ class WorkforceService:
         raise AppError(409, "A vigência permanece no histórico.")
 
     def list_punches(self, scope: Scope, page: int, limit: int, equals: dict):
-        return self._scoped_list(scope, Punch, page, limit, equals)
+        rows, total = self._scoped_list(scope, Punch, page, limit, equals)
+        for row in rows:
+            self._punch_links(row)
+        return rows, total
 
     def get_punch(self, scope: Scope, row_id: int) -> Punch:
         row = self._row(Punch, scope, row_id)
         self._visible(scope, row.employee_id)
+        self._punch_links(row)
         return row
+
+    def _punch_links(self, row: Punch) -> None:
+        row.qr_url = self._photo_url(getattr(row, "qr_key", None))
+        row.selfie_url = self._photo_url(getattr(row, "selfie_key", None))
+        row.face_url = self._photo_url(getattr(row, "face_key", None))
 
     def create_punch(
         self,
@@ -376,6 +389,7 @@ class WorkforceService:
         assert_not_future(occurred, self.today())
         self._assert_working(scope, employee)
         self._assert_open(scope.tenant_id, self._punch_day(occurred))
+        day = occurred.astimezone(BR).date()
         row = self.repo.add(
             Punch(
                 tenant_id=scope.tenant_id,
@@ -387,13 +401,14 @@ class WorkforceService:
                 valid=True,
                 voided_at=None,
                 channel=channel,
-                qr_image=qr_image,
-                selfie_image=selfie_image,
-                face_image=face_image,
+                qr_key=self.files.save_punch(day, qr_image) if qr_image else None,
+                selfie_key=self.files.save_punch(day, selfie_image) if selfie_image else None,
+                face_key=self.files.save_punch(day, face_image) if face_image else None,
                 client_event_id=client_event_id,
                 created_at=self.clock(),
             )
         )
+        self._punch_links(row)
         self._audit(scope, employee.id, "punch", row.id, None, "Marcação", self._punch_day(occurred))
         return row
 
@@ -1620,18 +1635,19 @@ class WorkforceService:
             logger.info("vínculo criado person_id=%s tenant_id=%s", person_id, scope.tenant_id)
         return person_id
 
-    def _reference_vector(self, data: dict, method: str) -> list[float] | None:
+    def _reference_photo(self, data: dict, method: str) -> tuple[list[float] | None, str | None]:
         image = data.get("face_image")
         if not image or method != "face":
-            return None
+            return None, None
         decoded = decode_image(str(image), message="A foto de referência não foi aceita.")
         try:
-            return self.embedder(decoded)
+            vector = self.embedder(decoded)
         except AppError:
             raise
         except Exception:
             logger.exception("falha ao gravar a foto de referência")
             raise AppError(503, "Reconhecimento indisponível") from None
+        return vector, self.files.save_reference(decoded)
 
     def _write_embedding(self, scope: Scope, employee_id: int, vector: list[float]) -> None:
         current = self._embedding(scope, employee_id)
@@ -1760,6 +1776,8 @@ class WorkforceService:
             "hour_bank": bool(row.hour_bank),
             "registration_number": row.registration_number,
             "clock_method": row.clock_method or "simple",
+            "face_key": row.face_key,
+            "face_url": self._photo_url(row.face_key),
         }
         for kind, field in KIND_FIELD.items():
             item = labels.get(kind)
@@ -1992,7 +2010,7 @@ class WorkforceService:
         if not key:
             return None
         try:
-            return StorageService().presign_get(key)
+            return self.files.presign_get(key)
         except AppError:
             return None
 

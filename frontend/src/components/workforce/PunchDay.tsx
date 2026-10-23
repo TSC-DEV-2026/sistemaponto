@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
 import { brazilMoment, punchOrigin, showDateTime } from "@/utils/labels"
 
@@ -174,6 +175,13 @@ function PunchGroup({
             {item.channel === "online" ? " · online" : item.channel === "offline" ? " · offline" : ""}
             {item.note ? ` · ${item.note}` : ""}
             {item.voided_at ? ` · deixou de valer em ${showDateTime(item.voided_at)}` : ""}
+            {item.qr_url || item.selfie_url || item.face_url ? (
+              <span className="mt-1 flex flex-wrap gap-3">
+                <DocumentLink href={item.qr_url} label="Ver QR" />
+                <DocumentLink href={item.selfie_url} label="Ver selfie" />
+                <DocumentLink href={item.face_url} label="Ver rosto" />
+              </span>
+            ) : null}
           </li>
         ))}
         {punches.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">{empty}</li> : null}
