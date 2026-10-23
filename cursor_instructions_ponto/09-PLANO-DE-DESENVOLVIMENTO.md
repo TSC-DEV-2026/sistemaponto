@@ -98,3 +98,17 @@ Depois de registrar, simples, QR Code ou facial, o aplicativo mostra na hora o r
 A home separa o que hoje está junto, em opções: Registro, Apuração do mês, Marcações e Banco de horas. O registro mostra só o tipo da ficha.
 
 Sem rede, a sessão já guardada permanece e a tela abre. O reconhecimento facial usa o embedding local e deixa a marcação na fila do aparelho, como o Ponto 2 já define. Jornada, apuração, marcações do mês e banco podem deixar de carregar. Essa falta não bloqueia o registro facial.
+
+## Ponto 8 — Fotos da marcação e da referência no bucket
+
+A foto da marcação deixa de ficar no banco. Hoje `punches` guarda em `bytea` a captura do rosto, a selfie do QR Code e a foto do próprio QR. A lista de Marcações não mostra imagem, mas a consulta traz esses arquivos. O banco está em outro servidor, e esse volume deixa a lista lenta.
+
+No cadastro, quando o tipo é reconhecimento facial, o site pede a foto de referência. Hoje essa foto só gera o embedding e não fica guardada. Ela também vai para o bucket. O embedding continua no banco, porque é ele que compara o rosto. Na ficha fica o caminho do arquivo.
+
+O aplicativo continua enviando a imagem da marcação em base64. A credencial do bucket não vai para o app nem para o site. A API confere o ponto como hoje: o QR tem de ser da pessoa logada, e o rosto tem de passar na comparação.
+
+Só depois da marcação aceita, e ao gravar ou trocar a foto de referência, a API sobe o arquivo no bucket `sistemaponto`, pelo armazenamento que já grava a foto do atestado. O caminho volta no formato `empresa/pasta/arquivo.jpg`. A selfie, a captura do rosto, a foto do QR e a foto de referência ficam em pastas separadas. Na marcação, o caminho substitui o `bytea`.
+
+A lista de Marcações passa a trazer só texto. Para ver a imagem da marcação ou a foto de referência da ficha, uma consulta à parte usa o caminho e gera um link temporário, no mesmo modelo da foto do atestado.
+
+A fila offline do celular continua com a foto no aparelho. Quando a marcação sobe, a API grava no bucket. As fotos que já estão em `bytea` são copiadas uma vez para o bucket e o binário delas é esvaziado. Sem isso, a lista dessas marcações antigas continua lenta.
