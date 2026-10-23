@@ -62,6 +62,22 @@ function Install-Backend {
     }
 }
 
+function Update-Database {
+    Write-Host "Atualizando o banco..."
+    $backendDir = Join-Path $root "backend"
+    $venvPython = Join-Path $backendDir ".venv\Scripts\python.exe"
+    Push-Location $backendDir
+    try {
+        & $venvPython -m alembic upgrade head
+        if ($LASTEXITCODE -ne 0) {
+            throw "Não consegui atualizar o banco. Nada foi iniciado."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Install-Frontend {
     Write-Host "Conferindo dependências do site..."
     Push-Location (Join-Path $root "frontend")
@@ -88,6 +104,7 @@ if (Test-Listening 5175) {
 try {
     Update-Code
     Install-Backend
+    Update-Database
     Install-Frontend
 }
 catch {
