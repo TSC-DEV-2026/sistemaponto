@@ -69,11 +69,8 @@ function MonthField({ id, value, onChange }: { id: string; value: string; onChan
 
 export function TimeClockPage() {
   const personId = useAuthStore((state) => state.user?.person_id)
-  const role = useAuthStore((state) => state.user?.role)
-  const isAdmin = role === "admin"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [selected, setSelected] = useState("")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const mine = employees.find((item) => item.person_id === personId) ?? null
@@ -113,7 +110,7 @@ export function TimeClockPage() {
       <div>
         <h1 className="text-xl font-semibold">Registro de Ponto</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          O próprio funcionário registra pelo tipo da ficha. QR Code e reconhecimento facial são feitos no aplicativo. O administrador registra a marcação de outra pessoa por aqui.
+          O próprio funcionário registra pelo tipo da ficha. O simples é o botão nesta tela. QR Code e reconhecimento facial são feitos no aplicativo.
         </p>
       </div>
       {mine ? (
@@ -131,25 +128,6 @@ export function TimeClockPage() {
       ) : (
         <p className="text-sm text-muted-foreground">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p>
       )}
-      {isAdmin ? (
-        <section className="space-y-3 rounded-md border border-border bg-card p-3">
-          <h2 className="text-sm font-medium">Registro do administrador</h2>
-          <div className="space-y-2">
-            <Label htmlFor="clock-employee">Funcionário</Label>
-            <select id="clock-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)}>
-              <option value="">Selecione</option>
-              {employees.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="button" disabled={!selected} onClick={() => punchSimple(Number(selected))}>
-            Registrar
-          </Button>
-        </section>
-      ) : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
