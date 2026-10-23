@@ -16,7 +16,7 @@ import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 import { qrCardsPdf } from "@/utils/qr-cards-pdf"
 
-const TabAction = createContext<(node: ReactNode) => void>(() => {})
+export const TabAction = createContext<(node: ReactNode) => void>(() => {})
 
 type ListSelect = {
   key: string
@@ -347,6 +347,10 @@ export function CatalogList({ catalog }: { catalog: string }) {
       editTo={(id) => `${entry.backTo.split("?")[0]}/${catalog}/${id}/edit`}
       nameOf={(item) => item.name}
       detailOf={(item) => {
+        if (item.morning_start !== undefined || item.afternoon_start !== undefined || item.morning_end !== undefined || item.afternoon_end !== undefined) {
+          const hour = (value?: string | null) => (value ? value.slice(0, 5) : "—")
+          return `${hour(item.morning_start)}–${hour(item.morning_end)} / ${hour(item.afternoon_start)}–${hour(item.afternoon_end)}`
+        }
         if (typeof item.active === "boolean") return item.active ? "Ativo" : "Inativo"
         if (item.holiday_date) return showDate(item.holiday_date)
         return ""
