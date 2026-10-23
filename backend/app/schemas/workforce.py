@@ -190,6 +190,8 @@ class EmployeeOut(BaseModel):
     hour_bank: bool
     registration_number: str | None
     clock_method: str
+    face_key: str | None = None
+    face_url: str | None = None
     situation: str | None
     job_label: str | None
     journey_label: str | None
@@ -250,6 +252,12 @@ class PunchOut(BaseModel):
     voided_at: datetime | None
     channel: str | None
     created_at: datetime
+    qr_key: str | None = None
+    selfie_key: str | None = None
+    face_key: str | None = None
+    qr_url: str | None = None
+    selfie_url: str | None = None
+    face_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

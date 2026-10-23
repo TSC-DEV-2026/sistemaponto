@@ -137,13 +137,13 @@ export function TimeOffFields({
   )
 }
 
-export function DocumentLink({ href }: { href: string | null }) {
+export function DocumentLink({ href, label = "Ver documento" }: { href: string | null; label?: string }) {
   if (!href) {
     return null
   }
   return (
     <a className="font-medium" href={href} target="_blank" rel="noreferrer">
-      Ver documento
+      {label}
     </a>
   )
 }

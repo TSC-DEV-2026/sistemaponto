@@ -1,8 +1,10 @@
 import logging
+from datetime import date
 from uuid import uuid4
 
 from app.core.config import settings
 from app.core.exceptions import AppError
+from app.core.images import image_content_type
 
 logger = logging.getLogger("base.storage")
 
@@ -51,6 +53,21 @@ class StorageService:
 
     def upload(self, *, tenant_id: int, folder: str, content_type: str, body: bytes) -> str:
         key = self.build_key(tenant_id, folder, content_type, len(body))
+        return self._put(key, body, content_type, tenant_id=tenant_id)
+
+    def save_punch(self, day: date, body: bytes) -> str:
+        content_type = image_content_type(body)
+        extension = self.validate_upload(content_type, len(body))
+        key = f"marcacoes/{day.isoformat()}/{uuid4().hex}.{extension}"
+        return self._put(key, body, content_type)
+
+    def save_reference(self, body: bytes) -> str:
+        content_type = image_content_type(body)
+        extension = self.validate_upload(content_type, len(body))
+        key = f"referencias/{uuid4().hex}.{extension}"
+        return self._put(key, body, content_type)
+
+    def _put(self, key: str, body: bytes, content_type: str, tenant_id: int | None = None) -> str:
         self._client().put_object(Bucket=settings.R2_BUCKET, Key=key, Body=body, ContentType=content_type)
         logger.info("objeto gravado tenant_id=%s", tenant_id)
         return key
