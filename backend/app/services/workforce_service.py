@@ -1701,7 +1701,7 @@ class WorkforceService:
         return row
 
     def _assert_clock_method(self, employee: Employee, source: str) -> None:
-        if source in {"admin", "manual", "approved_request", "afd"}:
+        if source in {"manual", "approved_request", "afd"}:
             return
         expected = {"employee": "simple", "qr": "qr", "face": "face"}.get(source)
         if expected is None or employee.clock_method != expected:
@@ -2082,16 +2082,16 @@ class WorkforceService:
         if source == "afd":
             self._can_manage_period(scope)
             return
-        if scope.role == "admin":
+        if source == "manual":
+            self._admin(scope)
             return
-        if employee.person_id == scope.person_id:
-            return
-        raise AppError(403, "Sem permissão")
+        if source not in {None, "employee", "qr", "face"} or employee.person_id != scope.person_id:
+            raise AppError(403, "Sem permissão")
 
     def _punch_source(self, scope: Scope, employee: Employee) -> str:
-        if employee.person_id == scope.person_id:
-            return "employee"
-        return "admin"
+        if employee.person_id != scope.person_id:
+            raise AppError(403, "Sem permissão")
+        return "employee"
 
     def _assert_working(self, scope: Scope, employee: Employee) -> None:
         current = self.repo.applicable(employee.id, "status", self.today())

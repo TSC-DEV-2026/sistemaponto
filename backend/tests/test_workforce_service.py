@@ -629,7 +629,10 @@ def test_aprovacao_substitui_as_marcacoes_validas_do_dia():
     morning = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
     leaving = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(17, 0), "note": None})
     previous_day = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, day=5), "note": None})
-    neighbor = workforce.create_punch(admin(), {"employee_id": other["id"], "occurred_at": at(8, 0), "note": None})
+    neighbor = workforce.create_punch(
+        scope(other["person_id"], "member"),
+        {"employee_id": other["id"], "occurred_at": at(8, 0), "note": None},
+    )
     created = workforce.create_request(admin(), adjustment([at(8, 12), at(12, 2), at(13, 1), at(18, 4)], "Esqueci a saída"))
     workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
     assert morning.valid is False and morning.voided_at == NOW
@@ -1010,11 +1013,13 @@ def work_journey(workforce: WorkforceService, employee_id: int, name: str = "Com
 
 
 def mark(workforce: WorkforceService, employee_id: int, day: int, *clocks: tuple[int, int]):
+    person_id = workforce.get_employee(admin(), employee_id)["person_id"]
+    actor = scope(person_id, "member")
     rows = []
     for hour, minute in clocks:
         rows.append(
             workforce.create_punch(
-                admin(),
+                actor,
                 {"employee_id": employee_id, "occurred_at": at(hour, minute, day), "note": None},
             )
         )
@@ -1571,7 +1576,10 @@ def test_conflito_impede_o_fechamento_e_intervalo_menor_nao():
     closed = workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     assert closed["status"] == "closed"
     other = workforce.create_employee(admin(), employee_payload("10987654321", None))
-    workforce.create_punch(admin(), {"employee_id": other["id"], "occurred_at": at(8, 0, 5), "note": None})
+    workforce.create_punch(
+        scope(other["person_id"], "member"),
+        {"employee_id": other["id"], "occurred_at": at(8, 0, 5), "note": None},
+    )
     workforce.create_occurrence(
         admin(),
         {
@@ -2061,6 +2069,20 @@ def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
     with pytest.raises(AppError) as member:
         workforce.report(scope(9, "member"), "punch", start, end, mate["id"], 1, 10)
     assert member.value.status_code == 403
+
+
+def test_administrador_nao_marca_por_outra_pessoa():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    other = workforce.create_employee(admin(), employee_payload("10987654321", None))
+    own = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    assert own.source == "employee"
+    with pytest.raises(AppError) as caught:
+        workforce.create_punch(admin(), {"employee_id": other["id"], "occurred_at": at(8, 5), "note": None})
+    assert caught.value.status_code == 403
+    corrected = workforce.correct_punches(admin(), {"employee_id": other["id"], "punches": [at(9, 0)], "note": None})
+    assert corrected["origin"] == "manual"
+    assert corrected["punches"][0].source == "manual"
 
 
 def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
