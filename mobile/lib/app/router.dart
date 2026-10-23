@@ -46,9 +46,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
       if (auth.isAuthenticated && isPublic) {
-        return auth.user?.activeTenant == null ? '/select-tenant' : '/';
+        if (auth.user == null) {
+          return '/';
+        }
+        return auth.user!.activeTenant == null ? '/select-tenant' : '/';
       }
-      final needsTenant = auth.isAuthenticated && auth.user?.activeTenant == null;
+      if (auth.isAuthenticated && auth.user == null) {
+        return location == '/' ? null : '/';
+      }
+      final needsTenant = auth.isAuthenticated && auth.user != null && auth.user!.activeTenant == null;
       if (needsTenant && location != '/select-tenant') {
         return '/select-tenant';
       }

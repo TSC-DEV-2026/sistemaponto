@@ -72,7 +72,10 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
       setState(() => _error = 'Fotografe o QR Code e a selfie.');
       return;
     }
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _locked = true;
+    });
     try {
       await ClockFlow(ref.read(apiClientProvider)).punchQr(
         employeeId: widget.employeeId,
@@ -81,17 +84,11 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
         selfie: await selfie.readAsBytes(),
       );
       if (mounted) {
-        Navigator.of(context).pop('Marcação por QR registrada.');
+        Navigator.of(context).pop(const PunchResult(message: 'Marcação por QR registrada.', ok: true));
       }
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() {
-          _locked = false;
-          _content = null;
-          _qrImage = null;
-          _selfieFile = null;
-          _error = error.message;
-        });
+        Navigator.of(context).pop(PunchResult(message: error.message, ok: false));
       }
     }
   }
