@@ -7,7 +7,14 @@ import 'token_store.dart';
 class ApiClient {
   ApiClient(this.store) {
     final base = dotenv.env['API_URL'] ?? '';
-    dio = Dio(BaseOptions(baseUrl: base));
+    dio = Dio(
+      BaseOptions(
+        baseUrl: base,
+        connectTimeout: const Duration(seconds: 8),
+        sendTimeout: const Duration(seconds: 45),
+        receiveTimeout: const Duration(seconds: 45),
+      ),
+    );
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -35,7 +42,14 @@ class ApiClient {
             return;
           }
           try {
-            final fresh = Dio(BaseOptions(baseUrl: dio.options.baseUrl));
+            final fresh = Dio(
+              BaseOptions(
+                baseUrl: dio.options.baseUrl,
+                connectTimeout: dio.options.connectTimeout,
+                sendTimeout: dio.options.sendTimeout,
+                receiveTimeout: dio.options.receiveTimeout,
+              ),
+            );
             final response = await fresh.post<Map<String, dynamic>>(
               '/api/v1/auth/refresh',
               data: {'refresh_token': refresh},

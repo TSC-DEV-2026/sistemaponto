@@ -13,6 +13,13 @@ import '../../../face/mlkit_face_detector.dart';
 import 'page_items.dart';
 import 'clock_store.dart';
 
+class PunchResult {
+  const PunchResult({required this.message, required this.ok});
+
+  final String message;
+  final bool ok;
+}
+
 class ClockFlow {
   ClockFlow(this.client, {ClockStore? store}) : store = store ?? ClockStore.instance;
 

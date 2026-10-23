@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/api_exception.dart';
 import '../../../data/models/session_user.dart';
 import '../../../data/network/dio_client.dart';
 import '../../../data/network/token_store.dart';
+import '../../../data/network/stored_session.dart';
 import '../data/auth_service.dart';
 
 class AuthState {
@@ -50,10 +54,40 @@ class AuthNotifier extends Notifier<AuthState> {
       state = const AuthState(ready: true);
       return;
     }
+    final cached = await _store.readSession();
+    if (cached != null) {
+      state = AuthState(ready: true, accessToken: _store.access, user: cached);
+      unawaited(_refreshSession());
+      return;
+    }
     try {
       final user = await _service.me();
+      await _store.saveSession(user);
       state = AuthState(ready: true, accessToken: _store.access, user: user);
+    } on ApiException catch (error) {
+      if (sessionDroppedByStatus(error.statusCode)) {
+        await _store.clear();
+        state = const AuthState(ready: true);
+        return;
+      }
+      state = AuthState(ready: true, accessToken: _store.access);
     } catch (_) {
+      state = AuthState(ready: true, accessToken: _store.access);
+    }
+  }
+
+  Future<void> _refreshSession() async {
+    try {
+      final user = await _service.me();
+      if (!state.isAuthenticated) {
+        return;
+      }
+      await _store.saveSession(user);
+      state = AuthState(ready: true, accessToken: _store.access, user: user);
+    } on ApiException catch (error) {
+      if (!sessionDroppedByStatus(error.statusCode) || !state.isAuthenticated) {
+        return;
+      }
       await _store.clear();
       state = const AuthState(ready: true);
     }
@@ -67,6 +101,7 @@ class AuthNotifier extends Notifier<AuthState> {
       return;
     }
     await _store.save(access, refresh);
+    await _store.saveSession(issued.user);
     state = AuthState(ready: true, accessToken: access, user: issued.user);
   }
 
