@@ -33,6 +33,8 @@ from app.schemas.workforce import (
     ClosingOut,
     ClosingUpdate,
     DashboardOut,
+    EmployeeBulkCreate,
+    EmployeeBulkOut,
     EmployeeCreate,
     FiscalFileCreate,
     FiscalFileOut,
@@ -108,6 +110,11 @@ INT_FILTERS = {
     "unit_id",
     "sector_id",
     "union_id",
+    "job_id",
+    "journey_id",
+    "cost_center_id",
+    "team_id",
+    "manager_id",
     "employee_id",
     "person_id",
     "year",
@@ -337,8 +344,25 @@ subscriptions = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 charges = APIRouter(prefix="/charges", tags=["charges"])
 
 
-@employees.get("", summary="Listar funcionários", description="Filtros: full_name, cpf, person_id.")
-@searchable("full_name", "cpf", "person_id")
+@employees.get(
+    "",
+    summary="Listar funcionários",
+    description="Filtros: full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, sector_id, team_id, union_id, manager_id, situation.",
+)
+@searchable(
+    "full_name",
+    "cpf",
+    "person_id",
+    "job_id",
+    "journey_id",
+    "cost_center_id",
+    "unit_id",
+    "sector_id",
+    "team_id",
+    "union_id",
+    "manager_id",
+    "situation",
+)
 def list_employees(
     request: Request,
     page: int = Query(1, ge=1),
@@ -348,8 +372,44 @@ def list_employees(
     service: WorkforceService = Depends(get_workforce_service),
 ):
     scope = as_scope(actor)
-    items, total = service.list_employees(scope, page, limit, read_filters(request, ("full_name", "cpf", "person_id")))
+    items, total = service.list_employees(
+        scope,
+        page,
+        limit,
+        read_filters(
+            request,
+            (
+                "full_name",
+                "cpf",
+                "person_id",
+                "job_id",
+                "journey_id",
+                "cost_center_id",
+                "unit_id",
+                "sector_id",
+                "team_id",
+                "union_id",
+                "manager_id",
+                "situation",
+            ),
+        ),
+    )
     return json_data(dump_page(service.employees_out(items), total, page, limit, EmployeeOut, fields))
+
+
+@employees.post(
+    "/changes",
+    status_code=201,
+    summary="Alterar funcionários em massa",
+    description="Uma operação por vez: cargo, jornada, centro de custo, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e unidade. Se uma pessoa falhar, nenhuma do lote é salva.",
+)
+def change_employees(
+    body: EmployeeBulkCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    result = service.change_employees(as_scope(actor), body.model_dump())
+    return json_data(dump_one(result, EmployeeBulkOut, None), status_code=201)
 
 
 @employees.get("/{row_id}", summary="Detalhe do funcionário")
@@ -366,7 +426,7 @@ def get_employee(
     "",
     status_code=201,
     summary="Criar funcionário",
-    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta empresa, cria o papel member. O tipo de registro padrão é simple. O tipo face exige a foto de referência.",
+    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta empresa, cria o papel member. O tipo de registro padrão é simple. O reconhecimento facial pode ser salvo sem foto de referência.",
 )
 def create_employee(
     body: EmployeeCreate,
@@ -380,7 +440,7 @@ def create_employee(
 @employees.put(
     "/{row_id}",
     summary="Atualizar funcionário",
-    description="Altera a ficha, inclusive o tipo de registro. O person_id gravado permanece. Trocar para face exige a foto de referência quando ela ainda não existe.",
+    description="Altera a ficha, inclusive o tipo de registro. O person_id gravado permanece. O reconhecimento facial pode ser salvo sem foto de referência.",
 )
 def update_employee(
     row_id: int,

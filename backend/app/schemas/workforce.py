@@ -205,6 +205,32 @@ class EmployeeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+BulkKind = Literal[
+    "job",
+    "journey",
+    "cost_center",
+    "team",
+    "union",
+    "manager",
+    "status",
+    "clock_method",
+]
+
+
+class EmployeeBulkCreate(BaseModel):
+    employee_ids: list[int] = Field(min_length=1)
+    kind: BulkKind
+    reference_id: int | None = None
+    label: str | None = Field(default=None, max_length=255)
+    clock_method: Literal["simple", "qr", "face"] | None = None
+    valid_from: date | None = None
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class EmployeeBulkOut(BaseModel):
+    changed: int
+
+
 class VigencyCreate(BaseModel):
     employee_id: int
     kind: VigencyKind

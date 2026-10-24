@@ -101,6 +101,26 @@ REF_MODELS = {
     "union": LaborUnion,
     "manager": Employee,
 }
+BULK_KINDS = (
+    "job",
+    "journey",
+    "cost_center",
+    "team",
+    "union",
+    "manager",
+    "status",
+    "clock_method",
+)
+VIGENCY_QUERY = {
+    "job_id": "job",
+    "journey_id": "journey",
+    "cost_center_id": "cost_center",
+    "unit_id": "unit",
+    "sector_id": "sector",
+    "team_id": "team",
+    "union_id": "union",
+    "manager_id": "manager",
+}
 KIND_FIELD = {
     "status": "situation",
     "job": "job_label",
@@ -187,6 +207,9 @@ class WorkforceService:
             else:
                 filters.pop("full_name")
         ids = self._visible_ids(scope)
+        matched = self._vigency_matches(scope, filters)
+        if matched is not None:
+            ids = list(matched) if ids is None else [item for item in ids if item in matched]
         if "person_id" in filters and ids is not None:
             own = self.repo.list_employees(
                 scope.tenant_id, ids=None, page=1, limit=1, equals={"person_id": filters["person_id"]}
@@ -194,6 +217,24 @@ class WorkforceService:
             if not own or own[0].id not in ids:
                 return [], 0
         return self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=limit, equals=filters)
+
+    def _vigency_matches(self, scope: Scope, filters: dict) -> set[int] | None:
+        matched: set[int] | None = None
+        for key, kind in VIGENCY_QUERY.items():
+            if key not in filters:
+                continue
+            found = set(
+                self.repo.applicable_ids(scope.tenant_id, kind, self.today(), reference_id=int(filters.pop(key)))
+            )
+            matched = found if matched is None else matched & found
+        if "situation" in filters:
+            situation = str(filters.pop("situation") or "").strip()
+            if situation:
+                if situation not in STATUS_LABELS:
+                    raise AppError(400, "Situação inválida")
+                found = set(self.repo.applicable_ids(scope.tenant_id, "status", self.today(), label=situation))
+                matched = found if matched is None else matched & found
+        return matched
 
     def employees_out(self, rows: list[Employee]) -> list[dict]:
         labels = self.repo.labels_on([row.id for row in rows], self.today())
@@ -210,8 +251,6 @@ class WorkforceService:
         self._admin(scope)
         payload = self._employee_payload(scope, data, current=None)
         vector, face_key = self._reference_photo(data, payload["clock_method"])
-        if payload["clock_method"] == "face" and vector is None:
-            raise AppError(400, "Informe a foto de referência.")
         self._assert_open(scope.tenant_id, payload["admission_date"])
         self._assert_capacity(scope)
         row = self.repo.add(Employee(tenant_id=scope.tenant_id, face_key=face_key, **payload))
@@ -239,8 +278,6 @@ class WorkforceService:
         payload = self._employee_payload(scope, data, current=row)
         next_method = payload.get("clock_method", row.clock_method or "simple")
         vector, face_key = self._reference_photo(data, next_method)
-        if next_method == "face" and vector is None and self._embedding(scope, row.id) is None:
-            raise AppError(400, "Informe a foto de referência.")
         if "admission_date" in payload:
             self._assert_open(scope.tenant_id, payload["admission_date"])
         for key, value in payload.items():
@@ -358,6 +395,91 @@ class WorkforceService:
         )
         self._audit(scope, employee_id, kind, row.id, current.label if current else None, label, valid_from)
         return row
+
+    def change_employees(self, scope: Scope, data: dict) -> dict:
+        self._admin(scope)
+        raw_ids = data.get("employee_ids") or []
+        if not raw_ids:
+            raise AppError(400, "Selecione ao menos um funcionário.")
+        seen: list[int] = []
+        for value in raw_ids:
+            employee_id = int(value)
+            if employee_id not in seen:
+                seen.append(employee_id)
+        kind = str(data.get("kind") or "")
+        if kind not in BULK_KINDS:
+            raise AppError(400, "Operação inválida")
+        people = []
+        for employee_id in seen:
+            row = self.repo.get_row(Employee, scope.tenant_id, employee_id)
+            if row is None:
+                raise AppError(404, "Há um funcionário da seleção que não existe.")
+            people.append(row)
+        if kind == "clock_method":
+            method = str(data.get("clock_method") or "").strip().lower()
+            if method not in {"simple", "qr", "face"}:
+                raise AppError(400, "Tipo de registro inválido")
+            for row in people:
+                row.clock_method = method
+                self.repo.add(row)
+            return {"changed": len(people)}
+        valid_from = data.get("valid_from")
+        if valid_from is None:
+            raise AppError(400, "Informe a vigência")
+        try:
+            self._assert_open(scope.tenant_id, valid_from)
+        except AppError as error:
+            raise AppError(error.status_code, f"{people[0].full_name}: {error.message}") from None
+        note = self._note(data.get("note"))
+        extras: list[tuple[str, int, str]] = []
+        if kind == "status":
+            label = str(data.get("label") or "").strip()
+            if label not in STATUS_LABELS:
+                raise AppError(400, "Situação inválida")
+            reference_id = None
+        else:
+            if data.get("reference_id") is None:
+                raise AppError(400, "Selecione o cadastro")
+            target = self._row(REF_MODELS[kind], scope, int(data["reference_id"]))
+            reference_id = target.id
+            label = target.full_name if kind == "manager" else target.name
+            if kind == "manager":
+                for row in people:
+                    if row.id == target.id:
+                        raise AppError(400, f"{row.full_name}: o gestor precisa ser outro funcionário.")
+            if kind == "team":
+                sector = self._row(Sector, scope, int(target.sector_id))
+                unit = self._row(Unit, scope, int(sector.unit_id))
+                extras = [("sector", sector.id, sector.name), ("unit", unit.id, unit.name)]
+        if kind == "status" and label == "active":
+            entering = [row for row in people if not self._occupies(row.id, self.today())]
+            if entering:
+                tenant = self.repo.get_tenant(scope.tenant_id)
+                if tenant is None:
+                    raise AppError(404, "Empresa não encontrada")
+                active = self.repo.count_active(scope.tenant_id, self.today())
+                if active + len(entering) > tenant.employee_capacity:
+                    raise AppError(409, f"{entering[0].full_name}: limite de funcionários do plano atingido")
+        for row in people:
+            self._assert_can_replace(scope, row, kind, valid_from)
+            for extra_kind, _extra_id, _extra_label in extras:
+                self._assert_can_replace(scope, row, extra_kind, valid_from)
+        for row in people:
+            self._replace_vigency(scope, row.id, kind, reference_id, label, valid_from, note)
+            for extra_kind, extra_id, extra_label in extras:
+                self._replace_vigency(scope, row.id, extra_kind, extra_id, extra_label, valid_from, note)
+        return {"changed": len(people)}
+
+    def _assert_can_replace(self, scope: Scope, employee: Employee, kind: str, valid_from: date) -> None:
+        current = self.repo.open_vigency(employee.id, kind)
+        if current is None or current.valid_from == valid_from:
+            return
+        try:
+            end = previous_end(current.valid_from, valid_from)
+        except AppError as error:
+            raise AppError(error.status_code, f"{employee.full_name}: {error.message}") from None
+        if self.repo.closed_covering(scope.tenant_id, end) is not None:
+            raise AppError(409, f"{employee.full_name}: período fechado")
 
     def update_vigency(self, scope: Scope, row_id: int, data: dict) -> EmployeeVigency:
         self._admin(scope)

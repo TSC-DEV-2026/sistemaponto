@@ -236,6 +236,38 @@ class WorkforceRepository:
             .first()
         )
 
+    def applicable_ids(
+        self,
+        tenant_id: int,
+        kind: str,
+        day: date,
+        *,
+        reference_id: int | None = None,
+        label: str | None = None,
+    ) -> list[int]:
+        rows = (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.kind == kind,
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
+            .all()
+        )
+        chosen: dict[int, EmployeeVigency] = {}
+        for row in rows:
+            chosen[row.employee_id] = row
+        found = []
+        for employee_id, row in chosen.items():
+            if reference_id is not None and row.reference_id != reference_id:
+                continue
+            if label is not None and row.label != label:
+                continue
+            found.append(employee_id)
+        return found
+
     def employee_ids_for_team(self, tenant_id: int, team_id: int, day: date) -> list[int]:
         rows = (
             self.db.query(EmployeeVigency.employee_id)

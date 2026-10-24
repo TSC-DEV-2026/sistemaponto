@@ -48,27 +48,31 @@ export function AppShell() {
             <DashboardIcon className="h-4 w-4" />
             {dashboardItem.label}
           </Link>
-          {navGroups.map((group) => (
-            <div key={group.label} className="flex flex-col gap-1">
-              <p className="px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
-              {group.items.map((item) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={cn(
-                      "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                      isActive(location.pathname, item.to) && "bg-muted font-medium",
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
+          {navGroups.map((group) => {
+            const items = group.items.filter((item) => !item.adminOnly || user?.role === "admin")
+            if (items.length === 0) return null
+            return (
+              <div key={group.label} className="flex flex-col gap-1">
+                <p className="px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
+                {items.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                        isActive(location.pathname, item.to) && "bg-muted font-medium",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          })}
         </nav>
         <div className="mt-auto space-y-3 p-4">
           <TenantSwitcher />

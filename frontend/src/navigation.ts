@@ -3,6 +3,7 @@ import {
   Building2,
   ClipboardList,
   Clock,
+  ListChecks,
   CreditCard,
   FileSpreadsheet,
   Inbox,
@@ -28,6 +29,7 @@ export type NavItem = {
   icon: LucideIcon
   lead: string
   sections: DomainSection[]
+  adminOnly?: boolean
 }
 
 export type NavGroup = {
@@ -117,6 +119,17 @@ export const navGroups: NavGroup[] = [
           { title: "Funcionários", text: "Nenhum funcionário." },
           { title: "Cargos", text: "Nenhum cargo." },
           { title: "Centros de custo", text: "Nenhum centro de custo." },
+        ],
+      },
+      {
+        to: "/bulk-changes",
+        label: "Operações em massa",
+        icon: ListChecks,
+        adminOnly: true,
+        lead: "Altera o vínculo ou o tipo de registro de várias pessoas de uma vez.",
+        sections: [
+          { title: "Vínculos", text: "Cargo, jornada, centro de custo, equipe, situação, gestor e sindicato." },
+          { title: "Tipo de registro", text: "Simples, QR Code ou reconhecimento facial." },
         ],
       },
       {
