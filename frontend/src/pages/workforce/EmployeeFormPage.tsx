@@ -38,7 +38,6 @@ export function EmployeeFormPage() {
   const [hourBank, setHourBank] = useState(false)
   const [registration, setRegistration] = useState("")
   const [clockMethod, setClockMethod] = useState("simple")
-  const [savedMethod, setSavedMethod] = useState("simple")
   const [faceFile, setFaceFile] = useState<File | null>(null)
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [error, setError] = useState("")
@@ -57,7 +56,6 @@ export function EmployeeFormPage() {
         setHourBank(Boolean(person.hour_bank))
         setRegistration(person.registration_number || "")
         setClockMethod(person.clock_method || "simple")
-        setSavedMethod(person.clock_method || "simple")
         setFaceUrl(person.face_url)
       })
       .catch((caught: unknown) => {
@@ -88,9 +86,6 @@ export function EmployeeFormPage() {
         setError(caught instanceof Error ? caught.message : "A foto de referência não foi aceita.")
         return
       }
-    } else if (clockMethod === "face" && (id === null || savedMethod !== "face")) {
-      setError("Informe a foto de referência.")
-      return
     }
     try {
       if (id === null) {
@@ -151,9 +146,7 @@ export function EmployeeFormPage() {
             </a>
           ) : null}
           <p className="text-sm text-muted-foreground">
-            {id === null || savedMethod !== "face"
-              ? "Obrigatória para o reconhecimento. O servidor guarda o embedding e a foto."
-              : "A foto já cadastrada permanece se você não enviar outra."}
+            Pode ficar vazia. Sem a foto, a batida responde que não há foto de referência. Quando enviada, o servidor guarda o embedding e a foto.
           </p>
         </div>
       ) : null}

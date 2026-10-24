@@ -20,6 +20,7 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { TenantDetailPage } from "@/pages/TenantDetailPage"
 import { TenantsPage } from "@/pages/TenantsPage"
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage"
+import { BulkChangesPage } from "@/pages/workforce/BulkChangesPage"
 import { EmployeeFormPage } from "@/pages/workforce/EmployeeFormPage"
 import { EmployeePage } from "@/pages/workforce/EmployeePage"
 import { HourBankEntryPage, JourneyPage, PunchAdjustPage } from "@/pages/workforce/JourneyPage"
@@ -97,6 +98,7 @@ const router = createBrowserRouter([
                   { path: "/people/cost-centers/:id", element: <EntityRecordPage catalog="cost-centers" mode="view" /> },
                   { path: "/people/:id", element: <EmployeePage /> },
                   { path: "/people", element: <PeoplePage /> },
+                  { path: "/bulk-changes", element: <BulkChangesPage /> },
                   { path: "/organization/units/new", element: <EntityRecordPage catalog="units" mode="new" /> },
                   { path: "/organization/units/:id/edit", element: <EntityRecordPage catalog="units" mode="edit" /> },
                   { path: "/organization/units/:id", element: <EntityRecordPage catalog="units" mode="view" /> },

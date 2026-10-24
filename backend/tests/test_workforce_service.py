@@ -206,6 +206,29 @@ class Memory:
         rows.sort(key=lambda item: (item.valid_from, item.id))
         return rows[-1] if rows else None
 
+    def applicable_ids(self, tenant_id: int, kind: str, day: date, *, reference_id: int | None = None, label: str | None = None):
+        rows = [
+            row
+            for row in self.rows
+            if isinstance(row, EmployeeVigency)
+            and row.tenant_id == tenant_id
+            and row.kind == kind
+            and row.valid_from <= day
+            and (row.valid_to is None or row.valid_to >= day)
+        ]
+        rows.sort(key=lambda item: (item.valid_from, item.id))
+        chosen: dict[int, EmployeeVigency] = {}
+        for row in rows:
+            chosen[row.employee_id] = row
+        found = []
+        for employee_id, row in chosen.items():
+            if reference_id is not None and row.reference_id != reference_id:
+                continue
+            if label is not None and row.label != label:
+                continue
+            found.append(employee_id)
+        return found
+
     def employee_ids_for_team(self, tenant_id: int, team_id: int, day: date):
         return [
             row.employee_id
@@ -2553,10 +2576,21 @@ def test_tipo_simples_recusa_qr_e_o_rosto():
             },
         )
     assert qr.value.message == "Este funcionário não usa esse tipo de registro."
+    updated = workforce.update_employee(admin(), person["id"], {"clock_method": "face"})
+    assert updated["clock_method"] == "face"
+    assert updated["face_key"] is None
     with pytest.raises(AppError) as face:
-        workforce.update_employee(admin(), person["id"], {"clock_method": "face"})
-    assert face.value.message == "Informe a foto de referência."
-    assert workforce.get_employee(admin(), person["id"])["clock_method"] == "simple"
+        workforce.punch_face(
+            scope(9, "member"),
+            {
+                "employee_id": person["id"],
+                "occurred_at": at(9, 0, 6),
+                "image": photo(b"ana"),
+                "channel": "online",
+                "note": None,
+            },
+        )
+    assert face.value.message == "Este funcionário não tem foto de referência."
 
 
 def test_rosto_so_entra_quando_a_comparacao_e_deste_funcionario():
@@ -2661,3 +2695,146 @@ def test_lista_de_qr_so_traz_quem_pode_imprimir():
     hidden, hidden_total = workforce.list_qr_cards(scope(10, "member"), 1, 20)
     assert hidden_total == 0 and hidden == []
     assert plain["clock_method"] == "simple"
+
+
+def test_operacao_em_massa_altera_o_lote_ou_nenhum():
+    workforce, repo = service(1)
+    first = workforce.create_employee(admin(), employee_payload("11111111111", None))
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": first["id"], "kind": "status", "reference_id": None, "label": "dismissed", "valid_from": TODAY, "note": None},
+    )
+    second = workforce.create_employee(admin(), employee_payload("22222222222", None))
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": second["id"], "kind": "status", "reference_id": None, "label": "dismissed", "valid_from": TODAY, "note": None},
+    )
+    with pytest.raises(AppError) as capacity:
+        workforce.change_employees(
+            admin(),
+            {
+                "employee_ids": [first["id"], second["id"]],
+                "kind": "status",
+                "label": "active",
+                "reference_id": None,
+                "clock_method": None,
+                "valid_from": TODAY,
+                "note": None,
+            },
+        )
+    assert capacity.value.message.endswith("limite de funcionários do plano atingido")
+    assert workforce.get_employee(admin(), first["id"])["situation"] == "dismissed"
+    assert workforce.get_employee(admin(), second["id"])["situation"] == "dismissed"
+
+    wide, _repo = service()
+    ana = wide.create_employee(admin(), employee_payload("11111111111", None))
+    bia = wide.create_employee(admin(), employee_payload("22222222222", None))
+    job = wide.create_named(Job, admin(), {"name": "Auxiliar"})
+    other_job = wide.create_named(Job, admin(), {"name": "Analista"})
+    wide.create_vigency(
+        admin(),
+        {"employee_id": ana["id"], "kind": "job", "reference_id": job.id, "label": None, "valid_from": date(2026, 10, 1), "note": None},
+    )
+    by_job, job_total = wide.list_employees(admin(), 1, 20, {"job_id": job.id})
+    assert job_total == 1 and by_job[0].id == ana["id"]
+    wide.create_vigency(
+        admin(),
+        {"employee_id": bia["id"], "kind": "status", "reference_id": None, "label": "dismissed", "valid_from": TODAY, "note": None},
+    )
+    dismissed, dismissed_total = wide.list_employees(admin(), 1, 20, {"situation": "dismissed"})
+    assert dismissed_total == 1 and dismissed[0].id == bia["id"]
+    active, _active_total = wide.list_employees(admin(), 1, 20, {"situation": "active"})
+    assert bia["id"] not in {row.id for row in active}
+    status = next(
+        row
+        for row in _repo.rows
+        if isinstance(row, EmployeeVigency) and row.employee_id == bia["id"] and row.kind == "status" and row.valid_to is None
+    )
+    _repo.delete(status)
+    everyone, everyone_total = wide.list_employees(admin(), 1, 20, {})
+    assert everyone_total == 2
+    still_active, _still = wide.list_employees(admin(), 1, 20, {"situation": "active"})
+    assert bia["id"] not in {row.id for row in still_active}
+    unit = wide.create_named(Unit, admin(), {"name": "Z"})
+    sector = wide.create_named(Sector, admin(), {"name": "Y", "unit_id": unit.id})
+    team = wide.create_named(Team, admin(), {"name": "X", "sector_id": sector.id})
+    changed = wide.change_employees(
+        admin(),
+        {
+            "employee_ids": [ana["id"], bia["id"]],
+            "kind": "team",
+            "reference_id": team.id,
+            "label": None,
+            "clock_method": None,
+            "valid_from": TODAY,
+            "note": None,
+        },
+    )
+    assert changed == {"changed": 2}
+    placed = wide.get_employee(admin(), ana["id"])
+    assert placed["team_label"] == "X"
+    assert placed["sector_label"] == "Y"
+    assert placed["unit_label"] == "Z"
+    wide.change_employees(
+        admin(),
+        {
+            "employee_ids": [ana["id"], bia["id"]],
+            "kind": "clock_method",
+            "reference_id": None,
+            "label": None,
+            "clock_method": "face",
+            "valid_from": None,
+            "note": None,
+        },
+    )
+    facial = wide.get_employee(admin(), bia["id"])
+    assert facial["clock_method"] == "face"
+    assert facial["face_key"] is None
+    wide.create_vigency(
+        admin(),
+        {"employee_id": ana["id"], "kind": "job", "reference_id": job.id, "label": None, "valid_from": date(2026, 10, 10), "note": None},
+    )
+    with pytest.raises(AppError) as blocked:
+        wide.change_employees(
+            admin(),
+            {
+                "employee_ids": [ana["id"], bia["id"]],
+                "kind": "job",
+                "reference_id": other_job.id,
+                "label": None,
+                "clock_method": None,
+                "valid_from": date(2026, 10, 6),
+                "note": None,
+            },
+        )
+    assert blocked.value.message.startswith("Ana Lima:")
+    assert wide.get_employee(admin(), bia["id"])["job_label"] is None
+    assert wide.get_employee(admin(), ana["id"])["job_label"] == "Auxiliar"
+    with pytest.raises(AppError) as own_manager:
+        wide.change_employees(
+            admin(),
+            {
+                "employee_ids": [ana["id"], bia["id"]],
+                "kind": "manager",
+                "reference_id": ana["id"],
+                "label": None,
+                "clock_method": None,
+                "valid_from": TODAY,
+                "note": None,
+            },
+        )
+    assert own_manager.value.message == "Ana Lima: o gestor precisa ser outro funcionário."
+    with pytest.raises(AppError) as member:
+        wide.change_employees(
+            scope(9, "member"),
+            {
+                "employee_ids": [bia["id"]],
+                "kind": "clock_method",
+                "reference_id": None,
+                "label": None,
+                "clock_method": "simple",
+                "valid_from": None,
+                "note": None,
+            },
+        )
+    assert member.value.status_code == 403
