@@ -33,19 +33,37 @@ const filterFields = [
 ] as const
 
 type Choice = { value: string; label: string }
+type Membership = { id: number; person_id: number; full_name: string; role: string }
 
-async function loadChoices(path: string): Promise<Choice[]> {
-  const first = await listRecords<NamedRecord | Employee>(path, { page: 1, limit: 100 })
+async function loadAll<T>(path: string, params: Record<string, string | number> = {}) {
+  const first = await listRecords<T>(path, { page: 1, limit: 100, ...params })
   const items = [...first.items]
   const pages = Math.ceil(first.total / 100)
   for (let page = 2; page <= pages; page += 1) {
-    const next = await listRecords<NamedRecord | Employee>(path, { page, limit: 100 })
+    const next = await listRecords<T>(path, { page, limit: 100, ...params })
     items.push(...next.items)
   }
+  return items
+}
+
+async function loadChoices(path: string): Promise<Choice[]> {
+  const items = await loadAll<NamedRecord | Employee>(path)
   return items.map((item) => ({
     value: String(item.id),
     label: "full_name" in item ? item.full_name : item.name,
   }))
+}
+
+async function loadManagerChoices(): Promise<Choice[]> {
+  const [admins, managers, employees] = await Promise.all([
+    loadAll<Membership>("/memberships", { role: "admin" }),
+    loadAll<Membership>("/memberships", { role: "manager" }),
+    loadAll<Employee>("/employees"),
+  ])
+  const allowed = new Set([...admins, ...managers].map((item) => item.person_id))
+  return employees
+    .filter((item) => item.person_id !== null && allowed.has(item.person_id))
+    .map((item) => ({ value: String(item.id), label: item.full_name }))
 }
 
 function currentValue(employee: Employee, operation: (typeof operations)[number][0]) {
@@ -94,7 +112,9 @@ export function BulkChangesPage() {
     if (role !== "admin") return
     let active = true
     const paths = [...new Set([...filterFields.map((item) => item[2]), ...operations.map((item) => item[2]).filter(Boolean)])]
-    Promise.all(paths.map(async (path) => [path, await loadChoices(path)] as const))
+    Promise.all(
+      paths.map(async (path) => [path, path === "/employees" ? await loadManagerChoices() : await loadChoices(path)] as const),
+    )
       .then((loaded) => {
         if (!active) return
         setChoices(Object.fromEntries(loaded))
