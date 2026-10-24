@@ -112,3 +112,31 @@ Só depois da marcação aceita, e ao gravar ou trocar a foto de referência, a 
 A lista de Marcações passa a trazer só texto. Para ver a imagem da marcação ou a foto de referência da ficha, uma consulta à parte usa o caminho e gera um link temporário, no mesmo modelo da foto do atestado.
 
 A fila offline do celular continua com a foto no aparelho. Quando a marcação sobe, a API grava no bucket. As fotos que já estão em `bytea` são copiadas uma vez para o bucket e o binário delas é esvaziado. Sem isso, a lista dessas marcações antigas continua lenta.
+
+## Ponto 9 — Equipe define setor e unidade
+
+Na aba Trabalho, unidade e setor saem da lista de vínculo. A hierarquia já é unidade, depois setor, depois equipe. A equipe sempre pertence a um setor, e o setor sempre pertence a uma unidade. Cargo, jornada, centro de custo, sindicato, gestor e situação continuam como vínculos próprios.
+
+A ficha segue mostrando unidade e setor, só para leitura, preenchidos pela equipe vigente. Os cadastros de unidade, setor e equipe continuam em Estrutura Organizacional.
+
+Ao registrar uma equipe, com a mesma data de vigência, a API grava três vínculos: a equipe, o setor dessa equipe e a unidade desse setor. A vigência aberta de cada um é encerrada como já acontece hoje. Quem estava na equipe A, no setor B e na unidade C, ao passar para a equipe X, passa no mesmo ato para o setor Y e a unidade Z dessa equipe. A partir dessa data, a ficha, o QR e os filtros usam Y e Z. O QR continua exigindo unidade vigente, e essa unidade passa a vir junto com a equipe.
+
+A API recusa gravar unidade ou setor direto na ficha. Quem já tem unidade ou setor lançados à mão permanece assim até a próxima equipe. O histórico dessas vigências antigas fica.
+
+Se uma equipe for movida de setor no cadastro, quem já estava nela conserva a unidade e o setor da data em que entrou. Uma nova vigência de equipe é o que realinha os três.
+
+## Ponto 10 — Operações em massa
+
+O administrador altera o vínculo de várias pessoas de uma vez. Entra um item no grupo Gestão do menu, Operações em massa, visível só para o administrador.
+
+A tela trata uma operação por vez: cargo, centro de custo, jornada, equipe, situação, gestor, sindicato ou tipo de registro. O tipo de registro é simples, QR Code ou reconhecimento facial. Unidade e setor não são operações. A equipe segue o Ponto 9 e, na mesma data, grava também o setor e a unidade. O tipo de registro é um campo da ficha, não uma vigência: a troca não pede data.
+
+Os filtros se combinam e valem para todas as operações, inclusive gestor e tipo de registro: cargo, centro de custo, jornada, equipe, setor, unidade, sindicato e gestor. A situação filtra ativo, desligado ou todos. A lista usa a vigência vigente hoje. Desligado entra no filtro. Todos inclui também quem ainda não tem situação. A lista mostra o nome e o valor atual da operação escolhida.
+
+Ninguém é alterado até ser marcado. Marcar todos do filtro vale para a seleção inteira, não só para a página visível. Em seguida vêm o novo valor, a data de vigência e a observação, com as mesmas regras da ficha. No tipo de registro, só o novo valor. Reativar alguém respeita o limite do plano. Período fechado bloqueia a data. O gestor escolhido não pode ser a própria pessoa.
+
+Hoje a ficha recusa salvar o reconhecimento facial sem a foto de referência, no site e na API, com a mensagem "Informe a foto de referência." Essa trava sai da criação, da edição e da operação em massa. A foto continua disponível e, quando enviada, segue gerando o embedding e o arquivo no bucket. Sem ela, o tipo fica facial mesmo assim.
+
+Na batida facial, online ou offline, se não houver foto de referência, a marcação não entra e a resposta é "Este funcionário não tem foto de referência."
+
+A gravação é uma só. Se uma pessoa da seleção falhar, nenhuma daquele lote é salva, e a mensagem diz quem e por quê.
