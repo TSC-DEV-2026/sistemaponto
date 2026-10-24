@@ -303,19 +303,41 @@ class WorkforceService:
         self._admin(scope)
         employee = self._employee(scope, int(data["employee_id"]))
         kind = data["kind"]
+        if kind in {"unit", "sector"}:
+            raise AppError(400, "Informe a equipe. Unidade e setor acompanham a equipe.")
         valid_from = data["valid_from"]
         self._assert_open(scope.tenant_id, valid_from)
         reference_id, label = self._vigency_target(scope, employee, kind, data, valid_from)
         if kind == "status" and label == "active" and not self._occupies(employee.id, self.today()):
             self._assert_capacity(scope)
-        current = self.repo.open_vigency(employee.id, kind)
+        note = self._note(data.get("note"))
+        row = self._replace_vigency(scope, employee.id, kind, reference_id, label, valid_from, note)
+        if kind == "team":
+            team = self._row(Team, scope, int(reference_id))
+            sector = self._row(Sector, scope, int(team.sector_id))
+            unit = self._row(Unit, scope, int(sector.unit_id))
+            self._replace_vigency(scope, employee.id, "sector", sector.id, sector.name, valid_from, note)
+            self._replace_vigency(scope, employee.id, "unit", unit.id, unit.name, valid_from, note)
+        return row
+
+    def _replace_vigency(
+        self,
+        scope: Scope,
+        employee_id: int,
+        kind: str,
+        reference_id: int | None,
+        label: str,
+        valid_from: date,
+        note: str | None,
+    ) -> EmployeeVigency:
+        current = self.repo.open_vigency(employee_id, kind)
         if current is not None and current.valid_from == valid_from:
             previous = current.label
             current.reference_id = reference_id
             current.label = label
-            current.note = self._note(data.get("note"))
+            current.note = note
             self.repo.add(current)
-            self._audit(scope, employee.id, kind, current.id, previous, label, valid_from)
+            self._audit(scope, employee_id, kind, current.id, previous, label, valid_from)
             return current
         if current is not None:
             end = previous_end(current.valid_from, valid_from)
@@ -325,16 +347,16 @@ class WorkforceService:
         row = self.repo.add(
             EmployeeVigency(
                 tenant_id=scope.tenant_id,
-                employee_id=employee.id,
+                employee_id=employee_id,
                 kind=kind,
                 reference_id=reference_id,
                 label=label,
                 valid_from=valid_from,
                 valid_to=None,
-                note=self._note(data.get("note")),
+                note=note,
             )
         )
-        self._audit(scope, employee.id, kind, row.id, current.label if current else None, label, valid_from)
+        self._audit(scope, employee_id, kind, row.id, current.label if current else None, label, valid_from)
         return row
 
     def update_vigency(self, scope: Scope, row_id: int, data: dict) -> EmployeeVigency:
@@ -1799,26 +1821,8 @@ class WorkforceService:
         target = self._row(model, scope, int(reference_id))
         if kind == "manager" and target.id == employee.id:
             raise AppError(400, "O gestor precisa ser outro funcionário")
-        self._match_structure(scope, employee.id, kind, target, valid_from)
         label = target.full_name if kind == "manager" else target.name
         return target.id, label
-
-    def _match_structure(self, scope: Scope, employee_id: int, kind: str, target, valid_from: date) -> None:
-        if kind == "sector":
-            unit = self.repo.applicable(employee_id, "unit", valid_from)
-            if unit is not None and unit.reference_id != target.unit_id:
-                raise AppError(409, "O setor não pertence à unidade vigente")
-        if kind == "team":
-            sector = self.repo.applicable(employee_id, "sector", valid_from)
-            if sector is not None and sector.reference_id != target.sector_id:
-                raise AppError(409, "A equipe não pertence ao setor vigente")
-        if kind == "unit":
-            sector = self.repo.applicable(employee_id, "sector", valid_from)
-            if sector is None or sector.reference_id is None:
-                return
-            current = self._row(Sector, scope, sector.reference_id)
-            if current.unit_id != target.id:
-                raise AppError(409, "A unidade não contém o setor vigente")
 
     def _occupies(self, employee_id: int, day: date) -> bool:
         current = self.repo.applicable(employee_id, "status", day)
