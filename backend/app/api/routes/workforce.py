@@ -428,7 +428,12 @@ def get_vigency(
     return json_data(dump_one(service.get_vigency(as_scope(actor), row_id), VigencyOut, fields))
 
 
-@vigencies.post("", status_code=201, summary="Criar vigência")
+@vigencies.post(
+    "",
+    status_code=201,
+    summary="Criar vigência",
+    description="Unidade e setor não são escolhidos aqui. Ao gravar a equipe, os dois acompanham o setor e a unidade dessa equipe, na mesma data.",
+)
 def create_vigency(
     body: VigencyCreate,
     actor: Actor = Depends(require_tenant),

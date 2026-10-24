@@ -2107,6 +2107,128 @@ def test_administrador_nao_marca_por_outra_pessoa():
     assert corrected["punches"][0].source == "manual"
 
 
+def assign_unit(workforce, employee_id: int, unit_name: str, day: date):
+    unit = workforce.create_named(Unit, admin(), {"name": unit_name})
+    sector = workforce.create_named(Sector, admin(), {"name": f"Setor {unit_name}", "unit_id": unit.id})
+    team = workforce.create_named(Team, admin(), {"name": f"Equipe {unit_name}", "sector_id": sector.id})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": employee_id,
+            "kind": "team",
+            "reference_id": team.id,
+            "label": None,
+            "valid_from": day,
+            "note": None,
+        },
+    )
+    return unit
+
+
+def test_equipe_grava_setor_e_unidade_e_a_troca_realinha():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    old_unit = workforce.create_named(Unit, admin(), {"name": "Antiga"})
+    repo.add(
+        EmployeeVigency(
+            tenant_id=1,
+            employee_id=person["id"],
+            kind="unit",
+            reference_id=old_unit.id,
+            label="Antiga",
+            valid_from=date(2026, 1, 1),
+            valid_to=None,
+            note=None,
+        )
+    )
+    kept = workforce.get_employee(admin(), person["id"])
+    assert kept["unit_label"] == "Antiga"
+    with pytest.raises(AppError) as direct_unit:
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "unit",
+                "reference_id": old_unit.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    assert direct_unit.value.message == "Informe a equipe. Unidade e setor acompanham a equipe."
+    with pytest.raises(AppError) as direct_sector:
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "sector",
+                "reference_id": old_unit.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    assert direct_sector.value.message == "Informe a equipe. Unidade e setor acompanham a equipe."
+    unit_c = workforce.create_named(Unit, admin(), {"name": "C"})
+    sector_b = workforce.create_named(Sector, admin(), {"name": "B", "unit_id": unit_c.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector_b.id})
+    unit_z = workforce.create_named(Unit, admin(), {"name": "Z"})
+    sector_y = workforce.create_named(Sector, admin(), {"name": "Y", "unit_id": unit_z.id})
+    team_x = workforce.create_named(Team, admin(), {"name": "X", "sector_id": sector_y.id})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "team",
+            "reference_id": team_a.id,
+            "label": None,
+            "valid_from": date(2026, 10, 1),
+            "note": "entrada",
+        },
+    )
+    first = workforce.get_employee(admin(), person["id"])
+    assert first["team_label"] == "A"
+    assert first["sector_label"] == "B"
+    assert first["unit_label"] == "C"
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "team",
+            "reference_id": team_x.id,
+            "label": None,
+            "valid_from": TODAY,
+            "note": None,
+        },
+    )
+    current = workforce.get_employee(admin(), person["id"])
+    assert current["team_label"] == "X"
+    assert current["sector_label"] == "Y"
+    assert current["unit_label"] == "Z"
+    assert repo.applicable(person["id"], "team", date(2026, 10, 6)).label == "A"
+    assert repo.applicable(person["id"], "sector", date(2026, 10, 6)).label == "B"
+    assert repo.applicable(person["id"], "unit", date(2026, 10, 6)).label == "C"
+    moved = workforce.create_named(Sector, admin(), {"name": "Outro", "unit_id": unit_c.id})
+    workforce.update_named(Team, admin(), team_x.id, {"sector_id": moved.id})
+    stayed = workforce.get_employee(admin(), person["id"])
+    assert stayed["sector_label"] == "Y"
+    assert stayed["unit_label"] == "Z"
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "team",
+            "reference_id": team_x.id,
+            "label": None,
+            "valid_from": date(2026, 10, 8),
+            "note": None,
+        },
+    )
+    assert workforce.get_employee(admin(), person["id"])["sector_label"] == "Y"
+    assert repo.applicable(person["id"], "sector", date(2026, 10, 8)).label == "Outro"
+    assert repo.applicable(person["id"], "unit", date(2026, 10, 8)).label == "C"
+
+
 def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
     workforce, repo = service()
     _access(repo, 9, "member")
@@ -2135,18 +2257,7 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
     with pytest.raises(AppError) as missing_unit:
         workforce.punch_code(scope(9, "member"), person["id"])
     assert missing_unit.value.message == "O funcionário não tem unidade vigente."
-    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    workforce.create_vigency(
-        admin(),
-        {
-            "employee_id": person["id"],
-            "kind": "unit",
-            "reference_id": unit.id,
-            "label": None,
-            "valid_from": date(2026, 10, 1),
-            "note": None,
-        },
-    )
+    unit = assign_unit(workforce, person["id"], "Matriz", date(2026, 10, 1))
     code = workforce.punch_code(scope(9, "member"), person["id"])
     assert code["content"] == f"{unit.id}|22222222222|A1"
     assert code["unit_name"] == "Matriz"
@@ -2539,18 +2650,7 @@ def test_lista_de_qr_so_traz_quem_pode_imprimir():
     workforce.update_employee(admin(), ready["id"], {"clock_method": "qr", "registration_number": "A1"})
     workforce.update_employee(admin(), no_registration["id"], {"clock_method": "qr"})
     workforce.update_employee(admin(), no_unit["id"], {"clock_method": "qr", "registration_number": "B2"})
-    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    workforce.create_vigency(
-        admin(),
-        {
-            "employee_id": ready["id"],
-            "kind": "unit",
-            "reference_id": unit.id,
-            "label": None,
-            "valid_from": date(2026, 10, 1),
-            "note": None,
-        },
-    )
+    unit = assign_unit(workforce, ready["id"], "Matriz", date(2026, 10, 1))
     cards, total = workforce.list_qr_cards(admin(), 1, 20)
     assert total == 1
     assert cards[0]["full_name"] == ready["full_name"]

@@ -53,8 +53,6 @@ const links = [
   ["job", "Cargo", "/jobs"],
   ["journey", "Jornada", "/journeys"],
   ["cost_center", "Centro de custo", "/cost-centers"],
-  ["unit", "Unidade", "/units"],
-  ["sector", "Setor", "/sectors"],
   ["team", "Equipe", "/teams"],
   ["union", "Sindicato", "/unions"],
   ["manager", "Gestor", "/employees"],
@@ -286,6 +284,7 @@ export function EmployeePage() {
             <li>Sindicato: {employee?.union_label || "Não possui"}</li>
             <li>Gestor: {employee?.manager_label || "Não possui"}</li>
           </ul>
+          <p className="text-sm text-muted-foreground">Unidade e setor acompanham a equipe.</p>
           {isAdmin ? (
             <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveVigency}>
               <div className="space-y-2">
