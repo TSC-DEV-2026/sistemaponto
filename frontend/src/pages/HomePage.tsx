@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { Spinner } from "@/components/ui/spinner"
 import { getDashboard, listRecords, type Dashboard, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { showMoney, subscriptionStatusLabel } from "@/utils/labels"
@@ -77,11 +78,11 @@ export function HomePage() {
       <div className="grid gap-3 md:grid-cols-2">
         <section className="rounded-md border border-border bg-card px-4 py-3">
           <h2 className="text-sm font-medium">Hoje</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.active_employees} funcionários ativos.` : boardState === "error" ? boardError : "Carregando."}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.active_employees} funcionários ativos.` : boardState === "error" ? boardError : <Spinner />}</p>
         </section>
         <section className="rounded-md border border-border bg-card px-4 py-3">
           <h2 className="text-sm font-medium">Ponto</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.punches_today} marcações hoje.` : boardState === "error" ? boardError : "Carregando."} A apuração do período fica em Jornada e Ponto.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.punches_today} marcações hoje.` : boardState === "error" ? boardError : <Spinner />} A apuração do período fica em Jornada e Ponto.</p>
         </section>
         <section className="rounded-md border border-border bg-card px-4 py-3">
           <h2 className="text-sm font-medium">Solicitações</h2>
@@ -90,7 +91,7 @@ export function HomePage() {
               ? `${pending} pendentes. ${board.pending_adjustments} ajustes, ${board.pending_allowances} abonos, ${board.pending_certificates} atestados, ${board.pending_leaves} afastamentos, ${board.pending_vacations} férias.`
               : boardState === "error"
                 ? boardError
-                : "Carregando."}
+                : <Spinner />}
           </p>
           <Link to="/requests" className="mt-3 inline-flex text-sm font-medium">
             Revisar
@@ -98,7 +99,7 @@ export function HomePage() {
         </section>
         <section className="rounded-md border border-border bg-card px-4 py-3">
           <h2 className="text-sm font-medium">Fechamento</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.open_closings} período(s) em conferência.` : boardState === "error" ? boardError : "Carregando."}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{board ? `${board.open_closings} período(s) em conferência.` : boardState === "error" ? boardError : <Spinner />}</p>
           <Link to="/closings" className="mt-3 inline-flex text-sm font-medium">
             Abrir fechamentos
           </Link>

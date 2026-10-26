@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
@@ -260,7 +261,7 @@ export function BulkChangesPage() {
             </label>
           </li>
         ))}
-        {list.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum funcionário.</li> : null}
+        {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty="Nenhum funcionário." /> : null}
       </ul>
       <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} />
       <ActionForm className="grid max-w-lg gap-3 rounded-md border border-border bg-card p-3" onSubmit={apply}>

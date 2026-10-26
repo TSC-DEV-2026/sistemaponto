@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { listMemberships } from "@/services/membership.service"
 import { useAuthStore } from "@/store/auth.store"
 import type { Membership } from "@/types/api"
@@ -10,10 +11,12 @@ export function MembershipsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [items, setItems] = useState<Membership[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   useEffect(() => {
     let active = true
+    setLoading(true)
     listMemberships()
       .then((page) => {
         if (active) {
@@ -24,6 +27,9 @@ export function MembershipsPage() {
         if (active) {
           setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
         }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
       })
     return () => {
       active = false
@@ -55,7 +61,7 @@ export function MembershipsPage() {
             </Link>
           </li>
         ))}
-        {items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum vínculo.</li> : null}
+        {items.length === 0 ? <ListPlaceholder loading={loading} empty="Nenhum vínculo." /> : null}
       </ul>
     </div>
   )
