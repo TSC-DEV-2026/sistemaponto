@@ -7,6 +7,7 @@ import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
@@ -284,7 +285,7 @@ export function OccurrencesPage() {
             ) : null}
           </li>
         ))}
-        {events.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum lançamento.</li> : null}
+        {events.items.length === 0 ? <ListPlaceholder loading={events.loading} empty="Nenhum lançamento." /> : null}
       </ul>
       <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} />
     </div>
@@ -425,7 +426,7 @@ export function RequestsPage() {
             ) : null}
           </li>
         ))}
-        {inbox.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma solicitação.</li> : null}
+        {inbox.items.length === 0 ? <ListPlaceholder loading={inbox.loading} empty="Nenhuma solicitação." /> : null}
       </ul>
       <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
     </div>
@@ -594,7 +595,7 @@ export function ClosingsPage() {
             ) : null}
           </li>
         ))}
-        {periods.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum fechamento.</li> : null}
+        {periods.items.length === 0 ? <ListPlaceholder loading={periods.loading} empty="Nenhum fechamento." /> : null}
       </ul>
       <ListPager page={periods.page} pageSize={periods.pageSize} total={periods.total} onPage={periods.setPage} onPageSize={periods.setPageSize} />
     </div>
@@ -786,7 +787,7 @@ export function NotificationsPage() {
               )}
             </li>
           ))}
-          {notices.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma notificação.</li> : null}
+          {notices.items.length === 0 ? <ListPlaceholder loading={notices.loading} empty="Nenhuma notificação." /> : null}
         </ul>
         <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} />
       </section>
@@ -804,7 +805,7 @@ export function NotificationsPage() {
               </span>
             </li>
           ))}
-          {emails.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum e-mail gravado.</li> : null}
+          {emails.items.length === 0 ? <ListPlaceholder loading={emails.loading} empty="Nenhum e-mail gravado." /> : null}
         </ul>
         <ListPager page={emails.page} pageSize={emails.pageSize} total={emails.total} onPage={emails.setPage} onPageSize={emails.setPageSize} />
       </section>
@@ -1209,7 +1210,7 @@ function AfdPanel() {
             </Button>
           </li>
         ))}
-        {files.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum arquivo gerado.</li> : null}
+        {files.items.length === 0 ? <ListPlaceholder loading={files.loading} empty="Nenhum arquivo gerado." /> : null}
       </ul>
       <ListPager page={files.page} pageSize={files.pageSize} total={files.total} onPage={files.setPage} onPageSize={files.setPageSize} />
     </div>

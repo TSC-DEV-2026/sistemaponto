@@ -6,6 +6,7 @@ import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
@@ -364,7 +365,7 @@ export function EmployeePage() {
                   {item.status === "approved" ? ` · ${punchOrigin("approved_request")}` : ""}
                 </li>
               ))}
-              {inbox.items.length === 0 ? <li className="px-4 py-3 text-muted-foreground">Nenhuma solicitação.</li> : null}
+              {inbox.items.length === 0 ? <ListPlaceholder loading={inbox.loading} empty="Nenhuma solicitação." /> : null}
             </ul>
             <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
           </section>
@@ -440,7 +441,7 @@ export function EmployeePage() {
                 ) : null}
               </li>
             ))}
-            {events.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma ocorrência.</li> : null}
+            {events.items.length === 0 ? <ListPlaceholder loading={events.loading} empty="Nenhuma ocorrência." /> : null}
           </ul>
           <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} />
         </div>
@@ -457,7 +458,7 @@ export function EmployeePage() {
                   {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}
                 </li>
               ))}
-              {history.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma vigência.</li> : null}
+              {history.items.length === 0 ? <ListPlaceholder loading={history.loading} empty="Nenhuma vigência." /> : null}
             </ul>
             <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} />
           </section>
@@ -471,7 +472,7 @@ export function EmployeePage() {
                   {item.previous_label ? ` · de ${item.previous_label}` : ""} {item.new_label ? `para ${item.new_label}` : ""}
                 </li>
               ))}
-              {trail.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma auditoria.</li> : null}
+              {trail.items.length === 0 ? <ListPlaceholder loading={trail.loading} empty="Nenhuma auditoria." /> : null}
             </ul>
             <ListPager page={trail.page} pageSize={trail.pageSize} total={trail.total} onPage={trail.setPage} onPageSize={trail.setPageSize} />
           </section>

@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react"
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DomainTabs } from "@/pages/workforce/EntityScreens"
@@ -127,7 +128,7 @@ function BillingPanel() {
                   {subscriptionStatusLabel[item.status] || item.status} · {item.capacity} pessoas · {showMoney(item.monthly_amount_cents)} · {showDate(item.period_start)} a {showDate(item.period_end)}
                 </li>
               ))}
-              {plans.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma assinatura.</li> : null}
+              {plans.items.length === 0 ? <ListPlaceholder loading={plans.loading} empty="Nenhuma assinatura." /> : null}
             </ul>
             <ListPager page={plans.page} pageSize={plans.pageSize} total={plans.total} onPage={plans.setPage} onPageSize={plans.setPageSize} />
           </section>
@@ -156,7 +157,7 @@ function BillingPanel() {
                   )}
                 </li>
               ))}
-              {billed.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhuma cobrança.</li> : null}
+              {billed.items.length === 0 ? <ListPlaceholder loading={billed.loading} empty="Nenhuma cobrança." /> : null}
             </ul>
             <ListPager page={billed.page} pageSize={billed.pageSize} total={billed.total} onPage={billed.setPage} onPageSize={billed.setPageSize} />
           </section>

@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import {
@@ -165,7 +166,7 @@ export function HourBankPanel({
                 {item.note ? ` · ${item.note}` : ""}
               </li>
             ))}
-            {entries.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum lançamento.</li> : null}
+            {entries.items.length === 0 ? <ListPlaceholder loading={entries.loading} empty="Nenhum lançamento." /> : null}
           </ul>
           <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} />
         </div>

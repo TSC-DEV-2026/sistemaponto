@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
@@ -143,10 +144,10 @@ export function PunchLists({ employeeId, employees, reloadKey = 0 }: { employeeI
           onChange={setPerson}
         />
       )}
-      <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." punches={current.items} employeeName={employeeName} />
+      <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." loading={current.loading} punches={current.items} employeeName={employeeName} />
       <ListPager page={current.page} pageSize={current.pageSize} total={current.total} onPage={current.setPage} onPageSize={current.setPageSize} />
       {current.error ? <p className="text-sm text-destructive">{current.error}</p> : null}
-      <PunchGroup title="Histórico — deixaram de valer" empty="Nenhuma marcação antiga." punches={history.items} employeeName={employeeName} />
+      <PunchGroup title="Histórico — deixaram de valer" empty="Nenhuma marcação antiga." loading={history.loading} punches={history.items} employeeName={employeeName} />
       <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} />
       {history.error ? <p className="text-sm text-destructive">{history.error}</p> : null}
     </div>
@@ -156,11 +157,13 @@ export function PunchLists({ employeeId, employees, reloadKey = 0 }: { employeeI
 function PunchGroup({
   title,
   empty,
+  loading = false,
   punches,
   employeeName,
 }: {
   title: string
   empty: string
+  loading?: boolean
   punches: Punch[]
   employeeName?: (id: number) => string
 }) {
@@ -184,7 +187,7 @@ function PunchGroup({
             ) : null}
           </li>
         ))}
-        {punches.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">{empty}</li> : null}
+        {punches.length === 0 ? <ListPlaceholder loading={loading ?? false} empty={empty} /> : null}
       </ul>
     </section>
   )

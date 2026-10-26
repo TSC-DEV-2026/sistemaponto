@@ -7,6 +7,7 @@ import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass, optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
@@ -232,7 +233,7 @@ export function RecordList<T extends Row>({
             </li>
           )
         })}
-        {list.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">{empty}</li> : null}
+        {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty={empty} /> : null}
       </ul>
       <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} />
     </div>

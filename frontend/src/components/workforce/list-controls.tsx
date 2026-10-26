@@ -140,6 +140,7 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
   const [items, setItems] = useState<T[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(enabled)
   const [reload, setReload] = useState(0)
   const request = useRef(0)
   const filtersRef = useRef(filters)
@@ -151,6 +152,7 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
     if (!enabled) {
       setItems([])
       setTotal(0)
+      setLoading(false)
       return
     }
     if (seen.current !== filterKey) {
@@ -161,6 +163,7 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
       }
     }
     const current = ++request.current
+    setLoading(true)
     listRecords<T>(path, { page, limit: pageSize, ...filtersRef.current })
       .then((result) => {
         if (current !== request.current) return
@@ -175,6 +178,9 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
       .catch((caught: unknown) => {
         if (current === request.current) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
+      .finally(() => {
+        if (current === request.current) setLoading(false)
+      })
   }, [path, page, pageSize, tenantId, reload, reloadKey, filterKey, enabled])
 
   return {
@@ -187,6 +193,7 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
     },
     items,
     total,
+    loading,
     error,
     setError,
     reload: () => setReload((current) => current + 1),
