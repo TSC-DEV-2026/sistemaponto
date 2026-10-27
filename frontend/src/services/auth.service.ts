@@ -35,7 +35,7 @@ export function register(payload: RegisterPayload): Promise<SessionUser> {
 
 export function login(cpf: string, password: string): Promise<SessionUser> {
   return ensureCsrf().then(() =>
-    request(() => api.post<ApiResponse<SessionUser>>("/auth/login", { cpf, password })),
+    request(() => api.post<ApiResponse<SessionUser>>("/auth/login", { cpf, password }, { skipLoader: true })),
   )
 }
 
