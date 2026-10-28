@@ -1116,6 +1116,8 @@ def test_apuracao_usa_so_marcacao_valida_e_ignora_pedido_pendente():
     assert row["overtime_minutes"] == 0
     assert row["absence"] is False
     assert row["incomplete"] is False
+    assert row["first_entry_at"] == at(8, 0)
+    assert row["last_exit_at"] == at(17, 48)
     assert all(item.valid for item in kept)
 
 

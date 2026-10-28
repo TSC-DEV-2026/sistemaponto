@@ -1,15 +1,18 @@
 import { FormEvent, useContext, useEffect, useState } from "react"
-import { Pencil, Plus } from "lucide-react"
+import { Clock, Layers, Pencil, Plus } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
+import { SiteSelect } from "@/components/ui/site-select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
+import { cn } from "@/utils/cn"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
@@ -20,10 +23,10 @@ import { hourBankEffectLabel, hourBankKindLabel, punchDay, showDate, showMinutes
 export function JourneyPage() {
   return (
     <DomainTabs
+      module
       title="Jornada e Ponto"
-      lead="Jornada é o previsto. Marcação é o ocorrido. Apuração é o resultado do período. O banco de horas guarda o saldo."
       tabs={[
-        { id: "jornadas", label: "Jornadas", panel: <CatalogList catalog="journeys" /> },
+        { id: "jornadas", label: "Jornadas", panel: <CatalogList catalog="journeys" presentation="journey" /> },
         { id: "marcacoes", label: "Marcações", panel: <PunchScheduleList /> },
         { id: "apuracao", label: "Apuração", panel: <ResultsSchedule /> },
         { id: "banco", label: "Banco de horas", panel: <BankScheduleList /> },
@@ -72,7 +75,7 @@ function PunchScheduleList() {
   return (
     <div className="space-y-3">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <PunchLists employees={employees} />
+      <PunchLists employees={employees} appearance="module" />
     </div>
   )
 }
@@ -99,7 +102,43 @@ function ResultsSchedule() {
   return (
     <div className="space-y-3">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <TimeResultsPanel employees={employees} heading={false} />
+      <TimeResultsPanel employees={employees} heading={false} appearance="module" />
+    </div>
+  )
+}
+
+function BankBalance({ balance }: { balance: HourBank }) {
+  const stats = [
+    { label: "Crédito", value: showMinutes(balance.credit_minutes), dot: "bg-[#1E8A3A]" },
+    { label: "Débito", value: showMinutes(balance.debit_minutes), dot: "bg-[#EF5350]" },
+    { label: "Pago em hora extra", value: showMinutes(balance.paid_overtime_minutes), dot: "bg-[#3B82F6]" },
+    { label: "Descontado como falta", value: showMinutes(balance.discounted_absence_minutes), dot: "bg-[#F9A825]" },
+  ]
+  return (
+    <div className="rounded-[14px] border border-[rgba(30,138,58,0.12)] bg-[linear-gradient(105deg,rgba(30,138,58,0.045),rgba(255,255,255,0.98))] p-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] sm:p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-center gap-4 lg:w-[240px] lg:shrink-0 lg:border-r lg:border-[#E4E8ED] lg:pr-6">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+            <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[13px] text-[#52525B]">Saldo atual</p>
+            <p className="mt-0.5 text-[26px] font-bold leading-none tabular-nums text-[#0A0A0A]">{showSignedMinutes(balance.balance_minutes)}</p>
+          </div>
+        </div>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-5 border-t border-[#E7EBE4] pt-5 sm:grid-cols-4 lg:border-t-0 lg:pt-0">
+          {stats.map((item) => (
+            <div key={item.label} className="min-w-0">
+              <p className="flex items-start gap-1.5 text-[13px] leading-5 text-[#52525B]">
+                <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} aria-hidden />
+                <span>{item.label}</span>
+              </p>
+              <p className="mt-1 text-[15px] font-semibold tabular-nums text-[#0A0A0A]">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      {balance.warning ? <p className="mt-4 text-sm text-brand-ink">{balance.warning}</p> : null}
     </div>
   )
 }
@@ -179,49 +218,73 @@ function BankScheduleList() {
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        O saldo é contínuo e não tem limite. O prazo é de 6 meses e, neste corte, só avisa quando vai expirar. Saldo positivo quitado sai como hora extra. Saldo negativo quitado desconta como falta.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <FilterSelect
-          id="bank-schedule-employee"
-          label="Funcionário"
-          value={employeeId}
-          options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
-          onChange={setEmployeeId}
-        />
-        <FilterSelect
-          id="bank-schedule-kind"
-          label="Tipo"
-          value={kind}
-          options={Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))}
-          onChange={setKind}
-        />
+    <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="min-w-0 space-y-2">
+          <Label className="font-semibold text-brand-ink" htmlFor="bank-schedule-employee">
+            Funcionário
+          </Label>
+          <EmployeeCombobox
+            id="bank-schedule-employee"
+            value={employeeId}
+            employees={employees}
+            emptyLabel="Todos"
+            extendSearch={employees.length >= 100}
+            onChange={setEmployeeId}
+          />
+        </div>
+        <div className="min-w-0 space-y-2">
+          <Label className="font-semibold text-brand-ink" htmlFor="bank-schedule-kind">
+            Tipo
+          </Label>
+          <SiteSelect
+            id="bank-schedule-kind"
+            value={kind}
+            icon={Layers}
+            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankKindLabel).map(([optionValue, label]) => ({ value: optionValue, label }))]}
+            onChange={setKind}
+          />
+        </div>
       </div>
       {balance ? (
-        <div className="rounded-md border border-border bg-card px-4 py-3 text-sm">
-          <p>Saldo {showSignedMinutes(balance.balance_minutes)}</p>
-          <p className="mt-1 text-muted-foreground">
-            Crédito {showMinutes(balance.credit_minutes)} · Débito {showMinutes(balance.debit_minutes)} · Pago em hora extra {showMinutes(balance.paid_overtime_minutes)} · Descontado como falta {showMinutes(balance.discounted_absence_minutes)}
-          </p>
-          {balance.warning ? <p className="mt-2">{balance.warning}</p> : null}
+        <div className="mt-5">
+          <BankBalance balance={balance} />
         </div>
       ) : null}
-      {balanceError ? <p className="text-sm text-destructive">{balanceError}</p> : null}
-      {entries.error ? <p className="text-sm text-destructive">{entries.error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {entries.items.map((item) => (
-          <li key={item.id} className="px-4 py-3 text-sm">
-            {nameOf(item.employee_id)} · {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
-            {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
-            {item.note ? ` · ${item.note}` : ""}
-          </li>
-        ))}
-        {entries.items.length === 0 ? <ListPlaceholder loading={entries.loading} empty="Nenhum lançamento." /> : null}
-      </ul>
-      <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} />
-    </div>
+      {balanceError ? <p className="mt-4 text-sm text-destructive">{balanceError}</p> : null}
+      {entries.error ? <p className="mt-4 text-sm text-destructive">{entries.error}</p> : null}
+      {entries.items.length === 0 && !entries.error ? (
+        entries.loading ? (
+          <ul className="mt-8">
+            <ListPlaceholder loading empty="Nenhum lançamento." />
+          </ul>
+        ) : (
+          <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+              <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+            </span>
+            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum lançamento.</p>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#52525B]">Selecione um funcionário e, se desejar, um tipo para visualizar os registros do banco de horas.</p>
+          </div>
+        )
+      ) : null}
+      {entries.items.length > 0 ? (
+        <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+          {entries.items.map((item) => (
+            <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
+              {nameOf(item.employee_id)} · {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
+              {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
+              {item.note ? ` · ${item.note}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {entries.total > 0 ? (
+        <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+          <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} tone="module" />
+        </div>
+      ) : null}
+    </section>
   )
 }
 

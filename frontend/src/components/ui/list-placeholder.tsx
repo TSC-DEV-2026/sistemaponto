@@ -1,12 +1,13 @@
 import { Spinner } from "@/components/ui/spinner"
+import { cn } from "@/utils/cn"
 
-export function ListPlaceholder({ loading, empty }: { loading: boolean; empty: string }) {
+export function ListPlaceholder({ loading, empty, className }: { loading: boolean; empty: string; className?: string }) {
   if (loading) {
     return (
-      <li className="flex justify-center px-4 py-6">
+      <li className={cn("flex justify-center px-4 py-6", className)}>
         <Spinner />
       </li>
     )
   }
-  return <li className="px-4 py-3 text-sm text-muted-foreground">{empty}</li>
+  return <li className={cn("px-4 py-3 text-sm text-muted-foreground", className)}>{empty}</li>
 }

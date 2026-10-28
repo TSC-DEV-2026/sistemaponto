@@ -46,6 +46,7 @@ const patterns: Pattern[] = [
   ...catalogPatterns(),
   { path: "/", title: "Dashboard", subtitle: "Visão geral do sistema" },
   { path: "/schedules", title: "Jornada e Ponto", subtitle: "Acompanhe as jornadas e marcações" },
+  { path: "/schedules/apuracao/:workDate", title: "Detalhes da apuração", subtitle: "Detalhamento das horas apuradas" },
   { path: "/schedules/adjustments", title: "Ajustar marcações", subtitle: "Corrija as marcações do dia" },
   { path: "/schedules/hour-bank/new", title: "Novo lançamento", subtitle: "Lance no banco de horas" },
   { path: "/time-clock", title: "Registro de Ponto", subtitle: "Registre e consulte suas marcações" },
