@@ -65,7 +65,6 @@ export function TenantDetailPage() {
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <BackLink to="/tenants" />
-      <h1 className="text-xl font-semibold">Empresa</h1>
       <div className="space-y-2">
         <Label htmlFor="name">Nome</Label>
         <Input id="name" value={name} onChange={(event) => setName(event.target.value)} disabled={!canEdit} required />

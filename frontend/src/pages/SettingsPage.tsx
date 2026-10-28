@@ -97,8 +97,6 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="text-xl font-semibold">Configurações</h1>
-
       <section className="space-y-4 rounded-lg border border-border bg-card p-4">
         <h2 className="text-sm font-medium">Minha conta</h2>
         <p className="text-sm text-muted-foreground">

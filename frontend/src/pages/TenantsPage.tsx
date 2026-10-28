@@ -45,7 +45,6 @@ export function TenantsPage() {
   return (
     <div className="space-y-6">
       <BackLink to="/settings" />
-      <h1 className="text-xl font-semibold">Empresas</h1>
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
         {items.map((item) => (
           <li key={item.id}>

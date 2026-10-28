@@ -1,10 +1,7 @@
-import { KeyRound, LogOut } from "lucide-react"
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom"
+import { Link, Outlet, useLocation } from "react-router-dom"
 
-import { TenantSwitcher } from "@/components/layouts/TenantSwitcher"
-import { Button } from "@/components/ui/button"
+import { AppHeader } from "@/components/layouts/AppHeader"
 import { dashboardItem, navGroups } from "@/navigation"
-import { logout } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 
@@ -18,17 +15,7 @@ function isActive(pathname: string, to: string) {
 export function AppShell() {
   const user = useAuthStore((state) => state.user)
   const location = useLocation()
-  const navigate = useNavigate()
   const DashboardIcon = dashboardItem.icon
-
-  async function sair() {
-    try {
-      await logout()
-    } finally {
-      useAuthStore.getState().clear()
-      navigate("/login")
-    }
-  }
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[260px_1fr]">
@@ -74,21 +61,13 @@ export function AppShell() {
             )
           })}
         </nav>
-        <div className="mt-auto space-y-3 p-4">
-          <TenantSwitcher />
-          <Link to="/change-password" className="inline-flex items-center gap-2 text-sm">
-            <KeyRound className="h-4 w-4" />
-            Senha
-          </Link>
-          <Button type="button" variant="ghost" size="sm" onClick={() => sair()}>
-            <LogOut className="h-4 w-4" />
-            Sair
-          </Button>
-        </div>
       </aside>
-      <main className="px-4 py-6 md:px-8">
-        <Outlet />
-      </main>
+      <div className="flex min-h-screen flex-col bg-brand-paper">
+        <AppHeader />
+        <main className="flex-1 px-4 py-6 md:px-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

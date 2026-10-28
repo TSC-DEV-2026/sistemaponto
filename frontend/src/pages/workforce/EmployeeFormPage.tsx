@@ -102,7 +102,6 @@ export function EmployeeFormPage() {
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <BackLink to="/people" />
-      <h1 className="text-xl font-semibold">{id === null ? "Novo funcionário" : "Editar funcionário"}</h1>
       <p className="text-sm text-muted-foreground">
         {id === null
           ? "O funcionário nasce ativo. O acesso nasce deste CPF. O e-mail é obrigatório quando a pessoa ainda não existe. A senha não fica neste sistema. O papel continua em Permissões e Acessos."
