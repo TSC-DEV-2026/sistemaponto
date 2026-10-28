@@ -143,7 +143,6 @@ export function RequestFormPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <BackLink to="/requests" />
-      <h1 className="text-xl font-semibold">Nova solicitação</h1>
       {ready && blocked ? <p className="text-sm text-muted-foreground">{blocked}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {allowed ? (

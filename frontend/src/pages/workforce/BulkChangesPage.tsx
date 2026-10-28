@@ -194,7 +194,6 @@ export function BulkChangesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Operações em massa</h1>
       <p className="text-sm text-muted-foreground">
         Uma operação por vez. A equipe também grava o setor e a unidade. Se uma pessoa falhar, nenhuma da seleção é salva.
       </p>

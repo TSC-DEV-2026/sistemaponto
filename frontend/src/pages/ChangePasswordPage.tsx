@@ -37,7 +37,6 @@ export function ChangePasswordPage() {
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <BackLink to="/settings" />
-      <h1 className="text-xl font-semibold">Trocar senha</h1>
       <div className="space-y-2">
         <Label htmlFor="current">Senha atual</Label>
         <PasswordField id="current" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required />

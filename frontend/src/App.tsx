@@ -1,9 +1,7 @@
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom"
 
-import { GlobalLoader } from "@/components/GlobalLoader"
 import { AppShell } from "@/components/layouts/AppShell"
 import { PrivateRoute } from "@/components/PrivateRoute"
-import { RouteLoader } from "@/components/RouteLoader"
 import { TenantRoute } from "@/components/TenantRoute"
 import { ChangePasswordPage } from "@/pages/ChangePasswordPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
@@ -41,12 +39,7 @@ import { PeoplePage } from "@/pages/workforce/PeoplePage"
 import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
 
 function RootLayout() {
-  return (
-    <>
-      <RouteLoader />
-      <Outlet />
-    </>
-  )
+  return <Outlet />
 }
 
 const router = createBrowserRouter([
@@ -149,10 +142,5 @@ const router = createBrowserRouter([
 ])
 
 export function App() {
-  return (
-    <>
-      <GlobalLoader />
-      <RouterProvider router={router} />
-    </>
-  )
+  return <RouterProvider router={router} />
 }

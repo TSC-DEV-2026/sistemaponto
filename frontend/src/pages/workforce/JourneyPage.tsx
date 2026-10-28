@@ -254,7 +254,6 @@ export function PunchAdjustPage() {
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <BackLink to="/schedules?aba=marcacoes" />
-      <h1 className="text-xl font-semibold">Ajustar marcações</h1>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <PunchCorrectionForm
         employees={employees}
@@ -337,7 +336,6 @@ export function HourBankEntryPage() {
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <BackLink to="/schedules?aba=banco" />
-      <h1 className="text-xl font-semibold">Novo lançamento</h1>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ActionForm className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">

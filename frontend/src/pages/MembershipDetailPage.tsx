@@ -62,9 +62,9 @@ export function MembershipDetailPage() {
   return (
     <ActionForm className="mx-auto max-w-lg space-y-4" onSubmit={onSubmit}>
       <BackLink to="/memberships" />
-      <h1 className="text-xl font-semibold">
+      <h2 className="text-xl font-semibold">
         {item ? `${item.person_id} — ${item.full_name}` : ""}
-      </h1>
+      </h2>
       <div className="space-y-2">
         <Label htmlFor="role">Papel</Label>
         <select id="role" className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={role} onChange={(event) => setRole(event.target.value)} disabled={!isAdmin}>

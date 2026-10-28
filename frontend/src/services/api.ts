@@ -1,13 +1,11 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 
 import { useAuthStore } from "@/store/auth.store"
-import { useLoaderStore } from "@/store/loader.store"
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
 
 type RequestConfig = InternalAxiosRequestConfig & {
   skipAuthRefresh?: boolean
-  skipLoader?: boolean
   _retried?: boolean
 }
 
@@ -30,9 +28,6 @@ api.interceptors.request.use((config: RequestConfig) => {
       config.headers.set("X-CSRF-Token", csrf)
     }
   }
-  if (!config.skipLoader) {
-    useLoaderStore.getState().start()
-  }
   return config
 })
 
@@ -43,18 +38,9 @@ function isPublicPath(path: string): boolean {
 }
 
 api.interceptors.response.use(
-  (response) => {
-    const config = response.config as RequestConfig
-    if (!config.skipLoader) {
-      useLoaderStore.getState().stop()
-    }
-    return response
-  },
+  (response) => response,
   async (error: AxiosError) => {
     const config = error.config as RequestConfig | undefined
-    if (config && !config.skipLoader) {
-      useLoaderStore.getState().stop()
-    }
     const url = config?.url || ""
     const skip =
       !config ||
@@ -70,7 +56,7 @@ api.interceptors.response.use(
       try {
         if (!refreshPromise) {
           refreshPromise = api
-            .post("/auth/refresh", {}, { skipAuthRefresh: true, skipLoader: true })
+            .post("/auth/refresh", {}, { skipAuthRefresh: true })
             .then(() => undefined)
             .finally(() => {
               refreshPromise = null
@@ -94,7 +80,7 @@ export async function ensureCsrf(): Promise<void> {
     return
   }
   try {
-    await api.get("/auth/me", { skipAuthRefresh: true, skipLoader: true })
+    await api.get("/auth/me", { skipAuthRefresh: true })
   } catch {
     // O GET grava o cookie de CSRF mesmo quando a sessão não existe.
   }

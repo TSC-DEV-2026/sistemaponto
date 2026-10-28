@@ -109,8 +109,7 @@ export function TimeClockPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="text-xl font-semibold">Registro de Ponto</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           O próprio funcionário registra pelo tipo da ficha. O simples é o botão nesta tela. QR Code e reconhecimento facial são feitos no aplicativo.
         </p>
       </div>
@@ -204,7 +203,6 @@ export function OccurrencesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Ajustes e Ocorrências</h1>
       <p className="text-sm text-muted-foreground">O gestor e o administrador lançam abono, atestado, afastamento e férias aqui. A origem desse lançamento é manual. O funcionário pede os quatro em Solicitações.</p>
       <div className="flex flex-wrap gap-2">
         {Object.entries(occurrenceKindLabel).map(([value, label]) => (
@@ -360,7 +358,6 @@ export function RequestsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Solicitações</h1>
       <p className="text-sm text-muted-foreground">
         {status === "pending" ? `${inbox.total} pendentes. ` : ""}
         O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
@@ -490,7 +487,6 @@ export function ClosingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Fechamento do Ponto</h1>
       <p className="text-sm text-muted-foreground">
         O gestor ou o administrador fecha o mês, ou um intervalo, num passo. Não fecha se houver solicitação pendente, ponto incompleto ou conflito entre abono ou atestado e marcação. O aviso de intervalo menor não impede. Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados até reabrir. Cancelar e reabrir exigem motivo.
       </p>
@@ -730,8 +726,7 @@ export function NotificationsPage() {
       <div className="space-y-4">
         <BackLink to="/settings" />
         <div>
-          <h1 className="text-xl font-semibold">Notificações</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             O texto no sistema é o mesmo do e-mail. Cada aviso pode ser desligado. Sem preferência gravada, ele fica ligado. O envio é diário. Fechamento próximo e trial terminando começam 3 dias antes. A frequência customizável fica para depois.
           </p>
         </div>
@@ -914,7 +909,6 @@ export function ReportsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-semibold">Relatórios</h1>
       <p className="text-sm text-muted-foreground">
         Um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão. A consulta é analítica e histórica, de até 366 dias. Dia futuro não entra no ponto nem no movimento do banco. O dashboard continua operacional. O gestor vê a própria equipe. O fechamento, sem filtro de funcionário, continua da empresa.
       </p>

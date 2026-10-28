@@ -220,7 +220,7 @@ export function EmployeePage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <BackLink to="/people" />
       <div>
-        <h1 className="text-xl font-semibold">{employee?.full_name || "Funcionário"}</h1>
+        <h2 className="text-xl font-semibold">{employee?.full_name || "Funcionário"}</h2>
         <p className="text-sm text-muted-foreground">
           {situationLabel[employee?.situation || ""] || "Sem situação"}
           {employee?.job_label ? ` · ${employee.job_label}` : ""}

@@ -40,7 +40,6 @@ export function MembershipsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Permissões e Acessos</h1>
           <p className="text-sm text-muted-foreground">Quem entra neste sistema. O funcionário fica em Pessoas.</p>
         </div>
         {role === "admin" ? (

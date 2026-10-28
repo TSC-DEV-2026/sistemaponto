@@ -67,7 +67,6 @@ function bodyFrom(fields: CatalogField[], form: Record<string, string>, kind?: s
 }
 
 export function DomainTabs({
-  title,
   lead,
   tabs,
 }: {
@@ -84,10 +83,7 @@ export function DomainTabs({
   return (
     <TabAction.Provider value={setAction}>
       <div className="mx-auto max-w-3xl space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold">{title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{lead}</p>
-        </div>
+        <p className="text-sm text-muted-foreground">{lead}</p>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             {tabs.map((tab) => (
@@ -451,7 +447,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <BackLink to={entry.backTo} />
-      <h1 className="text-xl font-semibold">{title}</h1>
+      {mode === "view" ? <h2 className="text-xl font-semibold">{title}</h2> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {mode === "view" ? (
         <dl className="space-y-3 text-sm">
