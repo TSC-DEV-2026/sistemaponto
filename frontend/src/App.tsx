@@ -18,6 +18,7 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { TenantDetailPage } from "@/pages/TenantDetailPage"
 import { TenantsPage } from "@/pages/TenantsPage"
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage"
+import { ApuracaoDayPage } from "@/pages/workforce/ApuracaoDayPage"
 import { BulkChangesPage } from "@/pages/workforce/BulkChangesPage"
 import { EmployeeFormPage } from "@/pages/workforce/EmployeeFormPage"
 import { EmployeePage } from "@/pages/workforce/EmployeePage"
@@ -75,6 +76,7 @@ const router = createBrowserRouter([
                   { path: "/schedules/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
                   { path: "/schedules/adjustments", element: <PunchAdjustPage /> },
                   { path: "/schedules/hour-bank/new", element: <HourBankEntryPage /> },
+                  { path: "/schedules/apuracao/:workDate", element: <ApuracaoDayPage /> },
                   { path: "/schedules", element: <JourneyPage /> },
                   { path: "/time-clock", element: <TimeClockPage /> },
                   { path: "/occurrences", element: <OccurrencesPage /> },

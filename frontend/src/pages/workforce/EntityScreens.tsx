@@ -1,7 +1,8 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Eye, Pencil, Plus, QrCode, Save, Trash2 } from "lucide-react"
+import { Clock, Eye, Pencil, Plus, QrCode, Save, Search, Trash2 } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
+import { authInputClass } from "@/components/auth-screen"
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import { fieldClass, optionsOf, type CatalogField } from "@/components/workforce
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
@@ -39,6 +41,37 @@ function selectedFilters(selects: ListSelect[], chosen: Record<string, string>):
 }
 
 type Row = { id: number }
+
+function JourneySearch({ id, value, onChange, onSearch }: { id: string; value: string; onChange: (value: string) => void; onSearch: () => void }) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Label className="text-sm font-semibold text-[#1B2534]" htmlFor={id}>
+          Pesquisar
+        </Label>
+        <div className="relative">
+          <Input
+            id={id}
+            value={value}
+            placeholder="Pesquisar"
+            className={cn(authInputClass(false), "!h-11")}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return
+              event.preventDefault()
+              onSearch()
+            }}
+          />
+          <Search className="pointer-events-none absolute left-[14px] top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+        </div>
+      </div>
+      <Button type="button" className="h-11 rounded-[10px] bg-brand-cta px-5 text-white hover:bg-brand-cta-hover" onClick={onSearch}>
+        <Search className="h-4 w-4" />
+        Pesquisar
+      </Button>
+    </div>
+  )
+}
 
 function blankForm(fields: CatalogField[]) {
   const next: Record<string, string> = {}
@@ -69,10 +102,12 @@ function bodyFrom(fields: CatalogField[], form: Record<string, string>, kind?: s
 export function DomainTabs({
   lead,
   tabs,
+  module = false,
 }: {
   title: string
-  lead: string
+  lead?: string
   tabs: { id: string; label: string; panel: ReactNode }[]
+  module?: boolean
 }) {
   const [params, setParams] = useSearchParams()
   const [action, setAction] = useState<ReactNode>(null)
@@ -82,15 +117,32 @@ export function DomainTabs({
 
   return (
     <TabAction.Provider value={setAction}>
-      <div className="mx-auto max-w-3xl space-y-4">
-        <p className="text-sm text-muted-foreground">{lead}</p>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            {tabs.map((tab) => (
-              <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams(tab.id === tabs[0].id ? {} : { aba: tab.id })}>
-                {tab.label}
-              </Button>
-            ))}
+      <div className={module ? "w-full space-y-5" : "mx-auto max-w-3xl space-y-4"}>
+        {module || !lead ? null : <p className="text-sm text-muted-foreground">{lead}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className={module ? "inline-flex flex-wrap rounded-xl bg-[#E7E8EA] p-1" : "flex flex-wrap gap-2"} role="tablist">
+            {tabs.map((tab) =>
+              module ? (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab.id === current}
+                  className={
+                    tab.id === current
+                      ? "rounded-lg bg-white px-4 py-2 text-sm font-medium text-brand-cta shadow-sm transition-colors duration-200"
+                      : "rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:text-zinc-900"
+                  }
+                  onClick={() => setParams(tab.id === tabs[0].id ? {} : { aba: tab.id })}
+                >
+                  {tab.label}
+                </button>
+              ) : (
+                <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams(tab.id === tabs[0].id ? {} : { aba: tab.id })}>
+                  {tab.label}
+                </Button>
+              ),
+            )}
           </div>
           {action}
         </div>
@@ -112,6 +164,7 @@ export function RecordList<T extends Row>({
   detailOf,
   empty,
   extra = null,
+  presentation,
 }: {
   path: string
   filters?: (query: string) => ListParams
@@ -124,6 +177,7 @@ export function RecordList<T extends Row>({
   detailOf?: (item: T) => string
   empty: string
   extra?: ReactNode
+  presentation?: "journey"
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setTabAction = useContext(TabAction)
@@ -168,9 +222,23 @@ export function RecordList<T extends Row>({
     }
   }
 
+  const journey = presentation === "journey"
+
   return (
-    <div className="space-y-3">
-      <ListSearch id={`search-${path}`} value={query} onChange={setQuery} onSearch={list.reload} />
+    <div className={journey ? "w-full rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "space-y-3"}>
+      {journey ? (
+        <div>
+          <h2 className="text-lg font-semibold text-brand-ink">Jornadas</h2>
+          <p className="mt-1 text-sm text-brand-quiet">Consulte as jornadas cadastradas.</p>
+        </div>
+      ) : null}
+      {journey ? (
+        <div className="mt-[18px]">
+          <JourneySearch id={`search-${path}`} value={query} onChange={setQuery} onSearch={list.reload} />
+        </div>
+      ) : (
+        <ListSearch id={`search-${path}`} value={query} onChange={setQuery} onSearch={list.reload} />
+      )}
       {selects.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {selects.map((select) => (
@@ -185,10 +253,54 @@ export function RecordList<T extends Row>({
           ))}
         </div>
       ) : null}
-      {list.error ? <p className="text-sm text-destructive">{list.error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+      {list.error ? <p className={journey ? "mt-4 text-sm text-destructive" : "text-sm text-destructive"}>{list.error}</p> : null}
+      <ul className={journey ? "mt-4 space-y-2" : "divide-y divide-border rounded-lg border border-border bg-card"}>
         {list.items.map((item) => {
           const detail = detailOf?.(item)
+          if (journey) {
+            return (
+              <li key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Link
+                  to={viewTo(item.id)}
+                  aria-label={`Visualizar ${nameOf(item)}`}
+                  className="group/card flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075),0_16px_32px_rgba(15,23,42,0.055)] motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
+                    <Clock className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-brand-ink">{nameOf(item)}</span>
+                    {detail ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detail}</span> : null}
+                  </span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0" aria-hidden>
+                    <Eye className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                </Link>
+                {pending === item.id ? (
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span>Excluir {nameOf(item)}?</span>
+                    <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(item.id)}>
+                      Excluir
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setPending(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : isAdmin ? (
+                  <div className="flex gap-1">
+                    <Button asChild size="sm" variant="outline">
+                      <Link to={editTo(item.id)} aria-label="Editar">
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" aria-label="Excluir" onClick={() => setPending(item.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : null}
+              </li>
+            )
+          }
           return (
             <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <div>
@@ -229,9 +341,11 @@ export function RecordList<T extends Row>({
             </li>
           )
         })}
-        {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty={empty} /> : null}
+        {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty={empty} className={journey ? "rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center" : undefined} /> : null}
       </ul>
-      <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} />
+      <div className={journey ? "mt-4 border-t border-[#F0F0F2] pt-3" : undefined}>
+        <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone={journey ? "module" : "default"} density={journey ? "compact" : "default"} />
+      </div>
     </div>
   )
 }
@@ -308,7 +422,7 @@ const linkedSelects: Record<string, { key: string; label: string; source: string
   agreements: { key: "union_id", label: "Sindicato", source: "/unions" },
 }
 
-export function CatalogList({ catalog }: { catalog: string }) {
+export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" }) {
   const entry = catalogs[catalog]
   const linked = linkedSelects[catalog]
   const [linkedOptions, setLinkedOptions] = useState<{ value: string; label: string }[]>([])
@@ -353,6 +467,7 @@ export function CatalogList({ catalog }: { catalog: string }) {
         return ""
       }}
       empty={entry.empty}
+      presentation={presentation}
     />
   )
 }
@@ -442,6 +557,68 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
     }
+  }
+
+  if (catalog === "journeys" && mode === "view") {
+    const hour = (value: string) => {
+      if (!value) return "—"
+      return value.length >= 5 ? value.slice(0, 5) : value
+    }
+    const slots = [
+      { name: "morning_start", step: "01", period: "Manhã" },
+      { name: "morning_end", step: "02", period: "Manhã" },
+      { name: "afternoon_start", step: "03", period: "Tarde" },
+      { name: "afternoon_end", step: "04", period: "Tarde" },
+    ]
+    const name = form.name || "—"
+    return (
+      <div className="w-full">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">JORNADAS / DETALHES</p>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">{name}</h2>
+            <p className="mt-1 text-sm text-brand-quiet">Informações e horários da jornada</p>
+          </div>
+          <BackLink to={entry.backTo} appearance="detail" />
+        </div>
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+        <div className="mt-4 flex flex-col gap-4">
+          <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <h3 className="text-base font-semibold text-brand-ink">Informações da jornada</h3>
+            <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-12">
+              <div className="sm:w-72 sm:shrink-0">
+                <p className="text-sm text-brand-muted">Nome</p>
+                <p className="mt-1 font-semibold text-brand-ink">{name}</p>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-brand-muted">Observação</p>
+                <p className="mt-1 text-sm text-brand-quiet">{form.note?.trim() ? form.note : "Nenhuma observação informada."}</p>
+              </div>
+            </div>
+          </section>
+          <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-brand-ink">Horários</h3>
+              {form.name ? <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-brand-cta">{form.name}</span> : null}
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {slots.map((slot) => {
+                const field = entry.fields.find((item) => item.name === slot.name)
+                return (
+                  <div key={slot.name} className="rounded-xl border border-[#E4E4E7] bg-white px-4 py-4">
+                    <p className="text-xs font-semibold text-brand-cta">
+                      {slot.step} · {slot.period}
+                    </p>
+                    <p className="mt-2 text-sm text-brand-muted">{field?.label}</p>
+                    <p className="mt-1 text-2xl font-bold tracking-tight text-brand-ink">{hour(form[slot.name] ?? "")}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        </div>
+      </div>
+    )
   }
 
   return (

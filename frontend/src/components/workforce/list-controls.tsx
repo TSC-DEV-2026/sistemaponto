@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, paginationItems } from "@/components/ui/pagination"
 import { listRecords } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { cn } from "@/utils/cn"
 
 export const pageSizes = [5, 10, 20]
 
@@ -84,47 +85,67 @@ export function ListPager({
   total,
   onPage,
   onPageSize,
+  tone = "default",
+  density = "default",
 }: {
   page: number
   pageSize: number
   total: number
   onPage: (page: number) => void
   onPageSize: (size: number) => void
+  tone?: "default" | "module"
+  density?: "default" | "compact"
 }) {
   if (total <= 0) return null
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const current = Math.min(page, pages)
+  const compact = density === "compact"
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex gap-1" role="group" aria-label="Itens por página">
+    <div className={cn("flex flex-wrap items-center justify-between", compact ? "gap-2" : "gap-3")}>
+      <div className={cn("flex", compact ? "gap-1.5" : "gap-1")} role="group" aria-label="Itens por página">
         {pageSizes.map((size) => (
-          <Button key={size} type="button" size="sm" variant={pageSize === size ? "default" : "outline"} className="w-10 px-0" onClick={() => onPageSize(size)}>
+          <Button
+            key={size}
+            type="button"
+            size="sm"
+            variant={pageSize === size ? "default" : "outline"}
+            className={
+              compact
+                ? cn("h-8 w-8 px-0", pageSize === size ? "bg-brand-cta text-white hover:bg-brand-cta-hover" : "border-[#E4E4E7] bg-white text-brand-ink hover:bg-zinc-50")
+                : tone === "module" && pageSize === size
+                  ? "w-10 bg-brand-cta px-0 text-white hover:bg-brand-cta-hover"
+                  : tone === "module"
+                    ? "w-10 border-[#E4E4E7] bg-white px-0 text-brand-ink hover:bg-zinc-50"
+                    : "w-10 px-0"
+            }
+            onClick={() => onPageSize(size)}
+          >
             {size}
           </Button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className={cn("flex flex-wrap items-center", compact ? "gap-2" : "gap-3")}>
         <p className="text-sm text-muted-foreground">
           Página {current} de {pages} ({total} {total === 1 ? "item" : "itens"})
         </p>
         <Pagination className="mx-0 w-auto justify-end">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious disabled={current <= 1} onClick={() => onPage(current - 1)} />
+              <PaginationPrevious className={compact ? "h-8 px-2.5" : undefined} disabled={current <= 1} onClick={() => onPage(current - 1)} />
             </PaginationItem>
             {paginationItems(current, pages).map((item, index) => (
               <PaginationItem key={item === "ellipsis" ? `reticencias-${index}` : item}>
                 {item === "ellipsis" ? (
-                  <PaginationEllipsis />
+                  <PaginationEllipsis className={compact ? "h-8 w-8" : undefined} />
                 ) : (
-                  <PaginationLink isActive={item === current} onClick={() => onPage(item)}>
+                  <PaginationLink className={compact ? "h-8 w-8" : undefined} isActive={item === current} onClick={() => onPage(item)}>
                     {item}
                   </PaginationLink>
                 )}
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext disabled={current * pageSize >= total} onClick={() => onPage(current + 1)} />
+              <PaginationNext className={compact ? "h-8 px-2.5" : undefined} disabled={current * pageSize >= total} onClick={() => onPage(current + 1)} />
             </PaginationItem>
           </PaginationContent>
         </Pagination>

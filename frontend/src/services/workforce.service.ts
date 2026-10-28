@@ -286,6 +286,8 @@ export type TimeResult = {
   incomplete: boolean
   holiday: boolean
   warnings: string[]
+  first_entry_at?: string | null
+  last_exit_at?: string | null
 }
 
 export type TimeResults = {

@@ -140,6 +140,8 @@ def settle_day(
         overtime = 0
     elif eligible:
         shortage = max(0, expected - worked)
+    first_entry = moments[0] if moments else None
+    last_exit = moments[-1] if len(moments) >= 2 and len(moments) % 2 == 0 else None
     return {
         "work_date": work_date,
         "expected_minutes": expected,
@@ -155,4 +157,6 @@ def settle_day(
         "incomplete": incomplete,
         "holiday": holiday,
         "warnings": warnings,
+        "first_entry_at": first_entry,
+        "last_exit_at": last_exit,
     }

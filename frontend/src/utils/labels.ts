@@ -216,9 +216,30 @@ export function showSignedMinutes(value: number) {
   return showMinutes(value)
 }
 
+export function showDuration(value: number) {
+  const negative = value < 0
+  const total = Math.abs(Math.trunc(value))
+  const hours = Math.floor(total / 60)
+  const minutes = total % 60
+  const text = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+  return negative ? `-${text}` : text
+}
+
 export function showDateTime(value: string | null | undefined) {
   if (!value) {
     return "—"
   }
   return new Date(value).toLocaleString("pt-BR")
+}
+
+export function showClock(value: string | null | undefined) {
+  if (!value) {
+    return "Sem registro"
+  }
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(value))
 }

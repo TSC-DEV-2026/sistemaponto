@@ -693,6 +693,8 @@ class TimeResultOut(BaseModel):
     incomplete: bool
     holiday: bool
     warnings: list[str]
+    first_entry_at: datetime | None = None
+    last_exit_at: datetime | None = None
 
 
 class TimeResultsOut(BaseModel):
