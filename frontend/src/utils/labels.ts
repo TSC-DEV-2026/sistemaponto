@@ -251,15 +251,3 @@ export function showClock(value: string | null | undefined) {
     hourCycle: "h23",
   }).format(new Date(value))
 }
-
-export function showClock(value: string | null | undefined) {
-  if (!value) {
-    return "Sem registro"
-  }
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(value))
-}
