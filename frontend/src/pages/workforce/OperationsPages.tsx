@@ -1,4 +1,4 @@
-import { Clock, FilePlus, Info, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
+import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
+import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { moduleTextClass } from "@/components/workforce/module-visual"
+import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
+import { moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
@@ -33,6 +35,7 @@ import {
   type TimeRequest,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { cn } from "@/utils/cn"
 import { clockMethodLabel } from "@/utils/labels"
 import {
   closingEventLabel,
@@ -168,6 +171,65 @@ export function TimeClockPage() {
   )
 }
 
+function personInitials(fullName: string) {
+  const particles = new Set(["de", "da", "do", "dos", "das", "e"])
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part && !particles.has(part.toLocaleLowerCase("pt-BR")))
+  return parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toLocaleUpperCase("pt-BR"))
+    .join("")
+}
+
+const requestTabs = [
+  {
+    id: "pending",
+    label: "Pendente",
+    description: "Aguardando aprovação",
+    icon: FileClock,
+    iconWrap: "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]",
+    badge: "bg-[rgba(30,138,58,0.12)] text-[#146C2E]",
+    idle: "hover:border-[rgba(30,138,58,0.35)] hover:bg-[#F7FCF8] hover:shadow-[0_10px_24px_rgba(30,138,58,0.1)]",
+    selected: "border-[#1E8A3A] bg-[#F5FBF7] shadow-[0_8px_24px_rgba(30,138,58,0.08)] hover:shadow-[0_12px_28px_rgba(30,138,58,0.12)]",
+    ring: "focus-visible:ring-[#1E8A3A]/35",
+  },
+  {
+    id: "approved",
+    label: "Aprovada",
+    description: "Ajustes aplicados",
+    icon: CircleCheck,
+    iconWrap: "bg-[rgba(37,99,235,0.12)] text-[#2563EB]",
+    badge: "bg-[rgba(37,99,235,0.12)] text-[#1D4ED8]",
+    idle: "hover:border-[rgba(37,99,235,0.35)] hover:bg-[#F7F9FF] hover:shadow-[0_10px_24px_rgba(37,99,235,0.1)]",
+    selected: "border-[#2563EB] bg-[#F5F8FF] shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:shadow-[0_12px_28px_rgba(37,99,235,0.12)]",
+    ring: "focus-visible:ring-[#2563EB]/35",
+  },
+  {
+    id: "rejected",
+    label: "Recusada",
+    description: "Não foi aprovada",
+    icon: CircleX,
+    iconWrap: "bg-[rgba(220,38,38,0.12)] text-[#DC2626]",
+    badge: "bg-[rgba(220,38,38,0.12)] text-[#B91C1C]",
+    idle: "hover:border-[rgba(220,38,38,0.35)] hover:bg-[#FFF8F8] hover:shadow-[0_10px_24px_rgba(220,38,38,0.1)]",
+    selected: "border-[#DC2626] bg-[#FFF6F6] shadow-[0_8px_24px_rgba(220,38,38,0.08)] hover:shadow-[0_12px_28px_rgba(220,38,38,0.12)]",
+    ring: "focus-visible:ring-[#DC2626]/35",
+  },
+  {
+    id: "cancelled",
+    label: "Cancelada",
+    description: "Solicitação cancelada",
+    icon: Ban,
+    iconWrap: "bg-[#F1F5F9] text-[#64748B]",
+    badge: "bg-[#F1F5F9] text-[#475569]",
+    idle: "hover:border-[#CBD5E1] hover:bg-[#F8FAFC] hover:shadow-[0_10px_24px_rgba(100,116,139,0.12)]",
+    selected: "border-[#64748B] bg-[#F8FAFC] shadow-[0_8px_24px_rgba(100,116,139,0.1)] hover:shadow-[0_12px_28px_rgba(100,116,139,0.14)]",
+    ring: "focus-visible:ring-[#64748B]/35",
+  },
+] as const
+
 export function RequestsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const personId = useAuthStore((state) => state.user?.person_id)
@@ -235,78 +297,217 @@ export function RequestsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {status === "pending" ? `${inbox.total} pendentes. ` : ""}
-        O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
-      </p>
-      {canRequest ? (
-        <Button asChild>
-          <Link to="/requests/new">Nova solicitação</Link>
-        </Button>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        {Object.entries(requestStatusLabel).map(([value, label]) => (
-          <Button key={value} type="button" size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)}>
-            {label}
-          </Button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <FilterSelect
-          id="request-employee"
-          label="Funcionário"
-          value={listEmployee}
-          options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
-          onChange={setListEmployee}
-        />
-        <FilterSelect id="request-kind" label="Tipo" value={listKind} options={Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))} onChange={setListKind} />
-      </div>
-      {inbox.items.some((item) => mayDecide(item)) ? (
-        <div className="space-y-2">
-          <Label htmlFor="decision">Observação da decisão</Label>
-          <textarea id="decision" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
+    <div className="w-full min-w-0 space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-[14px] sm:grid-cols-2 lg:grid-cols-4" role="tablist">
+          {requestTabs.map((tab) => {
+            const selected = status === tab.id
+            const Icon = tab.icon
+            const showCount = selected && !inbox.loading && !inbox.error
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                className={cn(
+                  "flex min-h-[94px] w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-[transform,background-color,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+                  tab.ring,
+                  selected ? tab.selected : cn("border-[#E4E4E7] bg-white shadow-[0_6px_18px_rgba(15,23,42,0.05)]", tab.idle),
+                )}
+                onClick={() => setStatus(tab.id)}
+              >
+                <span className={cn("flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl", tab.iconWrap)}>
+                  <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-[#0A0A0A]">{tab.label}</span>
+                  <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{tab.description}</span>
+                </span>
+                {showCount ? <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-2.5 text-sm font-semibold tabular-nums", tab.badge)}>{inbox.total}</span> : null}
+              </button>
+            )
+          })}
         </div>
-      ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {inbox.error ? <p className="text-sm text-destructive">{inbox.error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {inbox.items.map((item) => (
-          <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
-            <p className="flex flex-wrap items-center gap-2">
-              <span>
-                {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {requestKindLabel[item.kind] || item.kind}
-              </span>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${requestStatusClass(item.status)}`}>{requestStatusLabel[item.status] || item.status}</span>
-            </p>
-            <p className="text-muted-foreground">
-              {item.kind === "adjustment"
-                ? `Marcações pedidas: ${(item.punches ?? []).length > 0 ? item.punches.map((value) => showDateTime(value)).join(", ") : "—"}`
-                : periodText(item)}
-              {certificateText(item) ? ` · ${certificateText(item)}` : ""}
-              {item.note ? ` · ${item.note}` : ""}
-              {item.photo_url ? " · " : ""}
-              <DocumentLink href={item.photo_url} />
-            </p>
-            {item.status === "pending" ? <p className="text-muted-foreground">{item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto."}</p> : null}
-            {item.status === "approved" ? <p className="text-muted-foreground">Origem: solicitação.</p> : null}
-            {role === "manager" && item.status === "pending" && ownRequest(item) ? <p className="text-muted-foreground">Você não decide a própria solicitação.</p> : null}
-            <p className="text-muted-foreground">{item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")}</p>
-            {mayDecide(item) ? (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" onClick={() => decide(item.id, "approved")}>
-                  Aprovar
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => decide(item.id, "rejected")}>
-                  Recusar
-                </Button>
-              </div>
-            ) : null}
-          </li>
-        ))}
-        {inbox.items.length === 0 ? <ListPlaceholder loading={inbox.loading} empty="Nenhuma solicitação." /> : null}
-      </ul>
-      <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
+        {canRequest ? (
+          <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
+            <Link to="/requests/new">
+              <FilePlus className="h-4 w-4" />
+              Nova solicitação
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+      <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+            <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div>
+            <h2 className="text-base font-semibold text-[#0A0A0A]">Filtros</h2>
+            <p className="text-sm text-[#71717A]">Refine a exibição das solicitações</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="request-employee">
+              Funcionário
+            </Label>
+            <EmployeeCombobox
+              id="request-employee"
+              value={listEmployee}
+              employees={employees}
+              emptyLabel="Todos"
+              extendSearch={employees.length >= 100}
+              onChange={setListEmployee}
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="request-kind">
+              Tipo
+            </Label>
+            <SiteSelect
+              id="request-kind"
+              value={listKind}
+              icon={FileText}
+              options={[{ value: "", label: "Todos" }, ...Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))]}
+              onChange={setListKind}
+            />
+          </div>
+        </div>
+      </section>
+      <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        {inbox.items.some((item) => mayDecide(item)) ? (
+          <div className="mb-5 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="decision">
+              Observação da decisão
+            </Label>
+            <textarea id="decision" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
+          </div>
+        ) : null}
+        {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+        {inbox.error ? <p className="mb-4 text-sm text-destructive">{inbox.error}</p> : null}
+        {inbox.loading ? (
+          <ul>
+            <ListPlaceholder loading empty="Nenhuma solicitação." />
+          </ul>
+        ) : null}
+        {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+              <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+            </span>
+            <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
+            <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
+          </div>
+        ) : null}
+        {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {inbox.items.map((item) => {
+              const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
+              const kindLabel = requestKindLabel[item.kind] || item.kind
+              const punches = (item.punches ?? []).map((value) => showDateTime(value))
+              const detail = item.kind === "adjustment" ? (punches.length > 0 ? punches.join(" · ") : "—") : periodText(item)
+              const extra = [certificateText(item), item.note].filter(Boolean).join(" · ")
+              const history = item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")
+              const origin = item.status === "approved" ? "solicitação" : "—"
+              const pendingNote = item.status === "pending" ? (item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto.") : ""
+              const ownNote = role === "manager" && item.status === "pending" && ownRequest(item) ? "Você não decide a própria solicitação." : ""
+              const statusBadge = () => (
+                <span className={cn("inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold", requestStatusClass(item.status))}>
+                  {requestStatusLabel[item.status] || item.status}
+                </span>
+              )
+              const personBlock = () => (
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.12)] text-sm font-semibold text-[#146C2E]">
+                    {personInitials(person) || "?"}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#0A0A0A]" title={person}>
+                      {person}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{kindLabel}</span>
+                  </span>
+                </div>
+              )
+              const detailBlock = () => (
+                <div className="flex min-w-0 items-center gap-2">
+                  <Calendar className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-sm leading-5 text-[#52525B]">
+                      {item.kind === "adjustment" ? <span className="text-[#71717A]">Marcações pedidas: </span> : null}
+                      {detail}
+                      {extra ? ` · ${extra}` : ""}
+                      {item.photo_url ? " · " : ""}
+                      <DocumentLink href={item.photo_url} />
+                    </p>
+                    {pendingNote ? <p className="mt-1 text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
+                    {ownNote ? <p className="mt-1 text-xs leading-5 text-[#71717A]">{ownNote}</p> : null}
+                  </div>
+                </div>
+              )
+              const originBlock = () => (
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileText className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-[#94A3B8]">Origem</p>
+                    <p className="truncate text-sm text-[#52525B]">{origin}</p>
+                  </div>
+                </div>
+              )
+              const historyBlock = () => (
+                <div className="flex min-w-0 items-center gap-2">
+                  <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <p className="min-w-0 text-sm text-[#52525B]" title={history || undefined}>
+                    {history || "—"}
+                  </p>
+                </div>
+              )
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#D4D4D8] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                >
+                  <div className="flex flex-col gap-3 lg:hidden">
+                    <div className="flex items-center justify-between gap-3">
+                      {personBlock()}
+                      {statusBadge()}
+                    </div>
+                    {detailBlock()}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {originBlock()}
+                      {historyBlock()}
+                    </div>
+                  </div>
+                  <div className="hidden min-w-0 items-center lg:flex">
+                    <div className="w-[22%] min-w-0 shrink-0 pr-4">{personBlock()}</div>
+                    <div className="min-w-0 flex-1 border-l border-[#F0F0F2] px-4">{detailBlock()}</div>
+                    <div className="w-[12%] min-w-0 border-l border-[#F0F0F2] px-4">{originBlock()}</div>
+                    <div className="w-[17%] min-w-0 border-l border-[#F0F0F2] px-4">{historyBlock()}</div>
+                    <div className="shrink-0 pl-4">{statusBadge()}</div>
+                  </div>
+                  {mayDecide(item) ? (
+                    <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
+                      <Button type="button" className={modulePrimaryClass} onClick={() => decide(item.id, "approved")}>
+                        Aprovar
+                      </Button>
+                      <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => decide(item.id, "rejected")}>
+                        Recusar
+                      </Button>
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        ) : null}
+        {!inbox.loading && !inbox.error && inbox.total > 0 ? (
+          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+            <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
+          </div>
+        ) : null}
+      </section>
     </div>
   )
 }

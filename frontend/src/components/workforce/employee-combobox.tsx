@@ -40,6 +40,7 @@ export function EmployeeCombobox({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const keyboardMove = useRef(false)
   const names = useRef(new Map<string, string>())
   const request = useRef(0)
   const listId = useId()
@@ -115,9 +116,15 @@ export function EmployeeCombobox({
   }, [query])
 
   useEffect(() => {
-    if (!open || !mounted) return
+    if (!open || !mounted || !keyboardMove.current) return
+    keyboardMove.current = false
     listRef.current?.querySelector<HTMLElement>("[data-active='true']")?.scrollIntoView({ block: "nearest" })
   }, [active, open, mounted])
+
+  function moveActive(next: number | ((index: number) => number)) {
+    keyboardMove.current = true
+    setActive(next)
+  }
 
   function close(focusButton = false) {
     setOpen(false)
@@ -132,16 +139,16 @@ export function EmployeeCombobox({
   function onInputKey(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault()
-      setActive((index) => Math.min(options.length - 1, index + 1))
+      moveActive((index) => Math.min(options.length - 1, index + 1))
     } else if (event.key === "ArrowUp") {
       event.preventDefault()
-      setActive((index) => Math.max(0, index - 1))
+      moveActive((index) => Math.max(0, index - 1))
     } else if (event.key === "Home") {
       event.preventDefault()
-      setActive(0)
+      moveActive(0)
     } else if (event.key === "End") {
       event.preventDefault()
-      setActive(Math.max(0, options.length - 1))
+      moveActive(Math.max(0, options.length - 1))
     } else if (event.key === "Enter") {
       event.preventDefault()
       const next = options[current]
