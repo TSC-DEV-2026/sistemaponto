@@ -3,6 +3,7 @@ import { Clock, Layers, Pencil, Plus } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { DatePickerField } from "@/components/ui/date-picker-field"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { SiteSelect } from "@/components/ui/site-select"
@@ -10,9 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { cn } from "@/utils/cn"
-import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
+import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
@@ -48,7 +49,7 @@ function PunchScheduleList() {
       return () => setTabAction(null)
     }
     setTabAction(
-      <Button asChild>
+      <Button asChild className={modulePrimaryClass}>
         <Link to="/schedules/adjustments">
           <Pencil className="h-4 w-4" />
           Ajustar marcações
@@ -164,7 +165,7 @@ function BankScheduleList() {
       return () => setTabAction(null)
     }
     setTabAction(
-      <Button asChild>
+      <Button asChild className={modulePrimaryClass}>
         <Link to="/schedules/hour-bank/new">
           <Plus className="h-4 w-4" />
           Novo lançamento
@@ -315,15 +316,25 @@ export function PunchAdjustPage() {
   }, [tenantId])
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <BackLink to="/schedules?aba=marcacoes" />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <PunchCorrectionForm
-        employees={employees}
-        onSaved={async () => {
-          navigate("/schedules?aba=marcacoes")
-        }}
-      />
+    <div className="w-full min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">MARCAÇÕES</p>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">Ajustar marcações</h2>
+          <p className="mt-1 text-sm text-brand-quiet">Corrija as marcações que valem em um dia.</p>
+        </div>
+        <BackLink to="/schedules?aba=marcacoes" appearance="detail" />
+      </div>
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      <div className="mt-4">
+        <PunchCorrectionForm
+          appearance="module"
+          employees={employees}
+          onSaved={async () => {
+            navigate("/schedules?aba=marcacoes")
+          }}
+        />
+      </div>
     </div>
   )
 }
@@ -397,49 +408,52 @@ export function HourBankEntryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <BackLink to="/schedules?aba=banco" />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <ActionForm className="space-y-4" onSubmit={onSubmit}>
+    <div className="w-full min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">BANCO DE HORAS</p>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">Novo lançamento</h2>
+          <p className="mt-1 text-sm text-brand-quiet">Registre uma quitação, um crédito ou um débito.</p>
+        </div>
+        <BackLink to="/schedules?aba=banco" appearance="detail" />
+      </div>
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      <ActionForm className={cn(moduleCardClass, "mt-4 space-y-5")} onSubmit={onSubmit}>
         <div className="space-y-2">
-          <Label htmlFor="entry-employee">Funcionário</Label>
-          <select id="entry-employee" className={fieldClass} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} required>
-            <option value="">Selecione</option>
-            {employees.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.full_name}
-              </option>
-            ))}
-          </select>
+          <Label className={moduleLabelClass} htmlFor="entry-employee">
+            Funcionário
+          </Label>
+          <EmployeeCombobox id="entry-employee" value={employeeId} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setEmployeeId} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="entry-kind">Lançamento</Label>
-          <select id="entry-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
-            {Object.entries(hourBankKindLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <Label className={moduleLabelClass} htmlFor="entry-kind">
+            Lançamento
+          </Label>
+          <SiteSelect id="entry-kind" value={kind} options={Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))} onChange={setKind} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="entry-minutes">Minutos</Label>
-          <Input id="entry-minutes" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} required />
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="entry-minutes">
+              Minutos
+            </Label>
+            <Input id="entry-minutes" className={moduleFieldClass} inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} required />
+          </div>
+          <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required />
         </div>
         {kind === "settlement" && balance && balance.balance_minutes !== 0 ? (
-          <Button type="button" variant="outline" onClick={() => setMinutes(String(Math.abs(balance.balance_minutes)))}>
+          <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setMinutes(String(Math.abs(balance.balance_minutes)))}>
             Quitar o saldo inteiro
           </Button>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="entry-day">Data</Label>
-          <input id="entry-day" className={fieldClass} type="date" value={entryOn} onChange={(event) => setEntryOn(event.target.value)} required />
+          <Label className={moduleLabelClass} htmlFor="entry-note">
+            Observação
+          </Label>
+          <textarea id="entry-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="entry-note">Observação</Label>
-          <Input id="entry-note" value={note} onChange={(event) => setNote(event.target.value)} />
-        </div>
-        <Button type="submit">Lançar</Button>
+        <Button type="submit" className={modulePrimaryClass}>
+          Lançar
+        </Button>
       </ActionForm>
     </div>
   )

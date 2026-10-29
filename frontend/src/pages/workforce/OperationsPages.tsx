@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
@@ -292,7 +293,7 @@ export function OccurrencesPage() {
           ) : null}
           <div className="space-y-2">
             <Label htmlFor="note">Observação</Label>
-            <Input id="note" value={note} onChange={(event) => setNote(event.target.value)} />
+            <textarea id="note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
           <Button type="submit">Registrar</Button>
         </ActionForm>
@@ -425,7 +426,7 @@ export function RequestsPage() {
       {inbox.items.some((item) => mayDecide(item)) ? (
         <div className="space-y-2">
           <Label htmlFor="decision">Observação da decisão</Label>
-          <Input id="decision" value={note} onChange={(event) => setNote(event.target.value)} />
+          <textarea id="decision" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

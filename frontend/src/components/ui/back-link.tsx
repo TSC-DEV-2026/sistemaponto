@@ -4,6 +4,10 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/utils/cn"
 
+function scrollPageToTop() {
+  window.scrollTo(0, 0)
+}
+
 export function BackLink({ to, className, appearance = "default" }: { to: string; className?: string; appearance?: "default" | "detail" }) {
   if (appearance === "detail") {
     return (
@@ -15,7 +19,7 @@ export function BackLink({ to, className, appearance = "default" }: { to: string
         )}
         asChild
       >
-        <Link to={to}>
+        <Link to={to} onClick={scrollPageToTop}>
           <ArrowLeft className="h-4 w-4 text-[#1E8A3A] transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
           Voltar
         </Link>
@@ -25,7 +29,7 @@ export function BackLink({ to, className, appearance = "default" }: { to: string
 
   return (
     <Button variant="outline" size="sm" className={cn("w-fit transition-colors duration-200", className)} asChild>
-      <Link to={to}>
+      <Link to={to} onClick={scrollPageToTop}>
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Link>

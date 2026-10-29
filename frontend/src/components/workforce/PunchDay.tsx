@@ -3,14 +3,16 @@ import { FormEvent, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
+import { DatePickerField } from "@/components/ui/date-picker-field"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
+import { cn } from "@/utils/cn"
 import { brazilMoment, punchOrigin, showClock, showDateTime } from "@/utils/labels"
 
 export function momentsOf(day: string, times: string[]) {
@@ -27,15 +29,44 @@ export function DayTimesFields({
   times,
   onDay,
   onTimes,
+  tone = "plain",
 }: {
   dayId: string
   day: string
   times: string[]
   onDay: (value: string) => void
   onTimes: (value: string[]) => void
+  tone?: "plain" | "module"
 }) {
   function changeTime(index: number, value: string) {
     onTimes(times.map((item, position) => (position === index ? value : item)))
+  }
+
+  if (tone === "module") {
+    return (
+      <>
+        <DatePickerField id={dayId} label="Dia" value={day} onChange={onDay} required />
+        <div className="space-y-2">
+          <Label className={moduleLabelClass}>Marcações do dia</Label>
+          {times.map((time, index) => (
+            <div key={index} className="flex min-w-0 flex-col gap-2 lg:flex-row">
+              <input className={cn(moduleFieldClass, "min-w-0 flex-1")} type="time" step={60} value={time} aria-label={`Marcação ${index + 1}`} onChange={(event) => changeTime(index, event.target.value)} required={index === 0} />
+              {times.length > 1 ? (
+                <Button type="button" variant="outline" className={cn(moduleQuietClass, "shrink-0 hover:border-[rgba(239,83,80,0.4)] hover:bg-[rgba(239,83,80,0.08)] hover:text-[#EF5350]")} onClick={() => onTimes(times.filter((_, position) => position !== index))}>
+                  <Trash2 className="h-4 w-4" />
+                  Remover
+                </Button>
+              ) : null}
+            </div>
+          ))}
+          {times.length < 20 ? (
+            <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => onTimes([...times, ""])}>
+              Incluir horário
+            </Button>
+          ) : null}
+        </div>
+      </>
+    )
   }
 
   return (
@@ -71,10 +102,12 @@ export function PunchCorrectionForm({
   employees,
   employeeId,
   onSaved,
+  appearance = "plain",
 }: {
   employees?: Employee[]
   employeeId?: number
   onSaved: () => Promise<void>
+  appearance?: "plain" | "module"
 }) {
   const [selected, setSelected] = useState("")
   const [day, setDay] = useState("")
@@ -99,29 +132,41 @@ export function PunchCorrectionForm({
     }
   }
 
+  const module = appearance === "module"
+
   return (
-    <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
-      <p className="text-sm text-muted-foreground">A correção manual substitui as marcações que valem neste dia. As antigas deixam de valer e ficam no histórico. Origem: manual.</p>
+    <ActionForm className={module ? cn(moduleCardClass, "space-y-5") : "grid gap-3 rounded-md border border-border bg-card p-3"} onSubmit={onSubmit}>
+      <p className={module ? "text-sm leading-6 text-[#52525B]" : "text-sm text-muted-foreground"}>A correção manual substitui as marcações que valem neste dia. As antigas deixam de valer e ficam no histórico. Origem: manual.</p>
       {employees ? (
         <div className="space-y-2">
-          <Label htmlFor="correction-employee">Funcionário</Label>
-          <select id="correction-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)} required>
-            <option value="">Selecione</option>
-            {employees.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.full_name}
-              </option>
-            ))}
-          </select>
+          <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-employee">
+            Funcionário
+          </Label>
+          {module ? (
+            <EmployeeCombobox id="correction-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
+          ) : (
+            <select id="correction-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)} required>
+              <option value="">Selecione</option>
+              {employees.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.full_name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       ) : null}
-      <DayTimesFields dayId="correction-day" day={day} times={times} onDay={setDay} onTimes={setTimes} />
+      <DayTimesFields dayId="correction-day" day={day} times={times} onDay={setDay} onTimes={setTimes} tone={module ? "module" : "plain"} />
       <div className="space-y-2">
-        <Label htmlFor="correction-note">Observação</Label>
-        <Input id="correction-note" value={note} onChange={(event) => setNote(event.target.value)} />
+        <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-note">
+          Observação
+        </Label>
+        <textarea id="correction-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit">Corrigir o dia</Button>
+      <Button type="submit" className={module ? modulePrimaryClass : undefined}>
+        Corrigir o dia
+      </Button>
     </ActionForm>
   )
 }
@@ -153,7 +198,7 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
   if (appearance === "module") {
     return (
       <div className="space-y-4">
-        <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <section className="min-w-0 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
           <h2 className="text-lg font-semibold text-brand-ink">Marcações</h2>
           {employeeId ? null : (
             <div className="mt-5 w-full space-y-2">
@@ -172,7 +217,7 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
             </div>
           ) : null}
         </section>
-        <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <section className="min-w-0 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
           <h2 className="text-base font-semibold text-brand-ink">Histórico — deixaram de valer</h2>
           {history.error ? <p className="mt-3 text-sm text-destructive">{history.error}</p> : null}
           <PunchTable className="mt-4" empty="Nenhuma marcação antiga." loading={history.loading} punches={history.items} employeeName={employeeName} quietEmpty />
@@ -238,8 +283,14 @@ function PunchTable({
     )
   }
   return (
-    <div className={`${className || ""} overflow-x-auto rounded-xl border border-[#E4E4E7]`}>
-      <table className="w-full min-w-[640px] text-left text-sm">
+    <div className={`${className || ""} min-w-0 max-w-full overflow-x-auto rounded-xl border border-[#E4E4E7]`}>
+      <table className="w-full min-w-[640px] table-fixed text-left text-sm">
+        <colgroup>
+          <col className="w-[38%]" />
+          <col className="w-[18%]" />
+          <col className="w-[16%]" />
+          <col className="w-[28%]" />
+        </colgroup>
         <thead className="bg-[#F4F4F5] text-brand-muted">
           <tr>
             <th className="px-4 py-3 font-medium">Funcionário</th>
@@ -252,14 +303,21 @@ function PunchTable({
           {punches.map((item) => {
             const when = momentParts(item.occurred_at)
             const extra = punchExtra(item)
+            const person = employeeName ? employeeName(item.employee_id) : String(item.employee_id)
             return (
               <tr key={item.id} className="border-t border-[#F0F0F2]">
-                <td className="px-4 py-3 align-top text-brand-ink">{employeeName ? employeeName(item.employee_id) : item.employee_id}</td>
-                <td className="px-4 py-3 align-top text-brand-muted">{when.day}</td>
-                <td className="px-4 py-3 align-top font-semibold tabular-nums text-brand-ink">{when.time}</td>
-                <td className="px-4 py-3 align-top text-brand-quiet">
-                  <span>{punchOrigin(item.source)}</span>
-                  {extra ? <span className="mt-1 block text-xs text-brand-quiet">{extra}</span> : null}
+                <td className="overflow-hidden px-4 py-3 align-middle text-brand-ink">
+                  <span className="block truncate" title={person}>
+                    {person}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 align-middle text-brand-muted">{when.day}</td>
+                <td className="whitespace-nowrap px-4 py-3 align-middle font-semibold tabular-nums text-brand-ink">{when.time}</td>
+                <td className="px-4 py-3 align-middle text-brand-quiet">
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="whitespace-nowrap font-medium text-[#0A0A0A]">{punchOrigin(item.source)}</span>
+                    {extra ? <span className="min-w-0 text-xs text-[#71717A]">{extra}</span> : null}
+                  </div>
                   {item.qr_url || item.selfie_url || item.face_url ? (
                     <span className="mt-1 flex flex-wrap gap-3">
                       <DocumentLink href={item.qr_url} label="Ver QR" />

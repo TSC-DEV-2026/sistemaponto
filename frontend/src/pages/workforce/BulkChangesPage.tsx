@@ -2,10 +2,10 @@ import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -283,7 +283,7 @@ export function BulkChangesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="bulk-note">Observação</Label>
-              <Input id="bulk-note" value={note} onChange={(event) => setNote(event.target.value)} />
+              <textarea id="bulk-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
             </div>
           </>
         )}

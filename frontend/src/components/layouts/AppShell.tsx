@@ -172,7 +172,7 @@ export function AppShell() {
       </aside>
       <div className="flex min-h-screen min-w-0 flex-col bg-brand-paper">
         <AppHeader />
-        <main className="flex-1 px-4 py-6 md:px-8">
+        <main className="min-w-0 w-full flex-1 px-4 py-6 md:px-8">
           <Outlet />
         </main>
       </div>

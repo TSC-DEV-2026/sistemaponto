@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom"
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleTextClass } from "@/components/workforce/module-visual"
 import { DayTimesFields, momentsOf } from "@/components/workforce/PunchDay"
 import { emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { createRecord, listRecords, uploadCertificatePhoto, type Employee, type NamedRecord } from "@/services/workforce.service"
@@ -166,7 +166,7 @@ export function RequestFormPage() {
             ) : null}
             <div className="space-y-2">
               <Label htmlFor="request-note">Observação</Label>
-              <Input id="request-note" value={requestNote} onChange={(event) => setRequestNote(event.target.value)} />
+              <textarea id="request-note" className={moduleTextClass} value={requestNote} onChange={(event) => setRequestNote(event.target.value)} />
             </div>
             <Button type="submit">Enviar ajuste</Button>
           </ActionForm>
@@ -199,7 +199,7 @@ export function RequestFormPage() {
             ) : null}
             <div className="space-y-2">
               <Label htmlFor="off-note">Observação</Label>
-              <Input id="off-note" value={offNote} onChange={(event) => setOffNote(event.target.value)} />
+              <textarea id="off-note" className={moduleTextClass} value={offNote} onChange={(event) => setOffNote(event.target.value)} />
             </div>
             <Button type="submit">Enviar solicitação</Button>
           </ActionForm>
