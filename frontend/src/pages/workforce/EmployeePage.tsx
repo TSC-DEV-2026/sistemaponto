@@ -36,6 +36,7 @@ import {
   periodText,
   punchOrigin,
   requestKindLabel,
+  requestStatusClass,
   requestStatusLabel,
   showDate,
   showDateTime,
@@ -359,7 +360,8 @@ export function EmployeePage() {
             <ul className="divide-y divide-border rounded-lg border border-border bg-card">
               {inbox.items.map((item) => (
                 <li key={item.id} className="px-4 py-3">
-                  {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
+                  {requestKindLabel[item.kind] || item.kind}{" "}
+                  <span className={`ml-1 rounded-full px-2.5 py-1 text-xs font-semibold ${requestStatusClass(item.status)}`}>{requestStatusLabel[item.status] || item.status}</span>
                   {item.kind === "adjustment" && item.punches.length > 0 ? ` · ${item.punches.map((value) => showDateTime(value)).join(", ")}` : ""}
                   {item.kind !== "adjustment" ? ` · ${periodText(item)}` : ""}
                   {certificateText(item) ? ` · ${certificateText(item)}` : ""}

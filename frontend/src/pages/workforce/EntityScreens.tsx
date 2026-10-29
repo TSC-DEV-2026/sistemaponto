@@ -105,11 +105,13 @@ export function DomainTabs({
   lead,
   tabs,
   module = false,
+  action: actionSlot = null,
 }: {
   title: string
   lead?: string
   tabs: { id: string; label: string; panel: ReactNode }[]
   module?: boolean
+  action?: ReactNode
 }) {
   const [params, setParams] = useSearchParams()
   const [action, setAction] = useState<ReactNode>(null)
@@ -146,7 +148,7 @@ export function DomainTabs({
               ),
             )}
           </div>
-          {action}
+          {actionSlot ?? action}
         </div>
         {selected.panel}
       </div>

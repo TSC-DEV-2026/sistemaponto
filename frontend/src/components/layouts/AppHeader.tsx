@@ -30,7 +30,7 @@ export function AppHeader() {
   const user = useAuthStore((state) => state.user)
   const location = useLocation()
   const navigate = useNavigate()
-  const heading = headingFor(location.pathname)
+  const heading = headingFor(location.pathname, location.search)
   const menuId = useId()
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)

@@ -27,7 +27,6 @@ import {
   ClosingsPage,
   LaborPage,
   NotificationsPage,
-  OccurrencesPage,
   OrganizationPage,
   PayrollPage,
   ReasonsPage,
@@ -36,6 +35,7 @@ import {
   TimeClockPage,
 } from "@/pages/workforce/OperationsPages"
 import { EntityRecordPage } from "@/pages/workforce/EntityScreens"
+import { OccurrenceEntryPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
 import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
 
@@ -79,6 +79,7 @@ const router = createBrowserRouter([
                   { path: "/schedules/apuracao/:workDate", element: <ApuracaoDayPage /> },
                   { path: "/schedules", element: <JourneyPage /> },
                   { path: "/time-clock", element: <TimeClockPage /> },
+                  { path: "/occurrences/new", element: <OccurrenceEntryPage /> },
                   { path: "/occurrences", element: <OccurrencesPage /> },
                   { path: "/requests", element: <RequestsPage /> },
                   { path: "/requests/new", element: <RequestFormPage /> },

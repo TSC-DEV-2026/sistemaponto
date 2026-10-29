@@ -114,9 +114,12 @@ export function TimeResultsPanel({
     return (
       <section className="space-y-4">
         <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={onSubmit}>
-          <p className="text-sm leading-6 text-brand-muted">{resultNote}</p>
+          <div>
+            <h2 className="text-lg font-semibold text-brand-ink">Apuração</h2>
+            <p className="mt-1 text-sm text-brand-quiet">Consulte as horas apuradas.</p>
+          </div>
           {employees ? (
-            <div className="mt-6 space-y-2">
+            <div className="mt-[18px] space-y-2">
               <Label className="font-semibold text-brand-ink" htmlFor="result-employee">
                 Funcionário
               </Label>
