@@ -10,6 +10,13 @@ export const requestStatusLabel: Record<string, string> = {
   cancelled: "Cancelada",
 }
 
+export function requestStatusClass(status: string) {
+  if (status === "approved") return "bg-[rgba(30,138,58,0.14)] text-[#146C2E]"
+  if (status === "pending") return "bg-[#FFF1E0] text-[#C2410C]"
+  if (status === "rejected") return "bg-[rgba(239,83,80,0.16)] text-[#C62828]"
+  return "bg-[#F4F4F5] text-[#52525B]"
+}
+
 export const requestKindLabel: Record<string, string> = {
   adjustment: "Ajuste",
   allowance: "Abono",
@@ -28,6 +35,16 @@ export const occurrenceKindLabel: Record<string, string> = {
   vacation: "Férias",
   allowance: "Abono",
   leave: "Afastamento",
+}
+
+export const occurrenceNewLabel: Record<string, string> = {
+  adjustment: "Novo ajuste",
+  punch_entry: "Novo lançamento",
+  absence: "Nova falta",
+  certificate: "Novo atestado",
+  vacation: "Novas férias",
+  allowance: "Novo abono",
+  leave: "Novo afastamento",
 }
 
 export const vigencyKindLabel: Record<string, string> = {

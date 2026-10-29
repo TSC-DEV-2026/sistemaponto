@@ -220,7 +220,11 @@ function BankScheduleList() {
 
   return (
     <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
+        <p className="mt-1 text-sm text-brand-quiet">Consulte os lançamentos do banco.</p>
+      </div>
+      <div className="mt-[18px] grid gap-4 sm:grid-cols-2">
         <div className="min-w-0 space-y-2">
           <Label className="font-semibold text-brand-ink" htmlFor="bank-schedule-employee">
             Funcionário

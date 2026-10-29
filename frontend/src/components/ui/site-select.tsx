@@ -17,6 +17,7 @@ export function SiteSelect({
   required = false,
   variant = "default",
   icon,
+  placeholder,
 }: {
   id: string
   value: string
@@ -25,6 +26,7 @@ export function SiteSelect({
   required?: boolean
   variant?: "default" | "field"
   icon?: LucideIcon
+  placeholder?: string
 }) {
   const field = variant === "field"
   const Icon = icon
@@ -35,8 +37,8 @@ export function SiteSelect({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const listId = useId()
-  const selectedIndex = Math.max(0, options.findIndex((item) => item.value === value))
-  const selected = options[selectedIndex]
+  const selectedIndex = options.findIndex((item) => item.value === value)
+  const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined
 
   useEffect(() => {
     if (open) {
@@ -83,7 +85,7 @@ export function SiteSelect({
   function onTriggerKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== "ArrowDown" && event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
-    setActive(selectedIndex)
+    setActive(selectedIndex >= 0 ? selectedIndex : 0)
     setOpen(true)
   }
 
@@ -128,14 +130,14 @@ export function SiteSelect({
         aria-controls={listId}
         aria-required={required || undefined}
         onClick={() => {
-          setActive(selectedIndex)
+          setActive(selectedIndex >= 0 ? selectedIndex : 0)
           setOpen((current) => !current)
         }}
         onKeyDown={onTriggerKey}
       >
         {field ? <User className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden /> : null}
         {Icon && !field ? <Icon className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden /> : null}
-        <span className="truncate">{selected?.label}</span>
+        <span className="truncate">{selected?.label || placeholder}</span>
         <ChevronDown
           className={cn(
             "pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] motion-reduce:transition-none",

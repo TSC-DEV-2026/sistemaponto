@@ -13,23 +13,20 @@ import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
-import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
+import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
   getPayroll,
   getReport,
   listRecords,
   updateRecord,
-  uploadCertificatePhoto,
   type Closing,
   type Employee,
   type FiscalFile,
   type FiscalImport,
-  type NamedRecord,
   type Notice,
   type NoticeEmail,
   type NoticePreference,
-  type Occurrence,
   type Payroll,
   type Report,
   type ReportCatalogItem,
@@ -43,13 +40,11 @@ import {
   monthOptions,
   fiscalKindLabel,
   noticePhrase,
-  occurrenceKindLabel,
   certificateText,
-  manualTimeOffKinds,
   periodText,
   punchDay,
-  punchOrigin,
   requestKindLabel,
+  requestStatusClass,
   requestStatusLabel,
   showDate,
   showDateTime,
@@ -173,162 +168,6 @@ export function TimeClockPage() {
   )
 }
 
-export function OccurrencesPage() {
-  const role = useAuthStore((state) => state.user?.role)
-  const isAdmin = role === "admin"
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const [kind, setKind] = useState("absence")
-  const [listEmployee, setListEmployee] = useState("")
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [reasons, setReasons] = useState<NamedRecord[]>([])
-  const [employeeId, setEmployeeId] = useState("")
-  const [startsOn, setStartsOn] = useState("")
-  const [endsOn, setEndsOn] = useState("")
-  const [reasonId, setReasonId] = useState("")
-  const [note, setNote] = useState("")
-  const [draft, setDraft] = useState<TimeOffDraft>(emptyTimeOff)
-  const [fileKey, setFileKey] = useState(0)
-  const [error, setError] = useState("")
-  const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
-  const canLaunch = isAdmin || (role === "manager" && manual)
-  const events = usePagedList<Occurrence>("/occurrences", { kind, ...(listEmployee ? { employee_id: Number(listEmployee) } : {}) })
-
-  async function load(nextKind: string) {
-    const reasonKind = nextKind === "vacation" || nextKind === "leave" || nextKind === "punch_entry" ? undefined : nextKind
-    const [people, motive] = await Promise.all([
-      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-      reasonKind ? listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true }) : Promise.resolve({ items: [] as NamedRecord[] }),
-    ])
-    setEmployees(people.items)
-    setReasons(motive.items)
-  }
-
-  useEffect(() => {
-    let active = true
-    load(kind).catch((caught: unknown) => {
-      if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [kind, tenantId])
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    setError("")
-    try {
-      const span: Record<string, unknown> = manual ? timeOffBody(draft, kind) : { starts_on: startsOn, ends_on: endsOn || null }
-      if (manual && kind === "certificate" && draft.photo) {
-        span.photo_key = (await uploadCertificatePhoto(draft.photo)).key
-      }
-      await createRecord("/occurrences", {
-        employee_id: Number(employeeId),
-        kind,
-        ...span,
-        reason_id: reasonId ? Number(reasonId) : null,
-        note: note.trim() || null,
-      })
-      setNote("")
-      setDraft(emptyTimeOff())
-      setFileKey((current) => current + 1)
-      events.reload()
-      await load(kind)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
-    }
-  }
-
-  return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <p className="text-sm text-muted-foreground">O gestor e o administrador lançam abono, atestado, afastamento e férias aqui. A origem desse lançamento é manual. O funcionário pede os quatro em Solicitações.</p>
-      <div className="flex flex-wrap gap-2">
-        {Object.entries(occurrenceKindLabel).map(([value, label]) => (
-          <Button key={value} type="button" size="sm" variant={kind === value ? "default" : "outline"} onClick={() => setKind(value)}>
-            {label}
-          </Button>
-        ))}
-      </div>
-      {canLaunch ? (
-        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
-          {manual ? <p className="text-sm text-muted-foreground">Origem: manual. Um atestado com marcação no período entra e o ponto avisa o conflito.</p> : null}
-          <div className="space-y-2">
-            <Label htmlFor="employee">Funcionário</Label>
-            <select id="employee" className={fieldClass} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} required>
-              <option value="">Selecione</option>
-              {employees.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {manual ? (
-            <TimeOffFields idPrefix="occurrence" kind={kind} draft={draft} fileKey={fileKey} onChange={setDraft} />
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="start">De</Label>
-                <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end">Até</Label>
-                <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
-              </div>
-            </>
-          )}
-          {reasons.length > 0 ? (
-            <div className="space-y-2">
-              <Label htmlFor="reason">Motivo</Label>
-              <select id="reason" className={fieldClass} value={reasonId} onChange={(event) => setReasonId(event.target.value)} required>
-                <option value="">Selecione</option>
-                {reasons.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          <div className="space-y-2">
-            <Label htmlFor="note">Observação</Label>
-            <textarea id="note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
-          </div>
-          <Button type="submit">Registrar</Button>
-        </ActionForm>
-      ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <FilterSelect
-        id="occurrence-employee"
-        label="Funcionário"
-        value={listEmployee}
-        options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
-        onChange={setListEmployee}
-      />
-      {events.error ? <p className="text-sm text-destructive">{events.error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {events.items.map((item) => (
-          <li key={item.id} className="px-4 py-3 text-sm">
-            {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {periodText(item)} · {punchOrigin(item.source)}
-            {certificateText(item) ? ` · ${certificateText(item)}` : ""}
-            {item.note ? ` · ${item.note}` : ""}
-            {item.warning ? ` · ${item.warning}` : ""}
-            {item.photo_url ? (
-              <>
-                {" · "}
-                <DocumentLink href={item.photo_url} />
-              </>
-            ) : null}
-          </li>
-        ))}
-        {events.items.length === 0 ? <ListPlaceholder loading={events.loading} empty="Nenhum lançamento." /> : null}
-      </ul>
-      <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} />
-    </div>
-  )
-}
-
 export function RequestsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const personId = useAuthStore((state) => state.user?.person_id)
@@ -434,8 +273,11 @@ export function RequestsPage() {
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
         {inbox.items.map((item) => (
           <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
-            <p>
-              {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {requestKindLabel[item.kind] || item.kind} · {requestStatusLabel[item.status] || item.status}
+            <p className="flex flex-wrap items-center gap-2">
+              <span>
+                {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {requestKindLabel[item.kind] || item.kind}
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${requestStatusClass(item.status)}`}>{requestStatusLabel[item.status] || item.status}</span>
             </p>
             <p className="text-muted-foreground">
               {item.kind === "adjustment"

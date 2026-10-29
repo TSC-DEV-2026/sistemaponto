@@ -1,4 +1,5 @@
 import { catalogs } from "@/pages/workforce/catalogs"
+import { occurrenceNewLabel } from "@/utils/labels"
 
 export type PageHeading = {
   title: string
@@ -50,6 +51,7 @@ const patterns: Pattern[] = [
   { path: "/schedules/adjustments", title: "Ajustar marcações", subtitle: "Corrija as marcações do dia" },
   { path: "/schedules/hour-bank/new", title: "Novo lançamento", subtitle: "Lance no banco de horas" },
   { path: "/time-clock", title: "Registro de Ponto", subtitle: "Registre e consulte suas marcações" },
+  { path: "/occurrences/new", title: "Novo lançamento", subtitle: "Lance um ajuste ou uma ocorrência" },
   { path: "/occurrences", title: "Ajustes e Ocorrências", subtitle: "Gerencie ajustes e ocorrências" },
   { path: "/requests", title: "Solicitações", subtitle: "Acompanhe solicitações e pendências" },
   { path: "/requests/new", title: "Nova solicitação", subtitle: "Informe o pedido" },
@@ -97,7 +99,7 @@ function score(pattern: string) {
   return literals * 10 + left.length
 }
 
-export function headingFor(pathname: string): PageHeading {
+export function headingFor(pathname: string, search = ""): PageHeading {
   let best: Pattern | null = null
   let bestScore = -1
   for (const item of patterns) {
@@ -110,5 +112,11 @@ export function headingFor(pathname: string): PageHeading {
       bestScore = value
     }
   }
-  return best ?? { title: "sistemaponto", subtitle: "" }
+  if (!best) return { title: "sistemaponto", subtitle: "" }
+  if (best.path === "/occurrences/new") {
+    const kind = new URLSearchParams(search).get("tipo") || ""
+    const title = occurrenceNewLabel[kind]
+    if (title) return { ...best, title }
+  }
+  return best
 }
