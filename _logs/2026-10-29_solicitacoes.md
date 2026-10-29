@@ -13,6 +13,7 @@
 - O estado vazio mostra ícone, título e descrição.
 - Aprovar, recusar e a observação da decisão continuam com as mesmas regras.
 - Cada solicitação virou um card horizontal: funcionário com iniciais, dados, origem, histórico e selo. No celular os blocos empilham.
+- A observação da decisão saiu da lista. Ela aparece no diálogo ao clicar em Aprovar ou Recusar, e só a confirmação envia a decisão.
 
 ## 📁 Arquivos criados
 

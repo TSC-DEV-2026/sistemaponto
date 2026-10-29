@@ -1,5 +1,6 @@
-import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
-import { FormEvent, useEffect, useState } from "react"
+import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Loader2, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
+import { FormEvent, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Link } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -12,7 +13,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
-import { moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleDangerClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
@@ -189,22 +190,22 @@ const requestTabs = [
     label: "Pendente",
     description: "Aguardando aprovação",
     icon: FileClock,
-    iconWrap: "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]",
-    badge: "bg-[rgba(30,138,58,0.12)] text-[#146C2E]",
-    idle: "hover:border-[rgba(30,138,58,0.35)] hover:bg-[#F7FCF8] hover:shadow-[0_10px_24px_rgba(30,138,58,0.1)]",
-    selected: "border-[#1E8A3A] bg-[#F5FBF7] shadow-[0_8px_24px_rgba(30,138,58,0.08)] hover:shadow-[0_12px_28px_rgba(30,138,58,0.12)]",
-    ring: "focus-visible:ring-[#1E8A3A]/35",
+    iconWrap: "bg-[#FFF1E0] text-[#C2410C]",
+    badge: "bg-[#FFF1E0] text-[#C2410C]",
+    idle: "hover:border-[rgba(249,168,37,0.45)] hover:bg-[#FFF8EE] hover:shadow-[0_10px_24px_rgba(249,168,37,0.14)]",
+    selected: "border-[#F9A825] bg-[#FFF8EE] shadow-[0_8px_24px_rgba(249,168,37,0.12)] hover:shadow-[0_12px_28px_rgba(249,168,37,0.16)]",
+    ring: "focus-visible:ring-[#F9A825]/40",
   },
   {
     id: "approved",
     label: "Aprovada",
     description: "Ajustes aplicados",
     icon: CircleCheck,
-    iconWrap: "bg-[rgba(37,99,235,0.12)] text-[#2563EB]",
-    badge: "bg-[rgba(37,99,235,0.12)] text-[#1D4ED8]",
-    idle: "hover:border-[rgba(37,99,235,0.35)] hover:bg-[#F7F9FF] hover:shadow-[0_10px_24px_rgba(37,99,235,0.1)]",
-    selected: "border-[#2563EB] bg-[#F5F8FF] shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:shadow-[0_12px_28px_rgba(37,99,235,0.12)]",
-    ring: "focus-visible:ring-[#2563EB]/35",
+    iconWrap: "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]",
+    badge: "bg-[rgba(30,138,58,0.12)] text-[#146C2E]",
+    idle: "hover:border-[rgba(30,138,58,0.35)] hover:bg-[#F7FCF8] hover:shadow-[0_10px_24px_rgba(30,138,58,0.1)]",
+    selected: "border-[#1E8A3A] bg-[#F5FBF7] shadow-[0_8px_24px_rgba(30,138,58,0.08)] hover:shadow-[0_12px_28px_rgba(30,138,58,0.12)]",
+    ring: "focus-visible:ring-[#1E8A3A]/35",
   },
   {
     id: "rejected",
@@ -230,6 +231,204 @@ const requestTabs = [
   },
 ] as const
 
+type RequestDecision = {
+  id: number
+  action: "approved" | "rejected"
+  kind: string
+  kindLabel: string
+  person: string
+}
+
+function RequestDecisionDialog({
+  target,
+  note,
+  error,
+  saving,
+  onNote,
+  onClose,
+  onConfirm,
+  onRest,
+}: {
+  target: RequestDecision | null
+  note: string
+  error: string
+  saving: boolean
+  onNote: (value: string) => void
+  onClose: () => void
+  onConfirm: () => Promise<void>
+  onRest: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const noteRef = useRef<HTMLTextAreaElement>(null)
+  const closeRef = useRef(onClose)
+  const restRef = useRef(onRest)
+  closeRef.current = onClose
+  restRef.current = onRest
+  const [ghost, setGhost] = useState<RequestDecision | null>(null)
+  const [present, setPresent] = useState(false)
+  const shown = useRef(false)
+  const view = target ?? ghost
+  const openKey = view ? `${view.id}:${view.action}` : ""
+
+  useEffect(() => {
+    if (target) {
+      setGhost(target)
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (reduce) {
+        setPresent(true)
+        return
+      }
+      setPresent(false)
+      const frame = requestAnimationFrame(() => setPresent(true))
+      return () => cancelAnimationFrame(frame)
+    }
+    setPresent(false)
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const timer = window.setTimeout(() => setGhost(null), reduce ? 0 : 180)
+    return () => window.clearTimeout(timer)
+  }, [target])
+
+  useEffect(() => {
+    if (!openKey) {
+      if (shown.current) {
+        shown.current = false
+        restRef.current()
+      }
+      return
+    }
+    shown.current = true
+    noteRef.current?.focus()
+  }, [openKey])
+
+  useEffect(() => {
+    if (!view) {
+      return
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        closeRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) {
+        return
+      }
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), textarea:not([disabled])")
+      if (nodes.length === 0) {
+        return
+      }
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [view])
+
+  if (!view) {
+    return null
+  }
+
+  const approving = view.action === "approved"
+  const Icon = approving ? CircleCheck : CircleX
+
+  return createPortal(
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
+        present ? "opacity-100" : "opacity-0",
+      )}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="request-decision-title"
+        aria-describedby="request-decision-text request-decision-who"
+        aria-busy={saving || undefined}
+        className={cn(
+          "w-full max-w-[480px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] transition-[opacity,transform] duration-200 sm:p-7 motion-reduce:transition-none",
+          present ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0",
+        )}
+      >
+        <div className="flex flex-col items-center text-center">
+          <span
+            className={cn(
+              "flex h-14 w-14 items-center justify-center rounded-full",
+              approving ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A] shadow-[0_0_0_8px_rgba(30,138,58,0.06)]" : "bg-[rgba(239,83,80,0.12)] text-[#EF5350] shadow-[0_0_0_8px_rgba(239,83,80,0.06)]",
+            )}
+          >
+            <Icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+          </span>
+          <h2 id="request-decision-title" className="mt-4 text-xl font-semibold tracking-tight text-[#0A0A0A]">
+            {approving ? "Aprovar solicitação?" : "Recusar solicitação?"}
+          </h2>
+          <p id="request-decision-text" className="mt-1.5 max-w-sm text-sm leading-6 text-[#71717A]">
+            {approving && view.kind === "adjustment"
+              ? "As marcações pedidas passam a valer."
+              : approving
+                ? "A solicitação passa a valer."
+                : "A solicitação será recusada."}
+          </p>
+        </div>
+        <div id="request-decision-who" className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-3 text-left">
+          <p className="truncate text-sm font-semibold text-[#0A0A0A]" title={view.person}>
+            {view.person}
+          </p>
+          <p className="mt-0.5 text-[13px] text-[#71717A]">{view.kindLabel}</p>
+        </div>
+        <div className="mt-5 space-y-2 text-left">
+          <div className="flex items-baseline justify-between gap-3">
+            <Label className={moduleLabelClass} htmlFor="request-decision-note">
+              Observação da decisão
+            </Label>
+            <span className="text-xs text-[#94A3B8]">Opcional</span>
+          </div>
+          <textarea
+            ref={noteRef}
+            id="request-decision-note"
+            className={cn(moduleTextClass, "min-h-[92px] bg-[#FAFBFC] shadow-none focus:shadow-[0_0_0_3px_rgba(30,138,58,0.12)]")}
+            maxLength={2000}
+            value={note}
+            onChange={(event) => onNote(event.target.value)}
+          />
+        </div>
+        {error ? (
+          <p className="mt-3 text-left text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={saving} onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="button" className={approving ? modulePrimaryClass : cn(moduleDangerClass, "h-11 px-4")} onClick={() => onConfirm()}>
+            {approving ? <CircleCheck className="h-4 w-4" aria-hidden /> : <CircleX className="h-4 w-4" aria-hidden />}
+            {approving ? "Confirmar aprovação" : "Confirmar recusa"}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 export function RequestsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const personId = useAuthStore((state) => state.user?.person_id)
@@ -241,7 +440,15 @@ export function RequestsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [canRequest, setCanRequest] = useState(false)
   const [error, setError] = useState("")
+  const [decision, setDecision] = useState<RequestDecision | null>(null)
   const [note, setNote] = useState("")
+  const [dialogError, setDialogError] = useState("")
+  const [saving, setSaving] = useState(false)
+  const openerRef = useRef<HTMLButtonElement | null>(null)
+  const busy = useRef(false)
+  const flight = useRef(0)
+  const [counts, setCounts] = useState<Partial<Record<string, number>>>({})
+  const [countsLoading, setCountsLoading] = useState(true)
   const inbox = usePagedList<TimeRequest>("/requests", {
     status,
     ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
@@ -270,14 +477,102 @@ export function RequestsPage() {
     }
   }, [tenantId, personId])
 
-  async function decide(id: number, next: "approved" | "rejected") {
-    setError("")
+  useEffect(() => {
+    if (inbox.loading) {
+      setCountsLoading(true)
+      return
+    }
+    if (inbox.error) {
+      setCountsLoading(false)
+      return
+    }
+    let active = true
+    setCountsLoading(true)
+    const openStatus = status
+    const openTotal = inbox.total
+    const base = {
+      page: 1,
+      limit: 1,
+      ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
+      ...(listKind ? { kind: listKind } : {}),
+    }
+    Promise.all(
+      requestTabs.map((tab) =>
+        listRecords<TimeRequest>("/requests", { ...base, status: tab.id }).then((result) => [tab.id, result.total] as const),
+      ),
+    )
+      .then((rows) => {
+        if (!active) {
+          return
+        }
+        const next = Object.fromEntries(rows)
+        next[openStatus] = openTotal
+        setCounts(next)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) {
+          setCountsLoading(false)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [inbox.loading, inbox.error, inbox.total, status, listEmployee, listKind, tenantId])
+
+  function openDecision(item: TimeRequest, action: "approved" | "rejected", opener: HTMLButtonElement) {
+    if (busy.current) {
+      return
+    }
+    const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
+    openerRef.current = opener
+    setNote("")
+    setDialogError("")
+    setDecision({
+      id: item.id,
+      action,
+      kind: item.kind,
+      kindLabel: requestKindLabel[item.kind] || item.kind,
+      person,
+    })
+  }
+
+  function closeDecision() {
+    if (busy.current) {
+      return
+    }
+    setDecision(null)
+  }
+
+  async function confirmDecision() {
+    if (!decision || busy.current) {
+      return
+    }
+    const current = decision
+    const text = note
+    const ticket = ++flight.current
+    busy.current = true
+    setSaving(true)
+    setDialogError("")
     try {
-      await updateRecord("/requests", id, { status: next, decision_note: note.trim() || null })
+      await updateRecord("/requests", current.id, { status: current.action, decision_note: text.trim() || null })
+      if (ticket !== flight.current) {
+        return
+      }
       setNote("")
+      setDecision(null)
       inbox.reload()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível decidir.")
+      if (ticket !== flight.current) {
+        return
+      }
+      setDialogError(caught instanceof Error ? caught.message : "Não foi possível decidir.")
+      inbox.reload()
+    } finally {
+      if (ticket === flight.current) {
+        busy.current = false
+        setSaving(false)
+      }
     }
   }
 
@@ -303,7 +598,8 @@ export function RequestsPage() {
           {requestTabs.map((tab) => {
             const selected = status === tab.id
             const Icon = tab.icon
-            const showCount = selected && !inbox.loading && !inbox.error
+            const count = selected && !inbox.loading && !inbox.error ? inbox.total : counts[tab.id]
+            const waiting = countsLoading && !(selected && !inbox.loading && !inbox.error)
             return (
               <button
                 key={tab.id}
@@ -324,7 +620,13 @@ export function RequestsPage() {
                   <span className="block truncate text-[15px] font-semibold text-[#0A0A0A]">{tab.label}</span>
                   <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{tab.description}</span>
                 </span>
-                {showCount ? <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-2.5 text-sm font-semibold tabular-nums", tab.badge)}>{inbox.total}</span> : null}
+                {waiting ? (
+                  <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full", tab.badge)} role="status" aria-label="Carregando">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+                  </span>
+                ) : count !== undefined ? (
+                  <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-2.5 text-sm font-semibold tabular-nums", tab.badge)}>{count}</span>
+                ) : null}
               </button>
             )
           })}
@@ -377,14 +679,6 @@ export function RequestsPage() {
         </div>
       </section>
       <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-        {inbox.items.some((item) => mayDecide(item)) ? (
-          <div className="mb-5 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="decision">
-              Observação da decisão
-            </Label>
-            <textarea id="decision" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
-          </div>
-        ) : null}
         {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
         {inbox.error ? <p className="mb-4 text-sm text-destructive">{inbox.error}</p> : null}
         {inbox.loading ? (
@@ -407,10 +701,11 @@ export function RequestsPage() {
               const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
               const kindLabel = requestKindLabel[item.kind] || item.kind
               const punches = (item.punches ?? []).map((value) => showDateTime(value))
-              const detail = item.kind === "adjustment" ? (punches.length > 0 ? punches.join(" · ") : "—") : periodText(item)
+              const period = periodText(item)
+              const detail = item.kind === "adjustment" ? (punches.length > 0 ? punches.join(" · ") : "Nenhuma marcação pedida") : period === "—" ? "Sem período informado" : period
               const extra = [certificateText(item), item.note].filter(Boolean).join(" · ")
-              const history = item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")
-              const origin = item.status === "approved" ? "solicitação" : "—"
+              const history = item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ") || requestStatusLabel[item.status] || item.status
+              const origin = "solicitação"
               const pendingNote = item.status === "pending" ? (item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto.") : ""
               const ownNote = role === "manager" && item.status === "pending" && ownRequest(item) ? "Você não decide a própria solicitação." : ""
               const statusBadge = () => (
@@ -460,7 +755,7 @@ export function RequestsPage() {
                 <div className="flex min-w-0 items-center gap-2">
                   <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
                   <p className="min-w-0 text-sm text-[#52525B]" title={history || undefined}>
-                    {history || "—"}
+                    {history}
                   </p>
                 </div>
               )
@@ -489,10 +784,12 @@ export function RequestsPage() {
                   </div>
                   {mayDecide(item) ? (
                     <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
-                      <Button type="button" className={modulePrimaryClass} onClick={() => decide(item.id, "approved")}>
+                      <Button type="button" className={modulePrimaryClass} onClick={(event) => openDecision(item, "approved", event.currentTarget)}>
+                        <CircleCheck className="h-4 w-4" aria-hidden />
                         Aprovar
                       </Button>
-                      <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => decide(item.id, "rejected")}>
+                      <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={(event) => openDecision(item, "rejected", event.currentTarget)}>
+                        <CircleX className="h-4 w-4" aria-hidden />
                         Recusar
                       </Button>
                     </div>
@@ -508,6 +805,16 @@ export function RequestsPage() {
           </div>
         ) : null}
       </section>
+      <RequestDecisionDialog
+        target={decision}
+        note={note}
+        error={dialogError}
+        saving={saving}
+        onNote={setNote}
+        onClose={closeDecision}
+        onConfirm={confirmDecision}
+        onRest={() => openerRef.current?.focus()}
+      />
     </div>
   )
 }
