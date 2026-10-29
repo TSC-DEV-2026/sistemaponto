@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
@@ -269,7 +270,7 @@ export function EmployeePage() {
           <p className="text-sm">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</p>
           <div className="space-y-2">
             <Label htmlFor="note">Observação</Label>
-            <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} readOnly />
+            <textarea id="note" className={moduleTextClass} value={note} readOnly />
           </div>
         </div>
       ) : null}
@@ -326,7 +327,7 @@ export function EmployeePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="vnote">Observação</Label>
-                <Input id="vnote" value={vigencyNote} onChange={(event) => setVigencyNote(event.target.value)} />
+                <textarea id="vnote" className={moduleTextClass} value={vigencyNote} onChange={(event) => setVigencyNote(event.target.value)} />
               </div>
               <Button type="submit">Registrar vigência</Button>
             </ActionForm>
@@ -417,7 +418,7 @@ export function EmployeePage() {
               ) : null}
               <div className="space-y-2">
                 <Label htmlFor="onote">Observação</Label>
-                <Input id="onote" value={occurrenceNote} onChange={(event) => setOccurrenceNote(event.target.value)} />
+                <textarea id="onote" className={moduleTextClass} value={occurrenceNote} onChange={(event) => setOccurrenceNote(event.target.value)} />
               </div>
               <Button type="submit">Registrar ocorrência</Button>
             </ActionForm>

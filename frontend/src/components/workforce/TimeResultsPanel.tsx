@@ -70,12 +70,11 @@ export function TimeResultsPanel({
     setStartsOn(query.startsOn)
     setEndsOn(query.endsOn)
     setResult(query.result)
-    const top = query.scrollY
     const timer = window.setTimeout(() => {
       const current = readApuracaoQuery(tenantId)
       if (!current?.scrollPending) return
-      if (top > 0) window.scrollTo(0, top)
-      saveApuracaoQuery({ ...current, scrollPending: false })
+      window.scrollTo(0, 0)
+      saveApuracaoQuery({ ...current, scrollY: 0, scrollPending: false })
     }, 0)
     return () => window.clearTimeout(timer)
   }, [appearance, tenantId])
@@ -128,7 +127,7 @@ export function TimeResultsPanel({
             <DatePickerField id="result-start" label="De" value={startsOn} onChange={setStartsOn} required />
             <DatePickerField id="result-end" label="Até" value={endsOn} onChange={setEndsOn} required />
           </div>
-          <Button type="submit" className="mt-5 h-12 w-full rounded-[10px] bg-brand-cta text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] hover:bg-brand-cta-hover">
+          <Button type="submit" className="mt-5 h-12 w-full rounded-[10px] bg-brand-cta text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgba(30,138,58,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
             Apurar
           </Button>
         </ActionForm>

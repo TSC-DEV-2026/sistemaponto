@@ -9,6 +9,7 @@ import { CpfField } from "@/components/ui/cpf-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleTextClass } from "@/components/workforce/module-visual"
 import { createRecord, getRecord, updateRecord, type Employee } from "@/services/workforce.service"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { clockMethodLabel } from "@/utils/labels"
@@ -160,7 +161,7 @@ export function EmployeeFormPage() {
       </label>
       <div className="space-y-2">
         <Label htmlFor="note">Observação</Label>
-        <textarea id="note" className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={note} onChange={(event) => setNote(event.target.value)} />
+        <textarea id="note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit">

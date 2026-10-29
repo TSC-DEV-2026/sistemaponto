@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import {
   createRecord,
@@ -143,7 +144,7 @@ export function HourBankPanel({
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-note">Observação</Label>
-            <Input id="bank-note" value={note} onChange={(event) => setNote(event.target.value)} />
+            <textarea id="bank-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
           <Button type="submit">Lançar</Button>
         </ActionForm>

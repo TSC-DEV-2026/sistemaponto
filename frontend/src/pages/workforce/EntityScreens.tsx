@@ -6,10 +6,12 @@ import { authInputClass } from "@/components/auth-screen"
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
+import { TimePickerField } from "@/components/ui/time-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass, optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
+import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -65,7 +67,7 @@ function JourneySearch({ id, value, onChange, onSearch }: { id: string; value: s
           <Search className="pointer-events-none absolute left-[14px] top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
         </div>
       </div>
-      <Button type="button" className="h-11 rounded-[10px] bg-brand-cta px-5 text-white hover:bg-brand-cta-hover" onClick={onSearch}>
+      <Button type="button" className={modulePrimaryClass} onClick={onSearch}>
         <Search className="h-4 w-4" />
         Pesquisar
       </Button>
@@ -117,7 +119,7 @@ export function DomainTabs({
 
   return (
     <TabAction.Provider value={setAction}>
-      <div className={module ? "w-full space-y-5" : "mx-auto max-w-3xl space-y-4"}>
+      <div className={module ? "w-full min-w-0 space-y-5" : "mx-auto max-w-3xl space-y-4"}>
         {module || !lead ? null : <p className="text-sm text-muted-foreground">{lead}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className={module ? "inline-flex flex-wrap rounded-xl bg-[#E7E8EA] p-1" : "flex flex-wrap gap-2"} role="tablist">
@@ -181,6 +183,7 @@ export function RecordList<T extends Row>({
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setTabAction = useContext(TabAction)
+  const journey = presentation === "journey"
   const [query, setQuery] = useState("")
   const [chosen, setChosen] = useState<Record<string, string>>({})
   const [pending, setPending] = useState<number | null>(null)
@@ -191,7 +194,7 @@ export function RecordList<T extends Row>({
 
   useEffect(() => {
     const create = isAdmin ? (
-      <Button asChild>
+      <Button asChild className={journey ? modulePrimaryClass : undefined}>
         <Link to={newTo}>
           <Plus className="h-4 w-4" />
           {newLabel}
@@ -209,7 +212,7 @@ export function RecordList<T extends Row>({
       </div>,
     )
     return () => setTabAction(null)
-  }, [extra, isAdmin, newLabel, newTo, setTabAction])
+  }, [extra, isAdmin, journey, newLabel, newTo, setTabAction])
 
   async function onDelete(id: number) {
     list.setError("")
@@ -221,8 +224,6 @@ export function RecordList<T extends Row>({
       list.setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
     }
   }
-
-  const journey = presentation === "journey"
 
   return (
     <div className={journey ? "w-full rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "space-y-3"}>
@@ -259,11 +260,11 @@ export function RecordList<T extends Row>({
           const detail = detailOf?.(item)
           if (journey) {
             return (
-              <li key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <li key={item.id} className="group/card flex min-h-16 min-w-0 flex-col gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075),0_16px_32px_rgba(15,23,42,0.055)] motion-safe:hover:-translate-y-0.5 sm:flex-row sm:items-center motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                 <Link
                   to={viewTo(item.id)}
                   aria-label={`Visualizar ${nameOf(item)}`}
-                  className="group/card flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075),0_16px_32px_rgba(15,23,42,0.055)] motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
                     <Clock className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -272,29 +273,29 @@ export function RecordList<T extends Row>({
                     <span className="block truncate font-semibold text-brand-ink">{nameOf(item)}</span>
                     {detail ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detail}</span> : null}
                   </span>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0" aria-hidden>
+                  <span title="Visualizar jornada" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
                     <Eye className="h-4 w-4" strokeWidth={1.75} />
                   </span>
                 </Link>
                 {pending === item.id ? (
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
                     <span>Excluir {nameOf(item)}?</span>
-                    <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(item.id)}>
+                    <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
                       Excluir
                     </Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setPending(null)}>
+                    <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
                       Cancelar
                     </Button>
                   </div>
                 ) : isAdmin ? (
-                  <div className="flex gap-1">
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={editTo(item.id)} aria-label="Editar">
-                        <Pencil className="h-4 w-4" />
+                  <div className="flex shrink-0 gap-1.5">
+                    <Button asChild variant="outline" className={moduleIconClass}>
+                      <Link to={editTo(item.id)} aria-label="Editar jornada" title="Editar jornada">
+                        <Pencil className="h-4 w-4" strokeWidth={1.75} />
                       </Link>
                     </Button>
-                    <Button type="button" size="sm" variant="outline" aria-label="Excluir" onClick={() => setPending(item.id)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label="Excluir jornada" title="Excluir jornada" onClick={() => setPending(item.id)}>
+                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                     </Button>
                   </div>
                 ) : null}
@@ -320,19 +321,19 @@ export function RecordList<T extends Row>({
               ) : (
                 <div className="flex gap-1">
                   <Button asChild size="sm" variant="outline">
-                    <Link to={viewTo(item.id)} aria-label="Visualizar">
+                    <Link to={viewTo(item.id)} aria-label="Visualizar" title="Visualizar">
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
                   {isAdmin ? (
                     <Button asChild size="sm" variant="outline">
-                      <Link to={editTo(item.id)} aria-label="Editar">
+                      <Link to={editTo(item.id)} aria-label="Editar" title="Editar">
                         <Pencil className="h-4 w-4" />
                       </Link>
                     </Button>
                   ) : null}
                   {isAdmin ? (
-                    <Button type="button" size="sm" variant="outline" aria-label="Excluir" onClick={() => setPending(item.id)}>
+                    <Button type="button" size="sm" variant="outline" aria-label="Excluir" title="Excluir" onClick={() => setPending(item.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   ) : null}
@@ -572,7 +573,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     ]
     const name = form.name || "—"
     return (
-      <div className="w-full">
+      <div className="w-full min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">JORNADAS / DETALHES</p>
@@ -621,6 +622,57 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     )
   }
 
+  if (catalog === "journeys" && mode !== "view") {
+    const times = entry.fields.filter((field) => field.type === "time")
+    const name = entry.fields.find((field) => field.name === "name")
+    const note = entry.fields.find((field) => field.name === "note")
+    return (
+      <div className="w-full min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">JORNADAS</p>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">{mode === "new" ? entry.newLabel : entry.editTitle}</h2>
+            <p className="mt-1 text-sm text-brand-quiet">{mode === "new" ? "Informe o nome e os horários previstos." : "Atualize o nome e os horários previstos."}</p>
+          </div>
+          <BackLink to={entry.backTo} appearance="detail" />
+        </div>
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+        <ActionForm className={cn(moduleCardClass, "mt-4 space-y-5")} onSubmit={onSubmit}>
+          {name ? (
+            <div className="space-y-2">
+              <Label className={moduleLabelClass} htmlFor={`${catalog}-${name.name}`}>
+                {name.label}
+              </Label>
+              <Input id={`${catalog}-${name.name}`} className={moduleFieldClass} required={name.required} value={form[name.name] ?? ""} onChange={(event) => setForm({ ...form, [name.name]: event.target.value })} />
+            </div>
+          ) : null}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {times.map((field) => (
+              <div key={field.name} className="min-w-0 space-y-2">
+                <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>
+                  {field.label}
+                </Label>
+                <TimePickerField id={`${catalog}-${field.name}`} value={form[field.name] ?? ""} onChange={(next) => setForm({ ...form, [field.name]: next })} />
+              </div>
+            ))}
+          </div>
+          {note ? (
+            <div className="space-y-2">
+              <Label className={moduleLabelClass} htmlFor={`${catalog}-${note.name}`}>
+                {note.label}
+              </Label>
+              <textarea id={`${catalog}-${note.name}`} className={moduleTextClass} value={form[note.name] ?? ""} onChange={(event) => setForm({ ...form, [note.name]: event.target.value })} />
+            </div>
+          ) : null}
+          <Button type="submit" className={modulePrimaryClass}>
+            <Save className="h-4 w-4" />
+            Salvar
+          </Button>
+        </ActionForm>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <BackLink to={entry.backTo} />
@@ -655,7 +707,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
                   <option value="false">Inativo</option>
                 </select>
               ) : field.type === "textarea" ? (
-                <textarea id={`${catalog}-${field.name}`} className="min-h-20 w-full rounded-md border border-border bg-card px-3 py-2 text-sm" value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
+                <textarea id={`${catalog}-${field.name}`} className={moduleTextClass} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
               ) : (
                 <Input id={`${catalog}-${field.name}`} type={field.type} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
               )}
