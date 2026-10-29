@@ -1,4 +1,4 @@
-import { FilePlus, Printer, Search, Upload } from "lucide-react"
+import { Clock, FilePlus, Info, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
+import { Spinner } from "@/components/ui/spinner"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
@@ -68,27 +69,51 @@ function MonthField({ id, value, onChange }: { id: string; value: string; onChan
   )
 }
 
+const clockCards = {
+  simple: {
+    title: "Registro simples",
+    text: "Este tipo de registro é feito nesta tela.",
+    icon: Clock,
+  },
+  qr: {
+    title: "QR Code",
+    text: "Este tipo de registro é feito no aplicativo, com a câmera.",
+    icon: QrCode,
+  },
+  face: {
+    title: "Facial",
+    text: "Este tipo de registro é feito no aplicativo.",
+    icon: ScanFace,
+  },
+} as const
+
+const clockNote =
+  "O próprio funcionário registra pelo tipo da ficha. O simples é o botão nesta tela. QR Code e reconhecimento facial são feitos no aplicativo."
+
 export function TimeClockPage() {
   const personId = useAuthStore((state) => state.user?.person_id)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const mine = employees.find((item) => item.person_id === personId) ?? null
   const method = mine?.clock_method || "simple"
+  const card = method === "qr" || method === "face" || method === "simple" ? clockCards[method] : null
+  const Icon = card?.icon ?? Clock
 
   useEffect(() => {
     let active = true
+    setLoading(true)
     listRecords<Employee>("/employees", { page: 1, limit: 100 })
       .then((page) => {
-        if (active) {
-          setEmployees(page.items)
-        }
+        if (active) setEmployees(page.items)
       })
       .catch((caught: unknown) => {
-        if (active) {
-          setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-        }
+        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
       })
     return () => {
       active = false
@@ -107,28 +132,41 @@ export function TimeClockPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          O próprio funcionário registra pelo tipo da ficha. O simples é o botão nesta tela. QR Code e reconhecimento facial são feitos no aplicativo.
-        </p>
+    <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="flex gap-3 rounded-xl border border-[rgba(30,138,58,0.07)] bg-[rgba(30,138,58,0.045)] px-4 py-4">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
+        <p className="text-sm leading-6 text-[#1B2534]">{clockNote}</p>
       </div>
-      {mine ? (
-        <section className="space-y-3 rounded-md border border-border bg-card p-3">
-          <h2 className="text-sm font-medium">{clockMethodLabel[method] || method}</h2>
-          <p className="text-sm text-muted-foreground">{mine.full_name}</p>
+      {loading ? (
+        <div className="flex justify-center rounded-[14px] border border-[#E2E8F0] bg-white px-5 py-10">
+          <Spinner />
+        </div>
+      ) : null}
+      {!loading && mine ? (
+        <article className="flex flex-col gap-4 rounded-[14px] border border-[#E2E8F0] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#C5CDD6] hover:shadow-[0_10px_24px_rgba(15,23,42,0.06)] motion-reduce:transition-none sm:flex-row sm:items-center sm:p-6">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <Icon className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-[#0A0A0A]">{card?.title || clockMethodLabel[method] || method}</h2>
+            <p className="mt-1 text-sm text-[#52525B]">{mine.full_name}</p>
+            <p className="mt-1 text-sm leading-6 text-[#52525B]">
+              {card?.text || "Este tipo de registro é feito no aplicativo, com a câmera."}
+            </p>
+          </div>
           {method === "simple" ? (
-            <Button type="button" onClick={() => punchSimple(mine.id)}>
+            <Button
+              type="button"
+              className="h-11 shrink-0 rounded-[10px] bg-brand-cta px-4 text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgba(30,138,58,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+              onClick={() => punchSimple(mine.id)}
+            >
               Registrar
             </Button>
-          ) : (
-            <p className="text-sm text-muted-foreground">Este tipo de registro é feito no aplicativo, com a câmera.</p>
-          )}
-        </section>
-      ) : (
-        <p className="text-sm text-muted-foreground">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p>
-      )}
-      {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+          ) : null}
+        </article>
+      ) : null}
+      {!loading && !mine && !error ? <p className="text-sm text-brand-muted">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p> : null}
+      {message ? <p className="text-sm text-brand-muted">{message}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   )

@@ -11,7 +11,7 @@ import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
-import { brazilMoment, punchOrigin, showDateTime } from "@/utils/labels"
+import { brazilMoment, punchOrigin, showClock, showDateTime } from "@/utils/labels"
 
 export function momentsOf(day: string, times: string[]) {
   const filled = times.map((item) => item.trim()).filter(Boolean)
@@ -130,7 +130,7 @@ function momentParts(value: string | null | undefined) {
   if (!value) return { day: "—", time: "—" }
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return { day: showDateTime(value), time: "—" }
-  return { day: date.toLocaleDateString("pt-BR"), time: date.toLocaleTimeString("pt-BR") }
+  return { day: date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }), time: showClock(value) }
 }
 
 function punchExtra(item: Punch) {
