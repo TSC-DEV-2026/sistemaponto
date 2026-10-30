@@ -52,6 +52,7 @@ export function TimePickerField({
   disabled = false,
   readOnly = false,
   error = false,
+  inputLabel,
 }: {
   id: string
   label?: string
@@ -61,6 +62,7 @@ export function TimePickerField({
   disabled?: boolean
   readOnly?: boolean
   error?: boolean
+  inputLabel?: string
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -247,6 +249,7 @@ export function TimePickerField({
           placeholder="HH:mm"
           disabled={disabled}
           readOnly={readOnly}
+          aria-label={inputLabel}
           aria-expanded={open}
           aria-controls={listId}
           aria-required={required || undefined}

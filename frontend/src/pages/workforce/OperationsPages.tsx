@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Loader2, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
+import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Loader2, Printer, QrCode, ScanFace, Search, Upload, X } from "lucide-react"
 import { FormEvent, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link } from "react-router-dom"
@@ -50,6 +50,7 @@ import {
   requestKindLabel,
   requestStatusClass,
   requestStatusLabel,
+  showClock,
   showDate,
   showDateTime,
   showMinutes,
@@ -233,7 +234,7 @@ const requestTabs = [
 
 type RequestDecision = {
   id: number
-  action: "approved" | "rejected"
+  action: "approved" | "rejected" | "cancelled"
   kind: string
   kindLabel: string
   person: string
@@ -341,7 +342,8 @@ function RequestDecisionDialog({
   }
 
   const approving = view.action === "approved"
-  const Icon = approving ? CircleCheck : CircleX
+  const cancelling = view.action === "cancelled"
+  const Icon = approving ? CircleCheck : cancelling ? Ban : CircleX
 
   return createPortal(
     <div
@@ -371,20 +373,26 @@ function RequestDecisionDialog({
           <span
             className={cn(
               "flex h-14 w-14 items-center justify-center rounded-full",
-              approving ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A] shadow-[0_0_0_8px_rgba(30,138,58,0.06)]" : "bg-[rgba(239,83,80,0.12)] text-[#EF5350] shadow-[0_0_0_8px_rgba(239,83,80,0.06)]",
+              approving
+                ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A] shadow-[0_0_0_8px_rgba(30,138,58,0.06)]"
+                : cancelling
+                  ? "bg-[#F1F5F9] text-[#64748B] shadow-[0_0_0_8px_rgba(100,116,139,0.08)]"
+                  : "bg-[rgba(239,83,80,0.12)] text-[#EF5350] shadow-[0_0_0_8px_rgba(239,83,80,0.06)]",
             )}
           >
             <Icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
           </span>
           <h2 id="request-decision-title" className="mt-4 text-xl font-semibold tracking-tight text-[#0A0A0A]">
-            {approving ? "Aprovar solicitação?" : "Recusar solicitação?"}
+            {approving ? "Aprovar solicitação?" : cancelling ? "Cancelar solicitação?" : "Recusar solicitação?"}
           </h2>
           <p id="request-decision-text" className="mt-1.5 max-w-sm text-sm leading-6 text-[#71717A]">
-            {approving && view.kind === "adjustment"
-              ? "As marcações pedidas passam a valer."
-              : approving
-                ? "A solicitação passa a valer."
-                : "A solicitação será recusada."}
+            {cancelling
+              ? "A solicitação deixa de seguir para aprovação. O ponto não muda."
+              : approving && view.kind === "adjustment"
+                ? "As marcações pedidas passam a valer."
+                : approving
+                  ? "A solicitação passa a valer."
+                  : "A solicitação será recusada."}
           </p>
         </div>
         <div id="request-decision-who" className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-3 text-left">
@@ -396,7 +404,7 @@ function RequestDecisionDialog({
         <div className="mt-5 space-y-2 text-left">
           <div className="flex items-baseline justify-between gap-3">
             <Label className={moduleLabelClass} htmlFor="request-decision-note">
-              Observação da decisão
+              {cancelling ? "Observação" : "Observação da decisão"}
             </Label>
             <span className="text-xs text-[#94A3B8]">Opcional</span>
           </div>
@@ -416,12 +424,219 @@ function RequestDecisionDialog({
         ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={saving} onClick={onClose}>
-            Cancelar
+            {cancelling ? "Voltar" : "Cancelar"}
           </Button>
-          <Button type="button" className={approving ? modulePrimaryClass : cn(moduleDangerClass, "h-11 px-4")} onClick={() => onConfirm()}>
-            {approving ? <CircleCheck className="h-4 w-4" aria-hidden /> : <CircleX className="h-4 w-4" aria-hidden />}
-            {approving ? "Confirmar aprovação" : "Confirmar recusa"}
+          <Button
+            type="button"
+            className={approving ? modulePrimaryClass : cancelling ? "h-11 rounded-[10px] bg-[#334155] px-4 text-white shadow-[0_8px_20px_rgba(51,65,85,0.28)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#1E293B] hover:shadow-[0_10px_24px_rgba(51,65,85,0.34)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#334155]/35 motion-reduce:transition-none motion-reduce:active:translate-y-0" : cn(moduleDangerClass, "h-11 px-4")}
+            onClick={() => onConfirm()}
+          >
+            {approving ? <CircleCheck className="h-4 w-4" aria-hidden /> : cancelling ? <Ban className="h-4 w-4" aria-hidden /> : <CircleX className="h-4 w-4" aria-hidden />}
+            {approving ? "Confirmar aprovação" : cancelling ? "Confirmar cancelamento" : "Confirmar recusa"}
           </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+type RequestDescription = { text: string; photo: string | null }
+
+const requestPreviewLimit = 50
+
+function requestedPunches(values: string[]) {
+  const dayFormat = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+  let dayShown = ""
+  return values
+    .map((value) => {
+      const clock = showClock(value)
+      if (!value) {
+        return clock
+      }
+      const day = dayFormat.format(new Date(value))
+      if (day === dayShown) {
+        return clock
+      }
+      dayShown = day
+      return `${day}, ${clock}`
+    })
+    .join(" -- ")
+}
+
+function ClampedRequestText({
+  lead,
+  detail,
+  extra,
+  note,
+  photo,
+  onOpen,
+}: {
+  lead: string
+  detail: string
+  extra: string
+  note: string
+  photo: string | null
+  onOpen: (opener: HTMLButtonElement) => void
+}) {
+  const noteText = note.replace(/\s+/g, " ").trim()
+  const truncated = noteText.length > requestPreviewLimit
+  const notePreview = truncated ? noteText.slice(0, requestPreviewLimit) : noteText
+
+  return (
+    <p className="min-w-0 text-sm leading-5 text-[#52525B] [overflow-wrap:anywhere]">
+      {lead ? <span className="text-[#71717A]">{lead}</span> : null}
+      {detail}
+      {extra ? ` · ${extra}` : ""}
+      {notePreview ? ` ${notePreview}` : ""}
+      {truncated ? (
+        <button
+          type="button"
+          className="ml-1 inline text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+          onClick={(event) => onOpen(event.currentTarget)}
+        >
+          Ver mais
+        </button>
+      ) : photo ? (
+        <>
+          {" "}
+          <DocumentLink href={photo} />
+        </>
+      ) : null}
+    </p>
+  )
+}
+
+function RequestDescriptionDialog({ target, onClose, onRest }: { target: RequestDescription | null; onClose: () => void; onRest: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const closeRef = useRef(onClose)
+  const restRef = useRef(onRest)
+  closeRef.current = onClose
+  restRef.current = onRest
+  const [ghost, setGhost] = useState<RequestDescription | null>(null)
+  const [present, setPresent] = useState(false)
+  const shown = useRef(false)
+  const view = target ?? ghost
+
+  useEffect(() => {
+    if (target) {
+      setGhost(target)
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (reduce) {
+        setPresent(true)
+        return
+      }
+      setPresent(false)
+      const frame = requestAnimationFrame(() => setPresent(true))
+      return () => cancelAnimationFrame(frame)
+    }
+    setPresent(false)
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const timer = window.setTimeout(() => setGhost(null), reduce ? 0 : 180)
+    return () => window.clearTimeout(timer)
+  }, [target])
+
+  useEffect(() => {
+    if (!view) {
+      if (shown.current) {
+        shown.current = false
+        restRef.current()
+      }
+      return
+    }
+    shown.current = true
+    closeButtonRef.current?.focus()
+  }, [view])
+
+  useEffect(() => {
+    if (!view) {
+      return
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        closeRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) {
+        return
+      }
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]")
+      if (nodes.length === 0) {
+        return
+      }
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [view])
+
+  if (!view) {
+    return null
+  }
+
+  return createPortal(
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
+        present ? "opacity-100" : "opacity-0",
+      )}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="request-description-title"
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] transition-[opacity,transform] duration-200 motion-reduce:transition-none",
+          present ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0",
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="request-description-title" className="text-lg font-semibold text-[#0A0A0A]">
+            Descrição completa
+          </h2>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#0A0A0A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+            aria-label="Fechar"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#1B2534] [overflow-wrap:anywhere]">{view.text}</p>
+          {view.photo ? (
+            <p className="mt-4">
+              <DocumentLink href={view.photo} />
+            </p>
+          ) : null}
         </div>
       </div>
     </div>,
@@ -439,12 +654,15 @@ export function RequestsPage() {
   const [listKind, setListKind] = useState("")
   const [employees, setEmployees] = useState<Employee[]>([])
   const [canRequest, setCanRequest] = useState(false)
+  const [ownEmployeeId, setOwnEmployeeId] = useState<number | null>(null)
   const [error, setError] = useState("")
   const [decision, setDecision] = useState<RequestDecision | null>(null)
   const [note, setNote] = useState("")
   const [dialogError, setDialogError] = useState("")
   const [saving, setSaving] = useState(false)
   const openerRef = useRef<HTMLButtonElement | null>(null)
+  const descriptionOpenerRef = useRef<HTMLButtonElement | null>(null)
+  const [fullDescription, setFullDescription] = useState<RequestDescription | null>(null)
   const busy = useRef(false)
   const flight = useRef(0)
   const [counts, setCounts] = useState<Partial<Record<string, number>>>({})
@@ -456,12 +674,14 @@ export function RequestsPage() {
   })
 
   async function load() {
+    setOwnEmployeeId(null)
     const [people, own] = await Promise.all([
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
       personId ? listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId }) : Promise.resolve(null),
     ])
     setEmployees(people.items)
     const employee = own?.items[0]
+    setOwnEmployeeId(employee?.id ?? null)
     setCanRequest(employee != null && employee.situation !== "dismissed")
   }
 
@@ -520,7 +740,7 @@ export function RequestsPage() {
     }
   }, [inbox.loading, inbox.error, inbox.total, status, listEmployee, listKind, tenantId])
 
-  function openDecision(item: TimeRequest, action: "approved" | "rejected", opener: HTMLButtonElement) {
+  function openDecision(item: TimeRequest, action: "approved" | "rejected" | "cancelled", opener: HTMLButtonElement) {
     if (busy.current) {
       return
     }
@@ -542,6 +762,11 @@ export function RequestsPage() {
       return
     }
     setDecision(null)
+  }
+
+  function openDescription(text: string, photo: string | null, opener: HTMLButtonElement) {
+    descriptionOpenerRef.current = opener
+    setFullDescription({ text, photo })
   }
 
   async function confirmDecision() {
@@ -577,6 +802,9 @@ export function RequestsPage() {
   }
 
   function ownRequest(item: TimeRequest) {
+    if (ownEmployeeId != null && item.employee_id === ownEmployeeId) {
+      return true
+    }
     const employee = employees.find((person) => person.id === item.employee_id)
     return employee?.person_id != null && employee.person_id === personId
   }
@@ -591,10 +819,13 @@ export function RequestsPage() {
     return true
   }
 
+  function mayCancel(item: TimeRequest) {
+    return item.status === "pending" && ownRequest(item)
+  }
+
   return (
     <div className="w-full min-w-0 space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-[14px] sm:grid-cols-2 lg:grid-cols-4" role="tablist">
+      <div className="grid min-w-0 grid-cols-1 gap-[14px] sm:grid-cols-2 lg:grid-cols-4" role="tablist">
           {requestTabs.map((tab) => {
             const selected = status === tab.id
             const Icon = tab.icon
@@ -630,25 +861,26 @@ export function RequestsPage() {
               </button>
             )
           })}
-        </div>
-        {canRequest ? (
-          <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
-            <Link to="/requests/new">
-              <FilePlus className="h-4 w-4" />
-              Nova solicitação
-            </Link>
-          </Button>
-        ) : null}
       </div>
       <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
-            <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          </span>
-          <div>
-            <h2 className="text-base font-semibold text-[#0A0A0A]">Filtros</h2>
-            <p className="text-sm text-[#71717A]">Refine a exibição das solicitações</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+              <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-[#0A0A0A]">Filtros</h2>
+              <p className="text-sm text-[#71717A]">Refine a exibição das solicitações</p>
+            </div>
           </div>
+          {canRequest ? (
+            <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
+              <Link to="/requests/new">
+                <FilePlus className="h-4 w-4" />
+                Nova solicitação
+              </Link>
+            </Button>
+          ) : null}
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="min-w-0 space-y-2">
@@ -700,10 +932,13 @@ export function RequestsPage() {
             {inbox.items.map((item) => {
               const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
               const kindLabel = requestKindLabel[item.kind] || item.kind
-              const punches = (item.punches ?? []).map((value) => showDateTime(value))
+              const punches = requestedPunches(item.punches ?? [])
               const period = periodText(item)
-              const detail = item.kind === "adjustment" ? (punches.length > 0 ? punches.join(" · ") : "Nenhuma marcação pedida") : period === "—" ? "Sem período informado" : period
-              const extra = [certificateText(item), item.note].filter(Boolean).join(" · ")
+              const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period === "—" ? "Sem período informado" : period
+              const certificate = certificateText(item)
+              const lead = item.kind === "adjustment" ? "Marcações pedidas: " : ""
+              const body = [detail, certificate, item.note].filter((part) => part && part.trim()).join("\n")
+              const descriptionText = `${lead}${body}`
               const history = item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ") || requestStatusLabel[item.status] || item.status
               const origin = "solicitação"
               const pendingNote = item.status === "pending" ? (item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto.") : ""
@@ -727,18 +962,12 @@ export function RequestsPage() {
                 </div>
               )
               const detailBlock = () => (
-                <div className="flex min-w-0 items-center gap-2">
-                  <Calendar className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-                  <div className="min-w-0">
-                    <p className="text-sm leading-5 text-[#52525B]">
-                      {item.kind === "adjustment" ? <span className="text-[#71717A]">Marcações pedidas: </span> : null}
-                      {detail}
-                      {extra ? ` · ${extra}` : ""}
-                      {item.photo_url ? " · " : ""}
-                      <DocumentLink href={item.photo_url} />
-                    </p>
-                    {pendingNote ? <p className="mt-1 text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
-                    {ownNote ? <p className="mt-1 text-xs leading-5 text-[#71717A]">{ownNote}</p> : null}
+                <div className="flex min-w-0 items-start gap-2">
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <ClampedRequestText lead={lead} detail={detail} extra={certificate} note={item.note || ""} photo={item.photo_url} onOpen={(opener) => openDescription(descriptionText, item.photo_url, opener)} />
+                    {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
+                    {ownNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{ownNote}</p> : null}
                   </div>
                 </div>
               )
@@ -754,7 +983,7 @@ export function RequestsPage() {
               const historyBlock = () => (
                 <div className="flex min-w-0 items-center gap-2">
                   <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-                  <p className="min-w-0 text-sm text-[#52525B]" title={history || undefined}>
+                  <p className="min-w-0 truncate text-sm text-[#52525B]" title={history || undefined}>
                     {history}
                   </p>
                 </div>
@@ -762,7 +991,7 @@ export function RequestsPage() {
               return (
                 <li
                   key={item.id}
-                  className="rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#D4D4D8] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                  className="min-w-0 overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#D4D4D8] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 >
                   <div className="flex flex-col gap-3 lg:hidden">
                     <div className="flex items-center justify-between gap-3">
@@ -777,21 +1006,31 @@ export function RequestsPage() {
                   </div>
                   <div className="hidden min-w-0 items-center lg:flex">
                     <div className="w-[22%] min-w-0 shrink-0 pr-4">{personBlock()}</div>
-                    <div className="min-w-0 flex-1 border-l border-[#F0F0F2] px-4">{detailBlock()}</div>
-                    <div className="w-[12%] min-w-0 border-l border-[#F0F0F2] px-4">{originBlock()}</div>
-                    <div className="w-[17%] min-w-0 border-l border-[#F0F0F2] px-4">{historyBlock()}</div>
+                    <div className="min-w-0 flex-1 overflow-hidden border-l border-[#F0F0F2] px-4">{detailBlock()}</div>
+                    <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">{originBlock()}</div>
+                    <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">{historyBlock()}</div>
                     <div className="shrink-0 pl-4">{statusBadge()}</div>
                   </div>
-                  {mayDecide(item) ? (
+                  {mayDecide(item) || mayCancel(item) ? (
                     <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
-                      <Button type="button" className={modulePrimaryClass} onClick={(event) => openDecision(item, "approved", event.currentTarget)}>
-                        <CircleCheck className="h-4 w-4" aria-hidden />
-                        Aprovar
-                      </Button>
-                      <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={(event) => openDecision(item, "rejected", event.currentTarget)}>
-                        <CircleX className="h-4 w-4" aria-hidden />
-                        Recusar
-                      </Button>
+                      {mayCancel(item) ? (
+                        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={(event) => openDecision(item, "cancelled", event.currentTarget)}>
+                          <Ban className="h-4 w-4" aria-hidden />
+                          Cancelar
+                        </Button>
+                      ) : null}
+                      {mayDecide(item) ? (
+                        <>
+                          <Button type="button" className={modulePrimaryClass} onClick={(event) => openDecision(item, "approved", event.currentTarget)}>
+                            <CircleCheck className="h-4 w-4" aria-hidden />
+                            Aprovar
+                          </Button>
+                          <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={(event) => openDecision(item, "rejected", event.currentTarget)}>
+                            <CircleX className="h-4 w-4" aria-hidden />
+                            Recusar
+                          </Button>
+                        </>
+                      ) : null}
                     </div>
                   ) : null}
                 </li>
@@ -815,6 +1054,7 @@ export function RequestsPage() {
         onConfirm={confirmDecision}
         onRest={() => openerRef.current?.focus()}
       />
+      <RequestDescriptionDialog target={fullDescription} onClose={() => setFullDescription(null)} onRest={() => descriptionOpenerRef.current?.focus()} />
     </div>
   )
 }
