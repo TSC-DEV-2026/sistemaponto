@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Loader2, Printer, QrCode, ScanFace, Search, Upload, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Plus, Printer, QrCode, ScanFace, Search, Upload, X } from "lucide-react"
 import { FormEvent, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link } from "react-router-dom"
@@ -6,6 +6,7 @@ import { Link } from "react-router-dom"
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
+import { YearPickerField } from "@/components/ui/date-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
@@ -13,8 +14,9 @@ import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
-import { moduleDangerClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
@@ -1059,170 +1061,224 @@ export function RequestsPage() {
   )
 }
 
+function closingStatusClass(status: string) {
+  if (status === "closed") return "bg-[rgba(30,138,58,0.14)] text-[#146C2E]"
+  if (status === "open") return "bg-[#FFF1E0] text-[#C2410C]"
+  return "bg-[#F1F5F9] text-[#475569]"
+}
+
 export function ClosingsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
-  const [mode, setMode] = useState("month")
-  const [year, setYear] = useState(String(new Date().getFullYear()))
-  const [month, setMonth] = useState(String(new Date().getMonth() + 1))
-  const [startsOn, setStartsOn] = useState("")
-  const [endsOn, setEndsOn] = useState("")
   const [filterYear, setFilterYear] = useState("")
   const [filterMonth, setFilterMonth] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
   const [reasons, setReasons] = useState<Record<number, string>>({})
   const [reopenId, setReopenId] = useState<number | null>(null)
+  const [closingItem, setClosingItem] = useState<Closing | null>(null)
   const [error, setError] = useState("")
+  const closeOpenerRef = useRef<HTMLButtonElement | null>(null)
   const periods = usePagedList<Closing>("/closings", {
     ...(/^\d+$/.test(filterYear) ? { year: Number(filterYear) } : {}),
     ...(/^\d+$/.test(filterMonth) ? { month: Number(filterMonth) } : {}),
     ...(filterStatus ? { status: filterStatus } : {}),
   })
 
-  async function closeNewPeriod(event: FormEvent) {
-    event.preventDefault()
-    setError("")
-    try {
-      const body = mode === "range" ? { starts_on: startsOn, ends_on: endsOn || null, note: null } : { year: Number(year), month: Number(month), note: null }
-      const created = await createRecord<Closing>("/closings", body)
-      try {
-        await updateRecord("/closings", created.id, { status: "closed" })
-      } catch (caught) {
-        periods.reload()
-        throw caught
-      }
-      periods.reload()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível fechar.")
-    }
-  }
-
   async function changePeriod(id: number, status: "closed" | "cancelled" | "open") {
     setError("")
     const note = (reasons[id] || "").trim()
     if (status !== "closed" && !note) {
       setError("Informe o motivo.")
-      return
+      return false
     }
     try {
       await updateRecord("/closings", id, { status, note: note || null })
       setReasons((current) => ({ ...current, [id]: "" }))
       setReopenId(null)
       periods.reload()
+      return true
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o período.")
+      return false
     }
   }
 
+  const showEmpty = !periods.loading && !periods.error && periods.items.length === 0
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <p className="text-sm text-muted-foreground">
-        O gestor ou o administrador fecha o mês, ou um intervalo, num passo. Não fecha se houver solicitação pendente, ponto incompleto ou conflito entre abono ou atestado e marcação. O aviso de intervalo menor não impede. Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados até reabrir. Cancelar e reabrir exigem motivo.
-      </p>
-      {canManage ? (
-        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={closeNewPeriod}>
-          <div className="space-y-2">
-            <Label htmlFor="closing-mode">Período</Label>
-            <select id="closing-mode" className={fieldClass} value={mode} onChange={(event) => setMode(event.target.value)}>
-              <option value="month">Mês civil</option>
-              <option value="range">Intervalo de datas</option>
-            </select>
+    <div className="w-full min-w-0 space-y-[18px]">
+      {error && !closingItem ? <p className="text-sm text-destructive">{error}</p> : null}
+      <section className={moduleCardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+              <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold leading-5 text-[#0A0A0A]">Filtros de pesquisa</h2>
+              <p className="mt-0.5 text-[13px] leading-5 text-[#71717A]">Selecione o período e a situação que deseja visualizar</p>
+            </div>
           </div>
-          {mode === "month" ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="month">Mês</Label>
-                <MonthField id="month" value={month} onChange={setMonth} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="year">Ano</Label>
-                <Input id="year" inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} required />
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="closing-start">De</Label>
-                <input id="closing-start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="closing-end">Até</Label>
-                <input id="closing-end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
-              </div>
-            </div>
-          )}
-          <Button type="submit">Fechar período</Button>
-        </ActionForm>
-      ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="closing-filter-year">Ano</Label>
-          <Input id="closing-filter-year" inputMode="numeric" value={filterYear} onChange={(event) => setFilterYear(event.target.value)} />
+          {canManage ? (
+            <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
+              <Link to="/closings/new">
+                <Plus className="h-4 w-4" />
+                Novo fechamento
+              </Link>
+            </Button>
+          ) : null}
         </div>
-        <FilterSelect id="closing-filter-month" label="Mês" value={filterMonth} options={monthOptions} onChange={setFilterMonth} />
-        <FilterSelect id="closing-filter-status" label="Situação" value={filterStatus} options={Object.entries(closingStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setFilterStatus} />
-      </div>
-      {periods.error ? <p className="text-sm text-destructive">{periods.error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {periods.items.map((item) => (
-          <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
-            <p>
-              {showDate(item.starts_on)} a {showDate(item.ends_on)} · {closingStatusLabel[item.status] || item.status}
-            </p>
-            <p className="text-muted-foreground">
-              {item.events.map((event) => `${closingEventLabel[event.kind] || event.kind}${event.note ? ` (${event.note})` : ""}`).join(" → ")}
-            </p>
-            {canManage && item.status === "open" ? (
-              <Button type="button" size="sm" onClick={() => changePeriod(item.id, "closed")}>
-                Fechar
-              </Button>
-            ) : null}
-            {canManage && item.status !== "open" ? (
-              <div className="grid gap-2">
-                {reopenId === item.id ? (
-                  <p>O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer.</p>
-                ) : null}
-                <Label htmlFor={`reason-${item.id}`}>Motivo</Label>
-                <Input id={`reason-${item.id}`} value={reasons[item.id] || ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))} />
-                <div className="flex flex-wrap gap-2">
-                  {reopenId === item.id ? (
-                    <>
-                      <Button type="button" size="sm" onClick={() => changePeriod(item.id, "open")}>
-                        Confirmar
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setReopenId(null)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      {item.status === "closed" ? (
-                        <Button type="button" size="sm" variant="outline" onClick={() => changePeriod(item.id, "cancelled")}>
-                          Cancelar
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setError("")
-                          setReopenId(item.id)
-                        }}
-                      >
-                        Reabrir
-                      </Button>
-                    </>
-                  )}
+        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-filter-year">
+              Ano
+            </Label>
+            <YearPickerField id="closing-filter-year" value={filterYear} placeholder="Selecione o ano" onChange={setFilterYear} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-filter-month">
+              Mês
+            </Label>
+            <SiteSelect id="closing-filter-month" value={filterMonth} icon={Calendar} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...monthOptions]} onChange={setFilterMonth} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-filter-status">
+              Situação
+            </Label>
+            <SiteSelect
+              id="closing-filter-status"
+              value={filterStatus}
+              icon={List}
+              placeholder="Todos"
+              options={[{ value: "", label: "Todos" }, ...Object.entries(closingStatusLabel).map(([value, label]) => ({ value, label }))]}
+              onChange={setFilterStatus}
+            />
+          </div>
+        </div>
+      </section>
+      <section className={moduleCardClass}>
+        {periods.error ? <p className="mb-4 text-sm text-destructive">{periods.error}</p> : null}
+        {periods.loading && periods.items.length === 0 ? (
+          <div className="flex justify-center px-6 py-12">
+            <Spinner />
+          </div>
+        ) : null}
+        {showEmpty ? (
+          <div className="px-6 py-12 text-center">
+            <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#F1F5F9] text-[#64748B]">
+              <Calendar className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+            </span>
+            <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhum fechamento encontrado</p>
+            <p className="mt-1 text-sm text-[#71717A]">Não há períodos de fechamento com os filtros selecionados.</p>
+          </div>
+        ) : null}
+        {periods.items.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {periods.items.map((item) => (
+              <li key={item.id} className="rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="min-w-0 text-sm font-semibold text-[#0A0A0A]">
+                    {showDate(item.starts_on)} a {showDate(item.ends_on)}
+                  </p>
+                  <span className={cn("inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold", closingStatusClass(item.status))}>
+                    {closingStatusLabel[item.status] || item.status}
+                  </span>
                 </div>
-              </div>
-            ) : null}
-          </li>
-        ))}
-        {periods.items.length === 0 ? <ListPlaceholder loading={periods.loading} empty="Nenhum fechamento." /> : null}
-      </ul>
-      <ListPager page={periods.page} pageSize={periods.pageSize} total={periods.total} onPage={periods.setPage} onPageSize={periods.setPageSize} />
+                <p className="mt-2 break-words text-sm leading-5 text-[#52525B]">
+                  {item.events.map((event) => `${closingEventLabel[event.kind] || event.kind}${event.note ? ` (${event.note})` : ""}`).join(" → ") || "Sem histórico informado"}
+                </p>
+                {canManage && item.status === "open" ? (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      type="button"
+                      className={modulePrimaryClass}
+                      onClick={(event) => {
+                        setError("")
+                        closeOpenerRef.current = event.currentTarget
+                        setClosingItem(item)
+                      }}
+                    >
+                      Fechar
+                    </Button>
+                  </div>
+                ) : null}
+                {canManage && item.status !== "open" ? (
+                  <div className="mt-3 space-y-3">
+                    {reopenId === item.id ? <p className="text-sm leading-6 text-[#52525B]">O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer.</p> : null}
+                    <div className="space-y-2">
+                      <Label className={moduleLabelClass} htmlFor={`reason-${item.id}`}>
+                        Motivo
+                      </Label>
+                      <Input id={`reason-${item.id}`} className={moduleFieldClass} value={reasons[item.id] || ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))} />
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {reopenId === item.id ? (
+                        <>
+                          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setReopenId(null)}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            className={modulePrimaryClass}
+                            onClick={async () => {
+                              await changePeriod(item.id, "open")
+                            }}
+                          >
+                            Confirmar
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {item.status === "closed" ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn(moduleQuietClass, "h-11 px-4")}
+                              onClick={async () => {
+                                await changePeriod(item.id, "cancelled")
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(moduleQuietClass, "h-11 px-4")}
+                            onClick={() => {
+                              setError("")
+                              setReopenId(item.id)
+                            }}
+                          >
+                            Reabrir
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {!periods.loading && !periods.error && periods.total > 0 ? (
+          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+            <ListPager page={periods.page} pageSize={periods.pageSize} total={periods.total} onPage={periods.setPage} onPageSize={periods.setPageSize} tone="module" />
+          </div>
+        ) : null}
+      </section>
+      <ClosingConfirmDialog
+        open={closingItem !== null}
+        period={closingItem ? `${showDate(closingItem.starts_on)} a ${showDate(closingItem.ends_on)}` : ""}
+        error={closingItem ? error : ""}
+        onClose={() => setClosingItem(null)}
+        onConfirm={async () => {
+          if (!closingItem) return
+          const closed = await changePeriod(closingItem.id, "closed")
+          if (closed) setClosingItem(null)
+        }}
+        onRest={() => closeOpenerRef.current?.focus()}
+      />
     </div>
   )
 }

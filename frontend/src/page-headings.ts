@@ -55,6 +55,7 @@ const patterns: Pattern[] = [
   { path: "/occurrences", title: "Ajustes e Ocorrências", subtitle: "Gerencie ajustes e ocorrências" },
   { path: "/requests", title: "Solicitações", subtitle: "Acompanhe solicitações e pendências" },
   { path: "/requests/new", title: "Nova solicitação", subtitle: "Informe o pedido" },
+  { path: "/closings/new", title: "Novo fechamento", subtitle: "Selecione o período que deseja fechar." },
   { path: "/closings", title: "Fechamento do Ponto", subtitle: "Gerencie os períodos de fechamento" },
   { path: "/people", title: "Pessoas", subtitle: "Gerencie os funcionários" },
   { path: "/people/new", title: "Novo funcionário", subtitle: "Cadastro da ficha" },

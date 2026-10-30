@@ -400,3 +400,205 @@ export function DatePickerField({
     </div>
   )
 }
+
+export function YearPickerField({
+  id,
+  value,
+  onChange,
+  required = false,
+  placeholder = "Selecione o ano",
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  required?: boolean
+  placeholder?: string
+}) {
+  const selected = /^\d{4}$/.test(value) ? Number(value) : null
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [draft, setDraft] = useState(selected ? String(selected) : "")
+  const [cursor, setCursor] = useState(selected ?? new Date().getFullYear())
+  const [above, setAbove] = useState(false)
+  const [alignRight, setAlignRight] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listId = useId()
+  const yearStart = cursor - (cursor % 12)
+
+  useEffect(() => {
+    if (document.activeElement === inputRef.current) return
+    setDraft(selected ? String(selected) : "")
+  }, [selected])
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      setCursor(selected ?? new Date().getFullYear())
+      const rect = rootRef.current?.getBoundingClientRect()
+      if (rect) {
+        setAbove(rect.bottom + 280 > window.innerHeight && rect.top > 280)
+        setAlignRight(rect.left + 340 > window.innerWidth - 16)
+      }
+      return
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setMounted(false)
+      return
+    }
+    const timer = window.setTimeout(() => setMounted(false), 140)
+    return () => window.clearTimeout(timer)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onPointer(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onPointer)
+    return () => document.removeEventListener("mousedown", onPointer)
+  }, [open])
+
+  function choose(year: number) {
+    onChange(String(year))
+    setDraft(String(year))
+    setCursor(year)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={rootRef} className={cn("relative", mounted && "z-30")}>
+      <div
+        className={cn(
+          "flex h-12 cursor-text items-center gap-2 rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 shadow-[0_3px_8px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-[#B8C3CF] hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]",
+          open && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
+        )}
+        onMouseDown={(event) => {
+          const target = event.target as HTMLElement
+          if (target.closest("[data-clear]") || target.closest("input") || target.closest("button")) return
+          event.preventDefault()
+          setOpen(true)
+          inputRef.current?.focus()
+        }}
+      >
+        <button
+          type="button"
+          className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]", open && "bg-[rgba(30,138,58,0.14)]")}
+          aria-label="Escolher ano"
+          aria-expanded={open}
+          aria-controls={listId}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setOpen((current) => !current)
+            inputRef.current?.focus()
+          }}
+        >
+          <Calendar className="h-4 w-4" strokeWidth={1.75} />
+        </button>
+        <input
+          ref={inputRef}
+          id={id}
+          value={draft}
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder={placeholder}
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-required={required || undefined}
+          className="min-w-0 flex-1 bg-transparent text-[15px] text-[#0A0A0A] outline-none placeholder:text-[#9CA3AF]"
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
+          onChange={(event) => {
+            const digits = event.target.value.replace(/\D/g, "").slice(0, 4)
+            setDraft(digits)
+            if (digits.length === 4) {
+              onChange(digits)
+              setCursor(Number(digits))
+              return
+            }
+            if (digits.length === 0) onChange("")
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setOpen(false)
+            if (event.key === "ArrowDown" && !open) {
+              event.preventDefault()
+              setOpen(true)
+            }
+          }}
+          onBlur={() => {
+            if (/^\d{4}$/.test(draft)) return
+            setDraft(selected ? String(selected) : "")
+          }}
+        />
+        {value ? (
+          <button
+            type="button"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#94A3B8] transition-colors duration-150 hover:bg-[#F4F4F5] hover:text-[#0A0A0A]"
+            data-clear
+            aria-label="Limpar ano"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              onChange("")
+              setDraft("")
+              inputRef.current?.focus()
+            }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      {required ? (
+        <input
+          tabIndex={-1}
+          aria-hidden="true"
+          className="pointer-events-none absolute h-px w-px opacity-0"
+          value={value}
+          required
+          onChange={() => undefined}
+          onInvalid={(event) => {
+            event.preventDefault()
+            inputRef.current?.focus()
+            setOpen(true)
+          }}
+        />
+      ) : null}
+      {mounted ? (
+        <div
+          id={listId}
+          role="dialog"
+          aria-label="Anos"
+          className={cn(
+            "absolute z-30 w-[min(340px,calc(100vw-2rem))] rounded-[14px] border border-[#E4E4E7] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
+            above ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]",
+            alignRight ? "right-0" : "left-0",
+            open ? "site-select-in" : "pointer-events-none site-select-out",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E4E7] bg-white text-[#52525B] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" aria-label="Anos anteriores" onClick={() => setCursor((current) => current - 12)}>
+              <ChevronLeft className="h-[18px] w-[18px]" />
+            </button>
+            <p className="text-[15px] font-semibold text-[#0A0A0A]">
+              {yearStart} – {yearStart + 11}
+            </p>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E4E7] bg-white text-[#52525B] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" aria-label="Próximos anos" onClick={() => setCursor((current) => current + 12)}>
+              <ChevronRight className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {Array.from({ length: 12 }, (_, index) => yearStart + index).map((year) => (
+              <button
+                key={year}
+                type="button"
+                className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#187432]", year === selected && "bg-[#1E8A3A] font-semibold text-white hover:bg-[#1E8A3A] hover:text-white")}
+                onClick={() => choose(year)}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
