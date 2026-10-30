@@ -37,6 +37,7 @@ import {
 import { EntityRecordPage } from "@/pages/workforce/EntityScreens"
 import { OccurrenceEntryPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
+import { ClosingFormPage } from "@/pages/workforce/ClosingFormPage"
 import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
 
 function RootLayout() {
@@ -83,6 +84,7 @@ const router = createBrowserRouter([
                   { path: "/occurrences", element: <OccurrencesPage /> },
                   { path: "/requests", element: <RequestsPage /> },
                   { path: "/requests/new", element: <RequestFormPage /> },
+                  { path: "/closings/new", element: <ClosingFormPage /> },
                   { path: "/closings", element: <ClosingsPage /> },
                   { path: "/people/new", element: <EmployeeFormPage /> },
                   { path: "/people/:id/edit", element: <EmployeeFormPage /> },
