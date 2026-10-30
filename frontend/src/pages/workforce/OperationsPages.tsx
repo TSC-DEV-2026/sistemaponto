@@ -1,5 +1,6 @@
-import { Clock, FilePlus, Info, Printer, QrCode, ScanFace, Search, Upload } from "lucide-react"
-import { FormEvent, useEffect, useState } from "react"
+import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, Loader2, Printer, QrCode, ScanFace, Search, Upload, X } from "lucide-react"
+import { FormEvent, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Link } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -9,8 +10,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
+import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { moduleTextClass } from "@/components/workforce/module-visual"
+import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
+import { moduleDangerClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
@@ -33,6 +36,7 @@ import {
   type TimeRequest,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { cn } from "@/utils/cn"
 import { clockMethodLabel } from "@/utils/labels"
 import {
   closingEventLabel,
@@ -46,6 +50,7 @@ import {
   requestKindLabel,
   requestStatusClass,
   requestStatusLabel,
+  showClock,
   showDate,
   showDateTime,
   showMinutes,
@@ -168,6 +173,477 @@ export function TimeClockPage() {
   )
 }
 
+function personInitials(fullName: string) {
+  const particles = new Set(["de", "da", "do", "dos", "das", "e"])
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part && !particles.has(part.toLocaleLowerCase("pt-BR")))
+  return parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toLocaleUpperCase("pt-BR"))
+    .join("")
+}
+
+const requestTabs = [
+  {
+    id: "pending",
+    label: "Pendente",
+    description: "Aguardando aprovação",
+    icon: FileClock,
+    iconWrap: "bg-[#FFF1E0] text-[#C2410C]",
+    badge: "bg-[#FFF1E0] text-[#C2410C]",
+    idle: "hover:border-[rgba(249,168,37,0.45)] hover:bg-[#FFF8EE] hover:shadow-[0_10px_24px_rgba(249,168,37,0.14)]",
+    selected: "border-[#F9A825] bg-[#FFF8EE] shadow-[0_8px_24px_rgba(249,168,37,0.12)] hover:shadow-[0_12px_28px_rgba(249,168,37,0.16)]",
+    ring: "focus-visible:ring-[#F9A825]/40",
+  },
+  {
+    id: "approved",
+    label: "Aprovada",
+    description: "Ajustes aplicados",
+    icon: CircleCheck,
+    iconWrap: "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]",
+    badge: "bg-[rgba(30,138,58,0.12)] text-[#146C2E]",
+    idle: "hover:border-[rgba(30,138,58,0.35)] hover:bg-[#F7FCF8] hover:shadow-[0_10px_24px_rgba(30,138,58,0.1)]",
+    selected: "border-[#1E8A3A] bg-[#F5FBF7] shadow-[0_8px_24px_rgba(30,138,58,0.08)] hover:shadow-[0_12px_28px_rgba(30,138,58,0.12)]",
+    ring: "focus-visible:ring-[#1E8A3A]/35",
+  },
+  {
+    id: "rejected",
+    label: "Recusada",
+    description: "Não foi aprovada",
+    icon: CircleX,
+    iconWrap: "bg-[rgba(220,38,38,0.12)] text-[#DC2626]",
+    badge: "bg-[rgba(220,38,38,0.12)] text-[#B91C1C]",
+    idle: "hover:border-[rgba(220,38,38,0.35)] hover:bg-[#FFF8F8] hover:shadow-[0_10px_24px_rgba(220,38,38,0.1)]",
+    selected: "border-[#DC2626] bg-[#FFF6F6] shadow-[0_8px_24px_rgba(220,38,38,0.08)] hover:shadow-[0_12px_28px_rgba(220,38,38,0.12)]",
+    ring: "focus-visible:ring-[#DC2626]/35",
+  },
+  {
+    id: "cancelled",
+    label: "Cancelada",
+    description: "Solicitação cancelada",
+    icon: Ban,
+    iconWrap: "bg-[#F1F5F9] text-[#64748B]",
+    badge: "bg-[#F1F5F9] text-[#475569]",
+    idle: "hover:border-[#CBD5E1] hover:bg-[#F8FAFC] hover:shadow-[0_10px_24px_rgba(100,116,139,0.12)]",
+    selected: "border-[#64748B] bg-[#F8FAFC] shadow-[0_8px_24px_rgba(100,116,139,0.1)] hover:shadow-[0_12px_28px_rgba(100,116,139,0.14)]",
+    ring: "focus-visible:ring-[#64748B]/35",
+  },
+] as const
+
+type RequestDecision = {
+  id: number
+  action: "approved" | "rejected" | "cancelled"
+  kind: string
+  kindLabel: string
+  person: string
+}
+
+function RequestDecisionDialog({
+  target,
+  note,
+  error,
+  saving,
+  onNote,
+  onClose,
+  onConfirm,
+  onRest,
+}: {
+  target: RequestDecision | null
+  note: string
+  error: string
+  saving: boolean
+  onNote: (value: string) => void
+  onClose: () => void
+  onConfirm: () => Promise<void>
+  onRest: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const noteRef = useRef<HTMLTextAreaElement>(null)
+  const closeRef = useRef(onClose)
+  const restRef = useRef(onRest)
+  closeRef.current = onClose
+  restRef.current = onRest
+  const [ghost, setGhost] = useState<RequestDecision | null>(null)
+  const [present, setPresent] = useState(false)
+  const shown = useRef(false)
+  const view = target ?? ghost
+  const openKey = view ? `${view.id}:${view.action}` : ""
+
+  useEffect(() => {
+    if (target) {
+      setGhost(target)
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (reduce) {
+        setPresent(true)
+        return
+      }
+      setPresent(false)
+      const frame = requestAnimationFrame(() => setPresent(true))
+      return () => cancelAnimationFrame(frame)
+    }
+    setPresent(false)
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const timer = window.setTimeout(() => setGhost(null), reduce ? 0 : 180)
+    return () => window.clearTimeout(timer)
+  }, [target])
+
+  useEffect(() => {
+    if (!openKey) {
+      if (shown.current) {
+        shown.current = false
+        restRef.current()
+      }
+      return
+    }
+    shown.current = true
+    noteRef.current?.focus()
+  }, [openKey])
+
+  useEffect(() => {
+    if (!view) {
+      return
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        closeRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) {
+        return
+      }
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), textarea:not([disabled])")
+      if (nodes.length === 0) {
+        return
+      }
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [view])
+
+  if (!view) {
+    return null
+  }
+
+  const approving = view.action === "approved"
+  const cancelling = view.action === "cancelled"
+  const Icon = approving ? CircleCheck : cancelling ? Ban : CircleX
+
+  return createPortal(
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
+        present ? "opacity-100" : "opacity-0",
+      )}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="request-decision-title"
+        aria-describedby="request-decision-text request-decision-who"
+        aria-busy={saving || undefined}
+        className={cn(
+          "w-full max-w-[480px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] transition-[opacity,transform] duration-200 sm:p-7 motion-reduce:transition-none",
+          present ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0",
+        )}
+      >
+        <div className="flex flex-col items-center text-center">
+          <span
+            className={cn(
+              "flex h-14 w-14 items-center justify-center rounded-full",
+              approving
+                ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A] shadow-[0_0_0_8px_rgba(30,138,58,0.06)]"
+                : cancelling
+                  ? "bg-[#F1F5F9] text-[#64748B] shadow-[0_0_0_8px_rgba(100,116,139,0.08)]"
+                  : "bg-[rgba(239,83,80,0.12)] text-[#EF5350] shadow-[0_0_0_8px_rgba(239,83,80,0.06)]",
+            )}
+          >
+            <Icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+          </span>
+          <h2 id="request-decision-title" className="mt-4 text-xl font-semibold tracking-tight text-[#0A0A0A]">
+            {approving ? "Aprovar solicitação?" : cancelling ? "Cancelar solicitação?" : "Recusar solicitação?"}
+          </h2>
+          <p id="request-decision-text" className="mt-1.5 max-w-sm text-sm leading-6 text-[#71717A]">
+            {cancelling
+              ? "A solicitação deixa de seguir para aprovação. O ponto não muda."
+              : approving && view.kind === "adjustment"
+                ? "As marcações pedidas passam a valer."
+                : approving
+                  ? "A solicitação passa a valer."
+                  : "A solicitação será recusada."}
+          </p>
+        </div>
+        <div id="request-decision-who" className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-3 text-left">
+          <p className="truncate text-sm font-semibold text-[#0A0A0A]" title={view.person}>
+            {view.person}
+          </p>
+          <p className="mt-0.5 text-[13px] text-[#71717A]">{view.kindLabel}</p>
+        </div>
+        <div className="mt-5 space-y-2 text-left">
+          <div className="flex items-baseline justify-between gap-3">
+            <Label className={moduleLabelClass} htmlFor="request-decision-note">
+              {cancelling ? "Observação" : "Observação da decisão"}
+            </Label>
+            <span className="text-xs text-[#94A3B8]">Opcional</span>
+          </div>
+          <textarea
+            ref={noteRef}
+            id="request-decision-note"
+            className={cn(moduleTextClass, "min-h-[92px] bg-[#FAFBFC] shadow-none focus:shadow-[0_0_0_3px_rgba(30,138,58,0.12)]")}
+            maxLength={2000}
+            value={note}
+            onChange={(event) => onNote(event.target.value)}
+          />
+        </div>
+        {error ? (
+          <p className="mt-3 text-left text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={saving} onClick={onClose}>
+            {cancelling ? "Voltar" : "Cancelar"}
+          </Button>
+          <Button
+            type="button"
+            className={approving ? modulePrimaryClass : cancelling ? "h-11 rounded-[10px] bg-[#334155] px-4 text-white shadow-[0_8px_20px_rgba(51,65,85,0.28)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#1E293B] hover:shadow-[0_10px_24px_rgba(51,65,85,0.34)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#334155]/35 motion-reduce:transition-none motion-reduce:active:translate-y-0" : cn(moduleDangerClass, "h-11 px-4")}
+            onClick={() => onConfirm()}
+          >
+            {approving ? <CircleCheck className="h-4 w-4" aria-hidden /> : cancelling ? <Ban className="h-4 w-4" aria-hidden /> : <CircleX className="h-4 w-4" aria-hidden />}
+            {approving ? "Confirmar aprovação" : cancelling ? "Confirmar cancelamento" : "Confirmar recusa"}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+type RequestDescription = { text: string; photo: string | null }
+
+const requestPreviewLimit = 50
+
+function requestedPunches(values: string[]) {
+  const dayFormat = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+  let dayShown = ""
+  return values
+    .map((value) => {
+      const clock = showClock(value)
+      if (!value) {
+        return clock
+      }
+      const day = dayFormat.format(new Date(value))
+      if (day === dayShown) {
+        return clock
+      }
+      dayShown = day
+      return `${day}, ${clock}`
+    })
+    .join(" -- ")
+}
+
+function ClampedRequestText({
+  lead,
+  detail,
+  extra,
+  note,
+  photo,
+  onOpen,
+}: {
+  lead: string
+  detail: string
+  extra: string
+  note: string
+  photo: string | null
+  onOpen: (opener: HTMLButtonElement) => void
+}) {
+  const noteText = note.replace(/\s+/g, " ").trim()
+  const truncated = noteText.length > requestPreviewLimit
+  const notePreview = truncated ? noteText.slice(0, requestPreviewLimit) : noteText
+
+  return (
+    <p className="min-w-0 text-sm leading-5 text-[#52525B] [overflow-wrap:anywhere]">
+      {lead ? <span className="text-[#71717A]">{lead}</span> : null}
+      {detail}
+      {extra ? ` · ${extra}` : ""}
+      {notePreview ? ` ${notePreview}` : ""}
+      {truncated ? (
+        <button
+          type="button"
+          className="ml-1 inline text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+          onClick={(event) => onOpen(event.currentTarget)}
+        >
+          Ver mais
+        </button>
+      ) : photo ? (
+        <>
+          {" "}
+          <DocumentLink href={photo} />
+        </>
+      ) : null}
+    </p>
+  )
+}
+
+function RequestDescriptionDialog({ target, onClose, onRest }: { target: RequestDescription | null; onClose: () => void; onRest: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const closeRef = useRef(onClose)
+  const restRef = useRef(onRest)
+  closeRef.current = onClose
+  restRef.current = onRest
+  const [ghost, setGhost] = useState<RequestDescription | null>(null)
+  const [present, setPresent] = useState(false)
+  const shown = useRef(false)
+  const view = target ?? ghost
+
+  useEffect(() => {
+    if (target) {
+      setGhost(target)
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (reduce) {
+        setPresent(true)
+        return
+      }
+      setPresent(false)
+      const frame = requestAnimationFrame(() => setPresent(true))
+      return () => cancelAnimationFrame(frame)
+    }
+    setPresent(false)
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const timer = window.setTimeout(() => setGhost(null), reduce ? 0 : 180)
+    return () => window.clearTimeout(timer)
+  }, [target])
+
+  useEffect(() => {
+    if (!view) {
+      if (shown.current) {
+        shown.current = false
+        restRef.current()
+      }
+      return
+    }
+    shown.current = true
+    closeButtonRef.current?.focus()
+  }, [view])
+
+  useEffect(() => {
+    if (!view) {
+      return
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        closeRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) {
+        return
+      }
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]")
+      if (nodes.length === 0) {
+        return
+      }
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [view])
+
+  if (!view) {
+    return null
+  }
+
+  return createPortal(
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
+        present ? "opacity-100" : "opacity-0",
+      )}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="request-description-title"
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] transition-[opacity,transform] duration-200 motion-reduce:transition-none",
+          present ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0",
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="request-description-title" className="text-lg font-semibold text-[#0A0A0A]">
+            Descrição completa
+          </h2>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#0A0A0A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+            aria-label="Fechar"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#1B2534] [overflow-wrap:anywhere]">{view.text}</p>
+          {view.photo ? (
+            <p className="mt-4">
+              <DocumentLink href={view.photo} />
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 export function RequestsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const personId = useAuthStore((state) => state.user?.person_id)
@@ -178,8 +654,19 @@ export function RequestsPage() {
   const [listKind, setListKind] = useState("")
   const [employees, setEmployees] = useState<Employee[]>([])
   const [canRequest, setCanRequest] = useState(false)
+  const [ownEmployeeId, setOwnEmployeeId] = useState<number | null>(null)
   const [error, setError] = useState("")
+  const [decision, setDecision] = useState<RequestDecision | null>(null)
   const [note, setNote] = useState("")
+  const [dialogError, setDialogError] = useState("")
+  const [saving, setSaving] = useState(false)
+  const openerRef = useRef<HTMLButtonElement | null>(null)
+  const descriptionOpenerRef = useRef<HTMLButtonElement | null>(null)
+  const [fullDescription, setFullDescription] = useState<RequestDescription | null>(null)
+  const busy = useRef(false)
+  const flight = useRef(0)
+  const [counts, setCounts] = useState<Partial<Record<string, number>>>({})
+  const [countsLoading, setCountsLoading] = useState(true)
   const inbox = usePagedList<TimeRequest>("/requests", {
     status,
     ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
@@ -187,12 +674,14 @@ export function RequestsPage() {
   })
 
   async function load() {
+    setOwnEmployeeId(null)
     const [people, own] = await Promise.all([
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
       personId ? listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId }) : Promise.resolve(null),
     ])
     setEmployees(people.items)
     const employee = own?.items[0]
+    setOwnEmployeeId(employee?.id ?? null)
     setCanRequest(employee != null && employee.situation !== "dismissed")
   }
 
@@ -208,18 +697,114 @@ export function RequestsPage() {
     }
   }, [tenantId, personId])
 
-  async function decide(id: number, next: "approved" | "rejected") {
-    setError("")
+  useEffect(() => {
+    if (inbox.loading) {
+      setCountsLoading(true)
+      return
+    }
+    if (inbox.error) {
+      setCountsLoading(false)
+      return
+    }
+    let active = true
+    setCountsLoading(true)
+    const openStatus = status
+    const openTotal = inbox.total
+    const base = {
+      page: 1,
+      limit: 1,
+      ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
+      ...(listKind ? { kind: listKind } : {}),
+    }
+    Promise.all(
+      requestTabs.map((tab) =>
+        listRecords<TimeRequest>("/requests", { ...base, status: tab.id }).then((result) => [tab.id, result.total] as const),
+      ),
+    )
+      .then((rows) => {
+        if (!active) {
+          return
+        }
+        const next = Object.fromEntries(rows)
+        next[openStatus] = openTotal
+        setCounts(next)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) {
+          setCountsLoading(false)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [inbox.loading, inbox.error, inbox.total, status, listEmployee, listKind, tenantId])
+
+  function openDecision(item: TimeRequest, action: "approved" | "rejected" | "cancelled", opener: HTMLButtonElement) {
+    if (busy.current) {
+      return
+    }
+    const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
+    openerRef.current = opener
+    setNote("")
+    setDialogError("")
+    setDecision({
+      id: item.id,
+      action,
+      kind: item.kind,
+      kindLabel: requestKindLabel[item.kind] || item.kind,
+      person,
+    })
+  }
+
+  function closeDecision() {
+    if (busy.current) {
+      return
+    }
+    setDecision(null)
+  }
+
+  function openDescription(text: string, photo: string | null, opener: HTMLButtonElement) {
+    descriptionOpenerRef.current = opener
+    setFullDescription({ text, photo })
+  }
+
+  async function confirmDecision() {
+    if (!decision || busy.current) {
+      return
+    }
+    const current = decision
+    const text = note
+    const ticket = ++flight.current
+    busy.current = true
+    setSaving(true)
+    setDialogError("")
     try {
-      await updateRecord("/requests", id, { status: next, decision_note: note.trim() || null })
+      await updateRecord("/requests", current.id, { status: current.action, decision_note: text.trim() || null })
+      if (ticket !== flight.current) {
+        return
+      }
       setNote("")
+      setDecision(null)
       inbox.reload()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível decidir.")
+      if (ticket !== flight.current) {
+        return
+      }
+      setDialogError(caught instanceof Error ? caught.message : "Não foi possível decidir.")
+      inbox.reload()
+    } finally {
+      if (ticket === flight.current) {
+        busy.current = false
+        setSaving(false)
+      }
     }
   }
 
   function ownRequest(item: TimeRequest) {
+    if (ownEmployeeId != null && item.employee_id === ownEmployeeId) {
+      return true
+    }
     const employee = employees.find((person) => person.id === item.employee_id)
     return employee?.person_id != null && employee.person_id === personId
   }
@@ -234,79 +819,242 @@ export function RequestsPage() {
     return true
   }
 
+  function mayCancel(item: TimeRequest) {
+    return item.status === "pending" && ownRequest(item)
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {status === "pending" ? `${inbox.total} pendentes. ` : ""}
-        O ajuste traz as marcações do dia. Pendente não altera o ponto. Ao aprovar, as novas valem e as antigas ficam no histórico. O gestor aprova a própria equipe e não decide a própria solicitação. O administrador aprova em qualquer equipe.
-      </p>
-      {canRequest ? (
-        <Button asChild>
-          <Link to="/requests/new">Nova solicitação</Link>
-        </Button>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        {Object.entries(requestStatusLabel).map(([value, label]) => (
-          <Button key={value} type="button" size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)}>
-            {label}
-          </Button>
-        ))}
+    <div className="w-full min-w-0 space-y-5">
+      <div className="grid min-w-0 grid-cols-1 gap-[14px] sm:grid-cols-2 lg:grid-cols-4" role="tablist">
+          {requestTabs.map((tab) => {
+            const selected = status === tab.id
+            const Icon = tab.icon
+            const count = selected && !inbox.loading && !inbox.error ? inbox.total : counts[tab.id]
+            const waiting = countsLoading && !(selected && !inbox.loading && !inbox.error)
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                className={cn(
+                  "flex min-h-[94px] w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-[transform,background-color,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+                  tab.ring,
+                  selected ? tab.selected : cn("border-[#E4E4E7] bg-white shadow-[0_6px_18px_rgba(15,23,42,0.05)]", tab.idle),
+                )}
+                onClick={() => setStatus(tab.id)}
+              >
+                <span className={cn("flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl", tab.iconWrap)}>
+                  <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-[#0A0A0A]">{tab.label}</span>
+                  <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{tab.description}</span>
+                </span>
+                {waiting ? (
+                  <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full", tab.badge)} role="status" aria-label="Carregando">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+                  </span>
+                ) : count !== undefined ? (
+                  <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-2.5 text-sm font-semibold tabular-nums", tab.badge)}>{count}</span>
+                ) : null}
+              </button>
+            )
+          })}
       </div>
-      <div className="flex flex-wrap gap-3">
-        <FilterSelect
-          id="request-employee"
-          label="Funcionário"
-          value={listEmployee}
-          options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
-          onChange={setListEmployee}
-        />
-        <FilterSelect id="request-kind" label="Tipo" value={listKind} options={Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))} onChange={setListKind} />
-      </div>
-      {inbox.items.some((item) => mayDecide(item)) ? (
-        <div className="space-y-2">
-          <Label htmlFor="decision">Observação da decisão</Label>
-          <textarea id="decision" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
+      <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+              <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-[#0A0A0A]">Filtros</h2>
+              <p className="text-sm text-[#71717A]">Refine a exibição das solicitações</p>
+            </div>
+          </div>
+          {canRequest ? (
+            <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
+              <Link to="/requests/new">
+                <FilePlus className="h-4 w-4" />
+                Nova solicitação
+              </Link>
+            </Button>
+          ) : null}
         </div>
-      ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {inbox.error ? <p className="text-sm text-destructive">{inbox.error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {inbox.items.map((item) => (
-          <li key={item.id} className="space-y-2 px-4 py-3 text-sm">
-            <p className="flex flex-wrap items-center gap-2">
-              <span>
-                {employees.find((person) => person.id === item.employee_id)?.full_name || item.employee_id} · {requestKindLabel[item.kind] || item.kind}
-              </span>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${requestStatusClass(item.status)}`}>{requestStatusLabel[item.status] || item.status}</span>
-            </p>
-            <p className="text-muted-foreground">
-              {item.kind === "adjustment"
-                ? `Marcações pedidas: ${(item.punches ?? []).length > 0 ? item.punches.map((value) => showDateTime(value)).join(", ") : "—"}`
-                : periodText(item)}
-              {certificateText(item) ? ` · ${certificateText(item)}` : ""}
-              {item.note ? ` · ${item.note}` : ""}
-              {item.photo_url ? " · " : ""}
-              <DocumentLink href={item.photo_url} />
-            </p>
-            {item.status === "pending" ? <p className="text-muted-foreground">{item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto."}</p> : null}
-            {item.status === "approved" ? <p className="text-muted-foreground">Origem: solicitação.</p> : null}
-            {role === "manager" && item.status === "pending" && ownRequest(item) ? <p className="text-muted-foreground">Você não decide a própria solicitação.</p> : null}
-            <p className="text-muted-foreground">{item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ")}</p>
-            {mayDecide(item) ? (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" onClick={() => decide(item.id, "approved")}>
-                  Aprovar
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => decide(item.id, "rejected")}>
-                  Recusar
-                </Button>
-              </div>
-            ) : null}
-          </li>
-        ))}
-        {inbox.items.length === 0 ? <ListPlaceholder loading={inbox.loading} empty="Nenhuma solicitação." /> : null}
-      </ul>
-      <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="request-employee">
+              Funcionário
+            </Label>
+            <EmployeeCombobox
+              id="request-employee"
+              value={listEmployee}
+              employees={employees}
+              emptyLabel="Todos"
+              extendSearch={employees.length >= 100}
+              onChange={setListEmployee}
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="request-kind">
+              Tipo
+            </Label>
+            <SiteSelect
+              id="request-kind"
+              value={listKind}
+              icon={FileText}
+              options={[{ value: "", label: "Todos" }, ...Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))]}
+              onChange={setListKind}
+            />
+          </div>
+        </div>
+      </section>
+      <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+        {inbox.error ? <p className="mb-4 text-sm text-destructive">{inbox.error}</p> : null}
+        {inbox.loading ? (
+          <ul>
+            <ListPlaceholder loading empty="Nenhuma solicitação." />
+          </ul>
+        ) : null}
+        {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+              <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+            </span>
+            <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
+            <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
+          </div>
+        ) : null}
+        {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {inbox.items.map((item) => {
+              const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
+              const kindLabel = requestKindLabel[item.kind] || item.kind
+              const punches = requestedPunches(item.punches ?? [])
+              const period = periodText(item)
+              const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period === "—" ? "Sem período informado" : period
+              const certificate = certificateText(item)
+              const lead = item.kind === "adjustment" ? "Marcações pedidas: " : ""
+              const body = [detail, certificate, item.note].filter((part) => part && part.trim()).join("\n")
+              const descriptionText = `${lead}${body}`
+              const history = item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ") || requestStatusLabel[item.status] || item.status
+              const origin = "solicitação"
+              const pendingNote = item.status === "pending" ? (item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto.") : ""
+              const ownNote = role === "manager" && item.status === "pending" && ownRequest(item) ? "Você não decide a própria solicitação." : ""
+              const statusBadge = () => (
+                <span className={cn("inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold", requestStatusClass(item.status))}>
+                  {requestStatusLabel[item.status] || item.status}
+                </span>
+              )
+              const personBlock = () => (
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.12)] text-sm font-semibold text-[#146C2E]">
+                    {personInitials(person) || "?"}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#0A0A0A]" title={person}>
+                      {person}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{kindLabel}</span>
+                  </span>
+                </div>
+              )
+              const detailBlock = () => (
+                <div className="flex min-w-0 items-start gap-2">
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <ClampedRequestText lead={lead} detail={detail} extra={certificate} note={item.note || ""} photo={item.photo_url} onOpen={(opener) => openDescription(descriptionText, item.photo_url, opener)} />
+                    {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
+                    {ownNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{ownNote}</p> : null}
+                  </div>
+                </div>
+              )
+              const originBlock = () => (
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileText className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-[#94A3B8]">Origem</p>
+                    <p className="truncate text-sm text-[#52525B]">{origin}</p>
+                  </div>
+                </div>
+              )
+              const historyBlock = () => (
+                <div className="flex min-w-0 items-center gap-2">
+                  <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <p className="min-w-0 truncate text-sm text-[#52525B]" title={history || undefined}>
+                    {history}
+                  </p>
+                </div>
+              )
+              return (
+                <li
+                  key={item.id}
+                  className="min-w-0 overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#D4D4D8] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                >
+                  <div className="flex flex-col gap-3 lg:hidden">
+                    <div className="flex items-center justify-between gap-3">
+                      {personBlock()}
+                      {statusBadge()}
+                    </div>
+                    {detailBlock()}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {originBlock()}
+                      {historyBlock()}
+                    </div>
+                  </div>
+                  <div className="hidden min-w-0 items-center lg:flex">
+                    <div className="w-[22%] min-w-0 shrink-0 pr-4">{personBlock()}</div>
+                    <div className="min-w-0 flex-1 overflow-hidden border-l border-[#F0F0F2] px-4">{detailBlock()}</div>
+                    <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">{originBlock()}</div>
+                    <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">{historyBlock()}</div>
+                    <div className="shrink-0 pl-4">{statusBadge()}</div>
+                  </div>
+                  {mayDecide(item) || mayCancel(item) ? (
+                    <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
+                      {mayCancel(item) ? (
+                        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={(event) => openDecision(item, "cancelled", event.currentTarget)}>
+                          <Ban className="h-4 w-4" aria-hidden />
+                          Cancelar
+                        </Button>
+                      ) : null}
+                      {mayDecide(item) ? (
+                        <>
+                          <Button type="button" className={modulePrimaryClass} onClick={(event) => openDecision(item, "approved", event.currentTarget)}>
+                            <CircleCheck className="h-4 w-4" aria-hidden />
+                            Aprovar
+                          </Button>
+                          <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={(event) => openDecision(item, "rejected", event.currentTarget)}>
+                            <CircleX className="h-4 w-4" aria-hidden />
+                            Recusar
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        ) : null}
+        {!inbox.loading && !inbox.error && inbox.total > 0 ? (
+          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+            <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
+          </div>
+        ) : null}
+      </section>
+      <RequestDecisionDialog
+        target={decision}
+        note={note}
+        error={dialogError}
+        saving={saving}
+        onNote={setNote}
+        onClose={closeDecision}
+        onConfirm={confirmDecision}
+        onRest={() => openerRef.current?.focus()}
+      />
+      <RequestDescriptionDialog target={fullDescription} onClose={() => setFullDescription(null)} onRest={() => descriptionOpenerRef.current?.focus()} />
     </div>
   )
 }

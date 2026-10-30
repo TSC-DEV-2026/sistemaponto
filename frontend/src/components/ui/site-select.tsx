@@ -36,6 +36,7 @@ export function SiteSelect({
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const keyboardMove = useRef(false)
   const listId = useId()
   const selectedIndex = options.findIndex((item) => item.value === value)
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined
@@ -68,9 +69,15 @@ export function SiteSelect({
   }, [open, mounted])
 
   useEffect(() => {
-    if (!open || !mounted) return
+    if (!open || !mounted || !keyboardMove.current) return
+    keyboardMove.current = false
     listRef.current?.querySelector<HTMLElement>("[data-active='true']")?.scrollIntoView({ block: "nearest" })
   }, [active, open, mounted])
+
+  function moveActive(next: number | ((index: number) => number)) {
+    keyboardMove.current = true
+    setActive(next)
+  }
 
   function close(focusButton = false) {
     setOpen(false)
@@ -85,23 +92,23 @@ export function SiteSelect({
   function onTriggerKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== "ArrowDown" && event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
-    setActive(selectedIndex >= 0 ? selectedIndex : 0)
+    moveActive(selectedIndex >= 0 ? selectedIndex : 0)
     setOpen(true)
   }
 
   function onListKey(event: KeyboardEvent<HTMLUListElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault()
-      setActive((index) => Math.min(options.length - 1, index + 1))
+      moveActive((index) => Math.min(options.length - 1, index + 1))
     } else if (event.key === "ArrowUp") {
       event.preventDefault()
-      setActive((index) => Math.max(0, index - 1))
+      moveActive((index) => Math.max(0, index - 1))
     } else if (event.key === "Home") {
       event.preventDefault()
-      setActive(0)
+      moveActive(0)
     } else if (event.key === "End") {
       event.preventDefault()
-      setActive(options.length - 1)
+      moveActive(options.length - 1)
     } else if (event.key === "Enter") {
       event.preventDefault()
       const next = options[active]

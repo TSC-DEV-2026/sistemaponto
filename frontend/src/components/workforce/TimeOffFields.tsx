@@ -63,6 +63,72 @@ export function timeOffBody(draft: TimeOffDraft, kind: string) {
   return body
 }
 
+export function CertificatePhotoField({
+  id,
+  fileKey,
+  photo,
+  onChange,
+  layout = "row",
+}: {
+  id: string
+  fileKey: number
+  photo: File | null
+  onChange: (file: File | null) => void
+  layout?: "row" | "stack"
+}) {
+  const [photoOver, setPhotoOver] = useState(false)
+  const stacked = layout === "stack"
+  return (
+    <>
+      <input
+        key={fileKey}
+        id={id}
+        className="peer sr-only"
+        type="file"
+        accept="image/png,image/jpeg,application/pdf"
+        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+      />
+      <label
+        htmlFor={id}
+        className={cn(
+          "flex cursor-pointer rounded-xl border border-dashed bg-[rgba(30,138,58,0.04)] transition-[border-color,background-color,box-shadow] duration-200 peer-focus-visible:border-[#1E8A3A] peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.12)] motion-reduce:transition-none",
+          stacked ? "flex-col items-center justify-center gap-2 px-4 py-8 text-center" : "items-center justify-between gap-4 px-4 py-3",
+          photoOver ? "border-[#1E8A3A] bg-[rgba(30,138,58,0.08)]" : "border-[#B7D7C3]",
+        )}
+        onDragOver={(event) => {
+          event.preventDefault()
+          setPhotoOver(true)
+        }}
+        onDragLeave={() => setPhotoOver(false)}
+        onDrop={(event) => {
+          event.preventDefault()
+          setPhotoOver(false)
+          const file = event.dataTransfer.files?.[0]
+          if (!file) return
+          const allowed = !file.type || file.type === "image/png" || file.type === "image/jpeg" || file.type === "application/pdf"
+          if (allowed) onChange(file)
+        }}
+      >
+        <span className={cn("flex min-w-0 items-center gap-3", stacked && "flex-col gap-2")}>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]">
+            {stacked ? <Upload className="h-5 w-5" strokeWidth={1.75} aria-hidden /> : <FileImage className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+          </span>
+          <span className="min-w-0">
+            <span className={cn("block text-sm font-semibold", stacked ? "text-[#1E8A3A]" : "truncate text-[#0A0A0A]")}>{photo ? photo.name : "Arraste ou selecione o atestado"}</span>
+            <span className="mt-0.5 block text-xs text-[#71717A]">PNG, JPG ou PDF (máx. 10 MB)</span>
+          </span>
+        </span>
+        {stacked ? null : (
+          <span className={cn(modulePrimaryClass, "inline-flex shrink-0 items-center gap-2")}>
+            <Upload className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            Escolher arquivo
+          </span>
+        )}
+      </label>
+    </>
+  )
+}
+
 export function TimeOffFields({
   idPrefix,
   kind,
@@ -70,6 +136,8 @@ export function TimeOffFields({
   fileKey,
   onChange,
   appearance = "plain",
+  showPhoto = true,
+  hideMode = false,
 }: {
   idPrefix: string
   kind: string
@@ -77,9 +145,9 @@ export function TimeOffFields({
   fileKey: number
   onChange: (next: TimeOffDraft) => void
   appearance?: "plain" | "module"
+  showPhoto?: boolean
+  hideMode?: boolean
 }) {
-  const [photoOver, setPhotoOver] = useState(false)
-
   function patch(partial: Partial<TimeOffDraft>) {
     onChange({ ...draft, ...partial })
   }
@@ -90,7 +158,7 @@ export function TimeOffFields({
   if (appearance === "module") {
     return (
       <>
-        {daysOnly ? null : (
+        {daysOnly || hideMode ? null : (
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor={`${idPrefix}-mode`}>
               Período
@@ -141,53 +209,14 @@ export function TimeOffFields({
               </Label>
               <Input id={`${idPrefix}-doctor`} className={moduleFieldClass} value={draft.doctorName} maxLength={255} onChange={(event) => patch({ doctorName: event.target.value })} required />
             </div>
-            <div className="space-y-2 lg:col-span-2">
-              <Label className={moduleLabelClass} htmlFor={`${idPrefix}-photo`}>
-                Foto do atestado
-              </Label>
-              <input
-                key={fileKey}
-                id={`${idPrefix}-photo`}
-                className="peer sr-only"
-                type="file"
-                accept="image/png,image/jpeg,application/pdf"
-                onChange={(event) => patch({ photo: event.target.files?.[0] ?? null })}
-              />
-              <label
-                htmlFor={`${idPrefix}-photo`}
-                className={cn(
-                  "flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-dashed bg-[rgba(30,138,58,0.04)] px-4 py-3 transition-[border-color,background-color,box-shadow] duration-200 peer-focus-visible:border-[#1E8A3A] peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.12)] motion-reduce:transition-none",
-                  photoOver ? "border-[#1E8A3A] bg-[rgba(30,138,58,0.08)]" : "border-[#B7D7C3]",
-                )}
-                onDragOver={(event) => {
-                  event.preventDefault()
-                  setPhotoOver(true)
-                }}
-                onDragLeave={() => setPhotoOver(false)}
-                onDrop={(event) => {
-                  event.preventDefault()
-                  setPhotoOver(false)
-                  const file = event.dataTransfer.files?.[0]
-                  if (!file) return
-                  const allowed = !file.type || file.type === "image/png" || file.type === "image/jpeg" || file.type === "application/pdf"
-                  if (allowed) patch({ photo: file })
-                }}
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]">
-                    <FileImage className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[#0A0A0A]">{draft.photo ? draft.photo.name : "Arraste ou selecione o atestado"}</span>
-                    <span className="mt-0.5 block text-xs text-[#71717A]">PNG, JPG ou PDF (máx. 10 MB)</span>
-                  </span>
-                </span>
-                <span className={cn(modulePrimaryClass, "inline-flex shrink-0 items-center gap-2")}>
-                  <Upload className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Escolher arquivo
-                </span>
-              </label>
-            </div>
+            {showPhoto ? (
+              <div className="space-y-2 lg:col-span-2">
+                <Label className={moduleLabelClass} htmlFor={`${idPrefix}-photo`}>
+                  Foto do atestado
+                </Label>
+                <CertificatePhotoField id={`${idPrefix}-photo`} fileKey={fileKey} photo={draft.photo} onChange={(photo) => patch({ photo })} />
+              </div>
+            ) : null}
           </div>
         ) : null}
       </>
