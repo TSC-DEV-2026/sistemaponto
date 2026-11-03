@@ -1,6 +1,7 @@
 import { Check, ChevronDown, User, type LucideIcon } from "lucide-react"
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react"
 
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/utils/cn"
 
 const triggerClass =
@@ -18,6 +19,7 @@ export function SiteSelect({
   variant = "default",
   icon,
   placeholder,
+  loading = false,
 }: {
   id: string
   value: string
@@ -27,6 +29,7 @@ export function SiteSelect({
   variant?: "default" | "field"
   icon?: LucideIcon
   placeholder?: string
+  loading?: boolean
 }) {
   const field = variant === "field"
   const Icon = icon
@@ -40,6 +43,10 @@ export function SiteSelect({
   const listId = useId()
   const selectedIndex = options.findIndex((item) => item.value === value)
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined
+
+  useEffect(() => {
+    if (loading) setOpen(false)
+  }, [loading])
 
   useEffect(() => {
     if (open) {
@@ -90,6 +97,7 @@ export function SiteSelect({
   }
 
   function onTriggerKey(event: KeyboardEvent<HTMLButtonElement>) {
+    if (loading) return
     if (event.key !== "ArrowDown" && event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
     moveActive(selectedIndex >= 0 ? selectedIndex : 0)
@@ -130,13 +138,17 @@ export function SiteSelect({
         className={cn(
           field ? fieldTriggerClass : triggerClass,
           Icon && !field && "pl-[44px]",
+          loading && "cursor-wait disabled:opacity-100",
           open && (field ? "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.09)]" : "border-[#53bb7e] shadow-[0_0_0_1px_rgba(50,149,92,0.22),0_6px_18px_rgba(50,149,92,0.16),0_10px_28px_rgba(80,186,130,0.18)]"),
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         aria-required={required || undefined}
+        aria-busy={loading || undefined}
+        disabled={loading}
         onClick={() => {
+          if (loading) return
           setActive(selectedIndex >= 0 ? selectedIndex : 0)
           setOpen((current) => !current)
         }}
@@ -144,15 +156,21 @@ export function SiteSelect({
       >
         {field ? <User className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden /> : null}
         {Icon && !field ? <Icon className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden /> : null}
-        <span className="truncate">{selected?.label || placeholder}</span>
-        <ChevronDown
-          className={cn(
-            "pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] motion-reduce:transition-none",
-            field ? "transition-transform duration-200" : "transition-transform duration-150",
-            open && "rotate-180",
-          )}
-          aria-hidden
-        />
+        <span className={cn("truncate", loading && "text-[#64748B]")}>{loading ? "Carregando" : selected?.label || placeholder}</span>
+        {loading ? (
+          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2">
+            <Spinner className="h-4 w-4 text-[#1E8A3A]" />
+          </span>
+        ) : (
+          <ChevronDown
+            className={cn(
+              "pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] motion-reduce:transition-none",
+              field ? "transition-transform duration-200" : "transition-transform duration-150",
+              open && "rotate-180",
+            )}
+            aria-hidden
+          />
+        )}
       </button>
       {required ? (
         <input

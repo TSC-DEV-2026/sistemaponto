@@ -1,12 +1,12 @@
-import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Plus, Printer, QrCode, ScanFace, Search, Upload, X } from "lucide-react"
-import { FormEvent, useEffect, useRef, useState } from "react"
+import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Plus, Printer, QrCode, ScanFace, Search, Upload, User, X } from "lucide-react"
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
-import { YearPickerField } from "@/components/ui/date-picker-field"
+import { DatePickerField, YearPickerField } from "@/components/ui/date-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
@@ -1497,25 +1497,60 @@ function monthStart() {
   return `${punchDay(new Date().toISOString()).slice(0, 8)}01`
 }
 
+type ReportQuery = { kind: string; startsOn: string; endsOn: string; employeeId: string }
+
+function punchMeasure(detail: string, label: string) {
+  const match = new RegExp(`${label} (\\d+) min`).exec(detail)
+  return match ? Number(match[1]) : null
+}
+
+function reportGroups(items: Report["items"]) {
+  const groups: { date: string; items: Report["items"] }[] = []
+  for (const item of items) {
+    const date = item.occurred_on.slice(0, 10)
+    const last = groups[groups.length - 1]
+    if (last && last.date === date) last.items.push(item)
+    else groups.push({ date, items: [item] })
+  }
+  return groups
+}
+
+function consultedPerson(query: ReportQuery, employees: Employee[], items: Report["items"]) {
+  if (!query.employeeId) return "Todos"
+  const known = employees.find((item) => String(item.id) === query.employeeId)
+  if (known) return known.full_name
+  return items.find((item) => item.full_name)?.full_name || "Funcionário selecionado"
+}
+
 export function ReportsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canRead = role === "admin" || role === "manager"
+  const navigate = useNavigate()
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
+  const requestId = useRef(0)
   const [catalog, setCatalog] = useState<ReportCatalogItem[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [filtersReady, setFiltersReady] = useState(false)
   const [kind, setKind] = useState("punch")
   const [startsOn, setStartsOn] = useState(monthStart)
   const [endsOn, setEndsOn] = useState(() => punchDay(new Date().toISOString()))
   const [employeeId, setEmployeeId] = useState("")
   const [result, setResult] = useState<Report | null>(null)
-  const [query, setQuery] = useState({ kind: "", startsOn: "", endsOn: "", employeeId: "" })
+  const [applied, setApplied] = useState<ReportQuery | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (!role || canRead) return
+    navigate("/", { replace: true })
+  }, [role, canRead, navigate])
 
   useEffect(() => {
     if (!canRead) {
       return
     }
     let active = true
+    setFiltersReady(false)
     Promise.all([
       listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 }),
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
@@ -1535,35 +1570,55 @@ export function ReportsPage() {
           setError(caught instanceof Error ? caught.message : "Não foi possível listar os relatórios.")
         }
       })
+      .finally(() => {
+        if (active) setFiltersReady(true)
+      })
     return () => {
       active = false
     }
   }, [canRead, tenantId])
 
-  async function openPage(page: number, next = query) {
+  async function openPage(page: number, next: ReportQuery) {
+    const ticket = requestId.current + 1
+    requestId.current = ticket
+    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId
+    setLoading(true)
     setError("")
+    if (!sameQuery) {
+      setApplied(null)
+      setResult(null)
+    }
     try {
-      setQuery(next)
-      setResult(await getReport(next.kind, next.startsOn, next.endsOn, page, next.employeeId ? Number(next.employeeId) : undefined))
+      const data = await getReport(next.kind, next.startsOn, next.endsOn, page, next.employeeId ? Number(next.employeeId) : undefined)
+      if (ticket !== requestId.current) return
+      setApplied(next)
+      setResult(data)
     } catch (caught) {
+      if (ticket !== requestId.current) return
+      setApplied(null)
+      setResult(null)
       setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
+    } finally {
+      if (ticket === requestId.current) setLoading(false)
     }
   }
 
   async function consult(event: FormEvent) {
     event.preventDefault()
+    if (loading) return
     await openPage(1, { kind, startsOn, endsOn, employeeId })
   }
 
   async function printReport() {
+    if (!applied) return
     setError("")
-    const employee = query.employeeId ? Number(query.employeeId) : undefined
+    const employee = applied.employeeId ? Number(applied.employeeId) : undefined
     try {
-      const first = await getReport(query.kind, query.startsOn, query.endsOn, 1, employee, 100)
+      const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100)
       const items = [...first.items]
       const pageCount = Math.max(1, Math.ceil(first.total / first.limit))
       for (let page = 2; page <= pageCount; page += 1) {
-        const next = await getReport(query.kind, query.startsOn, query.endsOn, page, employee, 100)
+        const next = await getReport(applied.kind, applied.startsOn, applied.endsOn, page, employee, 100)
         items.push(...next.items)
       }
       const bytes = reportPdf({
@@ -1590,93 +1645,139 @@ export function ReportsPage() {
     }
   }
 
+  const groups = useMemo(() => reportGroups(result?.items ?? []), [result])
   const pages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
 
+  if (!canRead) return null
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão. A consulta é analítica e histórica, de até 366 dias. Dia futuro não entra no ponto nem no movimento do banco. O dashboard continua operacional. O gestor vê a própria equipe. O fechamento, sem filtro de funcionário, continua da empresa.
-      </p>
-      {canRead ? (
-        <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={consult}>
-          <div className="space-y-2">
-            <Label htmlFor="report-kind">Tipo de relatório</Label>
-            <select id="report-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
-              {catalog.map((item) => (
-                <option key={item.kind} value={item.kind}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+    <div className="w-full min-w-0 space-y-4">
+      <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={consult}>
+        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto] xl:items-end">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="report-kind">
+              Tipo de relatório
+            </Label>
+            <SiteSelect id="report-kind" value={kind} icon={FileText} loading={!filtersReady} options={catalog.map((item) => ({ value: item.kind, label: item.name }))} onChange={setKind} />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="report-start">De</Label>
-              <input id="report-start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="report-end">Até</Label>
-              <input id="report-end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} required />
-            </div>
+          <div className="min-w-0">
+            <DatePickerField id="report-start" label="De" value={startsOn} onChange={setStartsOn} required />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="report-employee">Funcionário</Label>
-            <select id="report-employee" className={fieldClass} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
-              <option value="">Todos</option>
-              {employees.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
-            </select>
+          <div className="min-w-0">
+            <DatePickerField id="report-end" label="Até" value={endsOn} onChange={setEndsOn} required />
           </div>
-          <Button type="submit">
-            <Search className="h-4 w-4" />
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="report-employee">
+              Funcionário
+            </Label>
+            <EmployeeCombobox id="report-employee" value={employeeId} employees={employees} emptyLabel="Todos" extendSearch={employees.length >= 100} loading={!filtersReady} onChange={setEmployeeId} />
+          </div>
+          <Button type="submit" className={cn(modulePrimaryClass, "h-[50px] w-full px-5 sm:col-span-2 xl:col-span-1 xl:w-auto")} disabled={loading}>
+            <Search className="h-4 w-4" aria-hidden />
             Consultar
           </Button>
-        </ActionForm>
-      ) : (
-        <p className="text-sm text-muted-foreground">O funcionário não consulta relatório gerencial.</p>
-      )}
+        </div>
+      </ActionForm>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {result && applied ? (
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {(
+            [
+              [FileText, "Tipo", result.name],
+              [Calendar, "Período", `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`],
+              [User, "Funcionário", consultedPerson(applied, employees, result.items)],
+              [List, "Registros encontrados", String(result.total)],
+            ] as const
+          ).map(([Icon, label, value]) => (
+            <div key={label} className="flex min-w-0 items-center gap-3 rounded-xl border border-[#8ED4A8] bg-[#E7F6EC] px-4 py-3 shadow-[0_8px_22px_rgba(30,138,58,0.1)]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#B7D7C3] bg-white text-[#146C2E]">
+                <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-[#3F6B4E]">{label}</span>
+                <span className="mt-0.5 block truncate text-sm font-semibold text-[#0A0A0A]" title={value}>
+                  {value}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {loading && !result ? (
+        <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-5 py-10" role="status" aria-live="polite">
+          <Spinner label="Consultando o relatório" className="h-8 w-8 text-[#1E8A3A]" />
+        </div>
+      ) : null}
+      {!loading && !result && !error ? (
+        <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+          <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum relatório consultado.</p>
+          <p className="mt-1 text-sm text-[#71717A]">Escolha o período e consulte para ver os registros.</p>
+        </div>
+      ) : null}
       {result ? (
-        <section className="space-y-3">
+        <section className="space-y-4" aria-busy={loading || undefined}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-medium">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">
                 {result.name} · {showDate(result.starts_on)} a {showDate(result.ends_on)}
               </h2>
-              <p className="text-sm text-muted-foreground">
-                {result.total === 0 ? "Nenhum registro neste período." : `${result.total} registros encontrados`}
-              </p>
+              <p className="text-sm text-[#71717A]">{result.total === 0 ? "Nenhum registro encontrado" : `${result.total} registros encontrados`}</p>
             </div>
-            <Button type="button" variant="outline" onClick={printReport}>
-              <Printer className="h-4 w-4" />
+            <Button type="button" variant="outline" className={cn(moduleQuietClass, "hover:border-[rgba(30,138,58,0.35)] hover:bg-[rgba(30,138,58,0.06)] hover:text-[#146C2E]")} disabled={!applied} onClick={printReport}>
+              <Printer className="h-4 w-4" aria-hidden />
               Imprimir
             </Button>
           </div>
-          {result.items.length > 0 ? (
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-              {result.items.map((item, index) => (
-                <li key={`${item.occurred_on}-${item.employee_id ?? "empresa"}-${item.title}-${index}`} className="px-4 py-3 text-sm">
-                  <p className="font-medium">
-                    {showDate(item.occurred_on)} · {item.title}
-                    {item.full_name ? ` · ${item.full_name}` : ""}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">{item.detail}</p>
-                </li>
+          {result.total === 0 ? (
+            <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+                <FileText className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+              </span>
+              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum registro encontrado</p>
+              <p className="mt-1 text-sm text-[#71717A]">A consulta terminou sem registros neste período.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {groups.map((group) => (
+                <section key={group.date} className="overflow-hidden rounded-xl border border-[#B7D7C3] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.07)]">
+                  <h3 className="flex items-center gap-2 border-b border-[#B7D7C3] bg-[#D7F0E1] px-4 py-2.5 text-sm font-semibold text-[#146C2E]">
+                    <Calendar className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    {showDate(group.date)}
+                  </h3>
+                  <ul className="divide-y divide-[#F0F0F2]">
+                    {group.items.map((item, index) => (
+                      <ReportResultRow key={`${group.date}-${item.employee_id ?? "empresa"}-${item.title}-${item.detail}-${index}`} item={item} kind={result.kind} />
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
-          ) : null}
+            </div>
+          )}
           {result.total > result.limit ? (
-            <div className="flex items-center gap-3">
-              <Button type="button" size="sm" variant="outline" disabled={result.page <= 1} onClick={() => openPage(result.page - 1)}>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className={moduleQuietClass}
+                disabled={loading || result.page <= 1}
+                onClick={() => {
+                  if (applied) void openPage(result.page - 1, applied)
+                }}
+              >
                 Anterior
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-[#71717A]">
                 Página {result.page} de {pages}
               </span>
-              <Button type="button" size="sm" variant="outline" disabled={result.page >= pages} onClick={() => openPage(result.page + 1)}>
+              <Button
+                type="button"
+                variant="outline"
+                className={moduleQuietClass}
+                disabled={loading || result.page >= pages}
+                onClick={() => {
+                  if (applied) void openPage(result.page + 1, applied)
+                }}
+              >
                 Próxima
               </Button>
             </div>
@@ -1684,6 +1785,53 @@ export function ReportsPage() {
         </section>
       ) : null}
     </div>
+  )
+}
+
+function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: string }) {
+  if (kind === "punch") {
+    const worked = punchMeasure(item.detail, "trabalhadas")
+    const extra = punchMeasure(item.detail, "hora extra")
+    const night = punchMeasure(item.detail, "adicional noturno")
+    const shortage = punchMeasure(item.detail, "falta")
+    if (worked !== null && extra !== null && night !== null && shortage !== null) {
+      const metrics = [
+        ["trabalhadas", `${worked} min`],
+        ["hora extra", `${extra} min`],
+        ["adicional noturno", `${night} min`],
+      ] as const
+      return (
+        <li className="flex min-w-0 flex-col gap-2 px-4 py-3 transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex min-w-0 items-center gap-2 text-sm text-[#0A0A0A]">
+            <User className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+            <span className="truncate">
+              {item.title}
+              {item.full_name ? <span className="font-medium"> · {item.full_name}</span> : null}
+            </span>
+          </span>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#52525B]">
+            {metrics.map(([label, value], metricIndex) => (
+              <span key={label} className="inline-flex items-center gap-2">
+                {metricIndex > 0 ? <span aria-hidden>|</span> : null}
+                <span>
+                  {label} <span className="tabular-nums">{value}</span>
+                </span>
+              </span>
+            ))}
+            <span aria-hidden>|</span>
+            <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", shortage > 0 ? "bg-[rgba(239,83,80,0.14)] text-[#C62828]" : "bg-[#F4F4F5] text-[#52525B]")}>
+              falta {shortage} min
+            </span>
+          </span>
+        </li>
+      )
+    }
+  }
+  return (
+    <li className="min-w-0 px-4 py-3 text-sm transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none">
+      <p className="font-medium text-[#0A0A0A]">{item.full_name || item.title}</p>
+      <p className="mt-1 text-[#52525B] [overflow-wrap:anywhere]">{item.full_name ? `${item.title} · ${item.detail}` : item.detail}</p>
+    </li>
   )
 }
 

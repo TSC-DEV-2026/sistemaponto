@@ -156,7 +156,11 @@ export function AppShell() {
             ) : null}
             <SideLink item={dashboardItem} pathname={location.pathname} collapsed={collapsed} />
             {navGroups.map((group) => {
-              const items = group.items.filter((item) => !item.adminOnly || user?.role === "admin")
+              const items = group.items.filter((item) => {
+                if (item.adminOnly && user?.role !== "admin") return false
+                if (item.staffOnly && user?.role !== "admin" && user?.role !== "manager") return false
+                return true
+              })
               if (items.length === 0) return null
               return (
                 <div key={group.label} className="app-nav-block">
