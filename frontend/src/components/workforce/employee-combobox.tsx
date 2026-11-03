@@ -2,6 +2,7 @@ import { Check, ChevronDown, Search, User } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react"
 
 import { authInputClass } from "@/components/auth-screen"
+import { Spinner } from "@/components/ui/spinner"
 import { listRecords, type Employee } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
 
@@ -20,6 +21,7 @@ export function EmployeeCombobox({
   extendSearch = false,
   emptyLabel = "Todos",
   required = false,
+  loading = false,
   onChange,
 }: {
   id: string
@@ -28,6 +30,7 @@ export function EmployeeCombobox({
   extendSearch?: boolean
   emptyLabel?: string
   required?: boolean
+  loading?: boolean
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -48,6 +51,10 @@ export function EmployeeCombobox({
   useEffect(() => {
     for (const item of employees) names.current.set(String(item.id), item.full_name)
   }, [employees])
+
+  useEffect(() => {
+    if (loading) setOpen(false)
+  }, [loading])
 
   useEffect(() => {
     if (open) {
@@ -173,17 +180,28 @@ export function EmployeeCombobox({
         type="button"
         className={cn(
           "flex h-[50px] w-full items-center rounded-[10px] border border-solid border-[#E4E8ED] bg-white pl-[44px] pr-10 text-left text-[15px] font-normal text-brand-ink shadow-[0_4px_10px_rgba(15,23,42,0.035),0_10px_22px_rgba(15,23,42,0.045)] outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[ease] hover:border-[#C5CDD6] focus-visible:border-[#53bb7e] focus-visible:shadow-[0_0_0_1px_rgba(50,149,92,0.22),0_6px_18px_rgba(50,149,92,0.16),0_10px_28px_rgba(80,186,130,0.18)]",
+          loading && "cursor-wait disabled:opacity-100",
           open && "border-[#53bb7e] shadow-[0_0_0_1px_rgba(50,149,92,0.22),0_6px_18px_rgba(50,149,92,0.16),0_10px_28px_rgba(80,186,130,0.18)] hover:border-[#56ad7b]",
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         aria-required={required || undefined}
-        onClick={() => setOpen((current) => !current)}
+        aria-busy={loading || undefined}
+        disabled={loading}
+        onClick={() => {
+          if (!loading) setOpen((current) => !current)
+        }}
       >
         <User className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-        <span className="truncate">{selectedLabel}</span>
-        <ChevronDown className={cn("pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
+        <span className={cn("truncate", loading && "text-[#64748B]")}>{loading ? "Carregando" : selectedLabel}</span>
+        {loading ? (
+          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2">
+            <Spinner className="h-4 w-4 text-[#1E8A3A]" />
+          </span>
+        ) : (
+          <ChevronDown className={cn("pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
+        )}
       </button>
       {required ? (
         <input

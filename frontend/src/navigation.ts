@@ -29,6 +29,7 @@ export type NavItem = {
   lead: string
   sections: DomainSection[]
   adminOnly?: boolean
+  staffOnly?: boolean
 }
 
 export type NavGroup = {
@@ -135,6 +136,7 @@ export const navGroups: NavGroup[] = [
         to: "/reports",
         label: "Relatórios",
         icon: BarChart3,
+        staffOnly: true,
         lead: "Consulta analítica. O dashboard permanece a visão operacional.",
         sections: [
           { title: "Ponto", text: "Histórico da apuração." },
