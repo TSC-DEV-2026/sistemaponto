@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 
 import type { TimeResult } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { showClock, showDuration } from "@/utils/labels"
+import { showClock, showDate, showDuration } from "@/utils/labels"
 
 const weekdays = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
 const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
@@ -114,7 +114,11 @@ const detailRows = (item: TimeResult) =>
 export function ApuracaoDayDetails({ item }: { item: TimeResult }) {
   return (
     <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-      <h3 className="text-base font-semibold text-brand-ink">Demonstrativo de horas</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-2xl font-bold tracking-tight text-[#111827]">{showDate(item.work_date)}</h3>
+        <SituationBadge item={item} />
+      </div>
+      <h4 className="mt-5 text-base font-semibold text-brand-ink">Demonstrativo de horas</h4>
       <table className="mt-4 w-full text-sm">
         <caption className="sr-only">Demonstrativo de horas do dia</caption>
         <thead className="sr-only">

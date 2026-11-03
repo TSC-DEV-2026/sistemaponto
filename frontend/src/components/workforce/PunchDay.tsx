@@ -161,9 +161,9 @@ export function PunchCorrectionForm({
 }
 
 function momentParts(value: string | null | undefined) {
-  if (!value) return { day: "—", time: "—" }
+  if (!value) return { day: "Não informado", time: "Sem registro" }
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return { day: showDateTime(value), time: "—" }
+  if (Number.isNaN(date.getTime())) return { day: showDateTime(value), time: "Não informado" }
   return { day: date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }), time: showClock(value) }
 }
 

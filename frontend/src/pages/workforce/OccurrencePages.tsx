@@ -141,7 +141,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                     </td>
                     <td className="overflow-hidden px-4 py-2.5 align-middle text-[#52525B]">
                       <span className="block truncate" title={note || undefined}>
-                        {note || "—"}
+                        {note || "Nenhuma observação informada."}
                       </span>
                       {item.warning ? <span className="mt-0.5 block truncate text-xs text-[#C2410C]" title={item.warning}>{item.warning}</span> : null}
                       {item.photo_url ? (
@@ -309,19 +309,14 @@ export function OccurrenceEntryPage() {
   }
 
   return (
-    <div className="w-full min-w-0">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to={tabPath(kind)} appearance="detail" />
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">AJUSTES E OCORRÊNCIAS</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
-          <p className="mt-1 text-sm text-brand-quiet">
-            {manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
+          <p className="mt-1 text-sm text-[#64748B]">{manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
         </div>
-        <BackLink to={tabPath(kind)} appearance="detail" />
-      </div>
-      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-      <ActionForm className={cn(moduleCardClass, "mt-4 space-y-5")} onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="occurrence-employee">
             Funcionário
