@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Briefcase, Building2, ChevronDown, ChevronUp, Clock, Eye, Network, Pencil, Plus, QrCode, Save, Search, Trash2, Users, type LucideIcon } from "lucide-react"
+import { Briefcase, Building2, Calendar, ChevronDown, ChevronUp, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, Users, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { authInputClass } from "@/components/auth-screen"
@@ -7,6 +7,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { TimePickerField } from "@/components/ui/time-picker-field"
+import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
@@ -23,6 +24,51 @@ import { formatCpf, onlyDigits } from "@/utils/digits"
 import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 import { qrCardsPdf } from "@/utils/qr-cards-pdf"
+
+function EmptyMark() {
+  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+}
+
+function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+    </span>
+  )
+}
+
+function catalogFieldIcon(field: CatalogField, fallback: LucideIcon) {
+  if (field.type === "date") return Calendar
+  if (field.type === "textarea") return FileText
+  if (field.name === "union_id") return Landmark
+  if (field.name === "unit_id") return Building2
+  if (field.name === "sector_id") return Network
+  return fallback
+}
+
+function RecordFacts({ fields, fallback, shown }: { fields: CatalogField[]; fallback: LucideIcon; shown: (field: CatalogField) => ReactNode }) {
+  return (
+    <dl className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+      {fields.map((field) => (
+        <RecordField key={field.name} icon={catalogFieldIcon(field, fallback)} label={field.label} wide={field.type === "textarea" || fields.length === 1}>
+          {shown(field)}
+        </RecordField>
+      ))}
+    </dl>
+  )
+}
+
+function RecordField({ icon, label, wide = false, children }: { icon: LucideIcon; label: string; wide?: boolean; children: ReactNode }) {
+  return (
+    <div className={cn("flex h-full min-h-[66px] w-full min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none", wide && "sm:col-span-2")}>
+      <FieldMark icon={icon} />
+      <div className="min-w-0">
+        <dt className="text-xs leading-4 text-[#64748B]">{label}</dt>
+        <dd className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</dd>
+      </div>
+    </div>
+  )
+}
 
 export const TabAction = createContext<(node: ReactNode) => void>(() => {})
 
@@ -344,33 +390,37 @@ export function RecordList<T extends Row>({
               {searchLead ? <p className="text-sm text-[#64748B]">{searchLead}</p> : null}
             </div>
           </div>
-          <div className={cn("mt-4 grid w-full grid-cols-1 items-center gap-3", selects.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_auto_auto]" : "lg:grid-cols-[minmax(0,1fr)_auto]")}>
-            <div className="relative min-w-0 w-full">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-              <Input
-                id={`search-${path}`}
-                value={query}
-                placeholder={searchPlaceholder}
-                className={cn(moduleFieldClass, "pl-10")}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return
-                  event.preventDefault()
-                  list.reload()
-                }}
-              />
+          <div className={cn("mt-4 grid w-full grid-cols-1 items-end gap-3", selects.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_auto_auto]" : "lg:grid-cols-[minmax(0,1fr)_auto]")}>
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor={`search-${path}`}>
+                Nome
+              </Label>
+              <div className="relative min-w-0 w-full">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                <Input
+                  id={`search-${path}`}
+                  value={query}
+                  placeholder={searchPlaceholder}
+                  className={cn(moduleFieldClass, "pl-10")}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return
+                    event.preventDefault()
+                    list.reload()
+                  }}
+                />
+              </div>
             </div>
             {selects.map((select) => (
-              <div key={select.key} className="flex h-12 min-w-0 items-center gap-3">
-                <Label className={cn(moduleLabelClass, "shrink-0")} htmlFor={`filter-${path}-${select.key}`}>
+              <div key={select.key} className="min-w-0 space-y-2 lg:w-56">
+                <Label className={moduleLabelClass} htmlFor={`filter-${path}-${select.key}`}>
                   {select.label}
                 </Label>
-                <div className="h-12 w-full min-w-0 lg:w-56">
                 <SiteSelect
                   id={`filter-${path}-${select.key}`}
                   value={chosen[select.key] ?? ""}
                   placeholder="Todos"
-                  icon={select.key === "unit_id" ? Building2 : Network}
+                  icon={select.key === "unit_id" ? Building2 : select.key === "union_id" ? Landmark : Network}
                   searchable
                   searchPath={select.source}
                   searchPlaceholder={`Pesquisar ${select.label.toLocaleLowerCase("pt-BR")}`}
@@ -378,7 +428,6 @@ export function RecordList<T extends Row>({
                   options={[{ value: "", label: "Todos" }, ...select.options]}
                   onChange={(value) => setChosen((current) => ({ ...current, [select.key]: value }))}
                 />
-                </div>
               </div>
             ))}
             <Button type="button" className={cn(modulePrimaryClass, "h-12 shrink-0")} onClick={list.reload}>
@@ -410,7 +459,10 @@ export function RecordList<T extends Row>({
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
                       <MarkIcon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-semibold text-brand-ink">{nameOf(item)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-brand-ink">{nameOf(item)}</span>
+                      {detailOf?.(item) ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detailOf(item)}</span> : null}
+                    </span>
                     <span title="Visualizar" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
                       <Eye className="h-4 w-4" strokeWidth={1.75} />
                     </span>
@@ -784,6 +836,10 @@ const organizationCopy: Record<string, { title: string; lead: string; mark: Luci
   units: { title: "Pesquisar unidades", lead: "Consulte as unidades cadastradas.", mark: Building2 },
   sectors: { title: "Pesquisar setores", lead: "Consulte os setores cadastrados.", mark: Network },
   teams: { title: "Pesquisar equipes", lead: "Consulte as equipes cadastradas.", mark: Users },
+  unions: { title: "Filtros de pesquisa", lead: "Consulte os sindicatos cadastrados.", mark: Landmark },
+  agreements: { title: "Filtros de pesquisa", lead: "Consulte as convenções e acordos cadastrados.", mark: ScrollText },
+  holidays: { title: "Filtros de pesquisa", lead: "Consulte os feriados cadastrados.", mark: Calendar },
+  "punch-rules": { title: "Filtros de pesquisa", lead: "Consulte as regras de ponto cadastradas.", mark: ClipboardList },
 }
 
 export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" | "people" | "organization" }) {
@@ -823,7 +879,7 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       nameOf={(item) => item.name}
       detailOf={(item) => {
         if (item.morning_start !== undefined || item.afternoon_start !== undefined || item.morning_end !== undefined || item.afternoon_end !== undefined) {
-          const hour = (value?: string | null) => (value ? value.slice(0, 5) : "—")
+          const hour = (value?: string | null) => (value ? value.slice(0, 5) : "Não informado")
           return `${hour(item.morning_start)}–${hour(item.morning_end)} / ${hour(item.afternoon_start)}–${hour(item.afternoon_end)}`
         }
         if (typeof item.active === "boolean") return item.active ? "Ativo" : "Inativo"
@@ -918,11 +974,11 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   function shown(field: CatalogField) {
     const raw = form[field.name] ?? ""
     if (field.type === "select") {
-      return options[field.name]?.find((option) => option.value === raw)?.label || "—"
+      return options[field.name]?.find((option) => option.value === raw)?.label || <EmptyMark />
     }
     if (field.type === "checkbox") return raw === "false" ? "Inativo" : "Ativo"
-    if (field.type === "date") return raw ? showDate(raw) : "—"
-    return raw || "—"
+    if (field.type === "date") return raw ? showDate(raw) : <EmptyMark />
+    return raw.trim() ? raw : <EmptyMark />
   }
 
   async function onSubmit(event: FormEvent) {
@@ -942,8 +998,23 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   }
 
   if (catalog === "journeys" && mode === "view") {
+    if (!loaded) {
+      return (
+        <div className="w-full min-w-0 space-y-5">
+          <BackLink to={entry.backTo} appearance="detail" />
+          {error ? (
+            <p className="text-sm text-destructive">{error}</p>
+          ) : (
+            <section className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" role="status" aria-live="polite">
+              <Spinner label="Carregando a jornada" className="h-8 w-8 text-[#1E8A3A]" />
+              <p className="text-sm font-medium text-[#64748B]">Carregando a jornada</p>
+            </section>
+          )}
+        </div>
+      )
+    }
     const hour = (value: string) => {
-      if (!value) return "—"
+      if (!value) return <span className="text-base font-medium text-[#94A3B8]">Não informado</span>
       return value.length >= 5 ? value.slice(0, 5) : value
     }
     const slots = [
@@ -952,35 +1023,25 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       { name: "afternoon_start", step: "03", period: "Tarde" },
       { name: "afternoon_end", step: "04", period: "Tarde" },
     ]
-    const name = form.name || "—"
     return (
-      <div className="w-full min-w-0">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">JORNADAS / DETALHES</p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">{name}</h2>
-            <p className="mt-1 text-sm text-brand-quiet">Informações e horários da jornada</p>
-          </div>
-          <BackLink to={entry.backTo} appearance="detail" />
-        </div>
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-        <div className="mt-4 flex flex-col gap-4">
+      <div className="w-full min-w-0 space-y-5">
+        <BackLink to={entry.backTo} appearance="detail" />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <div className="flex flex-col gap-4">
           <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-            <h3 className="text-base font-semibold text-brand-ink">Informações da jornada</h3>
-            <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-12">
-              <div className="sm:w-72 sm:shrink-0">
-                <p className="text-sm text-brand-muted">Nome</p>
-                <p className="mt-1 font-semibold text-brand-ink">{name}</p>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-brand-muted">Observação</p>
-                <p className="mt-1 text-sm text-brand-quiet">{form.note?.trim() ? form.note : "Nenhuma observação informada."}</p>
-              </div>
-            </div>
+            <h3 className="text-2xl font-bold tracking-tight text-[#111827]">Informações da jornada</h3>
+            <dl className="mt-5 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+              <RecordField icon={Clock} label="Nome">
+                {form.name.trim() ? form.name : <EmptyMark />}
+              </RecordField>
+              <RecordField icon={FileText} label="Observação">
+                {form.note?.trim() ? form.note : <EmptyMark />}
+              </RecordField>
+            </dl>
           </section>
           <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-brand-ink">Horários</h3>
+              <h3 className="text-2xl font-bold tracking-tight text-[#111827]">Horários</h3>
               {form.name ? <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-brand-cta">{form.name}</span> : null}
             </div>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1007,18 +1068,16 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     const times = entry.fields.filter((field) => field.type === "time")
     const name = entry.fields.find((field) => field.name === "name")
     const note = entry.fields.find((field) => field.name === "note")
+    const lead = mode === "new" ? "Informe o nome e os horários previstos." : "Atualize o nome e os horários previstos."
     return (
-      <div className="w-full min-w-0">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="w-full min-w-0 space-y-5">
+        <BackLink to={entry.backTo} appearance="detail" />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
           <div className="min-w-0">
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">JORNADAS</p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">{mode === "new" ? entry.newLabel : entry.editTitle}</h2>
-            <p className="mt-1 text-sm text-brand-quiet">{mode === "new" ? "Informe o nome e os horários previstos." : "Atualize o nome e os horários previstos."}</p>
+            <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{mode === "new" ? entry.newLabel : entry.editTitle}</h2>
+            <p className="mt-1 text-sm text-[#64748B]">{lead}</p>
           </div>
-          <BackLink to={entry.backTo} appearance="detail" />
-        </div>
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-        <ActionForm className={cn(moduleCardClass, "mt-4 space-y-5")} onSubmit={onSubmit}>
           {name ? (
             <div className="space-y-2">
               <Label className={moduleLabelClass} htmlFor={`${catalog}-${name.name}`}>
@@ -1085,14 +1144,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
-            <dl className="space-y-4">
-              {entry.fields.map((field) => (
-                <div key={field.name}>
-                  <dt className="text-sm text-[#64748B]">{field.label}</dt>
-                  <dd className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{shown(field)}</dd>
-                </div>
-              ))}
-            </dl>
+            <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
           ) : (
             <ActionForm className="space-y-5" onSubmit={onSubmit}>
               {entry.fields.map((field) => (
@@ -1149,14 +1201,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
-            <dl className="space-y-4">
-              {entry.fields.map((field) => (
-                <div key={field.name}>
-                  <dt className="text-sm text-[#64748B]">{field.label}</dt>
-                  <dd className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{shown(field)}</dd>
-                </div>
-              ))}
-            </dl>
+            <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
           ) : (
             <ActionForm className="space-y-5" onSubmit={onSubmit}>
               {entry.fields.map((field) => (
@@ -1196,22 +1241,153 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     )
   }
 
+  const labor = catalog === "unions" || catalog === "agreements" || catalog === "holidays" || catalog === "punch-rules"
+  if (labor) {
+    const meta = {
+      unions: { icon: Landmark, noun: "sindicato", article: "o", newLead: "Informe os dados do sindicato.", editLead: "Atualize os dados do sindicato." },
+      agreements: { icon: ScrollText, noun: "convenção", article: "a", newLead: "Informe os dados da convenção ou acordo.", editLead: "Atualize os dados da convenção ou acordo." },
+      holidays: { icon: Calendar, noun: "feriado", article: "o", newLead: "Informe os dados do feriado.", editLead: "Atualize os dados do feriado." },
+      "punch-rules": { icon: ClipboardList, noun: "regra de ponto", article: "a", newLead: "Informe os dados da regra de ponto.", editLead: "Atualize os dados da regra de ponto." },
+    }[catalog]
+    const Icon = meta.icon
+    if (mode !== "new" && !loaded && !error) {
+      return (
+        <div className="w-full min-w-0 space-y-5">
+          <BackLink to={entry.backTo} appearance="detail" />
+          <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+            <Spinner label={`Carregando ${meta.article} ${meta.noun}`} className="h-8 w-8 text-[#1E8A3A]" />
+            <p className="text-sm font-medium text-[#64748B]">Carregando {meta.article} {meta.noun}</p>
+          </section>
+        </div>
+      )
+    }
+    const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
+    const subtitle = mode === "view" ? meta.noun.charAt(0).toUpperCase() + meta.noun.slice(1) : mode === "new" ? meta.newLead : meta.editLead
+    function dateControl(field: CatalogField) {
+      return <DatePickerField id={`${catalog}-${field.name}`} label={field.label} value={form[field.name] ?? ""} required={field.required} onChange={(value) => setForm({ ...form, [field.name]: value })} />
+    }
+    function textControl(field: CatalogField) {
+      if (field.type === "select") {
+        return (
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
+            <SiteSelect
+              id={`${catalog}-${field.name}`}
+              value={form[field.name] ?? ""}
+              placeholder="Selecione"
+              icon={field.name === "union_id" ? Landmark : Building2}
+              loading={!optionsReady}
+              required={field.required}
+              searchable={Boolean(field.searchPath)}
+              searchPath={field.searchPath}
+              searchPlaceholder={`Pesquisar ${field.label.toLocaleLowerCase("pt-BR")}`}
+              options={[...(field.required ? [] : [{ value: "", label: "Selecione" }]), ...(options[field.name] || [])]}
+              onChange={(value) => setForm({ ...form, [field.name]: value })}
+            />
+          </div>
+        )
+      }
+      if (field.type === "textarea") {
+        return (
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
+            <textarea id={`${catalog}-${field.name}`} className={cn(moduleTextClass, "min-h-[100px]")} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
+          </div>
+        )
+      }
+      if (field.type === "date") return dateControl(field)
+      return (
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
+          <Input id={`${catalog}-${field.name}`} className={moduleFieldClass} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
+        </div>
+      )
+    }
+    const controls: ReactNode[] = []
+    for (let index = 0; index < entry.fields.length; index += 1) {
+      const field = entry.fields[index]
+      const next = entry.fields[index + 1]
+      if (field.type === "date" && next?.type === "date") {
+        controls.push(
+          <div key={field.name} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {dateControl(field)}
+            {dateControl(next)}
+          </div>,
+        )
+        index += 1
+        continue
+      }
+      controls.push(<div key={field.name}>{textControl(field)}</div>)
+    }
+    return (
+      <div className="w-full min-w-0 space-y-5">
+        <BackLink to={entry.backTo} appearance="detail" />
+        <section className={cn(moduleCardClass, "w-full space-y-5")}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <Icon className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
+              <p className="text-sm text-[#64748B]">{subtitle}</p>
+            </div>
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {mode === "view" ? (
+            <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
+          ) : (
+            <ActionForm className="space-y-5" onSubmit={onSubmit}>
+              {controls}
+              <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+                <Button type="submit" className={modulePrimaryClass}>
+                  <Save className="h-4 w-4" />
+                  Salvar
+                </Button>
+              </div>
+            </ActionForm>
+          )}
+        </section>
+      </div>
+    )
+  }
+
+  if (mode === "view") {
+    if (!loaded && !error) {
+      return (
+        <div className="w-full min-w-0 space-y-5">
+          <BackLink to={entry.backTo} appearance="detail" />
+          <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+            <Spinner label="Carregando o motivo" className="h-8 w-8 text-[#1E8A3A]" />
+            <p className="text-sm font-medium text-[#64748B]">Carregando o motivo</p>
+          </section>
+        </div>
+      )
+    }
+    return (
+      <div className="w-full min-w-0 space-y-5">
+        <BackLink to={entry.backTo} appearance="detail" />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <section className={cn(moduleCardClass, "w-full space-y-5")}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <ClipboardList className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">{title}</h2>
+              <p className="text-sm text-[#64748B]">Motivo</p>
+            </div>
+          </div>
+          <RecordFacts fields={entry.fields} fallback={ClipboardList} shown={shown} />
+        </section>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <BackLink to={entry.backTo} />
-      {mode === "view" ? <h2 className="text-xl font-semibold">{title}</h2> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {mode === "view" ? (
-        <dl className="space-y-3 text-sm">
-          {entry.fields.map((field) => (
-            <div key={field.name}>
-              <dt className="text-muted-foreground">{field.label}</dt>
-              <dd>{shown(field)}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <ActionForm className="space-y-4" onSubmit={onSubmit}>
+      <ActionForm className="space-y-4" onSubmit={onSubmit}>
           {entry.fields.map((field) => (
             <div key={field.name} className="space-y-2">
               <Label htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
@@ -1244,7 +1420,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             Salvar
           </Button>
         </ActionForm>
-      )}
     </div>
   )
 }

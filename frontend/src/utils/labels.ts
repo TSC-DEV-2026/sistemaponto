@@ -136,7 +136,7 @@ export function periodText(item: { starts_on?: string | null; ends_on?: string |
     return `${showDateTime(item.starts_at)} até ${showDateTime(item.ends_at)}`
   }
   if (!item.starts_on) {
-    return "—"
+    return "Sem período informado"
   }
   return `${showDate(item.starts_on)} a ${showDate(item.ends_on)}`
 }
@@ -194,7 +194,7 @@ export const reasonKindLabel: Record<string, string> = {
 
 export function showDate(value: string | null | undefined) {
   if (!value) {
-    return "—"
+    return "Não informado"
   }
   const [year, month, day] = value.slice(0, 10).split("-")
   if (!year || !month || !day) {
@@ -244,7 +244,7 @@ export function showDuration(value: number) {
 
 export function showDateTime(value: string | null | undefined) {
   if (!value) {
-    return "—"
+    return "Não informado"
   }
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",

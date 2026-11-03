@@ -121,7 +121,7 @@ function EmployeeRequestCard({ item, person }: { item: TimeRequest; person: stri
   const kindLabel = requestKindLabel[item.kind] || item.kind
   const punches = requestedPunchText(item.punches ?? [])
   const period = periodText(item)
-  const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period === "—" ? "Sem período informado" : period
+  const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period
   const certificate = certificateText(item)
   const lead = item.kind === "adjustment" ? "Marcações pedidas: " : ""
   const noteText = (item.note || "").replace(/\s+/g, " ").trim()
@@ -577,16 +577,10 @@ export function EmployeePage() {
             <p className="mt-1 text-sm text-brand-quiet">Horários da jornada vigente.</p>
             {schedule ? (
               <>
-                <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-12">
-                  <div className="sm:w-72 sm:shrink-0">
-                    <p className="text-sm text-brand-muted">Nome</p>
-                    <p className="mt-1 font-semibold text-brand-ink">{schedule.name}</p>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-brand-muted">Observação</p>
-                    <p className="mt-1 text-sm text-brand-quiet">{schedule.note?.trim() ? schedule.note : "Nenhuma observação informada."}</p>
-                  </div>
-                </div>
+                <dl className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <FieldTile icon={Clock} label="Nome">{schedule.name?.trim() ? schedule.name : <EmptyMark />}</FieldTile>
+                  <FieldTile icon={FileText} label="Observação">{schedule.note?.trim() ? schedule.note : <EmptyMark />}</FieldTile>
+                </dl>
                 <div className="mt-5 flex items-center justify-between gap-3">
                   <h3 className="text-base font-semibold text-brand-ink">Horários</h3>
                   <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-brand-cta">{schedule.name}</span>
@@ -605,7 +599,7 @@ export function EmployeePage() {
                         {step} · {period}
                       </p>
                       <p className="mt-2 text-sm text-brand-muted">{label}</p>
-                      <p className="mt-1 text-2xl font-bold tracking-tight text-brand-ink">{value ? value.slice(0, 5) : "—"}</p>
+                      <p className="mt-1 text-2xl font-bold tracking-tight text-brand-ink">{value ? value.slice(0, 5) : <span className="text-base font-medium text-[#94A3B8]">Não informado</span>}</p>
                     </div>
                   ))}
                 </div>

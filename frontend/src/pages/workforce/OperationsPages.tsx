@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Building2, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, Search, Upload, User, Users, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Building2, Calendar, CircleCheck, CircleX, ClipboardList, Clock, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Upload, User, Users, X } from "lucide-react"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
@@ -936,7 +936,7 @@ export function RequestsPage() {
               const kindLabel = requestKindLabel[item.kind] || item.kind
               const punches = requestedPunches(item.punches ?? [])
               const period = periodText(item)
-              const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period === "—" ? "Sem período informado" : period
+              const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period
               const certificate = certificateText(item)
               const lead = item.kind === "adjustment" ? "Marcações pedidas: " : ""
               const body = [detail, certificate, item.note].filter((part) => part && part.trim()).join("\n")
@@ -1301,12 +1301,12 @@ export function LaborPage() {
   return (
     <DomainTabs
       title="Regras Trabalhistas"
-      lead="A apuração usa o feriado. Sindicato e acordo ainda não alteram tolerância, intervalo nem adicional."
+      organization
       tabs={[
-        { id: "sindicatos", label: "Sindicatos", panel: <CatalogList catalog="unions" /> },
-        { id: "convencoes", label: "Convenções e acordos", panel: <CatalogList catalog="agreements" /> },
-        { id: "feriados", label: "Feriados", panel: <CatalogList catalog="holidays" /> },
-        { id: "regras", label: "Regras de ponto", panel: <CatalogList catalog="punch-rules" /> },
+        { id: "sindicatos", label: "Sindicatos", icon: Landmark, panel: <CatalogList catalog="unions" presentation="organization" /> },
+        { id: "convencoes", label: "Convenções e acordos", icon: ScrollText, panel: <CatalogList catalog="agreements" presentation="organization" /> },
+        { id: "feriados", label: "Feriados", icon: Calendar, panel: <CatalogList catalog="holidays" presentation="organization" /> },
+        { id: "regras", label: "Regras de ponto", icon: ClipboardList, panel: <CatalogList catalog="punch-rules" presentation="organization" /> },
       ]}
     />
   )

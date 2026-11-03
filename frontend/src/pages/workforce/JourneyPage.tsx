@@ -285,25 +285,16 @@ export function PunchAdjustPage() {
   }, [tenantId])
 
   return (
-    <div className="w-full min-w-0">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">MARCAÇÕES</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">Ajustar marcações</h2>
-          <p className="mt-1 text-sm text-brand-quiet">Corrija as marcações que valem em um dia.</p>
-        </div>
-        <BackLink to="/schedules?aba=marcacoes" appearance="detail" />
-      </div>
-      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-      <div className="mt-4">
-        <PunchCorrectionForm
-          appearance="module"
-          employees={employees}
-          onSaved={async () => {
-            navigate("/schedules?aba=marcacoes")
-          }}
-        />
-      </div>
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to="/schedules?aba=marcacoes" appearance="detail" />
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <PunchCorrectionForm
+        appearance="module"
+        employees={employees}
+        onSaved={async () => {
+          navigate("/schedules?aba=marcacoes")
+        }}
+      />
     </div>
   )
 }
@@ -377,17 +368,14 @@ export function HourBankEntryPage() {
   }
 
   return (
-    <div className="w-full min-w-0">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to="/schedules?aba=banco" appearance="detail" />
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-[0.14em] text-brand-cta">BANCO DE HORAS</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-brand-ink">Novo lançamento</h2>
-          <p className="mt-1 text-sm text-brand-quiet">Registre uma quitação, um crédito ou um débito.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Novo lançamento</h2>
+          <p className="mt-1 text-sm text-[#64748B]">Registre uma quitação, um crédito ou um débito.</p>
         </div>
-        <BackLink to="/schedules?aba=banco" appearance="detail" />
-      </div>
-      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-      <ActionForm className={cn(moduleCardClass, "mt-4 space-y-5")} onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-employee">
             Funcionário
