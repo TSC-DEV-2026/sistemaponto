@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Plus, Printer, QrCode, ScanFace, Search, Upload, User, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Building2, Calendar, CircleCheck, CircleX, Clock, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, Search, Upload, User, Users, X } from "lucide-react"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
@@ -1287,11 +1287,11 @@ export function OrganizationPage() {
   return (
     <DomainTabs
       title="Estrutura Organizacional"
-      lead="Unidades, setores e equipes. A mudança do funcionário preserva vigência."
+      organization
       tabs={[
-        { id: "unidades", label: "Unidades", panel: <CatalogList catalog="units" /> },
-        { id: "setores", label: "Setores", panel: <CatalogList catalog="sectors" /> },
-        { id: "equipes", label: "Equipes", panel: <CatalogList catalog="teams" /> },
+        { id: "unidades", label: "Unidades", icon: Building2, panel: <CatalogList catalog="units" presentation="organization" /> },
+        { id: "setores", label: "Setores", icon: Network, panel: <CatalogList catalog="sectors" presentation="organization" /> },
+        { id: "equipes", label: "Equipes", icon: Users, panel: <CatalogList catalog="teams" presentation="organization" /> },
       ]}
     />
   )

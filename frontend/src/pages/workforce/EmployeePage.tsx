@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { SiteSelect } from "@/components/ui/site-select"
+import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
 import { moduleDangerClass, moduleLabelClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
@@ -475,18 +476,17 @@ export function EmployeePage() {
           </div>
         </div>
       </section>
-      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist">
+      <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
         {tabs.map(([value, label, Icon]) => (
           <button
             key={value}
             type="button"
             role="tab"
             aria-selected={tab === value}
+            data-slide-active={tab === value ? "true" : undefined}
             className={cn(
-              "inline-flex h-[42px] shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3.5 text-sm font-semibold transition-[background-color,border-color,color,box-shadow] duration-200 motion-reduce:transition-none",
-              tab === value
-                ? "border-[#1E8A3A] bg-[#1E8A3A] text-white shadow-[0_4px_10px_rgba(30,138,58,0.25)]"
-                : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35]",
+              "relative z-10 inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none",
+              tab === value ? "text-brand-cta" : "text-zinc-600 hover:text-zinc-900",
             )}
             onClick={() => setTab(value)}
           >
@@ -494,7 +494,7 @@ export function EmployeePage() {
             {label}
           </button>
         ))}
-      </div>
+      </SlidingHighlight>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div key={tab} className="motion-safe:animate-[ficha-fade_200ms_ease-out]">
       {tab === "data" ? (

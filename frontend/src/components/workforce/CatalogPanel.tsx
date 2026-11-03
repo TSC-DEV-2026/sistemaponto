@@ -14,5 +14,7 @@ export type CatalogField = {
   type: "text" | "date" | "time" | "textarea" | "select" | "checkbox"
   required?: boolean
   options?: { value: string; label: string }[]
+  searchPath?: string
+  searchParams?: Record<string, string | number | boolean | undefined>
   loadOptions?: () => Promise<{ value: string; label: string }[]>
 }

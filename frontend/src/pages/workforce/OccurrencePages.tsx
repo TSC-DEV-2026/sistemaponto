@@ -346,6 +346,10 @@ export function OccurrenceEntryPage() {
               value={reasonId}
               required={!reasonsReady || reasons.length > 0}
               placeholder="Selecione"
+              searchable
+              searchPath="/reasons"
+              searchParams={{ kind, active: true }}
+              searchPlaceholder="Pesquisar motivo"
               options={reasons.map((item) => ({ value: String(item.id), label: item.name }))}
               onChange={setReasonId}
             />

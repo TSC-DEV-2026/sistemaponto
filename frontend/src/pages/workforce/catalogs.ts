@@ -58,7 +58,7 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/organization?aba=setores",
     fields: [
       { name: "name", label: "Nome do setor", type: "text", required: true },
-      { name: "unit_id", label: "Unidade", type: "select", required: true, loadOptions: () => optionsOf("/units") },
+      { name: "unit_id", label: "Unidade", type: "select", required: true, searchPath: "/units", loadOptions: () => optionsOf("/units") },
     ],
   },
   teams: {
@@ -69,7 +69,7 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/organization?aba=equipes",
     fields: [
       { name: "name", label: "Nome da equipe", type: "text", required: true },
-      { name: "sector_id", label: "Setor", type: "select", required: true, loadOptions: () => optionsOf("/sectors") },
+      { name: "sector_id", label: "Setor", type: "select", required: true, searchPath: "/sectors", loadOptions: () => optionsOf("/sectors") },
     ],
   },
   unions: {
@@ -88,7 +88,7 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/labor-rules?aba=convencoes",
     fields: [
       { name: "name", label: "Nome da convenção ou do acordo", type: "text", required: true },
-      { name: "union_id", label: "Sindicato", type: "select", loadOptions: () => optionsOf("/unions") },
+      { name: "union_id", label: "Sindicato", type: "select", searchPath: "/unions", loadOptions: () => optionsOf("/unions") },
       { name: "valid_from", label: "Início", type: "date", required: true },
       { name: "valid_to", label: "Fim", type: "date" },
       { name: "note", label: "Observação", type: "textarea" },
