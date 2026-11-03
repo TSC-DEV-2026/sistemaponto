@@ -69,12 +69,18 @@ export function CertificatePhotoField({
   photo,
   onChange,
   layout = "row",
+  accept = "image/png,image/jpeg,application/pdf",
+  emptyLabel = "Arraste ou selecione o atestado",
+  hint = "PNG, JPG ou PDF (máx. 10 MB)",
 }: {
   id: string
   fileKey: number
   photo: File | null
   onChange: (file: File | null) => void
   layout?: "row" | "stack"
+  accept?: string
+  emptyLabel?: string
+  hint?: string
 }) {
   const [photoOver, setPhotoOver] = useState(false)
   const stacked = layout === "stack"
@@ -85,7 +91,7 @@ export function CertificatePhotoField({
         id={id}
         className="peer sr-only"
         type="file"
-        accept="image/png,image/jpeg,application/pdf"
+        accept={accept}
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
       />
       <label
@@ -105,8 +111,8 @@ export function CertificatePhotoField({
           setPhotoOver(false)
           const file = event.dataTransfer.files?.[0]
           if (!file) return
-          const allowed = !file.type || file.type === "image/png" || file.type === "image/jpeg" || file.type === "application/pdf"
-          if (allowed) onChange(file)
+          const allowed = accept.split(",").map((item) => item.trim())
+          if (!file.type || allowed.includes(file.type)) onChange(file)
         }}
       >
         <span className={cn("flex min-w-0 items-center gap-3", stacked && "flex-col gap-2")}>
@@ -114,8 +120,8 @@ export function CertificatePhotoField({
             {stacked ? <Upload className="h-5 w-5" strokeWidth={1.75} aria-hidden /> : <FileImage className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
           </span>
           <span className="min-w-0">
-            <span className={cn("block text-sm font-semibold", stacked ? "text-[#1E8A3A]" : "truncate text-[#0A0A0A]")}>{photo ? photo.name : "Arraste ou selecione o atestado"}</span>
-            <span className="mt-0.5 block text-xs text-[#71717A]">PNG, JPG ou PDF (máx. 10 MB)</span>
+            <span className={cn("block text-sm font-semibold", stacked ? "text-[#1E8A3A]" : "truncate text-[#0A0A0A]")}>{photo ? photo.name : emptyLabel}</span>
+            <span className="mt-0.5 block text-xs text-[#71717A]">{hint}</span>
           </span>
         </span>
         {stacked ? null : (

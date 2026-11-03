@@ -93,13 +93,16 @@ export function ListPager({
   total: number
   onPage: (page: number) => void
   onPageSize: (size: number) => void
-  tone?: "default" | "module"
+  tone?: "default" | "module" | "people"
   density?: "default" | "compact"
 }) {
   if (total <= 0) return null
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const current = Math.min(page, pages)
   const compact = density === "compact"
+  const people = tone === "people"
+  const idlePage = people ? "h-9 rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] shadow-none hover:bg-[#EAF7EF] hover:text-[#086B35]" : undefined
+  const activePage = people ? "h-9 rounded-[10px] border border-[#1E8A3A] bg-[#1E8A3A] text-white shadow-none hover:bg-[#219440] hover:text-white" : undefined
   return (
     <div className={cn("flex flex-wrap items-center justify-between", compact ? "gap-2" : "gap-3")}>
       <div className={cn("flex", compact ? "gap-1.5" : "gap-1")} role="group" aria-label="Itens por página">
@@ -110,7 +113,9 @@ export function ListPager({
             size="sm"
             variant={pageSize === size ? "default" : "outline"}
             className={
-              compact
+              people
+                ? cn("h-9 w-9 rounded-[10px] px-0", pageSize === size ? "bg-[#1E8A3A] text-white hover:bg-[#219440]" : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#EAF7EF] hover:text-[#086B35]")
+                : compact
                 ? cn("h-8 w-8 px-0", pageSize === size ? "bg-brand-cta text-white hover:bg-brand-cta-hover" : "border-[#E4E4E7] bg-white text-brand-ink hover:bg-zinc-50")
                 : tone === "module" && pageSize === size
                   ? "w-10 bg-brand-cta px-0 text-white hover:bg-brand-cta-hover"
@@ -125,27 +130,27 @@ export function ListPager({
         ))}
       </div>
       <div className={cn("flex flex-wrap items-center", compact ? "gap-2" : "gap-3")}>
-        <p className="text-sm text-muted-foreground">
+        <p className={people ? "text-sm text-[#64748B]" : "text-sm text-muted-foreground"}>
           Página {current} de {pages} ({total} {total === 1 ? "item" : "itens"})
         </p>
         <Pagination className="mx-0 w-auto justify-end">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious className={compact ? "h-8 px-2.5" : undefined} disabled={current <= 1} onClick={() => onPage(current - 1)} />
+              <PaginationPrevious className={people ? cn(idlePage, "px-2.5") : compact ? "h-8 px-2.5" : undefined} disabled={current <= 1} onClick={() => onPage(current - 1)} />
             </PaginationItem>
             {paginationItems(current, pages).map((item, index) => (
               <PaginationItem key={item === "ellipsis" ? `reticencias-${index}` : item}>
                 {item === "ellipsis" ? (
-                  <PaginationEllipsis className={compact ? "h-8 w-8" : undefined} />
+                  <PaginationEllipsis className={people ? "h-9 w-9" : compact ? "h-8 w-8" : undefined} />
                 ) : (
-                  <PaginationLink className={compact ? "h-8 w-8" : undefined} isActive={item === current} onClick={() => onPage(item)}>
+                  <PaginationLink className={people ? cn("w-9", item === current ? activePage : idlePage) : compact ? "h-8 w-8" : undefined} isActive={item === current} onClick={() => onPage(item)}>
                     {item}
                   </PaginationLink>
                 )}
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext className={compact ? "h-8 px-2.5" : undefined} disabled={current * pageSize >= total} onClick={() => onPage(current + 1)} />
+              <PaginationNext className={people ? cn(idlePage, "px-2.5") : compact ? "h-8 px-2.5" : undefined} disabled={current * pageSize >= total} onClick={() => onPage(current + 1)} />
             </PaginationItem>
           </PaginationContent>
         </Pagination>

@@ -1,3 +1,4 @@
+import { Clock, Layers } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
+import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
@@ -15,18 +17,57 @@ import {
   type HourBank,
   type HourBankEntry,
 } from "@/services/workforce.service"
+import { cn } from "@/utils/cn"
 import { hourBankEffectLabel, hourBankKindLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+
+export function BankBalance({ balance }: { balance: HourBank }) {
+  const stats = [
+    { label: "Crédito", value: showMinutes(balance.credit_minutes), dot: "bg-[#1E8A3A]" },
+    { label: "Débito", value: showMinutes(balance.debit_minutes), dot: "bg-[#EF5350]" },
+    { label: "Pago em hora extra", value: showMinutes(balance.paid_overtime_minutes), dot: "bg-[#3B82F6]" },
+    { label: "Descontado como falta", value: showMinutes(balance.discounted_absence_minutes), dot: "bg-[#F9A825]" },
+  ]
+  return (
+    <div className="rounded-[14px] border border-[rgba(30,138,58,0.12)] bg-[linear-gradient(105deg,rgba(30,138,58,0.045),rgba(255,255,255,0.98))] p-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] sm:p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-center gap-4 lg:w-[240px] lg:shrink-0 lg:border-r lg:border-[#E4E8ED] lg:pr-6">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+            <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[13px] text-[#52525B]">Saldo atual</p>
+            <p className="mt-0.5 text-[26px] font-bold leading-none tabular-nums text-[#0A0A0A]">{showSignedMinutes(balance.balance_minutes)}</p>
+          </div>
+        </div>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-5 border-t border-[#E7EBE4] pt-5 sm:grid-cols-4 lg:border-t-0 lg:pt-0">
+          {stats.map((item) => (
+            <div key={item.label} className="min-w-0">
+              <p className="flex items-start gap-1.5 text-[13px] leading-5 text-[#52525B]">
+                <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} aria-hidden />
+                <span>{item.label}</span>
+              </p>
+              <p className="mt-1 text-[15px] font-semibold tabular-nums text-[#0A0A0A]">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      {balance.warning ? <p className="mt-4 text-sm text-brand-ink">{balance.warning}</p> : null}
+    </div>
+  )
+}
 
 export function HourBankPanel({
   employeeId,
   employees,
   canLaunch,
   usesBank = false,
+  appearance,
 }: {
   employeeId?: number
   employees?: Employee[]
   canLaunch: boolean
   usesBank?: boolean
+  appearance?: "module"
 }) {
   const [selected, setSelected] = useState(employeeId ? String(employeeId) : "")
   const [balance, setBalance] = useState<HourBank | null>(null)
@@ -85,6 +126,68 @@ export function HourBankPanel({
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível lançar.")
     }
+  }
+
+  if (appearance === "module") {
+    return (
+      <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
+          <p className="mt-1 text-sm text-brand-quiet">Consulte os lançamentos do banco.</p>
+        </div>
+        <div className="mt-[18px] max-w-md space-y-2">
+          <Label className="font-semibold text-brand-ink" htmlFor="bank-entry-kind">
+            Tipo
+          </Label>
+          <SiteSelect
+            id="bank-entry-kind"
+            value={entryKind}
+            icon={Layers}
+            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))]}
+            onChange={setEntryKind}
+          />
+        </div>
+        {chosenId && !enabled ? <p className="mt-4 text-sm text-brand-quiet">Este funcionário não usa banco de horas.</p> : null}
+        {balance ? (
+          <div className="mt-5">
+            <BankBalance balance={balance} />
+          </div>
+        ) : null}
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+        {entries.error ? <p className="mt-4 text-sm text-destructive">{entries.error}</p> : null}
+        {chosenId && entries.items.length === 0 && !entries.error ? (
+          entries.loading ? (
+            <ul className="mt-8">
+              <ListPlaceholder loading empty="Nenhum lançamento." />
+            </ul>
+          ) : (
+            <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+                <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+              </span>
+              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum lançamento.</p>
+              <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#52525B]">Não há registros no banco de horas deste funcionário.</p>
+            </div>
+          )
+        ) : null}
+        {entries.items.length > 0 ? (
+          <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+            {entries.items.map((item) => (
+              <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
+                {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
+                {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
+                {item.note ? ` · ${item.note}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {entries.total > 0 ? (
+          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+            <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} tone="module" />
+          </div>
+        ) : null}
+      </section>
+    )
   }
 
   return (

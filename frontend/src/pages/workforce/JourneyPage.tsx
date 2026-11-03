@@ -14,12 +14,13 @@ import { cn } from "@/utils/cn"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { BankBalance } from "@/components/workforce/HourBankPanel"
 import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
-import { hourBankEffectLabel, hourBankKindLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+import { hourBankEffectLabel, hourBankKindLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
   return (
@@ -104,42 +105,6 @@ function ResultsSchedule() {
     <div className="space-y-3">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <TimeResultsPanel employees={employees} heading={false} appearance="module" />
-    </div>
-  )
-}
-
-function BankBalance({ balance }: { balance: HourBank }) {
-  const stats = [
-    { label: "Crédito", value: showMinutes(balance.credit_minutes), dot: "bg-[#1E8A3A]" },
-    { label: "Débito", value: showMinutes(balance.debit_minutes), dot: "bg-[#EF5350]" },
-    { label: "Pago em hora extra", value: showMinutes(balance.paid_overtime_minutes), dot: "bg-[#3B82F6]" },
-    { label: "Descontado como falta", value: showMinutes(balance.discounted_absence_minutes), dot: "bg-[#F9A825]" },
-  ]
-  return (
-    <div className="rounded-[14px] border border-[rgba(30,138,58,0.12)] bg-[linear-gradient(105deg,rgba(30,138,58,0.045),rgba(255,255,255,0.98))] p-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] sm:p-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 items-center gap-4 lg:w-[240px] lg:shrink-0 lg:border-r lg:border-[#E4E8ED] lg:pr-6">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
-            <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[13px] text-[#52525B]">Saldo atual</p>
-            <p className="mt-0.5 text-[26px] font-bold leading-none tabular-nums text-[#0A0A0A]">{showSignedMinutes(balance.balance_minutes)}</p>
-          </div>
-        </div>
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-5 border-t border-[#E7EBE4] pt-5 sm:grid-cols-4 lg:border-t-0 lg:pt-0">
-          {stats.map((item) => (
-            <div key={item.label} className="min-w-0">
-              <p className="flex items-start gap-1.5 text-[13px] leading-5 text-[#52525B]">
-                <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} aria-hidden />
-                <span>{item.label}</span>
-              </p>
-              <p className="mt-1 text-[15px] font-semibold tabular-nums text-[#0A0A0A]">{item.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      {balance.warning ? <p className="mt-4 text-sm text-brand-ink">{balance.warning}</p> : null}
     </div>
   )
 }
