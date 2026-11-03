@@ -175,14 +175,7 @@ export function TimeResultsPanel({
         {employees ? (
           <div className="space-y-2">
             <Label htmlFor="result-employee">Funcionário</Label>
-            <select id="result-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)} required>
-              <option value="">Selecione</option>
-              {employees.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
-            </select>
+            <EmployeeCombobox id="result-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
           </div>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">

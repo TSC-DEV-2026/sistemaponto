@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
+import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import {
@@ -199,14 +200,7 @@ export function HourBankPanel({
       {employees ? (
         <div className="space-y-2">
           <Label htmlFor="bank-employee">Funcionário</Label>
-          <select id="bank-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)}>
-            <option value="">Selecione</option>
-            {employees.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.full_name}
-              </option>
-            ))}
-          </select>
+          <EmployeeCombobox id="bank-employee" value={selected} employees={employees} emptyLabel="Selecione" extendSearch={employees.length >= 100} onChange={setSelected} />
         </div>
       ) : null}
       {chosenId && !enabled ? <p className="text-sm text-muted-foreground">Este funcionário não usa banco de horas.</p> : null}

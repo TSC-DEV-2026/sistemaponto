@@ -99,58 +99,42 @@ export function ListPager({
   if (total <= 0) return null
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const current = Math.min(page, pages)
-  const compact = density === "compact"
-  const people = tone === "people"
-  const idlePage = people ? "h-9 rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] shadow-none hover:bg-[#EAF7EF] hover:text-[#086B35]" : undefined
-  const activePage = people ? "h-9 rounded-[10px] border border-[#1E8A3A] bg-[#1E8A3A] text-white shadow-none hover:bg-[#219440] hover:text-white" : undefined
+  void tone
+  void density
+  const sizeButton = "h-8 w-8 px-0"
+  const selectedSize = "bg-brand-cta text-white hover:bg-brand-cta-hover"
+  const idleSize = "border-[#E4E4E7] bg-white text-brand-ink hover:bg-zinc-50"
   return (
-    <div className={cn("flex flex-wrap items-center justify-between", compact ? "gap-2" : "gap-3")}>
-      <div className={cn("flex", compact ? "gap-1.5" : "gap-1")} role="group" aria-label="Itens por página">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex gap-1.5" role="group" aria-label="Itens por página">
         {pageSizes.map((size) => (
-          <Button
-            key={size}
-            type="button"
-            size="sm"
-            variant={pageSize === size ? "default" : "outline"}
-            className={
-              people
-                ? cn("h-9 w-9 rounded-[10px] px-0", pageSize === size ? "bg-[#1E8A3A] text-white hover:bg-[#219440]" : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#EAF7EF] hover:text-[#086B35]")
-                : compact
-                ? cn("h-8 w-8 px-0", pageSize === size ? "bg-brand-cta text-white hover:bg-brand-cta-hover" : "border-[#E4E4E7] bg-white text-brand-ink hover:bg-zinc-50")
-                : tone === "module" && pageSize === size
-                  ? "w-10 bg-brand-cta px-0 text-white hover:bg-brand-cta-hover"
-                  : tone === "module"
-                    ? "w-10 border-[#E4E4E7] bg-white px-0 text-brand-ink hover:bg-zinc-50"
-                    : "w-10 px-0"
-            }
-            onClick={() => onPageSize(size)}
-          >
+          <Button key={size} type="button" size="sm" variant={pageSize === size ? "default" : "outline"} className={cn(sizeButton, pageSize === size ? selectedSize : idleSize)} onClick={() => onPageSize(size)}>
             {size}
           </Button>
         ))}
       </div>
-      <div className={cn("flex flex-wrap items-center", compact ? "gap-2" : "gap-3")}>
-        <p className={people ? "text-sm text-[#64748B]" : "text-sm text-muted-foreground"}>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground">
           Página {current} de {pages} ({total} {total === 1 ? "item" : "itens"})
         </p>
         <Pagination className="mx-0 w-auto justify-end">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious className={people ? cn(idlePage, "px-2.5") : compact ? "h-8 px-2.5" : undefined} disabled={current <= 1} onClick={() => onPage(current - 1)} />
+              <PaginationPrevious className="h-8 px-2.5" disabled={current <= 1} onClick={() => onPage(current - 1)} />
             </PaginationItem>
             {paginationItems(current, pages).map((item, index) => (
               <PaginationItem key={item === "ellipsis" ? `reticencias-${index}` : item}>
                 {item === "ellipsis" ? (
-                  <PaginationEllipsis className={people ? "h-9 w-9" : compact ? "h-8 w-8" : undefined} />
+                  <PaginationEllipsis className="h-8 w-8" />
                 ) : (
-                  <PaginationLink className={people ? cn("w-9", item === current ? activePage : idlePage) : compact ? "h-8 w-8" : undefined} isActive={item === current} onClick={() => onPage(item)}>
+                  <PaginationLink className="h-8 w-8" isActive={item === current} onClick={() => onPage(item)}>
                     {item}
                   </PaginationLink>
                 )}
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext className={people ? cn(idlePage, "px-2.5") : compact ? "h-8 px-2.5" : undefined} disabled={current * pageSize >= total} onClick={() => onPage(current + 1)} />
+              <PaginationNext className="h-8 px-2.5" disabled={current * pageSize >= total} onClick={() => onPage(current + 1)} />
             </PaginationItem>
           </PaginationContent>
         </Pagination>

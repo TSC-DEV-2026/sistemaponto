@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
+import { SiteSelect } from "@/components/ui/site-select"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList, type ListParams } from "@/components/workforce/list-controls"
@@ -214,14 +215,20 @@ export function BulkChangesPage() {
       </div>
       <div className="flex flex-wrap gap-3">
         {filterFields.map(([key, label, path]) => (
-          <FilterSelect
-            key={key}
-            id={`bulk-${key}`}
-            label={label}
-            value={filters[key] || ""}
-            options={choices[path] || []}
-            onChange={(next) => setFilters((current) => ({ ...current, [key]: next }))}
-          />
+          <div key={key} className="min-w-40 flex-1 space-y-2">
+            <Label htmlFor={`bulk-${key}`}>{label}</Label>
+            <SiteSelect
+              id={`bulk-${key}`}
+              value={filters[key] || ""}
+              placeholder="Todos"
+              searchable
+              searchPath={path === "/employees" ? undefined : path}
+              searchKey={path === "/employees" ? "full_name" : "name"}
+              searchPlaceholder={`Pesquisar ${label.toLocaleLowerCase("pt-BR")}`}
+              options={[{ value: "", label: "Todos" }, ...(choices[path] || [])]}
+              onChange={(next) => setFilters((current) => ({ ...current, [key]: next }))}
+            />
+          </div>
         ))}
         <FilterSelect
           id="bulk-situation"
@@ -266,14 +273,28 @@ export function BulkChangesPage() {
       <ActionForm className="grid max-w-lg gap-3 rounded-md border border-border bg-card p-3" onSubmit={apply}>
         <div className="space-y-2">
           <Label htmlFor="bulk-value">{operation === "clock_method" ? "Novo tipo" : "Novo valor"}</Label>
-          <select id="bulk-value" className={fieldClass} value={value} onChange={(event) => setValue(event.target.value)} required>
-            <option value="">Selecione</option>
-            {valueOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          {operation === "clock_method" || operation === "status" ? (
+            <select id="bulk-value" className={fieldClass} value={value} onChange={(event) => setValue(event.target.value)} required>
+              <option value="">Selecione</option>
+              {valueOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <SiteSelect
+              id="bulk-value"
+              value={value}
+              placeholder="Selecione"
+              required
+              searchable
+              searchPath={operationRow[2] === "/employees" ? undefined : operationRow[2]}
+              searchPlaceholder="Pesquisar"
+              options={valueOptions}
+              onChange={setValue}
+            />
+          )}
         </div>
         {operation === "clock_method" ? null : (
           <>

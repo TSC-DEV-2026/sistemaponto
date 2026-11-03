@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
-import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
@@ -142,18 +142,7 @@ export function PunchCorrectionForm({
           <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-employee">
             Funcionário
           </Label>
-          {module ? (
-            <EmployeeCombobox id="correction-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
-          ) : (
-            <select id="correction-employee" className={fieldClass} value={selected} onChange={(event) => setSelected(event.target.value)} required>
-              <option value="">Selecione</option>
-              {employees.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
-            </select>
-          )}
+          <EmployeeCombobox id="correction-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
         </div>
       ) : null}
       <DayTimesFields dayId="correction-day" day={day} times={times} onDay={setDay} onTimes={setTimes} tone={module ? "module" : "plain"} />
@@ -237,13 +226,10 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
   return (
     <div className="space-y-4">
       {employeeId ? null : (
-        <FilterSelect
-          id="punch-employee"
-          label="Funcionário"
-          value={person}
-          options={(employees || []).map((item) => ({ value: String(item.id), label: item.full_name }))}
-          onChange={setPerson}
-        />
+        <div className="space-y-2">
+          <Label htmlFor="punch-employee">Funcionário</Label>
+          <EmployeeCombobox id="punch-employee" value={person} employees={employees || []} emptyLabel="Todos" extendSearch={(employees || []).length >= 100} onChange={setPerson} />
+        </div>
       )}
       <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." loading={current.loading} punches={current.items} employeeName={employeeName} />
       <ListPager page={current.page} pageSize={current.pageSize} total={current.total} onPage={current.setPage} onPageSize={current.setPageSize} />

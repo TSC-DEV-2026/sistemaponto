@@ -280,6 +280,10 @@ export function RequestFormPage() {
                         value={activeReason}
                         placeholder="Selecione"
                         required
+                        searchable
+                        searchPath="/reasons"
+                        searchParams={{ kind: adjustment ? "adjustment" : offKind, active: true }}
+                        searchPlaceholder="Pesquisar motivo"
                         options={activeReasons.map((item) => ({ value: String(item.id), label: item.name }))}
                         onChange={adjustment ? setReasonId : setOffReasonId}
                       />
