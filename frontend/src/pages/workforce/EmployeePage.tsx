@@ -1,24 +1,24 @@
-import { FormEvent, useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
+import { ArrowLeftRight, Briefcase, Building2, Calendar, CalendarDays, ClipboardList, Clock, FileText, Hash, History, IdCard, Landmark, Layers, Mail, Pencil, QrCode, ScanFace, Settings, Timer, Trash2, User, UserRound, Users, X, type LucideIcon } from "lucide-react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 
-import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
-import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { moduleTextClass } from "@/components/workforce/module-visual"
-import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
-import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { SiteSelect } from "@/components/ui/site-select"
+import { Spinner } from "@/components/ui/spinner"
+import { moduleDangerClass, moduleLabelClass, moduleQuietClass } from "@/components/workforce/module-visual"
+import { ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { PunchLists } from "@/components/workforce/PunchDay"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
-import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
+import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
-  createRecord,
   getRecord,
   listRecords,
-  uploadCertificatePhoto,
+  removeRecord,
   type Audit,
   type Employee,
   type NamedRecord,
@@ -27,17 +27,18 @@ import {
   type Vigency,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { cn } from "@/utils/cn"
 import { formatCpf } from "@/utils/digits"
 import {
   certificateText,
   clockMethodLabel,
-  manualTimeOffKinds,
   occurrenceKindLabel,
   periodText,
   punchOrigin,
   requestKindLabel,
   requestStatusClass,
   requestStatusLabel,
+  showClock,
   showDate,
   showDateTime,
   situationLabel,
@@ -45,24 +46,270 @@ import {
 } from "@/utils/labels"
 
 const tabs = [
-  ["data", "Dados"],
-  ["work", "Trabalho"],
-  ["punch", "Ponto"],
-  ["events", "Ocorrências"],
-  ["history", "Histórico"],
+  ["data", "Dados", User],
+  ["work", "Trabalho", Briefcase],
+  ["punch", "Ponto", Clock],
+  ["events", "Ocorrências", ClipboardList],
+  ["history", "Histórico", History],
 ] as const
 
-const links = [
-  ["job", "Cargo", "/jobs"],
-  ["journey", "Jornada", "/journeys"],
-  ["cost_center", "Centro de custo", "/cost-centers"],
-  ["team", "Equipe", "/teams"],
-  ["union", "Sindicato", "/unions"],
-  ["manager", "Gestor", "/employees"],
-] as const
+const fichaCardClass = "w-full min-w-0 rounded-[16px] border border-[#E6EBE8] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_rgba(16,24,40,0.06)] lg:p-6"
+const fichaFrameClass = "w-full min-w-0 space-y-5"
+function EmptyMark() {
+  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+}
+
+function shown(value: string) {
+  return value.trim() ? value : <EmptyMark />
+}
+
+function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+    </span>
+  )
+}
+
+function FieldTile({ icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none">
+      <FieldMark icon={icon} />
+      <div className="min-w-0">
+        <dt className="text-xs leading-4 text-[#64748B]">{label}</dt>
+        <dd className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</dd>
+      </div>
+    </div>
+  )
+}
+
+function requestInitials(fullName: string) {
+  const particles = new Set(["de", "da", "do", "dos", "das", "e"])
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part && !particles.has(part.toLocaleLowerCase("pt-BR")))
+  return parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toLocaleUpperCase("pt-BR"))
+    .join("")
+}
+
+function requestedPunchText(values: string[]) {
+  const dayFormat = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+  let dayShown = ""
+  return values
+    .map((value) => {
+      const clock = showClock(value)
+      if (!value) return clock
+      const day = dayFormat.format(new Date(value))
+      if (day === dayShown) return clock
+      dayShown = day
+      return `${day}, ${clock}`
+    })
+    .join(" -- ")
+}
+
+function EmployeeRequestCard({ item, person }: { item: TimeRequest; person: string }) {
+  const [open, setOpen] = useState(false)
+  const kindLabel = requestKindLabel[item.kind] || item.kind
+  const punches = requestedPunchText(item.punches ?? [])
+  const period = periodText(item)
+  const detail = item.kind === "adjustment" ? punches || "Nenhuma marcação pedida" : period === "—" ? "Sem período informado" : period
+  const certificate = certificateText(item)
+  const lead = item.kind === "adjustment" ? "Marcações pedidas: " : ""
+  const noteText = (item.note || "").replace(/\s+/g, " ").trim()
+  const truncated = noteText.length > 50
+  const notePreview = truncated ? noteText.slice(0, 50) : noteText
+  const history = item.events.map((event) => requestStatusLabel[event.status] || event.status).join(" → ") || requestStatusLabel[item.status] || item.status
+  const pendingNote = item.status === "pending" ? (item.kind === "adjustment" ? "Pendente. Não altera as marcações que valem." : "Pendente. Não altera o ponto.") : ""
+  const description = [lead + detail, certificate, item.note || ""].filter((part) => part.trim()).join("\n")
+
+  return (
+    <li className="min-w-0 overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
+      <div className="flex flex-col gap-3 lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <RequestPerson person={person} kindLabel={kindLabel} />
+          <RequestStatus status={item.status} />
+        </div>
+        <RequestDetail lead={lead} detail={detail} certificate={certificate} notePreview={notePreview} truncated={truncated} photo={item.photo_url} pendingNote={pendingNote} onOpen={() => setOpen(true)} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <RequestOrigin />
+          <RequestHistory history={history} />
+        </div>
+      </div>
+      <div className="hidden min-w-0 items-center lg:flex">
+        <div className="w-[22%] min-w-0 shrink-0 pr-4">
+          <RequestPerson person={person} kindLabel={kindLabel} />
+        </div>
+        <div className="min-w-0 flex-1 overflow-hidden border-l border-[#F0F0F2] px-4">
+          <RequestDetail lead={lead} detail={detail} certificate={certificate} notePreview={notePreview} truncated={truncated} photo={item.photo_url} pendingNote={pendingNote} onOpen={() => setOpen(true)} />
+        </div>
+        <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">
+          <RequestOrigin />
+        </div>
+        <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">
+          <RequestHistory history={history} />
+        </div>
+        <div className="shrink-0 pl-4">
+          <RequestStatus status={item.status} />
+        </div>
+      </div>
+      <EmployeeNoteDialog text={open ? description : null} title="Solicitação" onClose={() => setOpen(false)} />
+    </li>
+  )
+}
+
+function RequestPerson({ person, kindLabel }: { person: string; kindLabel: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.12)] text-sm font-semibold text-[#146C2E]">{requestInitials(person) || "?"}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-[#0A0A0A]" title={person}>
+          {person}
+        </span>
+        <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{kindLabel}</span>
+      </span>
+    </div>
+  )
+}
+
+function RequestStatus({ status }: { status: string }) {
+  return <span className={cn("inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold", requestStatusClass(status))}>{requestStatusLabel[status] || status}</span>
+}
+
+function RequestDetail({
+  lead,
+  detail,
+  certificate,
+  notePreview,
+  truncated,
+  photo,
+  pendingNote,
+  onOpen,
+}: {
+  lead: string
+  detail: string
+  certificate: string
+  notePreview: string
+  truncated: boolean
+  photo: string | null
+  pendingNote: string
+  onOpen: () => void
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2">
+      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <p className="min-w-0 text-sm leading-5 text-[#52525B] [overflow-wrap:anywhere]">
+          {lead ? <span className="text-[#71717A]">{lead}</span> : null}
+          {detail}
+          {certificate ? ` · ${certificate}` : ""}
+          {notePreview ? ` ${notePreview}` : ""}
+          {truncated ? (
+            <button type="button" className="ml-1 inline text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" onClick={onOpen}>
+              Ver mais
+            </button>
+          ) : photo ? (
+            <>
+              {" "}
+              <DocumentLink href={photo} />
+            </>
+          ) : null}
+        </p>
+        {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
+      </div>
+    </div>
+  )
+}
+
+function RequestOrigin() {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <FileText className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+      <div className="min-w-0">
+        <p className="text-[11px] text-[#94A3B8]">Origem</p>
+        <p className="truncate text-sm text-[#52525B]">solicitação</p>
+      </div>
+    </div>
+  )
+}
+
+function RequestHistory({ history }: { history: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+      <p className="min-w-0 truncate text-sm text-[#52525B]" title={history || undefined}>
+        {history}
+      </p>
+    </div>
+  )
+}
+
+function EmployeeNoteDialog({ text, title = "Observação", onClose }: { text: string | null; title?: string; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  useEffect(() => {
+    if (!text) {
+      return
+    }
+    panelRef.current?.querySelector<HTMLElement>("button")?.focus()
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        closeRef.current()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [text])
+
+  if (!text) {
+    return null
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="employee-note-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)]">
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="employee-note-title" className="text-lg font-semibold text-[#111827]">
+            {title}
+          </h2>
+          <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#111827] [overflow-wrap:anywhere]">{text}</p>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
 
 export function EmployeePage() {
   const params = useParams()
+  const navigate = useNavigate()
   const id = Number(params.id)
   const role = useAuthStore((state) => state.user?.role)
   const isAdmin = role === "admin"
@@ -80,7 +327,6 @@ export function EmployeePage() {
   const events = usePagedList<Occurrence>("/occurrences", { employee_id: id, ...(eventKind ? { kind: eventKind } : {}) }, ready, saved)
   const inbox = usePagedList<TimeRequest>("/requests", { employee_id: id, ...(requestKind ? { kind: requestKind } : {}), ...(requestState ? { status: requestState } : {}) }, ready, saved)
   const trail = usePagedList<Audit>("/audits", { employee_id: id }, ready && isAdmin, saved)
-  const [choices, setChoices] = useState<{ value: string; label: string }[]>([])
   const [error, setError] = useState("")
   const [fullName, setFullName] = useState("")
   const [cpf, setCpf] = useState("")
@@ -89,19 +335,8 @@ export function EmployeePage() {
   const [note, setNote] = useState("")
   const [hourBank, setHourBank] = useState(false)
   const [registration, setRegistration] = useState("")
-  const [kind, setKind] = useState("job")
-  const [referenceId, setReferenceId] = useState("")
-  const [statusLabel, setStatusLabel] = useState("active")
-  const [validFrom, setValidFrom] = useState("")
-  const [vigencyNote, setVigencyNote] = useState("")
-  const [occurrenceKind, setOccurrenceKind] = useState(role === "manager" ? "allowance" : "absence")
-  const [offDraft, setOffDraft] = useState<TimeOffDraft>(emptyTimeOff)
-  const [offFileKey, setOffFileKey] = useState(0)
-  const [startsOn, setStartsOn] = useState("")
-  const [endsOn, setEndsOn] = useState("")
-  const [reasonId, setReasonId] = useState("")
-  const [occurrenceNote, setOccurrenceNote] = useState("")
-  const [reasons, setReasons] = useState<NamedRecord[]>([])
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
 
   async function load() {
     const [person, links, journeyPage] = await Promise.all([
@@ -124,6 +359,8 @@ export function EmployeePage() {
 
   useEffect(() => {
     let active = true
+    setEmployee(null)
+    setError("")
     load()
       .catch((caught: unknown) => {
         if (active) {
@@ -135,352 +372,423 @@ export function EmployeePage() {
     }
   }, [id])
 
-  useEffect(() => {
-    if (kind === "status") {
-      return
-    }
-    const target = links.find((item) => item[0] === kind)
-    if (!target) {
-      return
-    }
-    listRecords<NamedRecord | Employee>(target[2], { page: 1, limit: 100 })
-      .then((page) => {
-        setChoices(
-          page.items
-            .filter((item) => kind !== "manager" || item.id !== id)
-            .map((item) => ({
-              value: String(item.id),
-              label: "full_name" in item ? item.full_name : item.name,
-            })),
-        )
-      })
-      .catch((caught: unknown) => {
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
-      })
-  }, [kind, id])
-
-  useEffect(() => {
-    const reasonKind = occurrenceKind === "vacation" || occurrenceKind === "leave" || occurrenceKind === "punch_entry" ? "" : occurrenceKind
-    if (!reasonKind) {
-      setReasons([])
-      return
-    }
-    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true })
-      .then((page) => setReasons(page.items))
-      .catch(() => setReasons([]))
-  }, [occurrenceKind])
-
-  async function saveVigency(event: FormEvent) {
-    event.preventDefault()
+  async function removeEmployee() {
     setError("")
     try {
-      await createRecord("/employee-vigencies", {
-        employee_id: id,
-        kind,
-        reference_id: kind === "status" ? null : Number(referenceId),
-        label: kind === "status" ? statusLabel : null,
-        valid_from: validFrom,
-        note: vigencyNote.trim() || null,
-      })
-      setReferenceId("")
-      setVigencyNote("")
-      await load()
+      await removeRecord("/employees", id)
+      navigate("/people")
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
-    }
-  }
-
-  async function saveOccurrence(event: FormEvent) {
-    event.preventDefault()
-    setError("")
-    try {
-      const manual = manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number])
-      const span: Record<string, unknown> = manual ? timeOffBody(offDraft, occurrenceKind) : { starts_on: startsOn, ends_on: endsOn || null }
-      if (manual && occurrenceKind === "certificate" && offDraft.photo) {
-        span.photo_key = (await uploadCertificatePhoto(offDraft.photo)).key
-      }
-      await createRecord("/occurrences", {
-        employee_id: id,
-        kind: occurrenceKind,
-        ...span,
-        reason_id: reasonId ? Number(reasonId) : null,
-        note: occurrenceNote.trim() || null,
-      })
-      setOccurrenceNote("")
-      setOffDraft(emptyTimeOff())
-      setOffFileKey((current) => current + 1)
-      await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+      setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
     }
   }
 
   const journey = vigencies.find((item) => item.kind === "journey" && item.valid_to === null)
   const schedule = journeys.find((item) => item.id === journey?.reference_id)
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <BackLink to="/people" />
-      <div>
-        <h2 className="text-xl font-semibold">{employee?.full_name || "Funcionário"}</h2>
-        <p className="text-sm text-muted-foreground">
-          {situationLabel[employee?.situation || ""] || "Sem situação"}
-          {employee?.job_label ? ` · ${employee.job_label}` : ""}
-        </p>
+  if (!employee) {
+    return (
+      <div className={fichaFrameClass}>
+        <BackLink to="/people" appearance="detail" />
+        {error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : (
+          <section className={cn(fichaCardClass, "flex min-h-[280px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+            <Spinner label="Carregando a ficha" className="h-8 w-8 text-[#1E8A3A]" />
+            <p className="text-sm font-medium text-[#64748B]">Carregando a ficha</p>
+          </section>
+        )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {tabs.map(([value, label]) => (
-          <Button key={value} type="button" size="sm" variant={tab === value ? "default" : "outline"} onClick={() => setTab(value)}>
+    )
+  }
+
+  const personName = employee.full_name || "Funcionário"
+  const personParts = personName.trim().split(/\s+/).filter(Boolean)
+  const personInitials = personParts.length === 0 ? "?" : personParts.length === 1 ? personParts[0].slice(0, 2).toUpperCase() : `${personParts[0][0]}${personParts[personParts.length - 1][0]}`.toUpperCase()
+  const situation = situationLabel[employee.situation || ""] || "Sem situação"
+  const clockLabel = clockMethodLabel[employee.clock_method] || employee.clock_method
+  const ClockIcon = employee.clock_method === "face" ? ScanFace : employee.clock_method === "qr" ? QrCode : User
+  const noteText = note.trim()
+  const noteLong = noteText.length > 160 || noteText.split("\n").length > 3
+
+  return (
+    <div className={fichaFrameClass}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <BackLink to="/people" appearance="detail" />
+        {isAdmin ? (
+          confirmDelete ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="text-sm text-[#111827]">Excluir {personName}?</span>
+              <Button type="button" className={moduleDangerClass} onClick={removeEmployee}>
+                Excluir
+              </Button>
+              <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setConfirmDelete(false)}>
+                Cancelar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-[#E2E8F0] bg-white px-3.5 text-sm font-semibold text-[#111827] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
+                <Link to={`/people/${id}/edit`}>
+                  <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                  Editar
+                </Link>
+              </Button>
+              <Button type="button" variant="outline" className="h-10 gap-2 rounded-[10px] border-[rgba(239,83,80,0.35)] bg-white px-3.5 text-sm font-semibold text-[#EF5350] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color] duration-200 hover:bg-[rgba(239,83,80,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EF5350]/30 motion-reduce:transition-none" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                Excluir
+              </Button>
+            </div>
+          )
+        ) : null}
+      </div>
+      <section className="relative min-h-[120px] w-full min-w-0 overflow-hidden rounded-[16px] border border-[#D7E8DC] bg-[linear-gradient(105deg,#F7FCF8_0%,#E7F6EC_46%,#D4EFD9_100%)] px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_rgba(16,24,40,0.06)] md:px-6">
+        <span className="pointer-events-none absolute right-8 top-1/2 hidden h-[72px] w-[72px] -translate-y-1/2 md:block" aria-hidden>
+          <span className="absolute left-1/2 top-1/2 h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#8ED4A8_0%,rgba(142,212,168,0.45)_38%,rgba(142,212,168,0)_72%)] blur-xl" />
+          <span className="absolute left-1/2 top-1/2 h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#7DCAA0_0%,rgba(125,202,160,0.35)_55%,rgba(125,202,160,0)_78%)] blur-md" />
+          <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#E7F6EC] text-[#1E8A3A] shadow-[0_0_28px_rgba(30,138,58,0.22)]">
+            <User className="h-8 w-8" strokeWidth={1.75} />
+          </span>
+        </span>
+        <div className="relative flex min-w-0 items-center gap-4 md:pr-36">
+          <span className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-full border-2 border-[#BFE6CB] bg-[#DDF3E4] text-[22px] font-bold text-[#086B35]" aria-hidden>
+            {personInitials}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="break-words text-[22px] font-bold leading-none text-[#111827]">{personName}</h2>
+              <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full border bg-white px-2.5 text-[13px] font-semibold leading-none shadow-[0_1px_4px_rgba(16,24,40,0.06)]", employee.situation === "active" ? "border-[#8ED4A8] text-[#086B35]" : "border-[#E2E8F0] text-[#475569]")}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", employee.situation === "active" ? "bg-[#1E8A3A]" : "bg-[#94A3B8]")} aria-hidden />
+                {situation}
+              </span>
+            </div>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm leading-5 text-[#64748B]">
+              <span className="inline-flex items-center gap-1.5">
+                <ClockIcon className="h-4 w-4 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
+                {clockLabel ? clockLabel : "Não informado"}
+              </span>
+              <span aria-hidden>·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
+                {employee.admission_date ? `Admissão em ${showDate(employee.admission_date)}` : "Admissão não informada"}
+              </span>
+            </p>
+          </div>
+        </div>
+      </section>
+      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist">
+        {tabs.map(([value, label, Icon]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            className={cn(
+              "inline-flex h-[42px] shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3.5 text-sm font-semibold transition-[background-color,border-color,color,box-shadow] duration-200 motion-reduce:transition-none",
+              tab === value
+                ? "border-[#1E8A3A] bg-[#1E8A3A] text-white shadow-[0_4px_10px_rgba(30,138,58,0.25)]"
+                : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35]",
+            )}
+            onClick={() => setTab(value)}
+          >
+            <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             {label}
-          </Button>
+          </button>
         ))}
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div key={tab} className="motion-safe:animate-[ficha-fade_200ms_ease-out]">
       {tab === "data" ? (
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={fullName} readOnly />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cpf">CPF</Label>
-            <Input id="cpf" value={cpf} readOnly />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" value={email} readOnly />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="admission">Admissão</Label>
-            <input id="admission" className={fieldClass} type="date" value={admission} readOnly />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="registration">Matrícula</Label>
-            <Input id="registration" value={registration} readOnly />
-            <p className="text-sm text-muted-foreground">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
-          </div>
-          <p className="text-sm">
-            Tipo de registro: {clockMethodLabel[employee?.clock_method || ""] || "Simples"}
-            {employee?.face_url ? (
-              <>
-                {" · "}
-                <DocumentLink href={employee.face_url} label="Ver foto de referência" />
-              </>
-            ) : null}
-          </p>
-          <p className="text-sm">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</p>
-          <div className="space-y-2">
-            <Label htmlFor="note">Observação</Label>
-            <textarea id="note" className={moduleTextClass} value={note} readOnly />
-          </div>
+          <section className={fichaCardClass}>
+            <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
+              <FieldMark icon={User} />
+              <h2 className="text-[17px] font-bold text-[#111827]">Informações principais</h2>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
+              <FieldTile icon={User} label="Nome">{shown(fullName)}</FieldTile>
+              <FieldTile icon={IdCard} label="CPF">{shown(cpf)}</FieldTile>
+              <FieldTile icon={Mail} label="E-mail">{shown(email)}</FieldTile>
+              <FieldTile icon={CalendarDays} label="Admissão">{admission ? showDate(admission) : <EmptyMark />}</FieldTile>
+              <FieldTile icon={Hash} label="Matrícula">{shown(registration)}</FieldTile>
+              <FieldTile icon={ClockIcon} label="Tipo de registro">
+                {clockLabel || <EmptyMark />}
+                {employee.face_url ? (
+                  <>
+                    {" · "}
+                    <DocumentLink href={employee.face_url} label="Ver foto de referência" />
+                  </>
+                ) : null}
+              </FieldTile>
+            </dl>
+            <p className="mt-3 text-xs leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
+          </section>
+          <section className={fichaCardClass}>
+            <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
+              <FieldMark icon={Settings} />
+              <h2 className="text-[17px] font-bold text-[#111827]">Informações complementares</h2>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
+              <FieldTile icon={Timer} label="Banco de horas">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</FieldTile>
+              <FieldTile icon={FileText} label="Observação">
+                <span className={cn("block whitespace-pre-wrap", noteLong && "line-clamp-3")}>{noteText ? noteText : <EmptyMark />}</span>
+                {noteLong ? (
+                  <button type="button" className="mt-1 text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" onClick={() => setNoteOpen(true)}>
+                    Ver mais
+                  </button>
+                ) : null}
+              </FieldTile>
+            </dl>
+          </section>
         </div>
       ) : null}
       {tab === "work" ? (
         <div className="space-y-4">
-          <ul className="grid gap-2 text-sm">
-            <li>Cargo: {employee?.job_label || "Não possui"}</li>
-            <li>Jornada: {employee?.journey_label || "Não possui"}</li>
-            <li>Centro de custo: {employee?.cost_center_label || "Não possui"}</li>
-            <li>Unidade: {employee?.unit_label || "Não possui"}</li>
-            <li>Setor: {employee?.sector_label || "Não possui"}</li>
-            <li>Equipe: {employee?.team_label || "Não possui"}</li>
-            <li>Sindicato: {employee?.union_label || "Não possui"}</li>
-            <li>Gestor: {employee?.manager_label || "Não possui"}</li>
-          </ul>
-          <p className="text-sm text-muted-foreground">Unidade e setor acompanham a equipe.</p>
-          {isAdmin ? (
-            <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveVigency}>
-              <div className="space-y-2">
-                <Label htmlFor="kind">Vínculo</Label>
-                <select id="kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
-                  {links.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                  <option value="status">Situação</option>
-                </select>
-              </div>
-              {kind === "status" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="status">Situação</Label>
-                  <select id="status" className={fieldClass} value={statusLabel} onChange={(event) => setStatusLabel(event.target.value)}>
-                    <option value="active">Ativo</option>
-                    <option value="dismissed">Desligado</option>
-                  </select>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="reference">Cadastro</Label>
-                  <select id="reference" className={fieldClass} value={referenceId} onChange={(event) => setReferenceId(event.target.value)} required>
-                    <option value="">Selecione</option>
-                    {choices.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="from">Vigência a partir de</Label>
-                <input id="from" className={fieldClass} type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vnote">Observação</Label>
-                <textarea id="vnote" className={moduleTextClass} value={vigencyNote} onChange={(event) => setVigencyNote(event.target.value)} />
-              </div>
-              <Button type="submit">Registrar vigência</Button>
-            </ActionForm>
-          ) : null}
+          <section className={fichaCardClass}>
+            <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
+              <FieldMark icon={Briefcase} />
+              <h2 className="text-[17px] font-bold text-[#111827]">Trabalho</h2>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
+              {(
+                [
+                  [Briefcase, "Cargo", employee.job_label],
+                  [Clock, "Jornada", employee.journey_label],
+                  [Building2, "Centro de custo", employee.cost_center_label],
+                  [Building2, "Unidade", employee.unit_label],
+                  [Layers, "Setor", employee.sector_label],
+                  [Users, "Equipe", employee.team_label],
+                  [Landmark, "Sindicato", employee.union_label],
+                  [UserRound, "Gestor", employee.manager_label],
+                ] as const
+              ).map(([icon, label, value]) => (
+                <FieldTile key={label} icon={icon} label={label}>
+                  {value?.trim() ? value : <EmptyMark />}
+                </FieldTile>
+              ))}
+            </dl>
+            <p className="mt-4 text-sm text-[#64748B]">Unidade e setor acompanham a equipe.</p>
+          </section>
         </div>
       ) : null}
       {tab === "punch" ? (
         <div className="space-y-4">
-          <section className="rounded-md border border-border bg-card px-4 py-3 text-sm">
-            <h2 className="font-medium">Jornada prevista</h2>
-            <p className="mt-1 text-muted-foreground">
-              {schedule
-                ? `${schedule.name}: ${schedule.morning_start || "—"}–${schedule.morning_end || "—"} / ${schedule.afternoon_start || "—"}–${schedule.afternoon_end || "—"}`
-                : "Nenhuma jornada vigente."}
-            </p>
+          <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <h2 className="text-lg font-semibold text-brand-ink">Jornada prevista</h2>
+            <p className="mt-1 text-sm text-brand-quiet">Horários da jornada vigente.</p>
+            {schedule ? (
+              <>
+                <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-12">
+                  <div className="sm:w-72 sm:shrink-0">
+                    <p className="text-sm text-brand-muted">Nome</p>
+                    <p className="mt-1 font-semibold text-brand-ink">{schedule.name}</p>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-brand-muted">Observação</p>
+                    <p className="mt-1 text-sm text-brand-quiet">{schedule.note?.trim() ? schedule.note : "Nenhuma observação informada."}</p>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold text-brand-ink">Horários</h3>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-brand-cta">{schedule.name}</span>
+                </div>
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {(
+                    [
+                      ["01", "Manhã", "Entrada manhã", schedule.morning_start],
+                      ["02", "Manhã", "Saída manhã", schedule.morning_end],
+                      ["03", "Tarde", "Entrada tarde", schedule.afternoon_start],
+                      ["04", "Tarde", "Saída tarde", schedule.afternoon_end],
+                    ] as const
+                  ).map(([step, period, label, value]) => (
+                    <div key={label} className="rounded-xl border border-[#E4E4E7] bg-white px-4 py-4">
+                      <p className="text-xs font-semibold text-brand-cta">
+                        {step} · {period}
+                      </p>
+                      <p className="mt-2 text-sm text-brand-muted">{label}</p>
+                      <p className="mt-1 text-2xl font-bold tracking-tight text-brand-ink">{value ? value.slice(0, 5) : "—"}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="mt-5 rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center text-sm text-brand-quiet">Nenhuma jornada vigente.</p>
+            )}
           </section>
-          <TimeResultsPanel employeeId={id} />
-          {employee ? <HourBankPanel employeeId={id} canLaunch={isAdmin || role === "manager"} usesBank={employee.hour_bank} /> : null}
-          {isAdmin ? <PunchCorrectionForm employeeId={id} onSaved={async () => setSaved((current) => current + 1)} /> : null}
-          <PunchLists employeeId={id} reloadKey={saved} />
-          <section className="space-y-3 text-sm">
-            <h2 className="font-medium">Solicitações</h2>
-            <p className="text-muted-foreground">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
-            <div className="flex flex-wrap gap-3">
-              <FilterSelect id="employee-request-kind" label="Tipo" value={requestKind} options={Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))} onChange={setRequestKind} />
-              <FilterSelect id="employee-request-status" label="Situação" value={requestState} options={Object.entries(requestStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setRequestState} />
+          <TimeResultsPanel employeeId={id} appearance="module" />
+          <HourBankPanel employeeId={id} canLaunch={false} usesBank={employee.hour_bank} appearance="module" />
+          <PunchLists employeeId={id} employees={[employee]} reloadKey={saved} appearance="module" />
+          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <h2 className="text-lg font-semibold text-brand-ink">Solicitações</h2>
+            <p className="mt-1 text-sm text-brand-quiet">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <Label className={moduleLabelClass} htmlFor="employee-request-kind">
+                  Tipo
+                </Label>
+                <SiteSelect id="employee-request-kind" value={requestKind} icon={FileText} options={[{ value: "", label: "Todos" }, ...Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setRequestKind} />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <Label className={moduleLabelClass} htmlFor="employee-request-status">
+                  Situação
+                </Label>
+                <SiteSelect id="employee-request-status" value={requestState} icon={Layers} options={[{ value: "", label: "Todos" }, ...Object.entries(requestStatusLabel).map(([value, label]) => ({ value, label }))]} onChange={setRequestState} />
+              </div>
             </div>
-            {inbox.error ? <p className="text-destructive">{inbox.error}</p> : null}
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-              {inbox.items.map((item) => (
-                <li key={item.id} className="px-4 py-3">
-                  {requestKindLabel[item.kind] || item.kind}{" "}
-                  <span className={`ml-1 rounded-full px-2.5 py-1 text-xs font-semibold ${requestStatusClass(item.status)}`}>{requestStatusLabel[item.status] || item.status}</span>
-                  {item.kind === "adjustment" && item.punches.length > 0 ? ` · ${item.punches.map((value) => showDateTime(value)).join(", ")}` : ""}
-                  {item.kind !== "adjustment" ? ` · ${periodText(item)}` : ""}
-                  {certificateText(item) ? ` · ${certificateText(item)}` : ""}
-                  {item.status === "approved" ? ` · ${punchOrigin("approved_request")}` : ""}
-                </li>
-              ))}
-              {inbox.items.length === 0 ? <ListPlaceholder loading={inbox.loading} empty="Nenhuma solicitação." /> : null}
-            </ul>
-            <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} />
+            {inbox.error ? <p className="mt-4 text-sm text-destructive">{inbox.error}</p> : null}
+            {inbox.loading ? (
+              <ul className="mt-5">
+                <ListPlaceholder loading empty="Nenhuma solicitação." />
+              </ul>
+            ) : null}
+            {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+                  <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+                </span>
+                <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
+                <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
+              </div>
+            ) : null}
+            {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
+              <ul className="mt-5 flex flex-col gap-3">
+                {inbox.items.map((item) => (
+                  <EmployeeRequestCard key={item.id} item={item} person={employee.full_name} />
+                ))}
+              </ul>
+            ) : null}
+            {!inbox.loading && !inbox.error && inbox.total > 0 ? (
+              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+                <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}
       {tab === "events" ? (
         <div className="space-y-4">
-          {isAdmin || role === "manager" ? (
-            <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={saveOccurrence}>
-              <p className="text-sm text-muted-foreground">Abono, atestado, afastamento e férias lançados aqui têm origem manual.</p>
-              <div className="space-y-2">
-                <Label htmlFor="okind">Tipo</Label>
-                <select id="okind" className={fieldClass} value={occurrenceKind} onChange={(event) => setOccurrenceKind(event.target.value)}>
-                  {Object.entries(occurrenceKindLabel)
-                    .filter(([value]) => isAdmin || manualTimeOffKinds.includes(value as (typeof manualTimeOffKinds)[number]))
-                    .map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                </select>
+          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <div>
+              <h2 className="text-lg font-semibold text-brand-ink">Ocorrências</h2>
+              <p className="mt-1 text-sm text-brand-quiet">Consulte as ocorrências deste funcionário.</p>
+            </div>
+            <div className="mt-[18px] max-w-md space-y-2">
+              <Label className="font-semibold text-brand-ink" htmlFor="employee-event-kind">
+                Tipo
+              </Label>
+              <SiteSelect id="employee-event-kind" value={eventKind} icon={ClipboardList} options={[{ value: "", label: "Todos" }, ...Object.entries(occurrenceKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setEventKind} />
+            </div>
+            {events.error ? <p className="mt-4 text-sm text-destructive">{events.error}</p> : null}
+            {events.loading ? (
+              <ul className="mt-5">
+                <ListPlaceholder loading empty="Nenhuma ocorrência." />
+              </ul>
+            ) : null}
+            {!events.loading && !events.error && events.items.length === 0 ? (
+              <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+                <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma ocorrência.</p>
               </div>
-              {manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number]) ? (
-                <TimeOffFields idPrefix="employee-off" kind={occurrenceKind} draft={offDraft} fileKey={offFileKey} onChange={setOffDraft} />
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="start">De</Label>
-                    <input id="start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end">Até</Label>
-                    <input id="end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
-                  </div>
-                </>
-              )}
-              {reasons.length > 0 ? (
-                <div className="space-y-2">
-                  <Label htmlFor="reason">Motivo</Label>
-                  <select id="reason" className={fieldClass} value={reasonId} onChange={(event) => setReasonId(event.target.value)} required>
-                    <option value="">Selecione</option>
-                    {reasons.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-              <div className="space-y-2">
-                <Label htmlFor="onote">Observação</Label>
-                <textarea id="onote" className={moduleTextClass} value={occurrenceNote} onChange={(event) => setOccurrenceNote(event.target.value)} />
+            ) : null}
+            {!events.loading && events.items.length > 0 ? (
+              <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+                {events.items.map((item) => (
+                  <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
+                    {occurrenceKindLabel[item.kind] || item.kind} · {periodText(item)} · {punchOrigin(item.source)}
+                    {certificateText(item) ? ` · ${certificateText(item)}` : ""}
+                    {item.note ? ` · ${item.note}` : ""}
+                    {item.warning ? ` · ${item.warning}` : ""}
+                    {item.photo_url ? (
+                      <>
+                        {" · "}
+                        <DocumentLink href={item.photo_url} />
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!events.loading && !events.error && events.total > 0 ? (
+              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+                <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} tone="module" />
               </div>
-              <Button type="submit">Registrar ocorrência</Button>
-            </ActionForm>
-          ) : null}
-          <div className="flex flex-wrap gap-3">
-            <FilterSelect id="employee-event-kind" label="Tipo" value={eventKind} options={Object.entries(occurrenceKindLabel).map(([value, label]) => ({ value, label }))} onChange={setEventKind} />
-          </div>
-          {events.error ? <p className="text-sm text-destructive">{events.error}</p> : null}
-          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {events.items.map((item) => (
-              <li key={item.id} className="px-4 py-3 text-sm">
-                {occurrenceKindLabel[item.kind] || item.kind} · {periodText(item)} · {punchOrigin(item.source)}
-                {certificateText(item) ? ` · ${certificateText(item)}` : ""}
-                {item.note ? ` · ${item.note}` : ""}
-                {item.warning ? ` · ${item.warning}` : ""}
-                {item.photo_url ? (
-                  <>
-                    {" · "}
-                    <DocumentLink href={item.photo_url} />
-                  </>
-                ) : null}
-              </li>
-            ))}
-            {events.items.length === 0 ? <ListPlaceholder loading={events.loading} empty="Nenhuma ocorrência." /> : null}
-          </ul>
-          <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} />
+            ) : null}
+          </section>
         </div>
       ) : null}
       {tab === "history" ? (
         <div className="space-y-4">
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium">Vigências</h2>
-            <FilterSelect id="employee-vigency-kind" label="Vínculo" value={historyKind} options={Object.entries(vigencyKindLabel).map(([value, label]) => ({ value, label }))} onChange={setHistoryKind} />
-            {history.error ? <p className="text-sm text-destructive">{history.error}</p> : null}
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-              {history.items.map((item) => (
-                <li key={item.id} className="px-4 py-3 text-sm">
-                  {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}
-                </li>
-              ))}
-              {history.items.length === 0 ? <ListPlaceholder loading={history.loading} empty="Nenhuma vigência." /> : null}
-            </ul>
-            <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} />
+          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <div>
+              <h2 className="text-lg font-semibold text-brand-ink">Vigências</h2>
+              <p className="mt-1 text-sm text-brand-quiet">Consulte os vínculos deste funcionário.</p>
+            </div>
+            <div className="mt-[18px] max-w-md space-y-2">
+              <Label className="font-semibold text-brand-ink" htmlFor="employee-vigency-kind">
+                Vínculo
+              </Label>
+              <SiteSelect id="employee-vigency-kind" value={historyKind} icon={Layers} options={[{ value: "", label: "Todos" }, ...Object.entries(vigencyKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setHistoryKind} />
+            </div>
+            {history.error ? <p className="mt-4 text-sm text-destructive">{history.error}</p> : null}
+            {history.loading ? (
+              <ul className="mt-5">
+                <ListPlaceholder loading empty="Nenhuma vigência." />
+              </ul>
+            ) : null}
+            {!history.loading && !history.error && history.items.length === 0 ? (
+              <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+                <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma vigência.</p>
+              </div>
+            ) : null}
+            {!history.loading && history.items.length > 0 ? (
+              <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+                {history.items.map((item) => (
+                  <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
+                    {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!history.loading && !history.error && history.total > 0 ? (
+              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+                <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} tone="module" />
+              </div>
+            ) : null}
           </section>
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium">Auditoria</h2>
-            {trail.error ? <p className="text-sm text-destructive">{trail.error}</p> : null}
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-              {trail.items.map((item) => (
-                <li key={item.id} className="px-4 py-3 text-sm">
-                  {showDateTime(item.created_at)} · pessoa {item.person_id} · {item.action}
-                  {item.previous_label ? ` · de ${item.previous_label}` : ""} {item.new_label ? `para ${item.new_label}` : ""}
-                </li>
-              ))}
-              {trail.items.length === 0 ? <ListPlaceholder loading={trail.loading} empty="Nenhuma auditoria." /> : null}
-            </ul>
-            <ListPager page={trail.page} pageSize={trail.pageSize} total={trail.total} onPage={trail.setPage} onPageSize={trail.setPageSize} />
+          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <div>
+              <h2 className="text-lg font-semibold text-brand-ink">Auditoria</h2>
+              <p className="mt-1 text-sm text-brand-quiet">Consulte as alterações registradas.</p>
+            </div>
+            {trail.error ? <p className="mt-4 text-sm text-destructive">{trail.error}</p> : null}
+            {trail.loading ? (
+              <ul className="mt-5">
+                <ListPlaceholder loading empty="Nenhuma auditoria." />
+              </ul>
+            ) : null}
+            {!trail.loading && !trail.error && trail.items.length === 0 ? (
+              <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+                <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma auditoria.</p>
+              </div>
+            ) : null}
+            {!trail.loading && trail.items.length > 0 ? (
+              <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+                {trail.items.map((item) => (
+                  <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
+                    {showDateTime(item.created_at)} · pessoa {item.person_id} · {item.action}
+                    {item.previous_label ? ` · de ${item.previous_label}` : ""} {item.new_label ? `para ${item.new_label}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!trail.loading && !trail.error && trail.total > 0 ? (
+              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+                <ListPager page={trail.page} pageSize={trail.pageSize} total={trail.total} onPage={trail.setPage} onPageSize={trail.setPageSize} tone="module" />
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}
+      </div>
+      <EmployeeNoteDialog text={noteOpen ? noteText : null} onClose={() => setNoteOpen(false)} />
     </div>
   )
 }

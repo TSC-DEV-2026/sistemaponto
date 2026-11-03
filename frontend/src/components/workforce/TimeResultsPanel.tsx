@@ -49,7 +49,7 @@ export function TimeResultsPanel({
   appearance?: "module"
 }) {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const saved = appearance === "module" ? readApuracaoQuery(tenantId) : null
+  const saved = appearance === "module" && employeeId == null ? readApuracaoQuery(tenantId) : null
   const returning = Boolean(saved?.scrollPending)
   const [selected, setSelected] = useState(returning && saved ? String(saved.employeeId) : "")
   const [startsOn, setStartsOn] = useState(returning && saved ? saved.startsOn : `${today().slice(0, 8)}01`)
@@ -59,7 +59,7 @@ export function TimeResultsPanel({
   const [error, setError] = useState("")
 
   useEffect(() => {
-    if (appearance !== "module") return
+    if (appearance !== "module" || employeeId != null) return
     const query = readApuracaoQuery(tenantId)
     if (!query?.scrollPending) {
       setSelected("")
@@ -77,7 +77,7 @@ export function TimeResultsPanel({
       saveApuracaoQuery({ ...current, scrollY: 0, scrollPending: false })
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [appearance, tenantId])
+  }, [appearance, employeeId, tenantId])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()

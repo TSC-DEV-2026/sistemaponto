@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Clock, Eye, Pencil, Plus, QrCode, Save, Search, Trash2 } from "lucide-react"
+import { Briefcase, Building2, ChevronDown, ChevronUp, Clock, Eye, Pencil, Plus, QrCode, Save, Search, Trash2, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { authInputClass } from "@/components/auth-screen"
@@ -10,6 +10,7 @@ import { TimePickerField } from "@/components/ui/time-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
+import { Spinner } from "@/components/ui/spinner"
 import { fieldClass, optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
@@ -75,6 +76,58 @@ function JourneySearch({ id, value, onChange, onSearch }: { id: string; value: s
   )
 }
 
+function PeopleSearch({ id, value, placeholder, onChange, onSearch }: { id: string; value: string; placeholder: string; onChange: (value: string) => void; onSearch: () => void }) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="min-w-0 flex-1 space-y-2">
+        <Label className={moduleLabelClass} htmlFor={id}>
+          Pesquisar
+        </Label>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+          <Input
+            id={id}
+            value={value}
+            placeholder={placeholder}
+            className={cn(moduleFieldClass, "pl-10")}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return
+              event.preventDefault()
+              onSearch()
+            }}
+          />
+        </div>
+      </div>
+      <Button type="button" className={cn(modulePrimaryClass, "h-12 shrink-0")} onClick={onSearch}>
+        <Search className="h-4 w-4" />
+        Pesquisar
+      </Button>
+    </div>
+  )
+}
+
+function initialsOf(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}
+
+function asEmployee(item: object): Employee | null {
+  if ("full_name" in item && "cpf" in item && "admission_date" in item) return item as Employee
+  return null
+}
+
+function SortArrows({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  return (
+    <span className="inline-flex flex-col" aria-hidden>
+      <ChevronUp className={cn("h-3.5 w-3.5", active && dir === "asc" ? "text-[#1E8A3A]" : "text-[#CBD5E1]")} strokeWidth={2.5} />
+      <ChevronDown className={cn("-mt-1.5 h-3.5 w-3.5", active && dir === "desc" ? "text-[#1E8A3A]" : "text-[#CBD5E1]")} strokeWidth={2.5} />
+    </span>
+  )
+}
+
 function blankForm(fields: CatalogField[]) {
   const next: Record<string, string> = {}
   for (const field of fields) {
@@ -105,12 +158,14 @@ export function DomainTabs({
   lead,
   tabs,
   module = false,
+  people = false,
   action: actionSlot = null,
 }: {
   title: string
   lead?: string
-  tabs: { id: string; label: string; panel: ReactNode }[]
+  tabs: { id: string; label: string; panel: ReactNode; icon?: LucideIcon }[]
   module?: boolean
+  people?: boolean
   action?: ReactNode
 }) {
   const [params, setParams] = useSearchParams()
@@ -121,12 +176,29 @@ export function DomainTabs({
 
   return (
     <TabAction.Provider value={setAction}>
-      <div className={module ? "w-full min-w-0 space-y-5" : "mx-auto max-w-3xl space-y-4"}>
-        {module || !lead ? null : <p className="text-sm text-muted-foreground">{lead}</p>}
+      <div className={module || people ? "w-full min-w-0 space-y-5" : "mx-auto max-w-3xl space-y-4"}>
+        {module || people || !lead ? null : <p className="text-sm text-muted-foreground">{lead}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className={module ? "inline-flex flex-wrap rounded-xl bg-[#E7E8EA] p-1" : "flex flex-wrap gap-2"} role="tablist">
+          <div className={people ? "flex flex-wrap gap-2" : module ? "inline-flex flex-wrap rounded-xl bg-[#E7E8EA] p-1" : "flex flex-wrap gap-2"} role="tablist">
             {tabs.map((tab) =>
-              module ? (
+              people ? (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab.id === current}
+                  className={cn(
+                    "inline-flex h-11 items-center gap-2 rounded-[10px] border px-3.5 text-sm font-semibold transition-[background-color,border-color,color,box-shadow] duration-200 motion-reduce:transition-none",
+                    tab.id === current
+                      ? "border-[#1E8A3A] bg-[#1E8A3A] text-white shadow-[0_6px_16px_rgba(30,138,58,0.18)]"
+                      : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35]",
+                  )}
+                  onClick={() => setParams(tab.id === tabs[0].id ? {} : { aba: tab.id })}
+                >
+                  {tab.icon ? <tab.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : null}
+                  {tab.label}
+                </button>
+              ) : module ? (
                 <button
                   key={tab.id}
                   type="button"
@@ -169,6 +241,8 @@ export function RecordList<T extends Row>({
   empty,
   extra = null,
   presentation,
+  mark: Mark,
+  searchPlaceholder = "Pesquisar",
 }: {
   path: string
   filters?: (query: string) => ListParams
@@ -181,14 +255,18 @@ export function RecordList<T extends Row>({
   detailOf?: (item: T) => string
   empty: string
   extra?: ReactNode
-  presentation?: "journey"
+  presentation?: "journey" | "people"
+  mark?: LucideIcon
+  searchPlaceholder?: string
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setTabAction = useContext(TabAction)
   const journey = presentation === "journey"
+  const people = presentation === "people"
   const [query, setQuery] = useState("")
   const [chosen, setChosen] = useState<Record<string, string>>({})
   const [pending, setPending] = useState<number | null>(null)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null)
   const list = usePagedList<T>(path, {
     ...(filters ? filters(query) : query.trim() ? { name: query.trim() } : {}),
     ...selectedFilters(selects, chosen),
@@ -196,7 +274,7 @@ export function RecordList<T extends Row>({
 
   useEffect(() => {
     const create = isAdmin ? (
-      <Button asChild className={journey ? modulePrimaryClass : undefined}>
+      <Button asChild className={journey || people ? cn(modulePrimaryClass, "shrink-0") : undefined}>
         <Link to={newTo}>
           <Plus className="h-4 w-4" />
           {newLabel}
@@ -214,7 +292,7 @@ export function RecordList<T extends Row>({
       </div>,
     )
     return () => setTabAction(null)
-  }, [extra, isAdmin, journey, newLabel, newTo, setTabAction])
+  }, [extra, isAdmin, journey, newLabel, newTo, people, setTabAction])
 
   async function onDelete(id: number) {
     list.setError("")
@@ -227,15 +305,50 @@ export function RecordList<T extends Row>({
     }
   }
 
+  function toggleSort(key: string) {
+    setSort((current) => {
+      if (current?.key !== key) return { key, dir: "asc" }
+      if (current.dir === "asc") return { key, dir: "desc" }
+      return null
+    })
+  }
+
+  function sortText(item: T, key: string) {
+    const person = asEmployee(item)
+    if (person) {
+      if (key === "situation") return situationLabel[person.situation || ""] || ""
+      if (key === "clock") return clockMethodLabel[person.clock_method] || person.clock_method
+      if (key === "admission") return person.admission_date || ""
+      return person.full_name
+    }
+    return nameOf(item)
+  }
+
+  const rows = !people || !sort ? list.items : [...list.items].sort((left, right) => sortText(left, sort.key).localeCompare(sortText(right, sort.key), "pt-BR") * (sort.dir === "asc" ? 1 : -1))
+
+  function sortButton(key: string, label: string) {
+    const active = sort?.key === key
+    return (
+      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#64748B] transition-colors duration-200 hover:text-[#334155]" onClick={() => toggleSort(key)}>
+        {label}
+        <SortArrows active={active} dir={sort?.dir ?? "asc"} />
+      </button>
+    )
+  }
+
   return (
-    <div className={journey ? "w-full rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "space-y-3"}>
+    <div className={journey ? "w-full rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "space-y-4"}>
       {journey ? (
         <div>
           <h2 className="text-lg font-semibold text-brand-ink">Jornadas</h2>
           <p className="mt-1 text-sm text-brand-quiet">Consulte as jornadas cadastradas.</p>
         </div>
       ) : null}
-      {journey ? (
+      {people ? (
+        <section className={moduleCardClass}>
+          <PeopleSearch id={`search-${path}`} value={query} placeholder={searchPlaceholder} onChange={setQuery} onSearch={list.reload} />
+        </section>
+      ) : journey ? (
         <div className="mt-[18px]">
           <JourneySearch id={`search-${path}`} value={query} onChange={setQuery} onSearch={list.reload} />
         </div>
@@ -257,8 +370,117 @@ export function RecordList<T extends Row>({
         </div>
       ) : null}
       {list.error ? <p className={journey ? "mt-4 text-sm text-destructive" : "text-sm text-destructive"}>{list.error}</p> : null}
+      <div className={people ? "overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "contents"}>
+      {people ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] border-collapse">
+            <colgroup>
+              <col />
+              {path === "/employees" ? (
+                <>
+                  <col className="w-[8.5rem]" />
+                  <col className="w-[13rem]" />
+                  <col className="w-[8rem]" />
+                </>
+              ) : null}
+              <col />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-[#F1F5F9]">
+                <th className="px-4 py-3 text-left font-semibold">{sortButton("name", "Nome")}</th>
+                {path === "/employees" ? (
+                  <>
+                    <th className="px-4 py-3 text-left font-semibold">{sortButton("situation", "Situação")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{sortButton("clock", "Tipo de registro")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{sortButton("admission", "Admissão")}</th>
+                  </>
+                ) : null}
+                <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-[#64748B]">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((item) => {
+                const person = asEmployee(item)
+                const actions =
+                  pending === item.id ? (
+                    <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                      <span className="text-sm text-[#0A0A0A]">Excluir {nameOf(item)}?</span>
+                      <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
+                        Excluir
+                      </Button>
+                      <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="inline-flex justify-center gap-1.5">
+                      <Button asChild variant="outline" className={moduleIconClass}>
+                        <Link to={viewTo(item.id)} aria-label={`Visualizar ${nameOf(item)}`} title="Visualizar">
+                          <Eye className="h-4 w-4" strokeWidth={1.75} />
+                        </Link>
+                      </Button>
+                      {isAdmin ? (
+                        <Button asChild variant="outline" className={moduleIconClass}>
+                          <Link to={editTo(item.id)} aria-label={`Editar ${nameOf(item)}`} title="Editar">
+                            <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                          </Link>
+                        </Button>
+                      ) : null}
+                      {isAdmin ? (
+                        <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${nameOf(item)}`} title="Excluir" onClick={() => setPending(item.id)}>
+                          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                        </Button>
+                      ) : null}
+                    </div>
+                  )
+                return (
+                  <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {person ? (
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-sm font-semibold text-[#086B35]" aria-hidden>
+                            {initialsOf(person.full_name)}
+                          </span>
+                        ) : (
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                            {Mark ? <Mark className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <Briefcase className="h-[18px] w-[18px]" strokeWidth={1.75} />}
+                          </span>
+                        )}
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{nameOf(item)}</span>
+                          {person || detailOf?.(item) ? <span className="mt-0.5 block truncate text-sm leading-5 text-[#64748B]">{person ? formatCpf(person.cpf) : detailOf?.(item)}</span> : null}
+                        </span>
+                      </div>
+                    </td>
+                    {person ? (
+                      <>
+                        <td className="px-4 py-3 align-middle">
+                          <span className={cn("inline-flex h-7 items-center rounded-full px-3 text-[13px] font-semibold leading-none", person.situation === "active" ? "bg-[rgba(30,138,58,0.14)] text-[#146C2E]" : "bg-[#F1F5F9] text-[#475569]")}>
+                            {situationLabel[person.situation || ""] || "Sem situação"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle text-sm leading-5 text-[#334155]">{clockMethodLabel[person.clock_method] || person.clock_method}</td>
+                        <td className="px-4 py-3 align-middle text-sm leading-5 text-[#64748B]">{showDate(person.admission_date)}</td>
+                      </>
+                    ) : null}
+                    <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">{actions}</td>
+                  </tr>
+                )
+              })}
+              {rows.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-10 text-center text-sm text-[#64748B]" colSpan={path === "/employees" ? 5 : 2}>
+                    {list.loading ? <span className="inline-flex w-full justify-center"><Spinner /></span> : empty}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {people ? null : (
       <ul className={journey ? "mt-4 space-y-2" : "divide-y divide-border rounded-lg border border-border bg-card"}>
-        {list.items.map((item) => {
+        {rows.map((item) => {
           const detail = detailOf?.(item)
           if (journey) {
             return (
@@ -346,8 +568,10 @@ export function RecordList<T extends Row>({
         })}
         {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty={empty} className={journey ? "rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center" : undefined} /> : null}
       </ul>
-      <div className={journey ? "mt-4 border-t border-[#F0F0F2] pt-3" : undefined}>
-        <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone={journey ? "module" : "default"} density={journey ? "compact" : "default"} />
+      )}
+      <div className={people ? "border-t border-[#F1F5F9] px-4 py-3" : journey ? "mt-4 border-t border-[#F0F0F2] pt-3" : undefined}>
+        <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone={people ? "people" : journey ? "module" : "default"} density={journey ? "compact" : "default"} />
+      </div>
       </div>
     </div>
   )
@@ -386,7 +610,7 @@ export function EmployeeList() {
   }, [])
   const extra = useMemo(
     () => (
-      <Button type="button" variant="outline" disabled={busy} onClick={() => void printCards()}>
+      <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 shrink-0 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#1E8A3A]")} disabled={busy} onClick={() => printCards()}>
         <QrCode className="h-4 w-4" />
         Gerar QR Code
       </Button>
@@ -414,6 +638,8 @@ export function EmployeeList() {
         detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
         empty="Nenhum funcionário."
         extra={extra}
+        presentation="people"
+        searchPlaceholder="Pesquisar por nome ou CPF"
       />
     </div>
   )
@@ -425,7 +651,7 @@ const linkedSelects: Record<string, { key: string; label: string; source: string
   agreements: { key: "union_id", label: "Sindicato", source: "/unions" },
 }
 
-export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" }) {
+export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" | "people" }) {
   const entry = catalogs[catalog]
   const linked = linkedSelects[catalog]
   const [linkedOptions, setLinkedOptions] = useState<{ value: string; label: string }[]>([])
@@ -471,6 +697,7 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       }}
       empty={entry.empty}
       presentation={presentation}
+      mark={catalog === "cost-centers" ? Building2 : catalog === "jobs" ? Briefcase : undefined}
     />
   )
 }
@@ -485,6 +712,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   const [options, setOptions] = useState<Record<string, { value: string; label: string }[]>>({})
   const [title, setTitle] = useState(entry.newLabel)
   const [error, setError] = useState("")
+  const [loaded, setLoaded] = useState(mode === "new")
 
   useEffect(() => {
     if (mode !== "view" && !isAdmin) {
@@ -509,10 +737,14 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     if (mode === "new") {
       setForm(blankForm(entry.fields))
       setTitle(entry.newLabel)
+      setError("")
+      setLoaded(true)
       return () => {
         active = false
       }
     }
+    setLoaded(false)
+    setError("")
     getRecord<NamedRecord>(entry.path, id)
       .then((row) => {
         if (!active) return
@@ -527,9 +759,12 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         }
         setForm(next)
         setTitle(mode === "edit" ? entry.editTitle : row.name)
+        setLoaded(true)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        if (!active) return
+        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        setLoaded(true)
       })
     return () => {
       active = false
@@ -671,6 +906,68 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             Salvar
           </Button>
         </ActionForm>
+      </div>
+    )
+  }
+
+  if (catalog === "jobs" || catalog === "cost-centers") {
+    const Icon = catalog === "jobs" ? Briefcase : Building2
+    const noun = catalog === "jobs" ? "cargo" : "centro de custo"
+    if (mode !== "new" && !loaded && !error) {
+      return (
+        <div className="w-full min-w-0 space-y-5">
+          <BackLink to={entry.backTo} appearance="detail" />
+          <section className={cn(moduleCardClass, "mx-auto flex min-h-[280px] w-full max-w-[680px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+            <Spinner label={`Carregando o ${noun}`} className="h-8 w-8 text-[#1E8A3A]" />
+            <p className="text-sm font-medium text-[#64748B]">Carregando o {noun}</p>
+          </section>
+        </div>
+      )
+    }
+    const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
+    const subtitle = mode === "view" ? (catalog === "jobs" ? "Cargo" : "Centro de custo") : mode === "new" ? `Informe o nome do ${noun}.` : `Atualize o nome do ${noun}.`
+    return (
+      <div className="w-full min-w-0 space-y-5">
+        <BackLink to={entry.backTo} appearance="detail" />
+        <section className={cn(moduleCardClass, "mx-auto w-full max-w-[680px] space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <Icon className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
+              <p className="text-sm text-[#64748B]">{subtitle}</p>
+            </div>
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {mode === "view" ? (
+            <dl className="space-y-4">
+              {entry.fields.map((field) => (
+                <div key={field.name}>
+                  <dt className="text-sm text-[#64748B]">{field.label}</dt>
+                  <dd className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{shown(field)}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <ActionForm className="space-y-5" onSubmit={onSubmit}>
+              {entry.fields.map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>
+                    {field.label}
+                  </Label>
+                  <Input id={`${catalog}-${field.name}`} className={moduleFieldClass} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
+                </div>
+              ))}
+              <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+                <Button type="submit" className={modulePrimaryClass}>
+                  <Save className="h-4 w-4" />
+                  Salvar
+                </Button>
+              </div>
+            </ActionForm>
+          )}
+        </section>
       </div>
     )
   }
