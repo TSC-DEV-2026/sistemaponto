@@ -183,6 +183,7 @@ export const navGroups: NavGroup[] = [
         to: "/payroll",
         label: "Fiscal / Folha",
         icon: FileSpreadsheet,
+        staffOnly: true,
         lead: "Fora do fluxo cotidiano do funcionário.",
         sections: [
           { title: "AFD", text: "Importação e exportação." },

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Building2, Calendar, CircleCheck, CircleX, ClipboardList, Clock, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Upload, User, Users, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Building2, Calendar, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Upload, User, Users, X } from "lucide-react"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
@@ -12,13 +12,12 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
-import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
-import { DocumentLink } from "@/components/workforce/TimeOffFields"
+import { CertificatePhotoField, DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
   getPayroll,
@@ -59,18 +58,6 @@ import {
   showSignedMinutes,
 } from "@/utils/labels"
 import { reportPdf } from "@/utils/report-pdf"
-
-function MonthField({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <select id={id} className={fieldClass} value={value} onChange={(event) => onChange(event.target.value)} required>
-      {monthOptions.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  )
-}
 
 const clockCards = {
   simple: {
@@ -1859,14 +1846,29 @@ function readTextFile(file: File) {
   })
 }
 
+function monthName(value: number) {
+  return monthOptions.find((option) => option.value === String(value))?.label ?? String(value)
+}
+
 export function PayrollPage() {
+  const role = useAuthStore((state) => state.user?.role)
+  const canRead = role === "admin" || role === "manager"
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!role || canRead) return
+    navigate("/", { replace: true })
+  }, [role, canRead, navigate])
+
+  if (!canRead) return null
+
   return (
     <DomainTabs
+      organization
       title="Fiscal / Folha"
-      lead="Arquivos fiscais e os totais do mês. Se o período for cancelado ou reaberto, o arquivo deixa de valer e precisa ser gerado de novo."
       tabs={[
-        { id: "afd", label: "AFD", panel: <AfdPanel /> },
-        { id: "folha", label: "Totais da folha", panel: <PayrollTotalsPanel /> },
+        { id: "afd", label: "AFD", icon: FileText, panel: <AfdPanel /> },
+        { id: "folha", label: "Totais da folha", icon: List, panel: <PayrollTotalsPanel /> },
       ]}
     />
   )
@@ -1887,6 +1889,9 @@ function AfdPanel() {
   const [fileKey, setFileKey] = useState(0)
   const [imported, setImported] = useState<FiscalImport | null>(null)
   const [error, setError] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const importingLock = useRef(false)
   const files = usePagedList<FiscalFile>(
     "/fiscal-files",
     {
@@ -1898,25 +1903,33 @@ function AfdPanel() {
 
   async function generateFile(event: FormEvent) {
     event.preventDefault()
+    if (generating) return
     setError("")
+    setGenerating(true)
     try {
       const body = mode === "range" ? { kind, starts_on: startsOn, ends_on: endsOn || null } : { kind, year: Number(fileYear), month: Number(fileMonth) }
       await createRecord<FiscalFile>("/fiscal-files", body)
       files.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
+    } finally {
+      setGenerating(false)
     }
   }
 
-  async function importAfd(event: FormEvent) {
-    event.preventDefault()
+  async function importAfd(file: File | null) {
+    if (importingLock.current) return
+    setAfdFile(file)
     setError("")
-    if (!afdFile || !afdFile.name.toLowerCase().endsWith(".txt")) {
+    setImported(null)
+    if (!file || !file.name.toLowerCase().endsWith(".txt")) {
       setError("Selecione um arquivo .txt.")
       return
     }
+    importingLock.current = true
+    setImporting(true)
     try {
-      const content = (await readTextFile(afdFile)).trim()
+      const content = (await readTextFile(file)).trim()
       if (!content) {
         setError("O arquivo está vazio.")
         return
@@ -1928,118 +1941,181 @@ function AfdPanel() {
       files.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível importar.")
+    } finally {
+      importingLock.current = false
+      setImporting(false)
     }
   }
 
   if (!canManage) {
-    return <p className="text-sm text-muted-foreground">Gerar, importar e baixar o arquivo fica com o administrador e o gestor.</p>
+    return <p className="text-sm text-[#64748B]">Gerar, importar e baixar o arquivo fica com o administrador e o gestor.</p>
   }
 
+  const fileHint = kind === "aej" ? "Arquivo da jornada. Sai só de um período fechado." : "Arquivo com as marcações. Sai de qualquer período."
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">O AFD sai de qualquer período. O AEJ sai só de um período fechado, com o mesmo início e o mesmo fim.</p>
-      <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={generateFile}>
-        <div className="space-y-2">
-          <Label htmlFor="file-kind">Tipo de arquivo</Label>
-          <select id="file-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
-            {fiscalFileKinds.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          {kind === "afd" ? <p className="text-sm text-muted-foreground">Arquivo com as marcações. Sai de qualquer período.</p> : null}
-          {kind === "aej" ? <p className="text-sm text-muted-foreground">Arquivo da jornada. Sai só de um período fechado.</p> : null}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="file-mode">Período</Label>
-          <select id="file-mode" className={fieldClass} value={mode} onChange={(event) => setMode(event.target.value)}>
-            <option value="month">Mês civil</option>
-            <option value="range">Intervalo de datas</option>
-          </select>
-        </div>
-        {mode === "month" ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="file-month">Mês</Label>
-              <MonthField id="file-month" value={fileMonth} onChange={setFileMonth} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="file-year">Ano</Label>
-              <Input id="file-year" inputMode="numeric" value={fileYear} onChange={(event) => setFileYear(event.target.value)} required />
-            </div>
+    <div className="w-full min-w-0 space-y-4">
+      <section className={moduleCardClass}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <FilePlus className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Gerar arquivo</h2>
+            <p className="text-sm text-[#64748B]">{fileHint}</p>
           </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="file-start">De</Label>
-              <input id="file-start" className={fieldClass} type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="file-end">Até</Label>
-              <input id="file-end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
-            </div>
-          </div>
-        )}
-        <Button type="submit">
-          <FilePlus className="h-4 w-4" />
-          {kind === "aej" ? "Gerar AEJ" : "Gerar AFD"}
-        </Button>
-      </ActionForm>
-      <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={importAfd}>
-        <h2 className="text-sm font-medium">Importar AFD</h2>
-        <p className="text-sm text-muted-foreground">A marcação entra com origem AFD. Se já existir no mesmo instante, só ela é ignorada e as demais seguem.</p>
-        <div className="space-y-2">
-          <Label htmlFor="afd-file">Arquivo .txt</Label>
-          <input
-            key={fileKey}
-            id="afd-file"
-            className={fieldClass}
-            type="file"
-            accept=".txt,text/plain"
-            required
-            onChange={(event) => setAfdFile(event.target.files?.[0] ?? null)}
-          />
         </div>
-        <Button type="submit">
-          <Upload className="h-4 w-4" />
-          Importar
-        </Button>
-      </ActionForm>
-      {imported ? (
-        <p className="text-sm text-muted-foreground">
-          {imported.created} criadas, {imported.ignored} já existiam e foram ignoradas, {imported.blocked} não entraram.
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-3">
-        <FilterSelect id="fiscal-kind" label="Tipo" value={filterKind} options={Object.entries(fiscalKindLabel).map(([value, label]) => ({ value, label }))} onChange={setFilterKind} />
-        <FilterSelect
-          id="fiscal-valid"
-          label="Validade"
-          value={filterValid}
-          options={[
-            { value: "true", label: "Vale" },
-            { value: "false", label: "Não vale" },
-          ]}
-          onChange={setFilterValid}
-        />
-      </div>
-      {files.error ? <p className="text-sm text-destructive">{files.error}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {files.items.map((item) => (
-          <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-            <span>
-              {fiscalKindLabel[item.kind] || item.kind} · {showDate(item.starts_on)} a {showDate(item.ends_on)} · {item.valid ? "Vale" : "Não vale. Gere de novo."}
-            </span>
-            <Button type="button" size="sm" variant="outline" onClick={() => downloadFiscalFile(item)}>
-              Baixar
+        <ActionForm className="mt-4" onSubmit={generateFile}>
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_auto]">
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor="file-kind">Tipo de arquivo</Label>
+              <SiteSelect id="file-kind" value={kind} className="h-12" options={fiscalFileKinds.map(([value, label]) => ({ value, label }))} onChange={setKind} />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor="file-mode">Período</Label>
+              <SiteSelect
+                id="file-mode"
+                value={mode}
+                className="h-12"
+                options={[
+                  { value: "month", label: "Mês civil" },
+                  { value: "range", label: "Intervalo de datas" },
+                ]}
+                onChange={setMode}
+              />
+            </div>
+            {mode === "month" ? (
+              <>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="file-month">Mês</Label>
+                  <SiteSelect id="file-month" value={fileMonth} className="h-12" options={monthOptions} onChange={setFileMonth} required />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="file-year">Ano</Label>
+                  <Input id="file-year" className={moduleFieldClass} inputMode="numeric" value={fileYear} onChange={(event) => setFileYear(event.target.value)} required />
+                </div>
+              </>
+            ) : (
+              <>
+                <DatePickerField id="file-start" label="De" value={startsOn} onChange={setStartsOn} required />
+                <DatePickerField id="file-end" label="Até" value={endsOn} onChange={setEndsOn} />
+              </>
+            )}
+            <Button type="submit" className={cn(modulePrimaryClass, "h-12 w-full shrink-0 sm:col-span-2 xl:col-span-1 xl:w-auto")} disabled={generating} aria-busy={generating}>
+              {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <FilePlus className="h-4 w-4" />}
+              {generating ? "Gerando" : kind === "aej" ? "Gerar AEJ" : "Gerar AFD"}
             </Button>
-          </li>
-        ))}
-        {files.items.length === 0 ? <ListPlaceholder loading={files.loading} empty="Nenhum arquivo gerado." /> : null}
-      </ul>
-      <ListPager page={files.page} pageSize={files.pageSize} total={files.total} onPage={files.setPage} onPageSize={files.setPageSize} />
+          </div>
+        </ActionForm>
+      </section>
+      <section className={moduleCardClass}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <Upload className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Importar AFD</h2>
+            <p className="text-sm text-[#64748B]">A marcação entra com origem AFD. Se já existir no mesmo instante, só ela é ignorada e as demais seguem.</p>
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          <Label className={moduleLabelClass} htmlFor="afd-file">Arquivo .txt</Label>
+          <div className={importing ? "pointer-events-none opacity-60" : undefined} aria-busy={importing || undefined}>
+            <CertificatePhotoField id="afd-file" fileKey={fileKey} photo={afdFile} accept=".txt,text/plain" emptyLabel="Arraste ou selecione o arquivo" hint="Arquivo .txt" onChange={(file) => void importAfd(file)} />
+          </div>
+          {importing ? (
+            <p className="flex items-center gap-2 text-sm text-[#64748B]" role="status">
+              <Spinner className="h-4 w-4 text-[#1E8A3A]" />
+              Importando
+            </p>
+          ) : null}
+        </div>
+        {imported ? (
+          <p className="mt-4 text-sm text-[#64748B]">
+            {imported.created} criadas, {imported.ignored} já existiam e foram ignoradas, {imported.blocked} não entraram.
+          </p>
+        ) : null}
+      </section>
+      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      <section className={moduleCardClass}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <FileText className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Arquivos gerados</h2>
+            <p className="text-sm text-[#64748B]">Se o período for cancelado ou reaberto, o arquivo deixa de valer e precisa ser gerado de novo.</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="fiscal-kind">Tipo</Label>
+            <SiteSelect
+              id="fiscal-kind"
+              value={filterKind}
+              className="h-12"
+              placeholder="Todos"
+              options={[{ value: "", label: "Todos" }, ...Object.entries(fiscalKindLabel).map(([value, label]) => ({ value, label }))]}
+              onChange={setFilterKind}
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="fiscal-valid">Validade</Label>
+            <SiteSelect
+              id="fiscal-valid"
+              value={filterValid}
+              className="h-12"
+              placeholder="Todas"
+              options={[
+                { value: "", label: "Todas" },
+                { value: "true", label: "Vale" },
+                { value: "false", label: "Não vale" },
+              ]}
+              onChange={setFilterValid}
+            />
+          </div>
+        </div>
+        {files.error ? <p className="mt-4 text-sm text-destructive" role="alert">{files.error}</p> : null}
+        {files.loading && files.items.length === 0 ? (
+          <div className="flex justify-center py-10" role="status">
+            <Spinner label="Carregando os arquivos" className="h-8 w-8 text-[#1E8A3A]" />
+          </div>
+        ) : null}
+        {!files.loading && !files.error && files.items.length === 0 ? (
+          <div className="px-2 py-10 text-center">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+              <FileText className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+            </span>
+            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum arquivo gerado</p>
+            <p className="mt-1 text-sm text-[#71717A]">Os arquivos deste filtro aparecem aqui.</p>
+          </div>
+        ) : null}
+        {files.items.length > 0 ? (
+          <ul className="mt-5 divide-y divide-[#F1F5F9] overflow-hidden rounded-xl border border-[#E2E8F0]">
+            {files.items.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-sm transition-colors duration-200 hover:bg-[#F7FCF8] motion-reduce:transition-none">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[#0A0A0A]">{fiscalKindLabel[item.kind] || item.kind}</p>
+                  <p className="mt-0.5 text-[#64748B]">{showDate(item.starts_on)} a {showDate(item.ends_on)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", item.valid ? "bg-[rgba(30,138,58,0.14)] text-[#146C2E]" : "bg-[rgba(239,83,80,0.16)] text-[#C62828]")}>
+                    {item.valid ? <CircleCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> : <CircleX className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />}
+                    {item.valid ? "Vale" : "Não vale. Gere de novo."}
+                  </span>
+                  <Button type="button" className="h-10 gap-2 rounded-[10px] border border-[#8ED4A8] bg-[#EAF7EF] px-3 text-[#086B35] shadow-none transition-[background-color] duration-200 hover:bg-[#DDF3E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" onClick={() => downloadFiscalFile(item)}>
+                    <Download className="h-4 w-4" aria-hidden />
+                    Baixar
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="mt-4">
+          <ListPager page={files.page} pageSize={files.pageSize} total={files.total} onPage={files.setPage} onPageSize={files.setPageSize} />
+        </div>
+      </section>
     </div>
   )
 }
@@ -2048,11 +2124,33 @@ function PayrollTotalsPanel() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
   const isAdmin = role === "admin"
+  const requestId = useRef(0)
   const [year, setYear] = useState(String(new Date().getFullYear()))
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [result, setResult] = useState<Payroll | null>(null)
   const [notice, setNotice] = useState("")
   const [error, setError] = useState("")
+  const [consulting, setConsulting] = useState(false)
+  const [generating, setGenerating] = useState(false)
+
+  async function consult(yearValue: number, monthValue: number) {
+    const current = ++requestId.current
+    setConsulting(true)
+    setError("")
+    setNotice("")
+    setResult(null)
+    try {
+      const next = await getPayroll(yearValue, monthValue)
+      if (current !== requestId.current) return
+      setResult(next)
+    } catch (caught) {
+      if (current !== requestId.current) return
+      setResult(null)
+      setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
+    } finally {
+      if (current === requestId.current) setConsulting(false)
+    }
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -2060,68 +2158,178 @@ function PayrollTotalsPanel() {
       await generatePayroll()
       return
     }
-    setError("")
-    setNotice("")
-    try {
-      setResult(await getPayroll(Number(year), Number(month)))
-    } catch (caught) {
-      setResult(null)
-      setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
-    }
+    await consult(Number(year), Number(month))
   }
 
   async function generatePayroll() {
+    if (generating) return
     setError("")
     setNotice("")
+    setGenerating(true)
     try {
       await createRecord<FiscalFile>("/fiscal-files", { kind: "payroll", year: Number(year), month: Number(month) })
       setNotice("Arquivo gerado. Ele aparece na opção AFD.")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
+    } finally {
+      setGenerating(false)
     }
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">A folha traz horas trabalhadas, hora extra, adicional noturno, falta de tempo e saldo do banco.</p>
+    <div className="w-full min-w-0 space-y-4">
       {canManage ? (
-        <ActionForm className="flex flex-wrap items-end gap-3" onSubmit={onSubmit}>
-          <div className="space-y-2">
-            <Label htmlFor="month">Mês</Label>
-            <MonthField id="month" value={month} onChange={setMonth} />
+        <section className={moduleCardClass}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <Calendar className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">Consultar totais</h2>
+              <p className="text-sm text-[#64748B]">A folha traz horas trabalhadas, hora extra, adicional noturno, falta de tempo e saldo do banco.</p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="year">Ano</Label>
-            <Input id="year" value={year} onChange={(event) => setYear(event.target.value)} required />
-          </div>
-          {isAdmin ? (
-            <Button type="submit">
-              <Search className="h-4 w-4" />
-              Consultar totais
-            </Button>
-          ) : null}
-          <Button type="button" variant="outline" onClick={() => void generatePayroll()}>
-            <FilePlus className="h-4 w-4" />
-            Gerar arquivo
-          </Button>
-        </ActionForm>
+          <ActionForm className="mt-4 space-y-4" onSubmit={onSubmit}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <Label className={moduleLabelClass} htmlFor="month">Mês</Label>
+                <SiteSelect id="month" value={month} className="h-12" options={monthOptions} onChange={setMonth} required />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <Label className={moduleLabelClass} htmlFor="year">Ano</Label>
+                <Input id="year" className={moduleFieldClass} inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} required />
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" className={cn(moduleQuietClass, "order-2 h-12 w-full gap-2 sm:order-1 sm:w-auto")} disabled={generating} aria-busy={generating} onClick={() => void generatePayroll()}>
+                {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <FilePlus className="h-4 w-4" />}
+                Gerar arquivo
+              </Button>
+              {isAdmin ? (
+                <Button type="submit" className={cn(modulePrimaryClass, "order-1 h-12 w-full sm:order-2 sm:w-auto")} disabled={consulting} aria-busy={consulting}>
+                  {consulting ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Search className="h-4 w-4" />}
+                  Consultar totais
+                </Button>
+              ) : null}
+            </div>
+          </ActionForm>
+        </section>
       ) : (
-        <p className="text-sm text-muted-foreground">Consultar os totais fica com o administrador.</p>
+        <p className="text-sm text-[#64748B]">Consultar os totais fica com o administrador.</p>
       )}
-      {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {notice ? <p className="text-sm text-[#64748B]" role="status">{notice}</p> : null}
+      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      {consulting ? (
+        <section className={cn(moduleCardClass, "flex justify-center py-10")} role="status">
+          <Spinner label="Consultando os totais" className="h-8 w-8 text-[#1E8A3A]" />
+        </section>
+      ) : null}
+      {!consulting && !result && !error && isAdmin ? (
+        <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <Users className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+          </span>
+          <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum total consultado</p>
+          <p className="mt-1 text-sm text-[#71717A]">Escolha o mês e o ano e consulte para ver os funcionários.</p>
+        </div>
+      ) : null}
       {result ? (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {result.items.map((item) => (
-            <li key={item.employee_id} className="space-y-1 px-4 py-3 text-sm">
-              <p className="font-medium">{item.full_name}</p>
-              <p className="text-muted-foreground">
-                Trabalhado {showMinutes(item.worked_minutes)} · Hora extra {showMinutes(item.overtime_minutes)} · Adicional noturno {showMinutes(item.night_additional_minutes)} · Falta de tempo {showMinutes(item.shortage_minutes)} · Banco {showSignedMinutes(item.balance_minutes)}
-              </p>
-            </li>
-          ))}
-          {result.items.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum funcionário.</li> : null}
-        </ul>
+        <section className={moduleCardClass}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <Users className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">Totais da folha</h2>
+              <p className="text-sm text-[#64748B]">{monthName(result.month)} de {result.year}</p>
+            </div>
+          </div>
+          {result.items.length === 0 ? (
+            <div className="px-2 py-10 text-center">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+                <Users className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+              </span>
+              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum funcionário</p>
+              <p className="mt-1 text-sm text-[#71717A]">Não há totais neste mês.</p>
+            </div>
+          ) : (
+            <>
+              <div className="mt-5 hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[720px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-[#E2E8F0] text-left text-sm font-semibold text-[#64748B]">
+                      <th className="px-3 py-3 font-semibold">Funcionário</th>
+                      <th className="px-3 py-3 text-right font-semibold">Trabalhado</th>
+                      <th className="px-3 py-3 text-right font-semibold">Hora extra</th>
+                      <th className="px-3 py-3 text-right font-semibold">Noturno</th>
+                      <th className="px-3 py-3 text-right font-semibold">Falta</th>
+                      <th className="px-3 py-3 text-right font-semibold">Banco</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.items.map((item) => (
+                      <tr key={item.employee_id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FCF8] motion-reduce:transition-none">
+                        <td className="px-3 py-3">
+                          <span className="flex items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#086B35]" aria-hidden>
+                              {personInitials(item.full_name) || "?"}
+                            </span>
+                            <span className="font-semibold text-[#111827]">{item.full_name || "Não informado"}</span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-medium tabular-nums text-[#111827]">{showMinutes(item.worked_minutes)}</td>
+                        <td className="px-3 py-3 text-right font-medium tabular-nums text-[#111827]">{showMinutes(item.overtime_minutes)}</td>
+                        <td className="px-3 py-3 text-right font-medium tabular-nums text-[#111827]">{showMinutes(item.night_additional_minutes)}</td>
+                        <td className={cn("px-3 py-3 text-right font-medium tabular-nums", item.shortage_minutes > 0 ? "text-[#C62828]" : "text-[#111827]")}>
+                          {showMinutes(item.shortage_minutes)}
+                          {item.shortage_minutes > 0 ? <span className="sr-only"> com falta</span> : null}
+                        </td>
+                        <td className={cn("px-3 py-3 text-right font-medium tabular-nums", item.balance_minutes < 0 ? "text-[#C62828]" : "text-[#111827]")}>
+                          {showSignedMinutes(item.balance_minutes)}
+                          {item.balance_minutes < 0 ? <span className="sr-only"> negativo</span> : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="mt-5 space-y-3 md:hidden">
+                {result.items.map((item) => (
+                  <li key={item.employee_id} className="rounded-[12px] border border-[#E2E8F0] p-4">
+                    <p className="flex items-center gap-3 font-semibold text-[#111827]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#086B35]" aria-hidden>
+                        {personInitials(item.full_name) || "?"}
+                      </span>
+                      {item.full_name || "Não informado"}
+                    </p>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-[#64748B]">Trabalhado</dt>
+                        <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.worked_minutes)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#64748B]">Hora extra</dt>
+                        <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.overtime_minutes)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#64748B]">Noturno</dt>
+                        <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.night_additional_minutes)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#64748B]">Falta</dt>
+                        <dd className={cn("font-medium tabular-nums", item.shortage_minutes > 0 ? "text-[#C62828]" : "text-[#111827]")}>{showMinutes(item.shortage_minutes)}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-[#64748B]">Banco</dt>
+                        <dd className={cn("font-medium tabular-nums", item.balance_minutes < 0 ? "text-[#C62828]" : "text-[#111827]")}>{showSignedMinutes(item.balance_minutes)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
       ) : null}
     </div>
   )
