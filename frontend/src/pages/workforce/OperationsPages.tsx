@@ -1303,12 +1303,12 @@ export function ReasonsPage() {
   return (
     <DomainTabs
       title="Motivos"
-      lead="Catálogo da empresa. A observação complementar continua possível no lançamento."
+      organization
       tabs={[
-        { id: "ajustes", label: "Ajustes", panel: <CatalogList catalog="reason-adjustment" /> },
-        { id: "faltas", label: "Faltas", panel: <CatalogList catalog="reason-absence" /> },
-        { id: "abonos", label: "Abonos", panel: <CatalogList catalog="reason-allowance" /> },
-        { id: "atestados", label: "Atestados", panel: <CatalogList catalog="reason-certificate" /> },
+        { id: "ajustes", label: "Ajustes", icon: ClipboardList, panel: <CatalogList catalog="reason-adjustment" presentation="organization" /> },
+        { id: "faltas", label: "Faltas", icon: Ban, panel: <CatalogList catalog="reason-absence" presentation="organization" /> },
+        { id: "abonos", label: "Abonos", icon: CircleCheck, panel: <CatalogList catalog="reason-allowance" presentation="organization" /> },
+        { id: "atestados", label: "Atestados", icon: FileText, panel: <CatalogList catalog="reason-certificate" presentation="organization" /> },
       ]}
     />
   )

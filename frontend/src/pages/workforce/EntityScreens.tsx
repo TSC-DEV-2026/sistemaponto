@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Briefcase, Building2, Calendar, ChevronDown, ChevronUp, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, Users, type LucideIcon } from "lucide-react"
+import { Ban, Briefcase, Building2, Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, Users, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { authInputClass } from "@/components/auth-screen"
@@ -14,7 +14,7 @@ import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
-import { fieldClass, optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
+import { optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
@@ -43,6 +43,7 @@ function catalogFieldIcon(field: CatalogField, fallback: LucideIcon) {
   if (field.name === "union_id") return Landmark
   if (field.name === "unit_id") return Building2
   if (field.name === "sector_id") return Network
+  if (field.name === "active" || field.type === "checkbox") return CircleCheck
   return fallback
 }
 
@@ -420,8 +421,8 @@ export function RecordList<T extends Row>({
                   id={`filter-${path}-${select.key}`}
                   value={chosen[select.key] ?? ""}
                   placeholder="Todos"
-                  icon={select.key === "unit_id" ? Building2 : select.key === "union_id" ? Landmark : Network}
-                  searchable
+                  icon={select.key === "unit_id" ? Building2 : select.key === "union_id" ? Landmark : select.key === "sector_id" ? Network : select.key === "active" ? CircleCheck : undefined}
+                  searchable={Boolean(select.source)}
                   searchPath={select.source}
                   searchPlaceholder={`Pesquisar ${select.label.toLocaleLowerCase("pt-BR")}`}
                   className="h-12 shadow-[0_4px_10px_rgba(15,23,42,0.035)]"
@@ -840,6 +841,10 @@ const organizationCopy: Record<string, { title: string; lead: string; mark: Luci
   agreements: { title: "Filtros de pesquisa", lead: "Consulte as convenções e acordos cadastrados.", mark: ScrollText },
   holidays: { title: "Filtros de pesquisa", lead: "Consulte os feriados cadastrados.", mark: Calendar },
   "punch-rules": { title: "Filtros de pesquisa", lead: "Consulte as regras de ponto cadastradas.", mark: ClipboardList },
+  "reason-adjustment": { title: "Pesquisar ajustes", lead: "Consulte os motivos de ajuste cadastrados.", mark: ClipboardList },
+  "reason-absence": { title: "Pesquisar faltas", lead: "Consulte os motivos de falta cadastrados.", mark: Ban },
+  "reason-allowance": { title: "Pesquisar abonos", lead: "Consulte os motivos de abono cadastrados.", mark: CircleCheck },
+  "reason-certificate": { title: "Pesquisar atestados", lead: "Consulte os motivos de atestado cadastrados.", mark: FileText },
 }
 
 export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" | "people" | "organization" }) {
@@ -1351,75 +1356,75 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     )
   }
 
-  if (mode === "view") {
-    if (!loaded && !error) {
-      return (
-        <div className="w-full min-w-0 space-y-5">
-          <BackLink to={entry.backTo} appearance="detail" />
-          <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-            <Spinner label="Carregando o motivo" className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando o motivo</p>
-          </section>
-        </div>
-      )
-    }
+  const reasonMeta = {
+    "reason-adjustment": { icon: ClipboardList, noun: "ajuste", article: "o", newLead: "Informe o nome do ajuste.", editLead: "Atualize o nome do ajuste." },
+    "reason-absence": { icon: Ban, noun: "falta", article: "a", newLead: "Informe o nome da falta.", editLead: "Atualize o nome da falta." },
+    "reason-allowance": { icon: CircleCheck, noun: "abono", article: "o", newLead: "Informe o nome do abono.", editLead: "Atualize o nome do abono." },
+    "reason-certificate": { icon: FileText, noun: "atestado", article: "o", newLead: "Informe o nome do atestado.", editLead: "Atualize o nome do atestado." },
+  }[catalog]
+  if (!reasonMeta) return null
+  const Icon = reasonMeta.icon
+  if (mode !== "new" && !loaded && !error) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={entry.backTo} appearance="detail" />
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <section className={cn(moduleCardClass, "w-full space-y-5")}>
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-              <ClipboardList className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">{title}</h2>
-              <p className="text-sm text-[#64748B]">Motivo</p>
-            </div>
-          </div>
-          <RecordFacts fields={entry.fields} fallback={ClipboardList} shown={shown} />
+        <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+          <Spinner label={`Carregando ${reasonMeta.article} ${reasonMeta.noun}`} className="h-8 w-8 text-[#1E8A3A]" />
+          <p className="text-sm font-medium text-[#64748B]">Carregando {reasonMeta.article} {reasonMeta.noun}</p>
         </section>
       </div>
     )
   }
-
+  const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
+  const subtitle = mode === "view" ? reasonMeta.noun.charAt(0).toUpperCase() + reasonMeta.noun.slice(1) : mode === "new" ? reasonMeta.newLead : reasonMeta.editLead
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <BackLink to={entry.backTo} />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <ActionForm className="space-y-4" onSubmit={onSubmit}>
-          {entry.fields.map((field) => (
-            <div key={field.name} className="space-y-2">
-              <Label htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
-              {field.type === "select" ? (
-                <SiteSelect
-                  id={`${catalog}-${field.name}`}
-                  value={form[field.name] ?? ""}
-                  placeholder="Selecione"
-                  required={field.required}
-                  searchable={Boolean(field.searchPath)}
-                  searchPath={field.searchPath}
-                  searchPlaceholder={`Pesquisar ${field.label.toLocaleLowerCase("pt-BR")}`}
-                  options={[...(field.required ? [] : [{ value: "", label: "Selecione" }]), ...(options[field.name] || [])]}
-                  onChange={(value) => setForm({ ...form, [field.name]: value })}
-                />
-              ) : field.type === "checkbox" ? (
-                <select id={`${catalog}-${field.name}`} className={fieldClass} value={form[field.name] ?? "true"} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}>
-                  <option value="true">Ativo</option>
-                  <option value="false">Inativo</option>
-                </select>
-              ) : field.type === "textarea" ? (
-                <textarea id={`${catalog}-${field.name}`} className={moduleTextClass} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
-              ) : (
-                <Input id={`${catalog}-${field.name}`} type={field.type} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
-              )}
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to={entry.backTo} appearance="detail" />
+      <section className={cn(moduleCardClass, "w-full space-y-5")}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <Icon className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
+            <p className="text-sm text-[#64748B]">{subtitle}</p>
+          </div>
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {mode === "view" ? (
+          <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
+        ) : (
+          <ActionForm className="space-y-5" onSubmit={onSubmit}>
+            {entry.fields.map((field) => (
+              <div key={field.name} className="space-y-2">
+                <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>
+                  {field.label}
+                </Label>
+                {field.type === "checkbox" ? (
+                  <SiteSelect
+                    id={`${catalog}-${field.name}`}
+                    value={form[field.name] ?? "true"}
+                    icon={CircleCheck}
+                    options={[
+                      { value: "true", label: "Ativo" },
+                      { value: "false", label: "Inativo" },
+                    ]}
+                    onChange={(value) => setForm({ ...form, [field.name]: value })}
+                  />
+                ) : (
+                  <Input id={`${catalog}-${field.name}`} className={moduleFieldClass} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
+                )}
+              </div>
+            ))}
+            <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+              <Button type="submit" className={modulePrimaryClass}>
+                <Save className="h-4 w-4" />
+                Salvar
+              </Button>
             </div>
-          ))}
-          <Button type="submit">
-            <Save className="h-4 w-4" />
-            Salvar
-          </Button>
-        </ActionForm>
+          </ActionForm>
+        )}
+      </section>
     </div>
   )
 }
