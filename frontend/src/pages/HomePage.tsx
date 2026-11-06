@@ -235,12 +235,14 @@ export function HomePage() {
               {board ? `${board.open_closings} período(s) em conferência.` : null}
             </MetricLine>
           </BoardCard>
-          <div className="md:col-span-2">
-            <BoardCard tone={tones.plan} icon={BarChart3} title="Plano" href="/plan">
-              {planText ? <p className="mt-1 text-sm leading-relaxed text-brand-muted">{planText}</p> : <LoadingLine />}
-              {boardState === "error" ? <p className="mt-1 text-sm leading-relaxed text-destructive">{boardError}</p> : null}
-            </BoardCard>
-          </div>
+          {isAdmin ? (
+            <div className="md:col-span-2">
+              <BoardCard tone={tones.plan} icon={BarChart3} title="Plano" href="/plan">
+                {planText ? <p className="mt-1 text-sm leading-relaxed text-brand-muted">{planText}</p> : <LoadingLine />}
+                {boardState === "error" ? <p className="mt-1 text-sm leading-relaxed text-destructive">{boardError}</p> : null}
+              </BoardCard>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

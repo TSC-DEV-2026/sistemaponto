@@ -220,6 +220,7 @@ export const navGroups: NavGroup[] = [
         to: "/plan",
         label: "Plano e Assinatura",
         icon: CreditCard,
+        adminOnly: true,
         lead: "Mensalidade de R$ 5 por pessoa.",
         sections: [],
       },

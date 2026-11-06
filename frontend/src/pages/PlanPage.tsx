@@ -1,15 +1,19 @@
-import { FormEvent, useEffect, useState } from "react"
+import { CalendarDays, CreditCard, Receipt, Users, Wallet, type LucideIcon } from "lucide-react"
+import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react"
+import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { ListPlaceholder } from "@/components/ui/list-placeholder"
-import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { SiteSelect } from "@/components/ui/site-select"
+import { Spinner } from "@/components/ui/spinner"
+import { ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { moduleCardClass, moduleLabelClass, modulePrimaryClass } from "@/components/workforce/module-visual"
 import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { me } from "@/services/auth.service"
 import { createRecord, getDashboard, listRecords, updateRecord, type Charge, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { cn } from "@/utils/cn"
 import {
   chargeKindLabel,
   chargeStatusLabel,
@@ -22,17 +26,47 @@ import { formatDate, trialDaysLeft, trialEnded } from "@/utils/trial"
 
 const capacities = Array.from({ length: 20 }, (_, index) => (index + 1) * 10)
 
-const rules =
-  "A cobrança em vigor é mensal, R$ 5 por pessoa. O pagamento é Pix, boleto, cartão de débito ou cartão de crédito. O upgrade cobra o pró-rata dos dias que faltam. O downgrade só ocorre se a nova capacidade couber nos funcionários contabilizados: a capacidade muda na hora e a cobrança já aberta fica para o mês seguinte. A cobrança vence no início do período. No dia seguinte ela está em atraso e, 7 dias depois do vencimento, o uso bloqueia. No fim do trial, o sistema pede a contratação de um plano."
+const planStatusOptions = [
+  { value: "", label: "Todos" },
+  ...Object.entries(subscriptionStatusLabel).map(([value, label]) => ({ value, label })),
+]
+
+const chargeStatusOptions = [
+  { value: "", label: "Todos" },
+  ...Object.entries(chargeStatusLabel).map(([value, label]) => ({ value, label })),
+]
+
+const chargeKindOptions = [
+  { value: "", label: "Todos" },
+  ...Object.entries(chargeKindLabel).map(([value, label]) => ({ value, label })),
+]
+
+const capacityOptions = capacities.map((value) => ({
+  value: String(value),
+  label: `${value} pessoas · ${showMoney(value * 500)}`,
+}))
+
+const methodOptions = Object.entries(paymentMethodLabel).map(([value, label]) => ({ value, label }))
 
 export function PlanPage() {
+  const navigate = useNavigate()
+  const role = useAuthStore((state) => state.user?.role)
+  const isAdmin = role === "admin"
+
+  useEffect(() => {
+    if (!role || isAdmin) return
+    navigate("/", { replace: true })
+  }, [role, isAdmin, navigate])
+
+  if (!isAdmin) return null
+
   return (
     <DomainTabs
+      organization
       title="Plano e Assinatura"
-      lead="O plano em vigor e as cobranças ficam na primeira opção. Contratar e alterar ficam na segunda."
       tabs={[
-        { id: "assinaturas", label: "Assinaturas e Cobranças", panel: <BillingPanel /> },
-        { id: "contratacao", label: "Contratação", panel: <ContractPanel /> },
+        { id: "assinaturas", label: "Assinaturas e Cobranças", icon: CreditCard, panel: <BillingPanel /> },
+        { id: "contratacao", label: "Contratação", icon: Wallet, panel: <ContractPanel /> },
       ]}
     />
   )
@@ -40,58 +74,56 @@ export function PlanPage() {
 
 function BillingPanel() {
   const tenant = useAuthStore((state) => state.activeTenant)
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setSession = useAuthStore((state) => state.setSession)
   const [plan, setPlan] = useState<Subscription | null>(null)
+  const [planLoaded, setPlanLoaded] = useState(false)
   const [chargeStatus, setChargeStatus] = useState("")
   const [chargeKind, setChargeKind] = useState("")
   const [planStatus, setPlanStatus] = useState("")
   const [activeEmployees, setActiveEmployees] = useState<number | null>(null)
+  const [employeesLoaded, setEmployeesLoaded] = useState(false)
+  const [opened, setOpened] = useState(false)
+  const [payingId, setPayingId] = useState<number | null>(null)
   const [error, setError] = useState("")
-  const billed = usePagedList<Charge>(
-    "/charges",
-    {
-      ...(chargeStatus ? { status: chargeStatus } : {}),
-      ...(chargeKind ? { kind: chargeKind } : {}),
-    },
-    isAdmin,
-  )
-  const plans = usePagedList<Subscription>("/subscriptions", planStatus ? { status: planStatus } : {}, isAdmin)
+  const billed = usePagedList<Charge>("/charges", {
+    ...(chargeStatus ? { status: chargeStatus } : {}),
+    ...(chargeKind ? { kind: chargeKind } : {}),
+  })
+  const plans = usePagedList<Subscription>("/subscriptions", planStatus ? { status: planStatus } : {})
 
-  async function load() {
+  async function refreshPlan() {
     const subscriptions = await listRecords<Subscription>("/subscriptions", { page: 1, limit: 1 })
     setPlan(subscriptions.items[0] ?? null)
-    billed.reload()
-    plans.reload()
   }
 
   useEffect(() => {
-    if (!isAdmin) {
-      return
-    }
     let active = true
-    load().catch((caught: unknown) => {
-      if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
-      }
-    })
+    setOpened(false)
+    setPlanLoaded(false)
+    refreshPlan()
+      .catch((caught: unknown) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
+      })
+      .finally(() => {
+        if (active) setPlanLoaded(true)
+      })
     return () => {
       active = false
     }
-  }, [isAdmin, tenant?.id])
+  }, [tenant?.id])
 
   useEffect(() => {
     let active = true
+    setEmployeesLoaded(false)
     getDashboard()
       .then((board) => {
-        if (active) {
-          setActiveEmployees(board.active_employees)
-        }
+        if (active) setActiveEmployees(board.active_employees)
       })
       .catch(() => {
-        if (active) {
-          setActiveEmployees(null)
-        }
+        if (active) setActiveEmployees(null)
+      })
+      .finally(() => {
+        if (active) setEmployeesLoaded(true)
       })
     return () => {
       active = false
@@ -99,110 +131,148 @@ function BillingPanel() {
   }, [tenant?.id])
 
   async function pay(id: number) {
+    if (payingId !== null) return
+    setPayingId(id)
     setError("")
     try {
       await updateRecord("/charges", id, { paid: true })
       setSession(await me())
-      await load()
+      await refreshPlan()
+      billed.reload()
+      plans.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível registrar o pagamento.")
+    } finally {
+      setPayingId(null)
     }
   }
 
-  if (!tenant) {
-    return null
+  const ready = planLoaded && employeesLoaded && !plans.loading && !billed.loading
+  useEffect(() => {
+    if (ready) setOpened(true)
+  }, [ready])
+
+  if (!tenant) return null
+
+  if (!opened) {
+    return (
+      <section className={moduleCardClass}>
+        <h2 className="text-lg font-semibold text-[#0A0A0A]">Plano em vigor</h2>
+        <div className="flex justify-center py-10" role="status">
+          <Spinner label="Carregando o plano" className="h-8 w-8 text-[#1E8A3A]" />
+        </div>
+      </section>
+    )
   }
+
+  const people = activeEmployees === null ? "Não informado" : String(activeEmployees)
 
   return (
     <div className="space-y-4">
-      <PlanSummary tenant={tenant} plan={plan} activeEmployees={activeEmployees} />
-      {isAdmin ? (
-        <>
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium">Assinaturas</h2>
-            <FilterSelect id="plan-status" label="Situação" value={planStatus} options={Object.entries(subscriptionStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setPlanStatus} />
-            {plans.error ? <p className="text-sm text-destructive">{plans.error}</p> : null}
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-              {plans.items.map((item) => (
-                <li key={item.id} className="px-4 py-3 text-sm">
-                  {subscriptionStatusLabel[item.status] || item.status} · {item.capacity} pessoas · {showMoney(item.monthly_amount_cents)} · {showDate(item.period_start)} a {showDate(item.period_end)}
-                </li>
-              ))}
-              {plans.items.length === 0 ? <ListPlaceholder loading={plans.loading} empty="Nenhuma assinatura." /> : null}
-            </ul>
-            <ListPager page={plans.page} pageSize={plans.pageSize} total={plans.total} onPage={plans.setPage} onPageSize={plans.setPageSize} />
-          </section>
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium">Cobranças</h2>
-            <div className="flex flex-wrap gap-3">
-              <FilterSelect id="charge-status" label="Situação" value={chargeStatus} options={Object.entries(chargeStatusLabel).map(([value, label]) => ({ value, label }))} onChange={setChargeStatus} />
-              <FilterSelect id="charge-kind" label="Tipo" value={chargeKind} options={Object.entries(chargeKindLabel).map(([value, label]) => ({ value, label }))} onChange={setChargeKind} />
-            </div>
-            {billed.error ? <p className="text-sm text-destructive">{billed.error}</p> : null}
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-              {billed.items.map((item) => (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <span>
-                    {chargeKindLabel[item.kind] || item.kind} · {showMoney(item.amount_cents)} · {paymentMethodLabel[item.payment_method] || item.payment_method}
-                    <span className="mt-1 block text-muted-foreground">
-                      Vence em {showDate(item.due_on)} · {chargeStatusLabel[item.status] || item.status} · {showDate(item.period_start)} a {showDate(item.period_end)}
-                    </span>
-                  </span>
-                  {item.status === "paid" ? (
-                    <span className="text-muted-foreground">Pago</span>
-                  ) : (
-                    <Button type="button" size="sm" onClick={() => void pay(item.id)}>
-                      Registrar pagamento
-                    </Button>
-                  )}
-                </li>
-              ))}
-              {billed.items.length === 0 ? <ListPlaceholder loading={billed.loading} empty="Nenhuma cobrança." /> : null}
-            </ul>
-            <ListPager page={billed.page} pageSize={billed.pageSize} total={billed.total} onPage={billed.setPage} onPageSize={billed.setPageSize} />
-          </section>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">Contratar, alterar e pagar o plano fica com o administrador.</p>
-      )}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <section className={moduleCardClass}>
+        <CardHeading icon={CreditCard} title="Plano em vigor" subtitle={summarySubtitle(tenant, plan)} />
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {summaryFacts(tenant, plan, people).map((fact) => (
+            <Fact key={fact.label} icon={fact.icon} label={fact.label} value={fact.value} wide={fact.wide} />
+          ))}
+        </div>
+      </section>
+
+      <section className={cn(moduleCardClass, "space-y-4")}>
+        <h2 className="text-lg font-semibold text-[#0A0A0A]">Assinaturas</h2>
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor="plan-status">Situação</Label>
+          <SiteSelect id="plan-status" value={planStatus} className="h-12" options={planStatusOptions} onChange={setPlanStatus} />
+        </div>
+        {plans.error ? <p className="text-sm text-destructive" role="alert">{plans.error}</p> : null}
+        <RecordList
+          loading={plans.loading}
+          emptyTitle="Nenhuma assinatura"
+          icon={CreditCard}
+          items={plans.items.map((item) => ({
+            id: item.id,
+            title: subscriptionStatusLabel[item.status] || item.status,
+            detail: `${item.capacity} pessoas · ${showMoney(item.monthly_amount_cents)} · ${showDate(item.period_start)} a ${showDate(item.period_end)}`,
+          }))}
+        />
+        {!plans.loading && plans.total > 0 ? (
+          <ListPager page={plans.page} pageSize={plans.pageSize} total={plans.total} onPage={plans.setPage} onPageSize={plans.setPageSize} />
+        ) : null}
+      </section>
+
+      <section className={cn(moduleCardClass, "space-y-4")}>
+        <h2 className="text-lg font-semibold text-[#0A0A0A]">Cobranças</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="charge-status">Situação</Label>
+            <SiteSelect id="charge-status" value={chargeStatus} className="h-12" options={chargeStatusOptions} onChange={setChargeStatus} />
+          </div>
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="charge-kind">Tipo</Label>
+            <SiteSelect id="charge-kind" value={chargeKind} className="h-12" options={chargeKindOptions} onChange={setChargeKind} />
+          </div>
+        </div>
+        {billed.error ? <p className="text-sm text-destructive" role="alert">{billed.error}</p> : null}
+        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+        <RecordList
+          loading={billed.loading}
+          emptyTitle="Nenhuma cobrança"
+          icon={Receipt}
+          items={billed.items.map((item) => ({
+            id: item.id,
+            title: `${chargeKindLabel[item.kind] || item.kind} · ${showMoney(item.amount_cents)}`,
+            detail: `${paymentMethodLabel[item.payment_method] || item.payment_method} · Vence em ${showDate(item.due_on)} · ${chargeStatusLabel[item.status] || item.status} · ${showDate(item.period_start)} a ${showDate(item.period_end)}`,
+            action: item.status === "paid" ? (
+              <span className="inline-flex h-11 items-center rounded-[10px] bg-[rgba(30,138,58,0.1)] px-3 text-sm font-semibold text-[#086B35]">Pago</span>
+            ) : (
+              <Button type="button" className={cn(modulePrimaryClass, "h-11 shrink-0")} pending={payingId === item.id} onClick={() => void pay(item.id)}>
+                Registrar pagamento
+              </Button>
+            ),
+          }))}
+        />
+        {!billed.loading && billed.total > 0 ? (
+          <ListPager page={billed.page} pageSize={billed.pageSize} total={billed.total} onPage={billed.setPage} onPageSize={billed.setPageSize} />
+        ) : null}
+      </section>
     </div>
   )
 }
 
 function ContractPanel() {
   const tenant = useAuthStore((state) => state.activeTenant)
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setSession = useAuthStore((state) => state.setSession)
   const [plan, setPlan] = useState<Subscription | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [capacity, setCapacity] = useState("10")
   const [method, setMethod] = useState("pix")
   const [error, setError] = useState("")
+  const edited = useRef(false)
 
   async function load() {
     const subscriptions = await listRecords<Subscription>("/subscriptions", { page: 1, limit: 1 })
     const current = subscriptions.items[0] ?? null
     setPlan(current)
-    if (current) {
+    if (current && !edited.current) {
       setCapacity(String(current.capacity))
       setMethod(current.payment_method)
     }
   }
 
   useEffect(() => {
-    if (!isAdmin) {
-      return
-    }
     let active = true
-    load().catch((caught: unknown) => {
-      if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
-      }
-    })
+    setLoaded(false)
+    load()
+      .catch((caught: unknown) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
+      })
+      .finally(() => {
+        if (active) setLoaded(true)
+      })
     return () => {
       active = false
     }
-  }, [isAdmin, tenant?.id])
+  }, [tenant?.id])
 
   async function contract(event: FormEvent) {
     event.preventDefault()
@@ -218,17 +288,11 @@ function ContractPanel() {
 
   async function changePlan(event: FormEvent) {
     event.preventDefault()
-    if (!plan) {
-      return
-    }
+    if (!plan) return
     setError("")
     const body: Record<string, unknown> = {}
-    if (Number(capacity) !== plan.capacity) {
-      body.capacity = Number(capacity)
-    }
-    if (method !== plan.payment_method) {
-      body.payment_method = method
-    }
+    if (Number(capacity) !== plan.capacity) body.capacity = Number(capacity)
+    if (method !== plan.payment_method) body.payment_method = method
     if (Object.keys(body).length === 0) {
       setError("Informe a capacidade ou a forma de pagamento")
       return
@@ -242,79 +306,139 @@ function ContractPanel() {
     }
   }
 
-  if (!isAdmin) {
-    return <p className="text-sm text-muted-foreground">Contratar, alterar e pagar o plano fica com o administrador.</p>
-  }
-
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{rules}</p>
-      <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={plan ? changePlan : contract}>
-        <h2 className="text-sm font-medium">{plan ? "Alterar plano" : "Contratar plano"}</h2>
-        <div className="space-y-2">
-          <Label htmlFor="capacity">Capacidade</Label>
-          <select id="capacity" className={fieldClass} value={capacity} onChange={(event) => setCapacity(event.target.value)}>
-            {capacities.map((value) => (
-              <option key={value} value={value}>
-                {value} pessoas · {showMoney(value * 500)}
-              </option>
-            ))}
-          </select>
+    <section className={cn(moduleCardClass, "space-y-5")}>
+      <CardHeading icon={Wallet} title={plan ? "Alterar plano" : "Contratar plano"} subtitle={plan ? "Capacidade e forma de pagamento do plano em vigor." : "Escolha a capacidade e a forma de pagamento."} />
+      <ActionForm className="space-y-5" onSubmit={plan ? changePlan : contract}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="capacity">Capacidade</Label>
+            <SiteSelect id="capacity" value={capacity} className="h-12" options={capacityOptions} onChange={(value) => { edited.current = true; setCapacity(value) }} />
+          </div>
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="method">Pagamento</Label>
+            <SiteSelect id="method" value={method} className="h-12" options={methodOptions} onChange={(value) => { edited.current = true; setMethod(value) }} />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="method">Pagamento</Label>
-          <select id="method" className={fieldClass} value={method} onChange={(event) => setMethod(event.target.value)}>
-            {Object.entries(paymentMethodLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+        <div className="flex justify-end">
+          <Button type="submit" className={modulePrimaryClass} disabled={!loaded}>
+            <CreditCard className="h-4 w-4" />
+            {plan ? "Alterar" : "Contratar"}
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">A capacidade é um múltiplo de 10, de 10 a 200. Não há gateway neste corte: o pagamento é o registro da cobrança gerada pelo sistema.</p>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit">{plan ? "Alterar" : "Contratar"}</Button>
       </ActionForm>
+    </section>
+  )
+}
+
+function CardHeading({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+        <Icon className="h-5 w-5" strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold text-[#0A0A0A]">{title}</h2>
+        {subtitle ? <p className="text-sm text-[#64748B]">{subtitle}</p> : null}
+      </div>
     </div>
   )
 }
 
-function PlanSummary({
-  tenant,
-  plan,
-  activeEmployees,
+function Fact({ icon: Icon, label, value, wide = false }: { icon: LucideIcon; label: string; value: ReactNode; wide?: boolean }) {
+  return (
+    <div className={cn("flex min-h-[66px] items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]", wide && "sm:col-span-2")}>
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
+        <p className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function RecordList({
+  loading,
+  emptyTitle,
+  icon: Icon,
+  items,
 }: {
-  tenant: { trial_started_at: string; trial_ends_at: string; employee_capacity: number }
-  plan: Subscription | null
-  activeEmployees: number | null
+  loading: boolean
+  emptyTitle: string
+  icon: LucideIcon
+  items: { id: number; title: string; detail: string; action?: ReactNode }[]
 }) {
-  const ended = trialEnded(tenant.trial_ends_at)
-  const days = trialDaysLeft(tenant.trial_ends_at)
-  if (!plan) {
+  if (loading) {
     return (
-      <section className="space-y-2 rounded-md border border-border bg-card px-4 py-3 text-sm">
-        <p>{ended ? "Trial encerrado. Contrate um plano." : "Trial"}</p>
-        <p>Início: {formatDate(tenant.trial_started_at)}</p>
-        <p>Término: {formatDate(tenant.trial_ends_at)}</p>
-        <p>Dias restantes: {days}</p>
-        <p>Capacidade: {tenant.employee_capacity}</p>
-        <p>Funcionários contabilizados: {activeEmployees === null ? "indisponível" : activeEmployees}</p>
-      </section>
+      <div className="flex justify-center py-10" role="status">
+        <Spinner label={`Carregando ${emptyTitle.toLocaleLowerCase("pt-BR")}`} className="h-8 w-8 text-[#1E8A3A]" />
+      </div>
+    )
+  }
+  if (items.length === 0) {
+    return (
+      <div className="px-2 py-10 text-center">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+          <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+        </span>
+        <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">{emptyTitle}</p>
+        <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+      </div>
     )
   }
   return (
-    <section className="space-y-2 rounded-md border border-border bg-card px-4 py-3 text-sm">
-      <p>{subscriptionStatusLabel[plan.status] || plan.status}</p>
-      {plan.status === "blocked" ? <p>O uso está bloqueado por inadimplência.</p> : null}
-      {plan.status === "delinquent" ? <p>Há uma cobrança em atraso.</p> : null}
-      <p>Capacidade: {plan.capacity}</p>
-      <p>Preço: {showMoney(plan.price_cents)} por pessoa</p>
-      <p>Mensalidade: {showMoney(plan.monthly_amount_cents)}</p>
-      <p>Pagamento: {paymentMethodLabel[plan.payment_method] || plan.payment_method}</p>
-      <p>
-        Período: {showDate(plan.period_start)} a {showDate(plan.period_end)}
-      </p>
-      <p>Funcionários contabilizados: {activeEmployees === null ? "indisponível" : activeEmployees}</p>
-    </section>
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li key={item.id} className="flex min-h-16 flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035)] sm:flex-row sm:items-center">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
+            <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-brand-ink">{item.title}</span>
+            <span className="mt-[3px] block text-sm text-brand-quiet">{item.detail}</span>
+          </span>
+          {item.action}
+        </li>
+      ))}
+    </ul>
   )
+}
+
+function summarySubtitle(
+  tenant: { trial_ends_at: string },
+  plan: Subscription | null,
+) {
+  if (!plan) return trialEnded(tenant.trial_ends_at) ? "Trial encerrado" : "Trial"
+  if (plan.status === "blocked") return "O uso está bloqueado por inadimplência."
+  if (plan.status === "delinquent") return "Há uma cobrança em atraso."
+  return subscriptionStatusLabel[plan.status] || plan.status
+}
+
+function summaryFacts(
+  tenant: { trial_started_at: string; trial_ends_at: string; employee_capacity: number },
+  plan: Subscription | null,
+  people: ReactNode,
+) {
+  if (!plan) {
+    return [
+      { icon: CreditCard, label: "Situação", value: trialEnded(tenant.trial_ends_at) ? "Trial encerrado" : "Trial" },
+      { icon: CalendarDays, label: "Início", value: formatDate(tenant.trial_started_at) },
+      { icon: CalendarDays, label: "Término", value: formatDate(tenant.trial_ends_at) },
+      { icon: CalendarDays, label: "Dias restantes", value: String(trialDaysLeft(tenant.trial_ends_at)) },
+      { icon: Users, label: "Capacidade", value: String(tenant.employee_capacity) },
+      { icon: Users, label: "Funcionários contabilizados", value: people },
+    ]
+  }
+  return [
+    { icon: CreditCard, label: "Situação", value: subscriptionStatusLabel[plan.status] || plan.status },
+    { icon: Users, label: "Capacidade", value: String(plan.capacity) },
+    { icon: Wallet, label: "Preço", value: `${showMoney(plan.price_cents)} por pessoa` },
+    { icon: Wallet, label: "Mensalidade", value: showMoney(plan.monthly_amount_cents) },
+    { icon: CreditCard, label: "Pagamento", value: paymentMethodLabel[plan.payment_method] || plan.payment_method || "Não informado" },
+    { icon: Users, label: "Funcionários contabilizados", value: people },
+    { icon: CalendarDays, label: "Período", value: `${showDate(plan.period_start)} a ${showDate(plan.period_end)}`, wide: true },
+  ]
 }
