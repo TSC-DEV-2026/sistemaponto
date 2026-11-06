@@ -20,6 +20,12 @@ class RemotePerson:
     auth_version: int
 
 
+@dataclass
+class PersonName:
+    person_id: int
+    full_name: str
+
+
 class AuthenticatorClient:
     """Único ponto que chama o autenticador."""
 
@@ -58,6 +64,15 @@ class AuthenticatorClient:
             body["password"] = password
         data = self._request("POST", "/people", body)
         return int(data["person_id"]), bool(data["created"])
+
+    def lookup_names(self, person_ids: list[int]) -> list[PersonName]:
+        data = self._request_list("POST", "/people/lookup", {"person_ids": person_ids})
+        names: list[PersonName] = []
+        for row in data:
+            if not isinstance(row, dict) or "person_id" not in row or "full_name" not in row:
+                raise AppError(502, "Falha no autenticador")
+            names.append(PersonName(person_id=int(row["person_id"]), full_name=str(row["full_name"])))
+        return names
 
     def person_state(self, person_id: int) -> RemotePerson:
         data = self._request("GET", f"/people/{person_id}")
@@ -115,21 +130,32 @@ class AuthenticatorClient:
         )
 
     def _request(self, method: str, path: str, body: dict | None = None) -> dict:
+        data = self._read(self._send(method, path, body))
+        if not isinstance(data, dict):
+            raise AppError(502, "Falha no autenticador")
+        return data
+
+    def _request_list(self, method: str, path: str, body: dict | None = None) -> list:
+        data = self._read(self._send(method, path, body))
+        if not isinstance(data, list):
+            raise AppError(502, "Falha no autenticador")
+        return data
+
+    def _send(self, method: str, path: str, body: dict | None) -> httpx.Response:
         url = settings.AUTHENTICATOR_BASE_URL.rstrip("/") + "/api/v1/internal" + path
         headers = {"X-Api-Key": settings.AUTHENTICATOR_API_KEY}
         client = self._client or httpx.Client(timeout=10.0)
         close = self._client is None
         try:
-            response = client.request(method, url, json=body, headers=headers)
+            return client.request(method, url, json=body, headers=headers)
         except httpx.HTTPError:
             logger.exception("autenticador indisponível")
             raise AppError(503, "Autenticador indisponível") from None
         finally:
             if close:
                 client.close()
-        return self._read(response)
 
-    def _read(self, response: httpx.Response) -> dict:
+    def _read(self, response: httpx.Response) -> dict | list:
         try:
             payload = response.json()
         except ValueError:
@@ -144,6 +170,6 @@ class AuthenticatorClient:
         data = payload.get("data") if isinstance(payload, dict) else None
         if data is None:
             return {}
-        if not isinstance(data, dict):
-            raise AppError(502, "Falha no autenticador")
-        return data
+        if isinstance(data, dict) or isinstance(data, list):
+            return data
+        raise AppError(502, "Falha no autenticador")

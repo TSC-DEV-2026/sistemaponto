@@ -45,7 +45,19 @@ class MembershipService:
             page=page,
             limit=limit,
         )
-        return [self.view(row) for row in items], total
+        names = {
+            person.person_id: person.full_name
+            for person in self.authenticator.lookup_names([row.person_id for row in items])
+        }
+        return [
+            MembershipView(
+                id=row.id,
+                person_id=row.person_id,
+                full_name=names.get(row.person_id, ""),
+                role=row.role,
+            )
+            for row in items
+        ], total
 
     def view(self, row: Membership) -> MembershipView:
         person = self.authenticator.person_state(row.person_id)
