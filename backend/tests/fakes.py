@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from app.core.exceptions import AppError
 from app.core.trial import TRIAL_EMPLOYEE_CAPACITY, trial_window
-from app.services.authenticator_client import RemotePerson
+from app.services.authenticator_client import PersonName, RemotePerson
 
 
 class FakeTenantRepo:
@@ -121,6 +121,8 @@ class FakeAuthenticator:
         self.by_cpf: dict[str, RemotePerson] = {}
         self.passwords: dict[int, str] = {}
         self.upserts: list[dict] = []
+        self.lookups: list[list[int]] = []
+        self.state_calls = 0
         self._seq = 1
 
     def add(
@@ -181,7 +183,22 @@ class FakeAuthenticator:
         )
         return person.person_id, True
 
+    def lookup_names(self, person_ids: list[int]) -> list[PersonName]:
+        self.lookups.append(list(person_ids))
+        found: list[PersonName] = []
+        seen: set[int] = set()
+        for person_id in person_ids:
+            if person_id in seen:
+                continue
+            seen.add(person_id)
+            person = self.people.get(person_id)
+            if person is None:
+                continue
+            found.append(PersonName(person_id=person.person_id, full_name=person.full_name))
+        return found
+
     def person_state(self, person_id: int) -> RemotePerson:
+        self.state_calls += 1
         person = self.people.get(person_id)
         if person is None:
             raise AppError(404, "Pessoa não encontrada")
