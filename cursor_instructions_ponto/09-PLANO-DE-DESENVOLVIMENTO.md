@@ -140,3 +140,21 @@ Hoje a ficha recusa salvar o reconhecimento facial sem a foto de referência, no
 Na batida facial, online ou offline, se não houver foto de referência, a marcação não entra e a resposta é "Este funcionário não tem foto de referência."
 
 A gravação é uma só. Se uma pessoa da seleção falhar, nenhuma daquele lote é salva, e a mensagem diz quem e por quê.
+
+## Ponto 11 — Nomes da lista de acessos numa consulta
+
+A lista de Permissões e Acessos continua igual. `GET /memberships` segue devolvendo `id`, `person_id`, `full_name` e `role`, paginado, com os filtros `role` e `person_id`. O limite da página continua de 1 a 100. O nome continua só no autenticador. A tabela `memberships` não ganha coluna de nome.
+
+Hoje `MembershipService.list` lê a página no banco do Ponto e, para cada linha, `view` chama `AuthenticatorClient.person_state`. Isso é `GET /internal/people/{person_id}`, uma ida por acesso, em sequência. Uma página de 10 espera dez respostas antes de o site sair do carregamento. O banco do Ponto responde na hora. O tempo está nessas idas. O detalhe, o vínculo novo e a troca de papel continuam com essa consulta de uma pessoa, porque cada um mostra um acesso só.
+
+A lista passa a mandar os `person_id` da página numa chamada. O autenticador devolve os nomes juntos. O Ponto monta as linhas na ordem que já saiu do banco dele e casa cada nome pelo `person_id`. A ordem da resposta do autenticador não reordena a página. A tela espera a mesma resposta de sempre. O que muda é essa resposta nascer de uma ida, não de dez.
+
+No autenticador, a rota interna nova é `POST /internal/people/lookup`, no mesmo router de `/internal`, com a mesma chave de API. O corpo é `{ "person_ids": [1, 2, 3] }`. A resposta traz, para cada pessoa encontrada, `person_id` e `full_name`. Não devolve senha, e-mail, CPF nem `auth_version`: a lista não usa isso. `GET /internal/people/{person_id}` permanece e continua devolvendo o estado completo, usado no login, no detalhe, na criação e na alteração.
+
+A busca é uma consulta pelos identificadores recebidos, no mesmo banco de pessoas. Não chama `get_person` em laço. Identificador repetido no corpo entra uma vez. Lista vazia devolve lista vazia, sem consultar o banco. O teto é o mesmo da página de vínculos: no máximo 100. Acima disso, a rota responde 400.
+
+Quem não existe fica de fora da resposta. O Ponto não inventa nome e não derruba a página por causa de um identificador ausente. Essa linha sai com `full_name` vazio, e o site já mostra Não informado.
+
+Disparar as chamadas de hoje ao mesmo tempo fica de fora. A espera cai, mas o número de consultas continua crescendo com o tamanho da página. Gravar `full_name` em `memberships` também fica de fora: o autenticador é a origem do nome, e a alteração da pessoa lá deixaria a cópia do Ponto velha.
+
+No Ponto, `AuthenticatorClient` ganha o método dessa consulta e o falso dos testes passa a respondê-la. `MembershipService.list` chama o método uma vez, depois de ler a página local, e preenche o `full_name` de cada linha. `view` segue em `person_state` no detalhe, na criação e na alteração. O contrato de `MembershipOut` não muda, e o site não ganha campo nem chamada nova.

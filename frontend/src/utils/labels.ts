@@ -3,6 +3,12 @@ export const situationLabel: Record<string, string> = {
   dismissed: "Desligado",
 }
 
+export const membershipRoleLabel: Record<string, string> = {
+  admin: "Administrador",
+  manager: "Gestor",
+  member: "Membro",
+}
+
 export const requestStatusLabel: Record<string, string> = {
   pending: "Pendente",
   approved: "Aprovada",

@@ -212,6 +212,7 @@ export const navGroups: NavGroup[] = [
         to: "/memberships",
         label: "Permissões e Acessos",
         icon: Shield,
+        adminOnly: true,
         lead: "Quem entra neste sistema e com qual papel. Não é o cadastro de funcionário.",
         sections: [],
       },

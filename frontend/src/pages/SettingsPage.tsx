@@ -218,15 +218,17 @@ export function SettingsPage() {
         </Button>
       </section>
 
-      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <h2 className="text-sm font-medium">Permissões e acessos</h2>
-        <Button variant="outline" className="w-fit" asChild>
-          <Link to="/memberships">
-            <Shield className="h-4 w-4" />
-            Permissões e acessos
-          </Link>
-        </Button>
-      </section>
+      {user?.role === "admin" ? (
+        <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+          <h2 className="text-sm font-medium">Permissões e acessos</h2>
+          <Button variant="outline" className="w-fit" asChild>
+            <Link to="/memberships">
+              <Shield className="h-4 w-4" />
+              Permissões e acessos
+            </Link>
+          </Button>
+        </section>
+      ) : null}
     </div>
   )
 }
