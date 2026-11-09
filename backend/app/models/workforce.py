@@ -79,6 +79,44 @@ class Journey(Base):
     afternoon_start = Column(String(5), nullable=True)
     afternoon_end = Column(String(5), nullable=True)
     note = Column(Text, nullable=True)
+    kind = Column(String(16), nullable=False, default="programada")
+    flexible = Column(Boolean, nullable=False, default=False)
+    tolerance_minutes = Column(Integer, nullable=False, default=10)
+    weekly_minutes = Column(Integer, nullable=True)
+
+
+class JourneyVersion(Base):
+    __tablename__ = "journey_versions"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    journey_id = Column(BigInteger, ForeignKey("journeys.id", ondelete="CASCADE"), nullable=False, index=True)
+    valid_from = Column(Date, nullable=False)
+    kind = Column(String(16), nullable=False)
+    flexible = Column(Boolean, nullable=False, default=False)
+    tolerance_minutes = Column(Integer, nullable=False, default=10)
+    weekly_minutes = Column(Integer, nullable=True)
+
+
+class JourneyDay(Base):
+    __tablename__ = "journey_days"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    version_id = Column(BigInteger, ForeignKey("journey_versions.id", ondelete="CASCADE"), nullable=False, index=True)
+    position = Column(Integer, nullable=False)
+    off = Column(Boolean, nullable=False, default=False)
+
+
+class JourneySpan(Base):
+    __tablename__ = "journey_spans"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    day_id = Column(BigInteger, ForeignKey("journey_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    position = Column(Integer, nullable=False)
+    starts_at = Column(String(5), nullable=False)
+    ends_at = Column(String(5), nullable=False)
 
 
 class LaborUnion(Base):
@@ -168,6 +206,7 @@ class EmployeeVigency(Base):
     valid_from = Column(Date, nullable=False)
     valid_to = Column(Date, nullable=True)
     note = Column(Text, nullable=True)
+    cycle_day = Column(Integer, nullable=True)
 
 
 class Punch(Base):

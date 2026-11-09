@@ -22,6 +22,9 @@ from app.models.workforce import (
     HourBankEntry,
     Job,
     Journey,
+    JourneyDay,
+    JourneySpan,
+    JourneyVersion,
     Notification,
     NotificationPreference,
     Occurrence,
@@ -186,6 +189,28 @@ class Memory:
         for row in rows:
             found.setdefault(row.employee_id, {})[row.kind] = row
         return found
+
+    def versions_for(self, tenant_id: int, journey_id: int):
+        found = [row for row in self._of(JourneyVersion, tenant_id) if row.journey_id == journey_id]
+        found.sort(key=lambda item: (item.valid_from, item.id))
+        return found
+
+    def days_for(self, version_id: int):
+        found = [row for row in self.rows if isinstance(row, JourneyDay) and row.version_id == version_id]
+        found.sort(key=lambda item: (item.position, item.id))
+        return found
+
+    def spans_for(self, day_id: int):
+        found = [row for row in self.rows if isinstance(row, JourneySpan) and row.day_id == day_id]
+        found.sort(key=lambda item: (item.position, item.id))
+        return found
+
+    def vigencies_for_reference(self, tenant_id: int, kind: str, reference_id: int):
+        return [
+            row
+            for row in self._of(EmployeeVigency, tenant_id)
+            if row.kind == kind and row.reference_id == reference_id
+        ]
 
     def open_vigency(self, employee_id: int, kind: str):
         for row in self.rows:
@@ -2840,3 +2865,189 @@ def test_operacao_em_massa_altera_o_lote_ou_nenhum():
             },
         )
     assert member.value.status_code == 403
+
+
+def test_folga_trabalhada_vira_hora_extra_e_dia_util_permanece():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 3, (8, 0), (12, 0), (13, 0), (17, 0))
+    saturday = workforce.time_results(admin(), person["id"], date(2026, 10, 3), date(2026, 10, 3))["items"][0]
+    assert saturday["absence"] is False
+    assert saturday["worked_minutes"] == 8 * 60
+    assert saturday["overtime_minutes"] == 8 * 60
+    assert saturday["expected_minutes"] == 0
+
+
+def test_programada_comeca_no_dia_escolhido():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    days = [
+        {"off": index in {1, 7}, "spans": [] if index in {1, 7} else [{"starts_at": "08:00", "ends_at": "12:00"}]}
+        for index in range(1, 8)
+    ]
+    journey = workforce.create_named(Journey, admin(), {"name": "Revezamento", "days": days, "note": None})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 6),
+            "cycle_day": 1,
+            "note": None,
+        },
+    )
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 6))["absence"] is False
+    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 0
+    assert day_result(result, date(2026, 10, 7))["absence"] is True
+    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 4 * 60
+
+
+def test_flexivel_compara_a_duracao_e_a_tolerancia():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    journey = workforce.create_named(
+        Journey,
+        admin(),
+        {
+            "name": "Flex",
+            "days": [{"off": False, "spans": [{"starts_at": "08:00", "ends_at": "12:00"}]}],
+            "flexible": True,
+            "tolerance_minutes": 10,
+            "note": None,
+        },
+    )
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 6),
+            "cycle_day": 1,
+            "note": None,
+        },
+    )
+    mark(workforce, person["id"], 6, (13, 30), (17, 30))
+    mark(workforce, person["id"], 7, (13, 30), (17, 50))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    inside = day_result(result, date(2026, 10, 6))
+    outside = day_result(result, date(2026, 10, 7))
+    assert inside["overtime_minutes"] == 0
+    assert inside["shortage_minutes"] == 0
+    assert outside["overtime_minutes"] == 20
+
+
+def test_carga_fecha_no_ultimo_dia_e_o_feriado_sai_da_meta():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    journey = workforce.create_named(Journey, admin(), {"name": "Semana", "kind": "carga", "weekly_time": "44:00", "note": None})
+    vigency = workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 7),
+            "note": None,
+        },
+    )
+    vigency.valid_to = date(2026, 10, 9)
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 11))
+    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 0
+    assert day_result(result, date(2026, 10, 7))["absence"] is False
+    closing = day_result(result, date(2026, 10, 9))
+    assert closing["expected_minutes"] == 18 * 60 + 51
+    assert closing["shortage_minutes"] == 18 * 60 + 51
+    holiday = workforce.create_employee(admin(), employee_payload("10987654321", None))
+    workforce.create_named(Holiday, admin(), {"name": "Segunda", "holiday_date": date(2026, 10, 5), "note": None})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": holiday["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 5),
+            "note": None,
+        },
+    )
+    mark(workforce, holiday["id"], 5, (8, 0), (16, 0))
+    week = workforce.time_results(admin(), holiday["id"], date(2026, 10, 5), date(2026, 10, 11))
+    assert day_result(week, date(2026, 10, 5))["overtime_minutes"] == 8 * 60
+    assert day_result(week, date(2026, 10, 11))["expected_minutes"] == 37 * 60 + 43
+
+
+def test_livre_nao_gera_falta_e_feriado_trabalhado_e_extra():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    journey = workforce.create_named(Journey, admin(), {"name": "Hora", "kind": "livre", "note": None})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 1),
+            "note": None,
+        },
+    )
+    empty = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    assert empty["absence"] is False
+    assert empty["overtime_minutes"] == 0
+    assert empty["worked_minutes"] == 0
+    workforce.create_named(Holiday, admin(), {"name": "Terca", "holiday_date": date(2026, 10, 6), "note": None})
+    mark(workforce, person["id"], 6, (8, 0), (12, 0))
+    worked = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    assert worked["worked_minutes"] == 4 * 60
+    assert worked["overtime_minutes"] == 4 * 60
+    assert worked["bank_minutes"] == 0
+    assert worked["absence"] is False
+
+
+def test_alterar_horario_vale_da_data_em_diante():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    journey = work_journey(workforce, person["id"])
+    workforce.update_named(Journey, admin(), journey.id, {"afternoon_end": "18:00"})
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 8 * 60 + 48
+    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 9 * 60
+
+
+def test_turno_que_passa_da_meia_noite_fica_no_dia_que_comecou():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    journey = workforce.create_named(
+        Journey,
+        admin(),
+        {
+            "name": "Noite",
+            "days": [{"off": False, "spans": [{"starts_at": "19:00", "ends_at": "07:00"}]}],
+            "note": None,
+        },
+    )
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 10, 6),
+            "cycle_day": 1,
+            "note": None,
+        },
+    )
+    mark(workforce, person["id"], 6, (19, 0))
+    mark(workforce, person["id"], 7, (7, 0))
+    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 6))["worked_minutes"] == 12 * 60
+    assert day_result(result, date(2026, 10, 6))["overtime_minutes"] == 0
+    assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 0

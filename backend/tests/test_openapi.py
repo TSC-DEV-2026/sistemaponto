@@ -61,12 +61,23 @@ def test_listas_mostram_os_campos_de_busca_no_swagger():
         assert expected.isdisjoint(_query_names(schema["paths"][path + "/{row_id}"]["get"])), path
 
 
+def _rotas(routes, prefix=""):
+    for route in routes:
+        included = getattr(route, "original_router", None)
+        if included is not None:
+            extra = route.include_context.prefix or ""
+            yield from _rotas(included.routes, prefix + extra)
+            continue
+        path = prefix + getattr(route, "path", "")
+        yield path, route
+
+
 def test_listas_aceitam_os_campos_de_busca():
     app = create_app()
     endpoints = {
-        route.path: route.endpoint
-        for route in app.routes
-        if getattr(route, "methods", None) and "GET" in route.methods and route.path in LIST_FILTERS
+        path: route.endpoint
+        for path, route in _rotas(app.routes)
+        if getattr(route, "methods", None) and "GET" in route.methods and path in LIST_FILTERS
     }
     assert set(endpoints) == set(LIST_FILTERS)
     for path, expected in LIST_FILTERS.items():

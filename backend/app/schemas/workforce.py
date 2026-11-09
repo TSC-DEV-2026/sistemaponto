@@ -68,27 +68,74 @@ class TeamOut(NamedOut):
     sector_id: int
 
 
+class JourneySpanIn(BaseModel):
+    starts_at: str
+    ends_at: str
+
+
+class JourneyDayIn(BaseModel):
+    off: bool = False
+    spans: list[JourneySpanIn] = Field(default_factory=list)
+
+
+class JourneyAnchor(BaseModel):
+    employee_id: int
+    cycle_day: int = Field(ge=1)
+
+
 class JourneyCreate(NamedCreate):
+    kind: Literal["programada", "carga", "livre"] | None = None
     morning_start: str | None = None
     morning_end: str | None = None
     afternoon_start: str | None = None
     afternoon_end: str | None = None
+    days: list[JourneyDayIn] | None = None
+    weekly_minutes: int | None = Field(default=None, gt=0, le=10080)
+    weekly_time: str | None = None
+    flexible: bool = False
+    tolerance_minutes: int = Field(default=10, ge=0, le=120)
+    valid_from: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
 class JourneyUpdate(NamedUpdate):
+    kind: Literal["programada", "carga", "livre"] | None = None
     morning_start: str | None = None
     morning_end: str | None = None
     afternoon_start: str | None = None
     afternoon_end: str | None = None
+    days: list[JourneyDayIn] | None = None
+    weekly_minutes: int | None = Field(default=None, gt=0, le=10080)
+    weekly_time: str | None = None
+    flexible: bool | None = None
+    tolerance_minutes: int | None = Field(default=None, ge=0, le=120)
+    valid_from: date | None = None
+    anchors: list[JourneyAnchor] | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
+class JourneySpanOut(BaseModel):
+    starts_at: str
+    ends_at: str
+
+
+class JourneyDayOut(BaseModel):
+    position: int
+    off: bool
+    spans: list[JourneySpanOut]
+
+
 class JourneyOut(NamedOut):
+    kind: str
     morning_start: str | None
     morning_end: str | None
     afternoon_start: str | None
     afternoon_end: str | None
+    days: list[JourneyDayOut] = Field(default_factory=list)
+    weekly_minutes: int | None = None
+    flexible: bool = False
+    tolerance_minutes: int = 10
+    valid_from: date | None = None
     note: str | None
 
 
@@ -224,6 +271,7 @@ class EmployeeBulkCreate(BaseModel):
     label: str | None = Field(default=None, max_length=255)
     clock_method: Literal["simple", "qr", "face"] | None = None
     valid_from: date | None = None
+    cycle_day: int | None = Field(default=None, ge=1)
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -237,6 +285,7 @@ class VigencyCreate(BaseModel):
     reference_id: int | None = None
     label: str | None = Field(default=None, max_length=255)
     valid_from: date
+    cycle_day: int | None = Field(default=None, ge=1)
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -253,6 +302,7 @@ class VigencyOut(BaseModel):
     valid_from: date
     valid_to: date | None
     note: str | None
+    cycle_day: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
