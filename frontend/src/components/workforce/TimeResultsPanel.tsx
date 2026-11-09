@@ -11,6 +11,7 @@ import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { getTimeResults, type Employee, type TimeResult, type TimeResults } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { resultNote } from "@/pages/workforce/journey"
 import { punchDay, showDate, showDuration } from "@/utils/labels"
 
 function today() {
@@ -34,19 +35,18 @@ function hasSignal(item: TimeResult) {
   )
 }
 
-const resultNote =
-  "Usa as marcações que valem, a jornada vigente, o feriado e as ocorrências. Escala 5x2. Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Com banco, o excedente soma no saldo e o que fica abaixo compensa. Sem banco, o excedente é hora extra e a falta de tempo desconta. O adicional noturno não entra no saldo."
-
 export function TimeResultsPanel({
   employeeId,
   employees,
   heading = true,
   appearance,
+  note,
 }: {
   employeeId?: number
   employees?: Employee[]
   heading?: boolean
   appearance?: "module"
+  note?: string
 }) {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const saved = appearance === "module" && employeeId == null ? readApuracaoQuery(tenantId) : null
@@ -117,6 +117,7 @@ export function TimeResultsPanel({
           <div>
             <h2 className="text-lg font-semibold text-brand-ink">Apuração</h2>
             <p className="mt-1 text-sm text-brand-quiet">Consulte as horas apuradas.</p>
+            <p className="mt-2 text-sm leading-6 text-[#52525B]">{note || resultNote()}</p>
           </div>
           {employees ? (
             <div className="mt-[18px] space-y-2">
@@ -170,7 +171,7 @@ export function TimeResultsPanel({
   return (
     <section className="space-y-3">
       {heading ? <h2 className="text-sm font-medium">Apuração</h2> : null}
-      <p className="text-sm text-muted-foreground">{resultNote}</p>
+      <p className="text-sm text-muted-foreground">{note || resultNote()}</p>
       <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
         {employees ? (
           <div className="space-y-2">

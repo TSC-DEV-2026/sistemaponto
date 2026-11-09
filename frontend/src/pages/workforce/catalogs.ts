@@ -19,10 +19,6 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/schedules?aba=jornadas",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },
-      { name: "morning_start", label: "Entrada manhã", type: "time" },
-      { name: "morning_end", label: "Saída manhã", type: "time" },
-      { name: "afternoon_start", label: "Entrada tarde", type: "time" },
-      { name: "afternoon_end", label: "Saída tarde", type: "time" },
       { name: "note", label: "Observação", type: "textarea" },
     ],
   },

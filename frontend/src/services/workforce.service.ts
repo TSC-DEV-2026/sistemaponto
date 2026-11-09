@@ -14,6 +14,10 @@ export type NamedRecord = {
   morning_end?: string | null
   afternoon_start?: string | null
   afternoon_end?: string | null
+  days?: { position?: number; off: boolean; spans: { starts_at: string; ends_at: string }[] }[]
+  weekly_minutes?: number | null
+  flexible?: boolean
+  tolerance_minutes?: number
   note?: string | null
   valid_from?: string | null
   valid_to?: string | null
@@ -53,6 +57,7 @@ export type Vigency = {
   valid_from: string
   valid_to: string | null
   note: string | null
+  cycle_day?: number | null
 }
 
 export type Punch = {
