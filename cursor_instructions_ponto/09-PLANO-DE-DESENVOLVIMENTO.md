@@ -158,3 +158,43 @@ Quem não existe fica de fora da resposta. O Ponto não inventa nome e não derr
 Disparar as chamadas de hoje ao mesmo tempo fica de fora. A espera cai, mas o número de consultas continua crescendo com o tamanho da página. Gravar `full_name` em `memberships` também fica de fora: o autenticador é a origem do nome, e a alteração da pessoa lá deixaria a cópia do Ponto velha.
 
 No Ponto, `AuthenticatorClient` ganha o método dessa consulta e o falso dos testes passa a respondê-la. `MembershipService.list` chama o método uma vez, depois de ler a página local, e preenche o `full_name` de cada linha. `view` segue em `person_state` no detalhe, na criação e na alteração. O contrato de `MembershipOut` não muda, e o site não ganha campo nem chamada nova.
+
+## Ponto 12 — Programada, carga e livre
+
+A jornada deixa de ser um horário único de manhã e de tarde, tratado como 5x2. Passa a ter três tipos: Programada, Carga e Livre.
+
+Hoje `journeys` guarda `morning_start`, `morning_end`, `afternoon_start` e `afternoon_end`. `settle_day` considera dia de trabalho o `weekday() < 5`. Sábado e domingo nascem sem jornada. A tolerância está fixa em 10 minutos em `TOLERANCE_MINUTES`. A vigência em `employee_vigencies` tem a data e a jornada, sem o dia da sequência. A saída que passa da meia-noite só volta para o dia anterior se cair até as 05:00 (`_take_night_exit`). O texto da apuração fala em escala 5x2 e tolerância de 10 minutos. A Jornada Padrão da empresa nasce 08:00–12:00 e 13:30–17:30.
+
+O cadastro pede o tipo. Os quatro horários saem do formulário. O texto da apuração deixa a escala 5x2 fixa e passa a descrever o tipo vigente.
+
+### Programada
+
+A pessoa inclui os dias, um a um. Cada dia é trabalho ou folga. No trabalho, inclui os pares de entrada e saída que precisar: um turno, manhã e tarde, ou mais. Cada par tem os dois horários, em ordem, sem sobrepor o próximo. Folga não tem par. Dia de trabalho sem par não grava. A quantidade de dias é a da sequência: 7, 14, 21 ou o quanto a pessoa incluir. A sequência não olha o dia da semana.
+
+No funcionário, a vigência pede a data e em qual dia da sequência essa data cai. Dali em diante a posição é a contagem desses dias, e ao terminar a sequência volta ao dia 1. Duas pessoas podem usar a mesma jornada e começar em dias diferentes. A operação em massa de jornada pede esse dia, junto da data que a ficha já pede. Carga e Livre seguem só com a data.
+
+Dia de trabalho sem marcação é falta, e o tempo previsto vira falta de tempo. Chegou e fez menos: falta de tempo, sem a falta do dia. Folga trabalhada é hora extra. Marcação ímpar continua ponto incompleto e não fecha extra nem falta de tempo até o par existir. Com banco de horas, o excedente e a falta de tempo do dia seguem para o banco, no lugar da hora extra e do desconto.
+
+A jornada flexível e a tolerância ficam na Programada. A tolerância é campo da jornada, com padrão de 10 minutos. Com a flexível desligada, a apuração compara os horários como hoje: atraso dentro da tolerância conta como o horário previsto; atraso acima desconta o atraso inteiro; saída antecipada desconta o tempo. Com a flexível ligada, compara a duração feita no dia com a duração prevista. Vários trechos somam. Dentro da tolerância, vale a duração prevista. Acima dela, conta a diferença inteira. 08:00–12:00 feito como 13:30–17:30 cumpre o dia. Se o dia tem intervalo previsto e o intervalo feito for menor, permanece o aviso "intervalo menor do que o previsto". O mínimo do intervalo continua 1 hora. A marcação permanece.
+
+### Carga
+
+O cadastro pede o total da semana. Não há dia, horário nem folga. A semana corre de segunda a domingo. De segunda a sábado a apuração mostra o tempo trabalhado. No domingo, ou no último dia em que a carga valeu naquela semana, soma as marcações e compara com o total. Acima vira hora extra. Abaixo vira falta de tempo, em minutos. Dia sem marcação entra como zero e não é falta. Com banco de horas, o saldo desse fechamento entra no banco. Sem banco, vira hora extra ou desconto.
+
+Semana incompleta, na admissão, na troca ou no desligamento, usa os dias em que a carga esteve vigente. A meta é o total vezes esses dias, dividido por 7, no minuto mais próximo. Três dias de uma carga de 44:00 dão 18:51.
+
+### Livre
+
+Não há total, dia nem horário. O tempo marcado é o tempo a receber. Dia sem marcação fica em zero, sem falta e sem hora extra. Nada entra sozinho no banco de horas.
+
+### Os três tipos
+
+A marcação que atravessa a meia-noite fica no dia em que começou. O par aberto fecha com a marcação seguinte, e o limite das 05:00 deixa de cortar o turno. O turno de domingo à noite entra na semana que fecha nesse domingo. O adicional noturno permanece nas horas feitas dentro do período já configurado, e esses minutos continuam fora do banco.
+
+Feriado, férias, afastamento, abono integral e atestado integral ficam por cima do tipo. Na Programada, o dia segue a regra de hoje: feriado não gera falta e o trabalho nele é hora extra; férias, afastamento, abono integral e atestado integral tiram a falta. Na Carga, cada um desses dias sai da meta. Uma carga de 44:00 com um feriado fica em 37:43. As horas feitas nesse dia não cumprem a meta. No feriado, viram hora extra. Em férias, afastamento, abono integral ou atestado integral, ficam como tempo marcado, sem extra e sem falta. Na Livre, o feriado trabalhado vira hora extra. Os outros deixam o dia sem falta e sem meta.
+
+A flexível e a tolerância não entram na Carga nem na Livre.
+
+Alterar horário, folga, total, tolerância ou flexível pede a data em que o conteúdo novo passa a valer. A apuração anterior lê o conteúdo da época. Período fechado bloqueia essa data, como na vigência. Mudar a quantidade de dias pede de novo, nessa data, em qual dia da sequência ela cai. Trocar o horário de um dia não move a contagem de quem já está no meio.
+
+Jornada já cadastrada, inclusive a Jornada Padrão, vira Programada de 7 dias: o horário atual de segunda a sexta, sábado e domingo de folga, flexível desligada, tolerância de 10 minutos. Na vigência já existente, a data de início cai no dia da sequência que preserva a semana. Uma quarta-feira continua dia de trabalho. Esse encaixe pelo dia da semana vale só nessa conversão.
