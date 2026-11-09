@@ -1,6 +1,7 @@
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom"
 
 import { AppShell } from "@/components/layouts/AppShell"
+import { Toaster } from "@/components/ui/toaster"
 import { PrivateRoute } from "@/components/PrivateRoute"
 import { TenantRoute } from "@/components/TenantRoute"
 import { ChangePasswordPage } from "@/pages/ChangePasswordPage"
@@ -150,5 +151,10 @@ const router = createBrowserRouter([
 ])
 
 export function App() {
-  return <RouterProvider router={router} />
+  return (
+    <>
+      <RouterProvider router={router} />
+      <Toaster />
+    </>
+  )
 }
