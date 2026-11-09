@@ -14,6 +14,7 @@ import { moduleDangerClass, moduleLabelClass, moduleQuietClass } from "@/compone
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { PunchLists } from "@/components/workforce/PunchDay"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
+import { JourneySchedule } from "@/components/workforce/JourneySchedule"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
@@ -27,6 +28,7 @@ import {
   type TimeRequest,
   type Vigency,
 } from "@/services/workforce.service"
+import { resultNote } from "@/pages/workforce/journey"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf } from "@/utils/digits"
@@ -574,41 +576,23 @@ export function EmployeePage() {
         <div className="space-y-4">
           <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
             <h2 className="text-lg font-semibold text-brand-ink">Jornada prevista</h2>
-            <p className="mt-1 text-sm text-brand-quiet">Horários da jornada vigente.</p>
+            <p className="mt-1 text-sm text-brand-quiet">Jornada vigente desta pessoa.</p>
             {schedule ? (
-              <>
-                <dl className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <FieldTile icon={Clock} label="Nome">{schedule.name?.trim() ? schedule.name : <EmptyMark />}</FieldTile>
-                  <FieldTile icon={FileText} label="Observação">{schedule.note?.trim() ? schedule.note : <EmptyMark />}</FieldTile>
-                </dl>
-                <div className="mt-5 flex items-center justify-between gap-3">
-                  <h3 className="text-base font-semibold text-brand-ink">Horários</h3>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-brand-cta">{schedule.name}</span>
-                </div>
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {(
-                    [
-                      ["01", "Manhã", "Entrada manhã", schedule.morning_start],
-                      ["02", "Manhã", "Saída manhã", schedule.morning_end],
-                      ["03", "Tarde", "Entrada tarde", schedule.afternoon_start],
-                      ["04", "Tarde", "Saída tarde", schedule.afternoon_end],
-                    ] as const
-                  ).map(([step, period, label, value]) => (
-                    <div key={label} className="rounded-xl border border-[#E4E4E7] bg-white px-4 py-4">
-                      <p className="text-xs font-semibold text-brand-cta">
-                        {step} · {period}
-                      </p>
-                      <p className="mt-2 text-sm text-brand-muted">{label}</p>
-                      <p className="mt-1 text-2xl font-bold tracking-tight text-brand-ink">{value ? value.slice(0, 5) : <span className="text-base font-medium text-[#94A3B8]">Não informado</span>}</p>
-                    </div>
-                  ))}
-                </div>
-              </>
+              <JourneySchedule
+                name={schedule.name}
+                note={schedule.note}
+                kind={schedule.kind}
+                days={schedule.days}
+                weeklyMinutes={schedule.weekly_minutes}
+                flexible={schedule.flexible}
+                toleranceMinutes={schedule.tolerance_minutes}
+                cycleDay={journey?.cycle_day}
+              />
             ) : (
               <p className="mt-5 rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center text-sm text-brand-quiet">Nenhuma jornada vigente.</p>
             )}
           </section>
-          <TimeResultsPanel employeeId={id} appearance="module" />
+          <TimeResultsPanel employeeId={id} appearance="module" note={resultNote(schedule?.kind)} />
           <HourBankPanel employeeId={id} canLaunch={false} usesBank={employee.hour_bank} appearance="module" />
           <PunchLists employeeId={id} employees={[employee]} reloadKey={saved} appearance="module" />
           <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
@@ -736,7 +720,7 @@ export function EmployeePage() {
               <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
                 {history.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                    {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}
+                    {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
                   </li>
                 ))}
               </ul>

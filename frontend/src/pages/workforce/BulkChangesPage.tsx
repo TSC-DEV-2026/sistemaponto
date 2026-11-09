@@ -39,6 +39,7 @@ import { createRecord, listRecords, type Employee, type NamedRecord } from "@/se
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { onlyDigits } from "@/utils/digits"
+import { isoWeekday } from "@/pages/workforce/journey"
 import { clockMethodLabel, showDate } from "@/utils/labels"
 
 const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
@@ -89,7 +90,7 @@ const howItWorks = [
 type OperationId = (typeof catalog)[number]["id"]
 type StepId = (typeof steps)[number]["id"]
 type Screen = "home" | "wizard" | "review" | "done"
-type Choice = { value: string; label: string }
+type Choice = { value: string; label: string; kind?: string; length?: number }
 type Membership = { id: number; person_id: number; full_name: string; role: string }
 type PersonPick = { id: number; name: string }
 type Rule = {
@@ -100,6 +101,7 @@ type Rule = {
   valueLabel: string
   validFrom: string
   note: string
+  cycleDay: string
 }
 type RunResult = { rules: number; employees: number; lines: string[] }
 
@@ -123,6 +125,8 @@ async function loadChoices(path: string): Promise<Choice[]> {
   return items.map((item) => ({
     value: String(item.id),
     label: "full_name" in item ? item.full_name || "Não informado" : item.name || "Não informado",
+    kind: "kind" in item ? item.kind : undefined,
+    length: "days" in item ? item.days?.length || 0 : undefined,
   }))
 }
 
@@ -181,6 +185,7 @@ function rulePayload(rule: Rule) {
     body.note = rule.note.trim() || null
     if (operation.kind === "status") body.label = operation.fixedLabel
     else body.reference_id = Number(rule.value)
+    if (operation.kind === "journey" && rule.cycleDay) body.cycle_day = Number(rule.cycleDay)
   }
   return body
 }
@@ -188,7 +193,8 @@ function rulePayload(rule: Rule) {
 function ruleLine(rule: Rule) {
   const operation = operationOf(rule.operationId)
   const when = operation.needsDate ? ` · Vigência: ${showDate(rule.validFrom)}` : ""
-  return `${operation.title} — ${peopleCount(rule.people.length)}${when}`
+  const cycle = rule.cycleDay ? ` · Dia ${rule.cycleDay} da sequência` : ""
+  return `${operation.title} — ${peopleCount(rule.people.length)}${when}${cycle}`
 }
 
 function newRuleId() {
@@ -207,6 +213,8 @@ export function BulkChangesPage() {
   const [selected, setSelected] = useState<PersonPick[]>([])
   const [value, setValue] = useState("")
   const [validFrom, setValidFrom] = useState("")
+  const [cycleDay, setCycleDay] = useState("")
+  const [cycleTouched, setCycleTouched] = useState(false)
   const [note, setNote] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -282,12 +290,20 @@ export function BulkChangesPage() {
     return () => window.removeEventListener("beforeunload", onLeave)
   }, [dirty])
 
-  function begin(next: { editingId: string | null; operationId: OperationId | ""; people: PersonPick[]; value: string; validFrom: string; note: string }) {
+  const selectedJourney = operationId === "journey" ? (choices["/journeys"] || []).find((item) => item.value === value) : undefined
+  useEffect(() => {
+    if (selectedJourney?.kind !== "programada" || cycleTouched || selectedJourney.length !== 7 || !validFrom) return
+    setCycleDay(String(isoWeekday(validFrom)))
+  }, [value, selectedJourney?.kind, selectedJourney?.length, cycleTouched, validFrom])
+
+  function begin(next: { editingId: string | null; operationId: OperationId | ""; people: PersonPick[]; value: string; validFrom: string; note: string; cycleDay: string }) {
     setEditingId(next.editingId)
     setOperationId(next.operationId)
     setSelected(next.people)
     setValue(next.value)
     setValidFrom(next.validFrom)
+    setCycleDay(next.cycleDay)
+    setCycleTouched(Boolean(next.cycleDay))
     setNote(next.note)
     setFilters({})
     setFiltersOpen(false)
@@ -303,6 +319,8 @@ export function BulkChangesPage() {
     if (next !== operationId) {
       setValue("")
       setValidFrom("")
+      setCycleDay("")
+      setCycleTouched(false)
       setNote("")
     }
     setOperationId(next)
@@ -384,6 +402,14 @@ export function BulkChangesPage() {
       setError("Informe a vigência.")
       return
     }
+    const chosen = operation.id === "journey" ? (choices["/journeys"] || []).find((item) => item.value === value) : undefined
+    if (chosen?.kind === "programada") {
+      const day = Number(cycleDay)
+      if (!cycleDay || day < 1 || day > (chosen.length || 0)) {
+        setError("Informe o dia da sequência.")
+        return
+      }
+    }
     const rule: Rule = {
       clientRuleId: editingId || newRuleId(),
       operationId: operation.id,
@@ -392,6 +418,7 @@ export function BulkChangesPage() {
       valueLabel: operation.needsValue ? valueOptions().find((item) => item.value === value)?.label || "Não informado" : operation.id === "dismissed" ? "Desligado" : "Ativo",
       validFrom: operation.needsDate ? validFrom : "",
       note: operation.needsDate ? note : "",
+      cycleDay: chosen?.kind === "programada" ? cycleDay : "",
     }
     setRules((current) => (editingId ? current.map((item) => (item.clientRuleId === editingId ? rule : item)) : [...current, rule]))
     setEditingId(null)
@@ -445,14 +472,14 @@ export function BulkChangesPage() {
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      {screen === "home" && rules.length === 0 ? <EmptyHome onStart={() => begin({ editingId: null, operationId: "", people: [], value: "", validFrom: "", note: "" })} /> : null}
+      {screen === "home" && rules.length === 0 ? <EmptyHome onStart={() => begin({ editingId: null, operationId: "", people: [], value: "", validFrom: "", note: "", cycleDay: "" })} /> : null}
       {screen === "home" && rules.length > 0 ? (
         <RulesHome
           rules={rules}
           error={error}
-          onAdd={() => begin({ editingId: null, operationId: "", people: [], value: "", validFrom: "", note: "" })}
-          onEdit={(rule) => begin({ editingId: rule.clientRuleId, operationId: rule.operationId, people: rule.people, value: rule.value, validFrom: rule.validFrom, note: rule.note })}
-          onCopy={(rule) => begin({ editingId: null, operationId: rule.operationId, people: rule.people, value: rule.value, validFrom: rule.validFrom, note: rule.note })}
+          onAdd={() => begin({ editingId: null, operationId: "", people: [], value: "", validFrom: "", note: "", cycleDay: "" })}
+          onEdit={(rule) => begin({ editingId: rule.clientRuleId, operationId: rule.operationId, people: rule.people, value: rule.value, validFrom: rule.validFrom, note: rule.note, cycleDay: rule.cycleDay })}
+          onCopy={(rule) => begin({ editingId: null, operationId: rule.operationId, people: rule.people, value: rule.value, validFrom: rule.validFrom, note: rule.note, cycleDay: rule.cycleDay })}
           onRemove={(id) => setRules((current) => current.filter((item) => item.clientRuleId !== id))}
           onReview={() => {
             setError("")
@@ -686,11 +713,33 @@ export function BulkChangesPage() {
                       searchPlaceholder="Pesquisar"
                       className="h-12"
                       options={valueOptions()}
-                      onChange={setValue}
+                      onChange={(next) => {
+                        setValue(next)
+                        if (operation.id === "journey") {
+                          setCycleDay("")
+                          setCycleTouched(false)
+                        }
+                      }}
                     />
                   </div>
                 ) : null}
                 {operation.needsDate ? <DatePickerField id="bulk-from" label="Vigência a partir de" value={validFrom} onChange={setValidFrom} /> : null}
+                {operation.id === "journey" && (choices["/journeys"] || []).find((item) => item.value === value)?.kind === "programada" ? (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className={moduleLabelClass} htmlFor="bulk-cycle">Dia da sequência nesta data</Label>
+                    <SiteSelect
+                      id="bulk-cycle"
+                      value={cycleDay}
+                      placeholder="Selecione o dia"
+                      options={Array.from({ length: (choices["/journeys"] || []).find((item) => item.value === value)?.length || 0 }, (_, index) => ({ value: String(index + 1), label: `Dia ${index + 1}` }))}
+                      onChange={(next) => {
+                        setCycleDay(next)
+                        setCycleTouched(true)
+                      }}
+                    />
+                    <p className="text-sm text-[#64748B]">Na programada de sete dias, a sugestão é o dia da semana da vigência. Você pode escolher outro.</p>
+                  </div>
+                ) : null}
                 {operation.needsDate ? (
                   <div className="space-y-2 sm:col-span-2">
                     <Label className={moduleLabelClass} htmlFor="bulk-note">Observação</Label>
@@ -1024,7 +1073,7 @@ function ReviewScreen({
                   </div>
                   <div>
                     <dt className="text-sm text-[#64748B]">Vigência</dt>
-                    <dd className="mt-1 font-medium text-[#0A0A0A]">{operation.needsDate ? showDate(rule.validFrom) : "Sem período informado."}</dd>
+                    <dd className="mt-1 font-medium text-[#0A0A0A]">{operation.needsDate ? showDate(rule.validFrom) : "Sem período informado."}{rule.cycleDay ? ` · Dia ${rule.cycleDay} da sequência` : ""}</dd>
                   </div>
                   <div>
                     <dt className="text-sm text-[#64748B]">Observação</dt>

@@ -6,7 +6,6 @@ import { authInputClass } from "@/components/auth-screen"
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
-import { TimePickerField } from "@/components/ui/time-picker-field"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,6 +22,8 @@ import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
+import { journeyDetail } from "@/pages/workforce/journey"
+import { JourneyRecordPage } from "@/pages/workforce/JourneyRecordPage"
 import { qrCardsPdf } from "@/utils/qr-cards-pdf"
 
 function EmptyMark() {
@@ -883,10 +884,8 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       editTo={(id) => `${entry.backTo.split("?")[0]}/${catalog}/${id}/edit`}
       nameOf={(item) => item.name}
       detailOf={(item) => {
-        if (item.morning_start !== undefined || item.afternoon_start !== undefined || item.morning_end !== undefined || item.afternoon_end !== undefined) {
-          const hour = (value?: string | null) => (value ? value.slice(0, 5) : "Não informado")
-          return `${hour(item.morning_start)}–${hour(item.morning_end)} / ${hour(item.afternoon_start)}–${hour(item.afternoon_end)}`
-        }
+        const journey = journeyDetail(item)
+        if (journey) return journey
         if (typeof item.active === "boolean") return item.active ? "Ativo" : "Inativo"
         if (item.holiday_date) return showDate(item.holiday_date)
         return ""
@@ -921,6 +920,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   }, [mode, isAdmin, id])
 
   useEffect(() => {
+    if (catalog === "journeys") return
     let active = true
     setOptionsReady(false)
     Promise.all(
@@ -976,6 +976,8 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     }
   }, [catalog, mode, id])
 
+  if (catalog === "journeys") return <JourneyRecordPage mode={mode} />
+
   function shown(field: CatalogField) {
     const raw = form[field.name] ?? ""
     if (field.type === "select") {
@@ -1000,122 +1002,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
     }
-  }
-
-  if (catalog === "journeys" && mode === "view") {
-    if (!loaded) {
-      return (
-        <div className="w-full min-w-0 space-y-5">
-          <BackLink to={entry.backTo} appearance="detail" />
-          {error ? (
-            <p className="text-sm text-destructive">{error}</p>
-          ) : (
-            <section className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" role="status" aria-live="polite">
-              <Spinner label="Carregando a jornada" className="h-8 w-8 text-[#1E8A3A]" />
-              <p className="text-sm font-medium text-[#64748B]">Carregando a jornada</p>
-            </section>
-          )}
-        </div>
-      )
-    }
-    const hour = (value: string) => {
-      if (!value) return <span className="text-base font-medium text-[#94A3B8]">Não informado</span>
-      return value.length >= 5 ? value.slice(0, 5) : value
-    }
-    const slots = [
-      { name: "morning_start", step: "01", period: "Manhã" },
-      { name: "morning_end", step: "02", period: "Manhã" },
-      { name: "afternoon_start", step: "03", period: "Tarde" },
-      { name: "afternoon_end", step: "04", period: "Tarde" },
-    ]
-    return (
-      <div className="w-full min-w-0 space-y-5">
-        <BackLink to={entry.backTo} appearance="detail" />
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <div className="flex flex-col gap-4">
-          <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-            <h3 className="text-2xl font-bold tracking-tight text-[#111827]">Informações da jornada</h3>
-            <dl className="mt-5 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
-              <RecordField icon={Clock} label="Nome">
-                {form.name.trim() ? form.name : <EmptyMark />}
-              </RecordField>
-              <RecordField icon={FileText} label="Observação">
-                {form.note?.trim() ? form.note : <EmptyMark />}
-              </RecordField>
-            </dl>
-          </section>
-          <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-2xl font-bold tracking-tight text-[#111827]">Horários</h3>
-              {form.name ? <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-brand-cta">{form.name}</span> : null}
-            </div>
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {slots.map((slot) => {
-                const field = entry.fields.find((item) => item.name === slot.name)
-                return (
-                  <div key={slot.name} className="rounded-xl border border-[#E4E4E7] bg-white px-4 py-4">
-                    <p className="text-xs font-semibold text-brand-cta">
-                      {slot.step} · {slot.period}
-                    </p>
-                    <p className="mt-2 text-sm text-brand-muted">{field?.label}</p>
-                    <p className="mt-1 text-2xl font-bold tracking-tight text-brand-ink">{hour(form[slot.name] ?? "")}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        </div>
-      </div>
-    )
-  }
-
-  if (catalog === "journeys" && mode !== "view") {
-    const times = entry.fields.filter((field) => field.type === "time")
-    const name = entry.fields.find((field) => field.name === "name")
-    const note = entry.fields.find((field) => field.name === "note")
-    const lead = mode === "new" ? "Informe o nome e os horários previstos." : "Atualize o nome e os horários previstos."
-    return (
-      <div className="w-full min-w-0 space-y-5">
-        <BackLink to={entry.backTo} appearance="detail" />
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
-          <div className="min-w-0">
-            <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{mode === "new" ? entry.newLabel : entry.editTitle}</h2>
-            <p className="mt-1 text-sm text-[#64748B]">{lead}</p>
-          </div>
-          {name ? (
-            <div className="space-y-2">
-              <Label className={moduleLabelClass} htmlFor={`${catalog}-${name.name}`}>
-                {name.label}
-              </Label>
-              <Input id={`${catalog}-${name.name}`} className={moduleFieldClass} required={name.required} value={form[name.name] ?? ""} onChange={(event) => setForm({ ...form, [name.name]: event.target.value })} />
-            </div>
-          ) : null}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {times.map((field) => (
-              <div key={field.name} className="min-w-0 space-y-2">
-                <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>
-                  {field.label}
-                </Label>
-                <TimePickerField id={`${catalog}-${field.name}`} value={form[field.name] ?? ""} onChange={(next) => setForm({ ...form, [field.name]: next })} />
-              </div>
-            ))}
-          </div>
-          {note ? (
-            <div className="space-y-2">
-              <Label className={moduleLabelClass} htmlFor={`${catalog}-${note.name}`}>
-                {note.label}
-              </Label>
-              <textarea id={`${catalog}-${note.name}`} className={moduleTextClass} value={form[note.name] ?? ""} onChange={(event) => setForm({ ...form, [note.name]: event.target.value })} />
-            </div>
-          ) : null}
-          <Button type="submit" className={modulePrimaryClass}>
-            <Save className="h-4 w-4" />
-            Salvar
-          </Button>
-        </ActionForm>
-      </div>
-    )
   }
 
   if (catalog === "jobs" || catalog === "cost-centers") {
