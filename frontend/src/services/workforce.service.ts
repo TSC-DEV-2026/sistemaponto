@@ -356,6 +356,10 @@ function write<T>(work: () => Promise<{ data: ApiResponse<T> }>): Promise<T> {
   return ensureCsrf().then(() => read(work))
 }
 
+export function notifyNoticesChanged() {
+  window.dispatchEvent(new Event("notices-changed"))
+}
+
 export function listRecords<T>(path: string, params?: Record<string, string | number | boolean | undefined>) {
   return read<Page<T>>(() => api.get<ApiResponse<Page<T>>>(path, { params }))
 }

@@ -5,10 +5,27 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { TenantSwitcher } from "@/components/layouts/TenantSwitcher"
 import { headingFor } from "@/page-headings"
 import { logout } from "@/services/auth.service"
+import { listRecords, type Notice } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 
 type MenuPhase = "closed" | "open" | "closing"
+
+async function countUnread() {
+  let page = 1
+  let unread = 0
+  let covered = 0
+  let total = 0
+  do {
+    const result = await listRecords<Notice>("/notifications", { page, limit: 100 })
+    total = result.total
+    unread += result.items.filter((item) => !item.read_at).length
+    covered += result.items.length
+    page += 1
+    if (result.items.length === 0) break
+  } while (covered < total && page <= 20)
+  return unread
+}
 
 function prefersStill() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -28,8 +45,10 @@ function initials(fullName: string) {
 
 export function AppHeader() {
   const user = useAuthStore((state) => state.user)
+  const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const location = useLocation()
   const navigate = useNavigate()
+  const [unread, setUnread] = useState(0)
   const heading = headingFor(location.pathname, location.search)
   const menuId = useId()
   const root = useRef<HTMLDivElement>(null)
@@ -47,6 +66,31 @@ export function AppHeader() {
   useEffect(() => {
     setPhase("closed")
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!tenantId) {
+      setUnread(0)
+      return
+    }
+    let active = true
+    function load() {
+      countUnread()
+        .then((total) => {
+          if (active) setUnread(total)
+        })
+        .catch(() => {
+          if (active) setUnread(0)
+        })
+    }
+    load()
+    const timer = window.setInterval(load, 30000)
+    window.addEventListener("notices-changed", load)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener("notices-changed", load)
+    }
+  }, [tenantId, location.pathname])
 
   useEffect(() => {
     if (phase !== "open") return
@@ -119,10 +163,15 @@ export function AppHeader() {
         <TenantSwitcher />
         <Link
           to="/notifications"
-          aria-label="Notificações"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-[#3F3F46] hover:bg-brand-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
+          aria-label={unread > 0 ? `Notificações, ${unread} não ${unread === 1 ? "lida" : "lidas"}` : "Notificações"}
+          className="relative inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-[#3F3F46] hover:bg-brand-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
         >
           <Bell className="h-5 w-5" strokeWidth={1.75} />
+          {unread > 0 ? (
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#EF5350] px-1 text-[10px] font-semibold leading-none text-white">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          ) : null}
         </Link>
         {user?.full_name ? (
           <div className="relative" ref={root}>

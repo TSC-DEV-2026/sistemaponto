@@ -16,6 +16,7 @@ import { ResetPasswordPage } from "@/pages/ResetPasswordPage"
 import { SelectTenantPage } from "@/pages/SelectTenantPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { TenantDetailPage } from "@/pages/TenantDetailPage"
+import { TenantFormPage } from "@/pages/TenantFormPage"
 import { TenantsPage } from "@/pages/TenantsPage"
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage"
 import { ApuracaoDayPage } from "@/pages/workforce/ApuracaoDayPage"
@@ -70,7 +71,9 @@ const router = createBrowserRouter([
                   { path: "/memberships/new", element: <MembershipFormPage /> },
                   { path: "/memberships/:id", element: <MembershipDetailPage /> },
                   { path: "/tenants", element: <TenantsPage /> },
-                  { path: "/tenants/:id", element: <TenantDetailPage /> },
+                  { path: "/tenants/new", element: <TenantFormPage /> },
+                  { path: "/tenants/:id/edit", element: <TenantDetailPage mode="edit" /> },
+                  { path: "/tenants/:id", element: <TenantDetailPage mode="view" /> },
                   { path: "/change-password", element: <ChangePasswordPage /> },
                   { path: "/schedules/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
                   { path: "/schedules/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },

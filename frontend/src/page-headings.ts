@@ -75,6 +75,8 @@ const patterns: Pattern[] = [
   { path: "/settings", title: "Configurações", subtitle: "Personalize as configurações do sistema" },
   { path: "/change-password", title: "Trocar senha", subtitle: "Altere a senha de acesso" },
   { path: "/tenants", title: "Empresas", subtitle: "Empresas deste sistema" },
+  { path: "/tenants/new", title: "Nova empresa", subtitle: "Informe o nome e o CNPJ" },
+  { path: "/tenants/:id/edit", title: "Editar empresa", subtitle: "Atualize os dados da empresa" },
   { path: "/tenants/:id", title: "Empresa", subtitle: "Dados da empresa" },
 ]
 
