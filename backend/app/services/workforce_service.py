@@ -1,12 +1,29 @@
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from types import SimpleNamespace
 
 from app.core.billing import MAX_CAPACITY, MIN_CAPACITY, PRICE_CENTS, monthly_amount, prorate
 from app.core.config import settings
 from app.core.cpf import normalize_cpf
 from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
 from app.core.hour_bank import add_months, project_balance
+from app.core.journey_plan import (
+    ORIGIN,
+    DaySpec,
+    JourneySpec,
+    SpanSpec,
+    clocks_of,
+    day_view,
+    legacy_days,
+    legacy_spec,
+    nearest_minute,
+    parse_days,
+    parse_duration,
+    same_content,
+    schedule_of,
+    week_monday,
+)
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.face_match import COSINE_THRESHOLD, MODEL_NAME, MODEL_VERSION, best_match
@@ -57,6 +74,9 @@ from app.models.workforce import (
     NotificationPreference,
     Job,
     Journey,
+    JourneyDay,
+    JourneySpan,
+    JourneyVersion,
     LaborAgreement,
     LaborUnion,
     Notification,
@@ -161,20 +181,30 @@ class WorkforceService:
 
     def list_named(self, model, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
-        return self.repo.list_rows(model, scope.tenant_id, page=page, limit=limit, equals=equals, descending=False)
+        rows, total = self.repo.list_rows(model, scope.tenant_id, page=page, limit=limit, equals=equals, descending=False)
+        if model is Journey:
+            rows = [self._present_journey(scope, row) for row in rows]
+        return rows, total
 
     def get_named(self, model, scope: Scope, row_id: int):
         self._known(scope)
-        return self._row(model, scope, row_id)
+        row = self._row(model, scope, row_id)
+        if model is Journey:
+            return self._present_journey(scope, row)
+        return row
 
     def create_named(self, model, scope: Scope, data: dict):
         self._admin(scope)
+        if model is Journey:
+            return self._create_journey(scope, data)
         payload = self._prepare_named(model, scope, data, current=None)
         self._unique_name(model, scope.tenant_id, payload, exclude_id=None)
         return self.repo.add(model(tenant_id=scope.tenant_id, **payload))
 
     def update_named(self, model, scope: Scope, row_id: int, data: dict):
         self._admin(scope)
+        if model is Journey:
+            return self._update_journey(scope, row_id, data)
         row = self._row(model, scope, row_id)
         payload = self._prepare_named(model, scope, data, current=row)
         if "name" in payload or any(key in payload for key in ("unit_id", "sector_id")):
@@ -193,6 +223,8 @@ class WorkforceService:
         self._admin(scope)
         row = self._row(model, scope, row_id)
         self._guard_catalog(model, row)
+        if model is Journey:
+            self._purge_journey(scope, row)
         self.repo.delete(row)
 
     def list_employees(self, scope: Scope, page: int, limit: int, equals: dict):
@@ -348,7 +380,8 @@ class WorkforceService:
         if kind == "status" and label == "active" and not self._occupies(employee.id, self.today()):
             self._assert_capacity(scope)
         note = self._note(data.get("note"))
-        row = self._replace_vigency(scope, employee.id, kind, reference_id, label, valid_from, note)
+        cycle_day = self._cycle_day(scope, reference_id, valid_from, data.get("cycle_day")) if kind == "journey" else None
+        row = self._replace_vigency(scope, employee.id, kind, reference_id, label, valid_from, note, cycle_day)
         if kind == "team":
             team = self._row(Team, scope, int(reference_id))
             sector = self._row(Sector, scope, int(team.sector_id))
@@ -366,6 +399,7 @@ class WorkforceService:
         label: str,
         valid_from: date,
         note: str | None,
+        cycle_day: int | None = None,
     ) -> EmployeeVigency:
         current = self.repo.open_vigency(employee_id, kind)
         if current is not None and current.valid_from == valid_from:
@@ -373,6 +407,7 @@ class WorkforceService:
             current.reference_id = reference_id
             current.label = label
             current.note = note
+            current.cycle_day = cycle_day
             self.repo.add(current)
             self._audit(scope, employee_id, kind, current.id, previous, label, valid_from)
             return current
@@ -391,6 +426,7 @@ class WorkforceService:
                 valid_from=valid_from,
                 valid_to=None,
                 note=note,
+                cycle_day=cycle_day,
             )
         )
         self._audit(scope, employee_id, kind, row.id, current.label if current else None, label, valid_from)
@@ -451,6 +487,7 @@ class WorkforceService:
                 sector = self._row(Sector, scope, int(target.sector_id))
                 unit = self._row(Unit, scope, int(sector.unit_id))
                 extras = [("sector", sector.id, sector.name), ("unit", unit.id, unit.name)]
+        cycle_day = self._cycle_day(scope, reference_id, valid_from, data.get("cycle_day")) if kind == "journey" else None
         if kind == "status" and label == "active":
             entering = [row for row in people if not self._occupies(row.id, self.today())]
             if entering:
@@ -465,7 +502,7 @@ class WorkforceService:
             for extra_kind, _extra_id, _extra_label in extras:
                 self._assert_can_replace(scope, row, extra_kind, valid_from)
         for row in people:
-            self._replace_vigency(scope, row.id, kind, reference_id, label, valid_from, note)
+            self._replace_vigency(scope, row.id, kind, reference_id, label, valid_from, note, cycle_day)
             for extra_kind, extra_id, extra_label in extras:
                 self._replace_vigency(scope, row.id, extra_kind, extra_id, extra_label, valid_from, note)
         return {"changed": len(people)}
@@ -1404,50 +1441,87 @@ class WorkforceService:
         return lines
 
     def _day_results(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date) -> list[dict]:
-        start, _end = day_bounds(starts_on - timedelta(days=1))
-        window_end = datetime.combine(ends_on + timedelta(days=1), time(5, 1), tzinfo=BR)
+        vigencies = self.repo.vigencies_between(scope.tenant_id, employee.id, "journey", starts_on, ends_on)
+        span_start, span_end = self._result_span(scope, vigencies, starts_on, ends_on)
+        start, _ignored = day_bounds(span_start - timedelta(days=1))
+        _start, window_end = day_bounds(span_end + timedelta(days=1))
         punches = self.repo.valid_punches_between(scope.tenant_id, employee.id, start, window_end)
         by_day: dict[date, list] = {}
         for punch in punches:
             by_day.setdefault(punch.occurred_at.astimezone(BR).date(), []).append(punch)
         for rows in by_day.values():
             rows.sort(key=lambda row: (row.occurred_at, row.id))
-        occurrences = self.repo.occurrences_between(scope.tenant_id, employee.id, starts_on, ends_on)
-        holidays = {row.holiday_date for row in self.repo.holidays_between(scope.tenant_id, starts_on, ends_on)}
-        vigencies = self.repo.vigencies_between(scope.tenant_id, employee.id, "journey", starts_on, ends_on)
+        occurrences = self.repo.occurrences_between(scope.tenant_id, employee.id, span_start, span_end)
+        holidays = {row.holiday_date for row in self.repo.holidays_between(scope.tenant_id, span_start, span_end)}
         journeys: dict[int, Journey] = {}
         consumed: set[int] = set()
-        previous = starts_on - timedelta(days=1)
+        previous = span_start - timedelta(days=1)
         if len(by_day.get(previous, [])) % 2 == 1:
-            self._take_night_exit(by_day, previous, consumed)
+            self._take_night_exit(by_day, previous, consumed, self._night_limit(scope, vigencies, journeys, previous))
         items = []
-        current = starts_on
-        while current <= ends_on:
+        current = span_start
+        while current <= span_end:
+            vigency = self._vigency_on(vigencies, current)
+            journey = None if vigency is None else self._journey_row(scope, journeys, vigency.reference_id)
+            spec = None if journey is None else self._spec_on(scope.tenant_id, journey, current)
+            plan = None
+            if spec is not None and vigency is not None:
+                anchor_day = vigency.cycle_day or vigency.valid_from.isoweekday()
+                plan = schedule_of(spec, current, vigency.valid_from, anchor_day)
             calendar = by_day.get(current, [])
             working = [row for row in calendar if row.id not in consumed]
             moments = [row.occurred_at for row in working]
             if len(working) % 2 == 1:
-                exit_at = self._take_night_exit(by_day, current, consumed)
+                exit_at = self._take_night_exit(by_day, current, consumed, self._night_limit_for(plan))
                 if exit_at is not None:
                     moments.append(exit_at)
             covering = [row for row in occurrences if row.starts_on <= current <= row.ends_on]
-            items.append(
-                settle_day(
-                    work_date=current,
-                    moments=moments,
-                    counted=len(calendar),
-                    journey=self._journey_on(scope, vigencies, journeys, current),
-                    holiday=current in holidays,
-                    vacation=any(row.kind == "vacation" for row in covering),
-                    leave=any(row.kind == "leave" for row in covering),
-                    full_allowance=any(self._full_day(row) for row in covering if row.kind == "allowance"),
-                    full_certificate=any(self._full_day(row) for row in covering if row.kind == "certificate"),
-                    extra_warnings=[row.warning for row in covering if row.warning],
-                    uses_bank=bool(employee.hour_bank),
-                )
+            holiday = current in holidays
+            vacation = any(row.kind == "vacation" for row in covering)
+            leave = any(row.kind == "leave" for row in covering)
+            full_allowance = any(self._full_day(row) for row in covering if row.kind == "allowance")
+            full_certificate = any(self._full_day(row) for row in covering if row.kind == "certificate")
+            item = settle_day(
+                work_date=current,
+                moments=moments,
+                counted=len(calendar),
+                journey=journey,
+                holiday=holiday,
+                vacation=vacation,
+                leave=leave,
+                full_allowance=full_allowance,
+                full_certificate=full_certificate,
+                extra_warnings=[row.warning for row in covering if row.warning],
+                uses_bank=bool(employee.hour_bank),
+                plan=plan,
             )
+            item["mode"] = None if spec is None else spec.kind
+            item["excused"] = holiday or vacation or leave or full_allowance or full_certificate
+            item["vigency_id"] = None if vigency is None else vigency.id
+            item["weekly_minutes"] = None if spec is None else spec.weekly_minutes
+            items.append(item)
             current += timedelta(days=1)
-        return items
+        self._settle_carga(employee, items)
+        visible = [item for item in items if starts_on <= item["work_date"] <= ends_on]
+        public = (
+            "work_date",
+            "expected_minutes",
+            "worked_minutes",
+            "delay_minutes",
+            "early_leave_minutes",
+            "overtime_minutes",
+            "shortage_minutes",
+            "bank_minutes",
+            "night_minutes",
+            "night_additional_minutes",
+            "absence",
+            "incomplete",
+            "holiday",
+            "warnings",
+            "first_entry_at",
+            "last_exit_at",
+        )
+        return [{key: item[key] for key in public} for item in visible]
 
     def hour_bank(self, scope: Scope, employee_id: int) -> dict:
         self._known(scope)
@@ -1630,15 +1704,90 @@ class WorkforceService:
                 events.append((entry.entry_on, entry.id, entry.kind, entry.minutes))
         return project_balance(events, limit)
 
-    def _take_night_exit(self, by_day: dict, day: date, consumed: set[int]) -> datetime | None:
+    def _night_limit(self, scope: Scope, vigencies: list, journeys: dict, day: date) -> time | None:
+        vigency = self._vigency_on(vigencies, day)
+        journey = None if vigency is None else self._journey_row(scope, journeys, vigency.reference_id)
+        spec = None if journey is None else self._spec_on(scope.tenant_id, journey, day)
+        plan = None
+        if spec is not None and vigency is not None:
+            plan = schedule_of(spec, day, vigency.valid_from, vigency.cycle_day or vigency.valid_from.isoweekday())
+        return self._night_limit_for(plan)
+
+    def _night_limit_for(self, plan: dict | None) -> time | None:
+        if plan is None:
+            return time(5, 0)
+        if plan["mode"] in {"carga", "livre"}:
+            return None
+        start = plan["start"]
+        end = plan["end"]
+        if start is not None and end is not None and end.date() > start.date():
+            return None
+        return time(5, 0)
+
+    def _take_night_exit(self, by_day: dict, day: date, consumed: set[int], limit: time | None) -> datetime | None:
         following = by_day.get(day + timedelta(days=1), [])
         if not following or following[0].id in consumed:
             return None
-        local = following[0].occurred_at.astimezone(BR)
-        if (local.hour, local.minute) > (5, 0):
-            return None
+        if limit is not None:
+            local = following[0].occurred_at.astimezone(BR)
+            if (local.hour, local.minute) > (limit.hour, limit.minute):
+                return None
         consumed.add(following[0].id)
         return following[0].occurred_at
+
+    def _result_span(self, scope: Scope, vigencies: list, starts_on: date, ends_on: date) -> tuple[date, date]:
+        for vigency in vigencies:
+            if vigency.reference_id is None:
+                continue
+            journey = self.repo.get_row(Journey, scope.tenant_id, vigency.reference_id)
+            if journey is None:
+                continue
+            probe = starts_on if vigency.valid_from < starts_on else vigency.valid_from
+            if self._spec_on(scope.tenant_id, journey, probe).kind == "carga":
+                return week_monday(starts_on), week_monday(ends_on) + timedelta(days=6)
+        return starts_on, ends_on
+
+    def _settle_carga(self, employee: Employee, items: list[dict]) -> None:
+        groups: dict[tuple, list] = {}
+        for item in items:
+            if item["mode"] != "carga" or item["vigency_id"] is None:
+                continue
+            groups.setdefault((item["vigency_id"], week_monday(item["work_date"])), []).append(item)
+        for group in groups.values():
+            group.sort(key=lambda item: item["work_date"])
+            active = [item for item in group if item["work_date"] >= employee.admission_date]
+            if not active:
+                continue
+            close = active[-1]
+            countable = [item for item in active if not item["excused"]]
+            weekly = close["weekly_minutes"] or 0
+            target = nearest_minute(weekly * len(countable) / 7)
+            done = sum(item["worked_minutes"] for item in countable)
+            delta = done - target
+            close["expected_minutes"] = target
+            if employee.hour_bank:
+                close["bank_minutes"] = close["bank_minutes"] + delta
+                close["overtime_minutes"] = 0
+                close["shortage_minutes"] = 0
+            elif delta > 0:
+                close["overtime_minutes"] = close["overtime_minutes"] + delta
+            else:
+                close["shortage_minutes"] = -delta
+
+    def _vigency_on(self, vigencies: list, day: date):
+        chosen = None
+        for row in vigencies:
+            if row.valid_from <= day and (row.valid_to is None or row.valid_to >= day):
+                if chosen is None or (row.valid_from, row.id) > (chosen.valid_from, chosen.id):
+                    chosen = row
+        return chosen
+
+    def _journey_row(self, scope: Scope, journeys: dict, journey_id: int | None):
+        if journey_id is None:
+            return None
+        if journey_id not in journeys:
+            journeys[journey_id] = self.repo.get_row(Journey, scope.tenant_id, journey_id)
+        return journeys[journey_id]
 
     def _journey_on(self, scope: Scope, vigencies: list, journeys: dict, day: date):
         chosen = None
@@ -1654,6 +1803,262 @@ class WorkforceService:
 
     def _full_day(self, row) -> bool:
         return row.starts_at is None and row.ends_at is None
+
+    def _create_journey(self, scope: Scope, data: dict):
+        name = str(data.get("name") or "").strip()
+        if not name:
+            raise AppError(400, "Informe o nome")
+        self._unique_name(Journey, scope.tenant_id, {"name": name}, exclude_id=None)
+        spec = self._spec_from(data, current=None)
+        when = data.get("valid_from") or ORIGIN
+        spec.valid_from = when
+        if when != ORIGIN:
+            self._assert_open(scope.tenant_id, when)
+        morning, morning_end, afternoon, afternoon_end = clocks_of(spec)
+        journey = self.repo.add(
+            Journey(
+                tenant_id=scope.tenant_id,
+                name=name,
+                note=self._note(data.get("note")),
+                morning_start=morning,
+                morning_end=morning_end,
+                afternoon_start=afternoon,
+                afternoon_end=afternoon_end,
+                kind=spec.kind,
+                flexible=spec.flexible,
+                tolerance_minutes=spec.tolerance_minutes,
+                weekly_minutes=spec.weekly_minutes,
+            )
+        )
+        self._write_version(scope, journey, spec)
+        return self._present_journey(scope, journey, spec)
+
+    def _update_journey(self, scope: Scope, row_id: int, data: dict):
+        journey = self._row(Journey, scope, row_id)
+        if "name" in data and data["name"] is not None:
+            name = str(data["name"]).strip()
+            if not name:
+                raise AppError(400, "Informe o nome")
+            self._unique_name(Journey, scope.tenant_id, {"name": name}, exclude_id=journey.id)
+            journey.name = name
+        if "note" in data:
+            journey.note = self._note(data.get("note"))
+        if self._journey_content_sent(data):
+            current = self._spec_on(scope.tenant_id, journey, self.today())
+            spec = self._spec_from(data, current)
+            when = data.get("valid_from") or self.today()
+            spec.valid_from = when
+            previous = self._spec_on(scope.tenant_id, journey, when)
+            if not same_content(previous, spec):
+                self._assert_open(scope.tenant_id, when)
+                latest = self._latest_version(scope.tenant_id, journey.id)
+                if latest is not None and when < latest.valid_from:
+                    raise AppError(400, "A vigência da jornada precisa ser igual ou posterior à atual")
+                if previous.kind == "programada" and spec.kind == "programada" and previous.length != spec.length:
+                    self._reanchor(scope, journey, when, spec.length, data.get("anchors") or [])
+                self._write_version(scope, journey, spec)
+                morning, morning_end, afternoon, afternoon_end = clocks_of(spec)
+                journey.morning_start = morning
+                journey.morning_end = morning_end
+                journey.afternoon_start = afternoon
+                journey.afternoon_end = afternoon_end
+                journey.kind = spec.kind
+                journey.flexible = spec.flexible
+                journey.tolerance_minutes = spec.tolerance_minutes
+                journey.weekly_minutes = spec.weekly_minutes
+        self.repo.add(journey)
+        return self._present_journey(scope, journey)
+
+    def _journey_content_sent(self, data: dict) -> bool:
+        return any(
+            key in data
+            for key in (
+                "kind",
+                "days",
+                "weekly_minutes",
+                "weekly_time",
+                "flexible",
+                "tolerance_minutes",
+                "morning_start",
+                "morning_end",
+                "afternoon_start",
+                "afternoon_end",
+            )
+        )
+
+    def _spec_from(self, data: dict, current: JourneySpec | None) -> JourneySpec:
+        kind = data.get("kind")
+        weekly = data.get("weekly_minutes")
+        if data.get("weekly_time"):
+            weekly = parse_duration(data["weekly_time"])
+        if data.get("days"):
+            kind = kind or "programada"
+            if kind != "programada":
+                raise AppError(400, "Os dias ficam na programada")
+            days = parse_days(data["days"])
+            flexible = bool(data.get("flexible", False))
+            tolerance = int(data.get("tolerance_minutes") if data.get("tolerance_minutes") is not None else 10)
+            return JourneySpec("programada", flexible, tolerance, None, days, ORIGIN)
+        if kind == "livre":
+            if data.get("flexible"):
+                raise AppError(400, "A flexível fica na programada")
+            return JourneySpec("livre", False, 10, None, [], ORIGIN)
+        if kind == "carga" or weekly is not None:
+            if data.get("flexible"):
+                raise AppError(400, "A flexível fica na programada")
+            if weekly is None and current is not None and current.kind == "carga":
+                weekly = current.weekly_minutes
+            if not weekly:
+                raise AppError(400, "Informe a carga da semana")
+            return JourneySpec("carga", False, 10, int(weekly), [], ORIGIN)
+        clock_keys = ("morning_start", "morning_end", "afternoon_start", "afternoon_end")
+        flexible = bool(data.get("flexible", False if current is None else current.flexible))
+        tolerance = data.get("tolerance_minutes")
+        if tolerance is None:
+            tolerance = 10 if current is None else current.tolerance_minutes
+        if current is not None and not any(key in data for key in clock_keys):
+            return JourneySpec(current.kind, flexible if current.kind == "programada" else False, int(tolerance), current.weekly_minutes, current.days, ORIGIN)
+        stored = clocks_of(current) if current is not None else (None, None, None, None)
+        morning = data["morning_start"] if "morning_start" in data else stored[0]
+        morning_end = data["morning_end"] if "morning_end" in data else stored[1]
+        afternoon = data["afternoon_start"] if "afternoon_start" in data else stored[2]
+        afternoon_end = data["afternoon_end"] if "afternoon_end" in data else stored[3]
+        if current is None and not any((morning, morning_end, afternoon, afternoon_end)):
+            raise AppError(400, "Informe os dias da jornada")
+        return JourneySpec(
+            "programada",
+            flexible,
+            int(tolerance),
+            None,
+            legacy_days(morning, morning_end, afternoon, afternoon_end),
+            ORIGIN,
+        )
+
+    def _write_version(self, scope: Scope, journey: Journey, spec: JourneySpec) -> None:
+        existing = [
+            row
+            for row in self.repo.versions_for(scope.tenant_id, journey.id)
+            if row.valid_from == spec.valid_from
+        ]
+        for version in existing:
+            self._delete_version(version)
+        version = self.repo.add(
+            JourneyVersion(
+                tenant_id=scope.tenant_id,
+                journey_id=journey.id,
+                valid_from=spec.valid_from,
+                kind=spec.kind,
+                flexible=spec.flexible,
+                tolerance_minutes=spec.tolerance_minutes,
+                weekly_minutes=spec.weekly_minutes,
+            )
+        )
+        for day in spec.days:
+            stored = self.repo.add(
+                JourneyDay(
+                    tenant_id=scope.tenant_id,
+                    version_id=version.id,
+                    position=day.position,
+                    off=day.off,
+                )
+            )
+            for index, span in enumerate(day.spans, start=1):
+                self.repo.add(
+                    JourneySpan(
+                        tenant_id=scope.tenant_id,
+                        day_id=stored.id,
+                        position=index,
+                        starts_at=span.starts_at,
+                        ends_at=span.ends_at,
+                    )
+                )
+
+    def _delete_version(self, version: JourneyVersion) -> None:
+        for day in self.repo.days_for(version.id):
+            for span in self.repo.spans_for(day.id):
+                self.repo.delete(span)
+            self.repo.delete(day)
+        self.repo.delete(version)
+
+    def _purge_journey(self, scope: Scope, journey: Journey) -> None:
+        for version in list(self.repo.versions_for(scope.tenant_id, journey.id)):
+            self._delete_version(version)
+
+    def _reanchor(self, scope: Scope, journey: Journey, valid_from: date, length: int, anchors: list) -> None:
+        wanted = {}
+        for item in anchors:
+            employee_id = int(item["employee_id"] if isinstance(item, dict) else item.employee_id)
+            cycle_day = int(item["cycle_day"] if isinstance(item, dict) else item.cycle_day)
+            if cycle_day < 1 or cycle_day > length:
+                raise AppError(400, "Informe um dia da sequência")
+            wanted[employee_id] = cycle_day
+        for vigency in self.repo.vigencies_for_reference(scope.tenant_id, "journey", journey.id):
+            if vigency.valid_to is not None and vigency.valid_to < valid_from:
+                continue
+            if vigency.employee_id not in wanted:
+                person = self.repo.get_row(Employee, scope.tenant_id, vigency.employee_id)
+                name = person.full_name if person is not None else "funcionário"
+                raise AppError(400, f"Informe o dia da sequência de {name}.")
+        for employee_id, cycle_day in wanted.items():
+            employee = self._employee(scope, employee_id)
+            self._replace_vigency(scope, employee.id, "journey", journey.id, journey.name, valid_from, None, cycle_day)
+
+    def _present_journey(self, scope: Scope, journey: Journey, spec: JourneySpec | None = None):
+        chosen = spec or self._spec_on(scope.tenant_id, journey, self.today())
+        morning, morning_end, afternoon, afternoon_end = clocks_of(chosen)
+        return SimpleNamespace(
+            id=journey.id,
+            name=journey.name,
+            note=journey.note,
+            kind=chosen.kind,
+            morning_start=morning,
+            morning_end=morning_end,
+            afternoon_start=afternoon,
+            afternoon_end=afternoon_end,
+            days=day_view(chosen),
+            weekly_minutes=chosen.weekly_minutes,
+            flexible=chosen.flexible,
+            tolerance_minutes=chosen.tolerance_minutes,
+            valid_from=chosen.valid_from,
+        )
+
+    def _spec_on(self, tenant_id: int, journey: Journey, day: date) -> JourneySpec:
+        chosen = None
+        for version in self.repo.versions_for(tenant_id, journey.id):
+            if version.valid_from <= day and (chosen is None or (version.valid_from, version.id) > (chosen.valid_from, chosen.id)):
+                chosen = version
+        if chosen is None:
+            return legacy_spec(journey.morning_start, journey.morning_end, journey.afternoon_start, journey.afternoon_end)
+        days: list[DaySpec] = []
+        for stored in self.repo.days_for(chosen.id):
+            spans = [
+                SpanSpec(span.starts_at, span.ends_at)
+                for span in self.repo.spans_for(stored.id)
+            ]
+            days.append(DaySpec(position=stored.position, off=bool(stored.off), spans=spans))
+        days.sort(key=lambda item: item.position)
+        return JourneySpec(
+            kind=chosen.kind,
+            flexible=bool(chosen.flexible),
+            tolerance_minutes=int(chosen.tolerance_minutes),
+            weekly_minutes=chosen.weekly_minutes,
+            days=days,
+            valid_from=chosen.valid_from,
+        )
+
+    def _latest_version(self, tenant_id: int, journey_id: int):
+        found = self.repo.versions_for(tenant_id, journey_id)
+        return found[-1] if found else None
+
+    def _cycle_day(self, scope: Scope, journey_id: int, valid_from: date, raw) -> int | None:
+        journey = self._row(Journey, scope, journey_id)
+        spec = self._spec_on(scope.tenant_id, journey, valid_from)
+        if spec.kind != "programada":
+            return None
+        chosen = valid_from.isoweekday() if raw is None else int(raw)
+        if spec.length and (chosen < 1 or chosen > spec.length):
+            raise AppError(400, "Informe um dia da sequência")
+        return chosen
 
     def _prepare_named(self, model, scope: Scope, data: dict, current) -> dict:
         payload = {}

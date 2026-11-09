@@ -88,37 +88,70 @@ def settle_day(
     full_certificate: bool,
     extra_warnings: list[str],
     uses_bank: bool = False,
+    plan: dict | None = None,
 ) -> dict:
-    workday = work_date.weekday() < 5
-    schedule = schedule_for(journey, work_date) if workday else {"start": None, "end": None, "expected": 0, "break_minutes": 0}
+    if plan is None:
+        workday = work_date.weekday() < 5
+        schedule = schedule_for(journey, work_date) if workday else {"start": None, "end": None, "expected": 0, "break_minutes": 0}
+        mode = "legacy"
+        flexible = False
+        tolerance = TOLERANCE_MINUTES
+    else:
+        schedule = plan
+        workday = bool(plan["workday"])
+        mode = plan["mode"]
+        flexible = bool(plan["flexible"])
+        tolerance = int(plan["tolerance"])
     worked, night, actual_break = _pairs(moments)
     excused = holiday or vacation or leave or full_allowance or full_certificate
-    absence = workday and counted == 0 and not excused
-    incomplete = workday and counted % 2 == 1 and not excused
+    closed_pair = len(moments) >= 2 and len(moments) % 2 == 0
+    incomplete = workday and len(moments) % 2 == 1 and not excused
+    absence = workday and counted == 0 and len(moments) == 0 and not excused
     expected = 0
     delay = 0
     early = 0
     overtime = 0
-    if holiday:
+    snapped = False
+    if mode in {"livre", "carga"}:
+        if holiday:
+            overtime = worked
+        incomplete = False
+        absence = False
+    elif holiday:
         overtime = worked
     elif not workday or vacation or leave:
         expected = 0
+        if mode == "programada" and not vacation and not leave and closed_pair:
+            overtime = worked
     elif full_allowance or full_certificate:
         expected = schedule["expected"]
+    elif flexible:
+        expected = schedule["expected"]
+        delta = worked - expected
+        if abs(delta) <= tolerance:
+            settled = expected
+            snapped = True
+            overtime = 0
+        else:
+            settled = worked
+            overtime = max(0, delta)
     else:
         expected = schedule["expected"]
         if schedule["start"] is not None and moments:
             late = _minutes(schedule["start"], moments[0])
-            if 0 < late <= TOLERANCE_MINUTES:
+            if 0 < late <= tolerance:
                 worked += late
-            elif late > TOLERANCE_MINUTES:
+            elif late > tolerance:
                 delay = late
-        if schedule["end"] is not None and len(moments) >= 2 and len(moments) % 2 == 0:
+        if schedule["end"] is not None and closed_pair:
             early = _minutes(moments[-1], schedule["end"])
         overtime = max(0, worked - expected)
+    if not snapped:
+        settled = worked
     warnings: list[str] = []
     if (
         workday
+        and mode not in {"livre", "carga"}
         and not holiday
         and not vacation
         and not leave
@@ -130,18 +163,27 @@ def settle_day(
     for text in extra_warnings:
         if text not in warnings:
             warnings.append(text)
-    eligible = holiday or (
-        workday and not vacation and not leave and not full_allowance and not full_certificate and not incomplete
+    folga_worked = mode == "programada" and not workday and not holiday and not vacation and not leave and closed_pair and worked > 0
+    eligible = mode not in {"livre", "carga"} and (
+        holiday or folga_worked or (workday and not vacation and not leave and not full_allowance and not full_certificate and not incomplete)
     )
     bank = 0
     shortage = 0
-    if eligible and uses_bank:
-        bank = worked - expected
+    if mode == "livre":
+        bank = 0
+        shortage = 0
+    elif mode == "carga":
+        if holiday and uses_bank:
+            bank = worked
+            overtime = 0
+        shortage = 0
+    elif eligible and uses_bank:
+        bank = settled - expected
         overtime = 0
     elif eligible:
-        shortage = max(0, expected - worked)
+        shortage = max(0, expected - settled)
     first_entry = moments[0] if moments else None
-    last_exit = moments[-1] if len(moments) >= 2 and len(moments) % 2 == 0 else None
+    last_exit = moments[-1] if closed_pair else None
     return {
         "work_date": work_date,
         "expected_minutes": expected,

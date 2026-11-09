@@ -15,6 +15,9 @@ from app.models.workforce import (
     FiscalFile,
     Holiday,
     HourBankEntry,
+    JourneyDay,
+    JourneySpan,
+    JourneyVersion,
     NoticeEmail,
     Notification,
     NotificationPreference,
@@ -359,6 +362,41 @@ class WorkforceRepository:
             self.db.query(Employee)
             .filter(Employee.tenant_id == tenant_id, Employee.cpf == cpf)
             .one_or_none()
+        )
+
+    def versions_for(self, tenant_id: int, journey_id: int) -> list[JourneyVersion]:
+        return (
+            self.db.query(JourneyVersion)
+            .filter(JourneyVersion.tenant_id == tenant_id, JourneyVersion.journey_id == journey_id)
+            .order_by(JourneyVersion.valid_from.asc(), JourneyVersion.id.asc())
+            .all()
+        )
+
+    def days_for(self, version_id: int) -> list[JourneyDay]:
+        return (
+            self.db.query(JourneyDay)
+            .filter(JourneyDay.version_id == version_id)
+            .order_by(JourneyDay.position.asc(), JourneyDay.id.asc())
+            .all()
+        )
+
+    def spans_for(self, day_id: int) -> list[JourneySpan]:
+        return (
+            self.db.query(JourneySpan)
+            .filter(JourneySpan.day_id == day_id)
+            .order_by(JourneySpan.position.asc(), JourneySpan.id.asc())
+            .all()
+        )
+
+    def vigencies_for_reference(self, tenant_id: int, kind: str, reference_id: int) -> list[EmployeeVigency]:
+        return (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.kind == kind,
+                EmployeeVigency.reference_id == reference_id,
+            )
+            .all()
         )
 
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
