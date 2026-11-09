@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Building2, Calendar, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Upload, User, Users, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Bell, Building2, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Mail, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, Upload, User, Users, X } from "lucide-react"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
-import { FilterSelect, ListPager, usePagedList } from "@/components/workforce/list-controls"
+import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
 import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
 import { CertificatePhotoField, DocumentLink } from "@/components/workforce/TimeOffFields"
@@ -23,6 +23,7 @@ import {
   getPayroll,
   getReport,
   listRecords,
+  notifyNoticesChanged,
   updateRecord,
   type Closing,
   type Employee,
@@ -1325,6 +1326,7 @@ export function NotificationsPage() {
   const [emailKind, setEmailKind] = useState("")
   const [sent, setSent] = useState<number | null>(null)
   const [error, setError] = useState("")
+  const [loaded, setLoaded] = useState(false)
   const noticeKinds = Object.entries(noticePhrase).map(([value, label]) => ({ value, label }))
   const notices = usePagedList<Notice>("/notifications", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
   const emails = usePagedList<NoticeEmail>("/notice-emails", emailKind ? { kind: emailKind } : {})
@@ -1340,11 +1342,17 @@ export function NotificationsPage() {
 
   useEffect(() => {
     let active = true
-    load().catch((caught: unknown) => {
-      if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      }
-    })
+    setLoaded(false)
+    load()
+      .then(() => {
+        if (active) setLoaded(true)
+      })
+      .catch((caught: unknown) => {
+        if (active) {
+          setLoaded(true)
+          setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        }
+      })
     return () => {
       active = false
     }
@@ -1360,6 +1368,7 @@ export function NotificationsPage() {
     try {
       await updateRecord("/notifications", id, { read: true })
       notices.reload()
+      notifyNoticesChanged()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível marcar.")
     }
@@ -1387,95 +1396,201 @@ export function NotificationsPage() {
       setSent(result.created)
       notices.reload()
       emails.reload()
+      notifyNoticesChanged()
       await load()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível enviar.")
     }
   }
 
+  const visibleNotices = Object.entries(noticePhrase).filter(([kind]) => !preferenceKind || kind === preferenceKind)
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div className="space-y-4">
-        <BackLink to="/settings" />
-        <div>
-          <p className="text-sm text-muted-foreground">
-            O texto no sistema é o mesmo do e-mail. Cada aviso pode ser desligado. Sem preferência gravada, ele fica ligado. O envio é diário. Fechamento próximo e trial terminando começam 3 dias antes. A frequência customizável fica para depois.
-          </p>
-        </div>
-      </div>
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Avisos</h2>
-        <FilterSelect id="preference-kind" label="Tipo" value={preferenceKind} options={noticeKinds} onChange={setPreferenceKind} />
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {Object.entries(noticePhrase)
-            .filter(([kind]) => !preferenceKind || kind === preferenceKind)
-            .map(([kind, phrase]) => (
-            <li key={kind} className="px-4 py-3 text-sm">
-              <label className="flex items-start gap-2" htmlFor={`notice-${kind}`}>
-                <input id={`notice-${kind}`} type="checkbox" className="mt-1" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
-                <span>{phrase}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        {canSend ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" onClick={() => sendDaily()}>
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to="/settings" appearance="detail" />
+      <DomainTabs
+        title="Notificações"
+        module
+        tabs={[
+          {
+            id: "avisos",
+            label: "Avisos",
+            icon: Bell,
+            panel: (
+      <section className={cn(moduleCardClass, "space-y-5")}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <Bell className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[#0A0A0A]">Avisos</h2>
+              <p className="text-sm text-[#64748B]">Avisos da conta e da empresa.</p>
+            </div>
+          </div>
+          {canSend ? (
+            <Button type="button" className={cn(modulePrimaryClass, "w-full shrink-0 sm:w-auto")} onClick={() => sendDaily()}>
+              <Send className="h-4 w-4" />
               Enviar os avisos do dia
             </Button>
-            {sent !== null ? <p className="text-sm text-muted-foreground">{sent} avisos enviados.</p> : null}
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor="preference-kind">Tipo</Label>
+          <SiteSelect id="preference-kind" value={preferenceKind} className="h-12" placeholder="Todos" options={[{ value: "", label: "Todos" }, ...noticeKinds]} onChange={setPreferenceKind} />
+        </div>
+        {!loaded ? (
+          <div className="flex justify-center py-10" role="status">
+            <Spinner label="Carregando os avisos" className="h-8 w-8 text-[#1E8A3A]" />
+          </div>
+        ) : visibleNotices.length === 0 ? (
+          <div className="px-2 py-10 text-center">
+            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum aviso</p>
+            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {visibleNotices.map(([kind, phrase]) => (
+              <li key={kind}>
+                <label htmlFor={`notice-${kind}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-[border-color,background-color] duration-200 motion-reduce:transition-none", enabled(kind) ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white hover:border-[#AEBBC9]")}>
+                  <span className="relative h-[22px] w-[22px] shrink-0">
+                    <input id={`notice-${kind}`} type="checkbox" className="peer sr-only" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
+                    <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
+                      <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
+                    </span>
+                  </span>
+                  <span className="min-w-0 text-sm font-medium leading-5 text-[#0A0A0A]">{phrase}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        {sent !== null ? <p className="text-sm font-medium text-[#1E8A3A]">{sent} avisos enviados.</p> : null}
+        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      </section>
+            ),
+          },
+          {
+            id: "sistema",
+            label: "No sistema",
+            icon: List,
+            panel: (
+      <section className={cn(moduleCardClass, "space-y-5")}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <List className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">No sistema</h2>
+            <p className="text-sm text-[#64748B]">Avisos recebidos nesta conta.</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor="notice-employee">Funcionário</Label>
+          <SiteSelect
+            id="notice-employee"
+            value={noticeEmployee}
+            className="h-12"
+            placeholder="Todos"
+            icon={User}
+            searchable
+            searchPlaceholder="Pesquisar funcionário"
+            options={[{ value: "", label: "Todos" }, ...employees.map((item) => ({ value: String(item.id), label: item.full_name || "Não informado" }))]}
+            onChange={setNoticeEmployee}
+          />
+        </div>
+        {notices.error ? <p className="text-sm text-destructive" role="alert">{notices.error}</p> : null}
+        {notices.loading && notices.items.length === 0 && !notices.error ? (
+          <div className="flex justify-center py-10" role="status">
+            <Spinner label="Carregando as notificações" className="h-8 w-8 text-[#1E8A3A]" />
+          </div>
+        ) : null}
+        {!notices.loading && !notices.error && notices.items.length === 0 ? (
+          <div className="px-2 py-10 text-center">
+            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma notificação</p>
+            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+          </div>
+        ) : null}
+        {notices.items.length > 0 ? (
+          <ul className="space-y-2">
+            {notices.items.map((item) => (
+              <li key={item.id} className="flex min-h-16 flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium leading-5 text-[#0A0A0A]">{item.body || "Não informado"}</span>
+                  <span className="mt-0.5 block text-sm text-[#64748B]">{showDateTime(item.created_at)}</span>
+                </span>
+                {item.read_at ? (
+                  <span className="shrink-0 rounded-full bg-[#EAF7EF] px-2.5 py-1 text-xs font-semibold text-[#1E8A3A]">Lida</span>
+                ) : (
+                  <Button type="button" className={cn(moduleQuietClass, "h-10 shrink-0 px-3")} onClick={() => mark(item.id)}>Marcar lida</Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {notices.total > 0 ? (
+          <div className="border-t border-[#F1F5F9] pt-4">
+            <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} tone="module" />
           </div>
         ) : null}
       </section>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">No sistema</h2>
-        <FilterSelect
-          id="notice-employee"
-          label="Funcionário"
-          value={noticeEmployee}
-          options={employees.map((item) => ({ value: String(item.id), label: item.full_name }))}
-          onChange={setNoticeEmployee}
-        />
-        {notices.error ? <p className="text-sm text-destructive">{notices.error}</p> : null}
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {notices.items.map((item) => (
-            <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
-              <span>
-                {item.body}
-                <span className="mt-1 block text-muted-foreground">{showDateTime(item.created_at)}</span>
-              </span>
-              {item.read_at ? (
-                <span className="text-muted-foreground">Lida</span>
-              ) : (
-                <Button type="button" size="sm" variant="outline" onClick={() => mark(item.id)}>
-                  Marcar lida
-                </Button>
-              )}
-            </li>
-          ))}
-          {notices.items.length === 0 ? <ListPlaceholder loading={notices.loading} empty="Nenhuma notificação." /> : null}
-        </ul>
-        <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} />
+            ),
+          },
+          {
+            id: "email",
+            label: "No e-mail",
+            icon: Mail,
+            panel: (
+      <section className={cn(moduleCardClass, "space-y-5")}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <Mail className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">No e-mail</h2>
+            <p className="text-sm text-[#64748B]">Avisos enviados por e-mail.</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor="email-kind">Tipo</Label>
+          <SiteSelect id="email-kind" value={emailKind} className="h-12" placeholder="Todos" options={[{ value: "", label: "Todos" }, ...noticeKinds]} onChange={setEmailKind} />
+        </div>
+        {emails.error ? <p className="text-sm text-destructive" role="alert">{emails.error}</p> : null}
+        {emails.loading && emails.items.length === 0 && !emails.error ? (
+          <div className="flex justify-center py-10" role="status">
+            <Spinner label="Carregando os e-mails" className="h-8 w-8 text-[#1E8A3A]" />
+          </div>
+        ) : null}
+        {!emails.loading && !emails.error && emails.items.length === 0 ? (
+          <div className="px-2 py-10 text-center">
+            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum e-mail</p>
+            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+          </div>
+        ) : null}
+        {emails.items.length > 0 ? (
+          <ul className="space-y-2">
+            {emails.items.map((item) => (
+              <li key={item.id} className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-3">
+                <p className="text-sm font-medium leading-5 text-[#0A0A0A]">{item.body || "Não informado"}</p>
+                <p className="mt-0.5 text-sm text-[#64748B]">
+                  {item.address ? item.address : <span className="font-medium text-[#94A3B8]">Não informado</span>}
+                  <span aria-hidden> · </span>
+                  {showDateTime(item.created_at)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {emails.total > 0 ? (
+          <div className="border-t border-[#F1F5F9] pt-4">
+            <ListPager page={emails.page} pageSize={emails.pageSize} total={emails.total} onPage={emails.setPage} onPageSize={emails.setPageSize} tone="module" />
+          </div>
+        ) : null}
       </section>
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">No e-mail</h2>
-        <p className="text-sm text-muted-foreground">O e-mail fica gravado com o mesmo texto.</p>
-        <FilterSelect id="email-kind" label="Tipo" value={emailKind} options={noticeKinds} onChange={setEmailKind} />
-        {emails.error ? <p className="text-sm text-destructive">{emails.error}</p> : null}
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {emails.items.map((item) => (
-            <li key={item.id} className="px-4 py-3 text-sm">
-              {item.body}
-              <span className="mt-1 block text-muted-foreground">
-                {item.address || "Sem endereço"} · {showDateTime(item.created_at)}
-              </span>
-            </li>
-          ))}
-          {emails.items.length === 0 ? <ListPlaceholder loading={emails.loading} empty="Nenhum e-mail gravado." /> : null}
-        </ul>
-        <ListPager page={emails.page} pageSize={emails.pageSize} total={emails.total} onPage={emails.setPage} onPageSize={emails.setPageSize} />
-      </section>
+            ),
+          },
+        ]}
+      />
     </div>
   )
 }
