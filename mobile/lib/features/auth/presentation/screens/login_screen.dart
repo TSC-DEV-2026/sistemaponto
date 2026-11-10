@@ -51,7 +51,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Text('sistemaponto', style: Theme.of(context).textTheme.titleMedium),
+            Text.rich(
+              TextSpan(
+                text: 'sistema',
+                style: Theme.of(context).textTheme.titleMedium,
+                children: [
+                  TextSpan(text: 'ponto', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
             Text('Entrar', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 24),
