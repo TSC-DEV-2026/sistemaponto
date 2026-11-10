@@ -82,7 +82,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 16),
             BusyButton(onPressed: _submit, icon: LucideIcons.logIn, label: 'Entrar'),
             TextButton(onPressed: () => context.go('/forgot-password'), child: const Text('Esqueci a senha')),
-            TextButton(onPressed: () => context.go('/register'), child: const Text('Criar conta')),
           ],
         ),
       ),
