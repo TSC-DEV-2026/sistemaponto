@@ -92,6 +92,16 @@ function Install-Frontend {
     }
 }
 
+Write-Host ""
+Write-Host "Quer atualizar o código antes de rodar?"
+Write-Host "1 - Sim"
+Write-Host "2 - Não"
+$choice = Read-Host "Digite 1 ou 2"
+if ($choice -ne "1" -and $choice -ne "2") {
+    Write-Host "Escolha inválida. Nada foi iniciado."
+    exit 1
+}
+
 if (Test-Listening 8003) {
     Write-Host "A porta 8003 já está em uso. Feche o backend que estiver rodando e tente de novo."
     exit 1
@@ -102,7 +112,12 @@ if (Test-Listening 5175) {
 }
 
 try {
-    Update-Code
+    if ($choice -eq "1") {
+        Update-Code
+    }
+    else {
+        Write-Host "Seguindo com o código que já está aqui."
+    }
     Install-Backend
     Update-Database
     Install-Frontend
