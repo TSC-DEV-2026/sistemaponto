@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
-import { Info, Save, User } from "lucide-react"
+import { Briefcase, Building2, CalendarClock, ClipboardList, Clock, Info, Landmark, Save, Timer, User, UserRound, Users, type LucideIcon } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -10,12 +10,28 @@ import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
+import { SlidingHighlight } from "@/components/ui/sliding-highlight"
+import { Spinner } from "@/components/ui/spinner"
+import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
-import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
-import { createRecord, getRecord, updateRecord, type Employee } from "@/services/workforce.service"
+import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
+import { CertificatePhotoField, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
+import { createRecord, getRecord, listRecords, updateRecord, uploadCertificatePhoto, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
-import { clockMethodLabel } from "@/utils/labels"
+import { isoWeekday } from "@/pages/workforce/journey"
+import { clockMethodLabel, manualTimeOffKinds, occurrenceKindLabel } from "@/utils/labels"
+
+const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
+  { kind: "job", label: "Cargo", path: "/jobs", searchKey: "name", icon: Briefcase },
+  { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: CalendarClock },
+  { kind: "cost_center", label: "Centro de custo", path: "/cost-centers", searchKey: "name", icon: Landmark },
+  { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: Users },
+  { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: Building2 },
+  { kind: "manager", label: "Gestor", path: "/employees", searchKey: "full_name", icon: UserRound },
+  { kind: "status", label: "Situação", path: "", searchKey: "name", icon: User },
+]
 
 function readFaceImage(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -44,7 +60,33 @@ export function EmployeeFormPage() {
   const [clockMethod, setClockMethod] = useState("simple")
   const [faceFile, setFaceFile] = useState<File | null>(null)
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
+  const [usesBank, setUsesBank] = useState(false)
   const [error, setError] = useState("")
+  const [linkChoices, setLinkChoices] = useState<{ value: string; label: string; kind?: string; length?: number }[]>([])
+  const [referenceId, setReferenceId] = useState("")
+  const [journeyDetail, setJourneyDetail] = useState<NamedRecord | null>(null)
+  const [cycleDay, setCycleDay] = useState("")
+  const [cycleTouched, setCycleTouched] = useState(false)
+  const [statusLabelValue, setStatusLabelValue] = useState("active")
+  const [validFrom, setValidFrom] = useState("")
+  const [vigencyNote, setVigencyNote] = useState("")
+  const [savingLink, setSavingLink] = useState(false)
+  const [occurrenceKind, setOccurrenceKind] = useState("absence")
+  const [offDraft, setOffDraft] = useState<TimeOffDraft>(emptyTimeOff)
+  const [offFileKey, setOffFileKey] = useState(0)
+  const [startsOn, setStartsOn] = useState("")
+  const [endsOn, setEndsOn] = useState("")
+  const [reasonId, setReasonId] = useState("")
+  const [occurrenceNote, setOccurrenceNote] = useState("")
+  const [reasons, setReasons] = useState<NamedRecord[]>([])
+  const [savingEvent, setSavingEvent] = useState(false)
+  const role = useAuthStore((state) => state.user?.role)
+  const isAdmin = role === "admin"
+  const [tab, setTab] = useState("data")
+  const canRecordEvent = isAdmin || role === "manager"
+  const linkTarget = vigencyTargets.find((item) => item.kind === tab)
+  const manualEvent = manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number])
+  const asksReason = occurrenceKind !== "vacation" && occurrenceKind !== "leave" && occurrenceKind !== "punch_entry"
 
   useEffect(() => {
     if (id === null) return
@@ -58,6 +100,7 @@ export function EmployeeFormPage() {
         setAdmission(person.admission_date)
         setNote(person.note || "")
         setHourBank(Boolean(person.hour_bank))
+        setUsesBank(Boolean(person.hour_bank))
         setRegistration(person.registration_number || "")
         setClockMethod(person.clock_method || "simple")
         setFaceUrl(person.face_url)
@@ -69,6 +112,164 @@ export function EmployeeFormPage() {
       active = false
     }
   }, [id])
+
+  useEffect(() => {
+    if (!isAdmin || id === null || !linkTarget || linkTarget.kind === "status") {
+      setLinkChoices([])
+      return
+    }
+    let active = true
+    listRecords<NamedRecord & { full_name?: string }>(linkTarget.path, { page: 1, limit: 100 })
+      .then((page) => {
+        if (!active) return
+        setLinkChoices(
+          page.items
+            .filter((item) => linkTarget.kind !== "manager" || item.id !== id)
+            .map((item) => ({
+              value: String(item.id),
+              label: item.full_name || item.name,
+              kind: item.kind,
+              length: item.days?.length || 0,
+            })),
+        )
+      })
+      .catch(() => {
+        if (active) setLinkChoices([])
+      })
+    return () => {
+      active = false
+    }
+  }, [isAdmin, id, linkTarget])
+
+  const listedJourney = tab === "journey" ? linkChoices.find((item) => item.value === referenceId) : undefined
+
+  useEffect(() => {
+    if (tab !== "journey" || !referenceId || listedJourney) {
+      setJourneyDetail(null)
+      return
+    }
+    let active = true
+    getRecord<NamedRecord>("/journeys", Number(referenceId))
+      .then((journey) => {
+        if (active) setJourneyDetail(journey)
+      })
+      .catch(() => {
+        if (active) setJourneyDetail(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [tab, referenceId, listedJourney])
+
+  const scheduledJourney = listedJourney
+    ? listedJourney.kind === "programada"
+    : journeyDetail !== null && String(journeyDetail.id) === referenceId && journeyDetail.kind === "programada"
+  const sequenceLength = listedJourney?.length || journeyDetail?.days?.length || 0
+
+  useEffect(() => {
+    if (!scheduledJourney || cycleTouched || sequenceLength !== 7 || !validFrom) return
+    setCycleDay(String(isoWeekday(validFrom)))
+  }, [scheduledJourney, cycleTouched, sequenceLength, validFrom])
+
+  useEffect(() => {
+    if (id === null || !canRecordEvent || !asksReason) {
+      setReasons([])
+      return
+    }
+    let active = true
+    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: occurrenceKind, active: true })
+      .then((page) => {
+        if (active) setReasons(page.items)
+      })
+      .catch(() => {
+        if (active) setReasons([])
+      })
+    return () => {
+      active = false
+    }
+  }, [id, canRecordEvent, asksReason, occurrenceKind])
+
+  async function saveLink() {
+    if (id === null || !linkTarget) return
+    setError("")
+    if (linkTarget.kind !== "status" && !referenceId) {
+      setError("Selecione o cadastro.")
+      return
+    }
+    if (linkTarget.kind === "manager" && Number(referenceId) === id) {
+      setError("Escolha outro gestor.")
+      return
+    }
+    if (!validFrom) {
+      setError("Informe a data de início.")
+      return
+    }
+    if (scheduledJourney) {
+      const day = Number(cycleDay)
+      if (!cycleDay || day < 1 || day > sequenceLength) {
+        setError("Informe o dia da sequência.")
+        return
+      }
+    }
+    setSavingLink(true)
+    try {
+      await createRecord("/employee-vigencies", {
+        employee_id: id,
+        kind: linkTarget.kind,
+        reference_id: linkTarget.kind === "status" ? null : Number(referenceId),
+        label: linkTarget.kind === "status" ? statusLabelValue : null,
+        valid_from: validFrom,
+        cycle_day: scheduledJourney ? Number(cycleDay) : null,
+        note: vigencyNote.trim() || null,
+      })
+      setReferenceId("")
+      setValidFrom("")
+      setVigencyNote("")
+      setCycleDay("")
+      setCycleTouched(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o vínculo.")
+    } finally {
+      setSavingLink(false)
+    }
+  }
+
+  async function saveOccurrence() {
+    if (id === null) return
+    setError("")
+    if (asksReason && reasons.length > 0 && !reasonId) {
+      setError("Selecione o motivo.")
+      return
+    }
+    if (!manualEvent && !startsOn) {
+      setError("Informe a data de início.")
+      return
+    }
+    setSavingEvent(true)
+    try {
+      const span: Record<string, unknown> = manualEvent ? timeOffBody(offDraft, occurrenceKind) : { starts_on: startsOn, ends_on: endsOn || null }
+      if (manualEvent && occurrenceKind === "certificate" && offDraft.photo) {
+        span.photo_key = (await uploadCertificatePhoto(offDraft.photo)).key
+      }
+      await createRecord("/occurrences", {
+        employee_id: id,
+        kind: occurrenceKind,
+        ...span,
+        reason_id: reasonId ? Number(reasonId) : null,
+        note: occurrenceNote.trim() || null,
+      })
+      setOccurrenceNote("")
+      setReasonId("")
+      setStartsOn("")
+      setEndsOn("")
+      setOffDraft(emptyTimeOff())
+      setOffFileKey((current) => current + 1)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar a ocorrência.")
+    } finally {
+      setSavingEvent(false)
+    }
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -110,7 +311,48 @@ export function EmployeeFormPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <BackLink to="/people" appearance="detail" />
+      <div className="w-full">
+        <BackLink to={id === null ? "/people" : `/people/${id}`} appearance="detail" />
+      </div>
+      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      {id !== null ? (
+        <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
+          {(
+            [
+              { id: "data", label: "Dados", icon: User, show: true },
+              ...vigencyTargets.map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
+              { id: "bank", label: "Banco de horas", icon: Timer, show: isAdmin || role === "manager" },
+              { id: "correction", label: "Correção", icon: Clock, show: isAdmin },
+              { id: "events", label: "Ocorrências", icon: ClipboardList, show: canRecordEvent },
+            ]
+          )
+            .filter((item) => item.show)
+            .map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                data-slide-active={tab === item.id ? "true" : undefined}
+                className={cn(
+                  "relative z-10 inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none",
+                  tab === item.id ? "text-brand-cta" : "text-zinc-600 hover:text-zinc-900",
+                )}
+                onClick={() => {
+                  setTab(item.id)
+                  setReferenceId("")
+                  setCycleDay("")
+                  setCycleTouched(false)
+                  setError("")
+                }}
+              >
+                <item.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                {item.label}
+              </button>
+            ))}
+        </SlidingHighlight>
+      ) : null}
+      {id === null || tab === "data" ? (
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
@@ -213,7 +455,6 @@ export function EmployeeFormPage() {
           </Label>
           <textarea id="note" className={cn(moduleTextClass, "min-h-[90px]")} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
           <Button type="submit" className={modulePrimaryClass}>
             <Save className="h-4 w-4" />
@@ -221,6 +462,133 @@ export function EmployeeFormPage() {
           </Button>
         </div>
       </ActionForm>
+      ) : null}
+      {id !== null && linkTarget && isAdmin ? (
+        <section className={cn(moduleCardClass, "space-y-5")}>
+          <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar {linkTarget.label.toLocaleLowerCase("pt-BR")}</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {linkTarget.kind === "status" ? (
+              <div className="space-y-2">
+                <Label className={moduleLabelClass} htmlFor="employee-link-status">Situação</Label>
+                <SiteSelect
+                  id="employee-link-status"
+                  value={statusLabelValue}
+                  className="h-12"
+                  options={[{ value: "active", label: "Ativo" }, { value: "dismissed", label: "Desligado" }]}
+                  onChange={setStatusLabelValue}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label className={moduleLabelClass} htmlFor="employee-link-reference">{linkTarget.label}</Label>
+                <SiteSelect
+                  id="employee-link-reference"
+                  value={referenceId}
+                  searchable
+                  searchPath={linkTarget.path}
+                  searchKey={linkTarget.searchKey}
+                  searchPlaceholder={`Pesquisar ${linkTarget.label.toLocaleLowerCase("pt-BR")}`}
+                  placeholder="Selecione"
+                  className="h-12"
+                  icon={Briefcase}
+                  options={linkChoices}
+                  onChange={(value) => {
+                    setReferenceId(value)
+                    if (linkTarget.kind === "journey") {
+                      setCycleDay("")
+                      setCycleTouched(false)
+                    }
+                  }}
+                />
+              </div>
+            )}
+            <DatePickerField id="employee-link-from" label="Início" value={validFrom} onChange={setValidFrom} />
+            {scheduledJourney ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label className={moduleLabelClass} htmlFor="employee-link-cycle">Dia da sequência nesta data</Label>
+                <SiteSelect
+                  id="employee-link-cycle"
+                  value={cycleDay}
+                  placeholder="Selecione o dia"
+                  className="h-12"
+                  options={Array.from({ length: sequenceLength }, (_, index) => ({ value: String(index + 1), label: `Dia ${index + 1}` }))}
+                  onChange={(next) => {
+                    setCycleDay(next)
+                    setCycleTouched(true)
+                  }}
+                />
+                <p className="text-sm text-[#64748B]">Na programada de sete dias, a sugestão é o dia da semana da vigência. Você pode escolher outro.</p>
+              </div>
+            ) : null}
+            <div className="space-y-2 md:col-span-2">
+              <Label className={moduleLabelClass} htmlFor="employee-link-note">Observação</Label>
+              <textarea id="employee-link-note" className={cn(moduleTextClass, "min-h-24")} value={vigencyNote} onChange={(event) => setVigencyNote(event.target.value)} />
+            </div>
+          </div>
+          <Button type="button" className={modulePrimaryClass} disabled={savingLink} onClick={() => void saveLink()}>
+            {savingLink ? <Spinner className="h-4 w-4" /> : null}
+            Salvar {linkTarget.label.toLocaleLowerCase("pt-BR")}
+          </Button>
+        </section>
+      ) : null}
+      {id !== null && tab === "events" && canRecordEvent ? (
+        <section className={cn(moduleCardClass, "space-y-5")}>
+          <h2 className="text-lg font-semibold text-[#0A0A0A]">Registrar ocorrência</h2>
+          <div className="max-w-md space-y-2">
+            <Label className={moduleLabelClass} htmlFor="employee-occurrence-kind">Tipo</Label>
+            <SiteSelect
+              id="employee-occurrence-kind"
+              value={occurrenceKind}
+              className="h-12"
+              icon={ClipboardList}
+              options={Object.entries(occurrenceKindLabel)
+                .filter(([value]) => isAdmin || manualTimeOffKinds.includes(value as (typeof manualTimeOffKinds)[number]))
+                .map(([value, label]) => ({ value, label }))}
+              onChange={(value) => {
+                setOccurrenceKind(value)
+                setReasonId("")
+                setOffDraft(emptyTimeOff())
+                setOffFileKey((current) => current + 1)
+              }}
+            />
+          </div>
+          {manualEvent ? (
+            <TimeOffFields idPrefix="employee-off" kind={occurrenceKind} draft={offDraft} fileKey={offFileKey} onChange={setOffDraft} appearance="module" />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <DatePickerField id="employee-occurrence-start" label="De" value={startsOn} onChange={setStartsOn} />
+              <DatePickerField id="employee-occurrence-end" label="Até" value={endsOn} onChange={setEndsOn} />
+            </div>
+          )}
+          {asksReason ? (
+            <div className="max-w-md space-y-2">
+              <Label className={moduleLabelClass} htmlFor="employee-occurrence-reason">Motivo</Label>
+              <SiteSelect
+                id="employee-occurrence-reason"
+                value={reasonId}
+                searchable
+                searchPath="/reasons"
+                searchParams={{ kind: occurrenceKind, active: true }}
+                searchPlaceholder="Pesquisar motivo"
+                placeholder="Selecione"
+                className="h-12"
+                options={reasons.map((item) => ({ value: String(item.id), label: item.name }))}
+                onChange={setReasonId}
+              />
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="employee-occurrence-note">Observação</Label>
+            <textarea id="employee-occurrence-note" className={cn(moduleTextClass, "min-h-24")} value={occurrenceNote} onChange={(event) => setOccurrenceNote(event.target.value)} />
+          </div>
+          <Button type="button" className={modulePrimaryClass} disabled={savingEvent} onClick={() => void saveOccurrence()}>
+            {savingEvent ? <Spinner className="h-4 w-4" /> : null}
+            Registrar ocorrência
+          </Button>
+        </section>
+      ) : null}
+      {id !== null && tab === "bank" && (isAdmin || role === "manager") ? <HourBankPanel employeeId={id} canLaunch usesBank={usesBank} appearance="module" /> : null}
+      {id !== null && tab === "correction" && isAdmin ? <PunchCorrectionForm employeeId={id} appearance="module" onSaved={async () => undefined} /> : null}
     </div>
   )
 }
