@@ -31,7 +31,7 @@ Botão. `POST /punches` com o horário atual e `source` `employee`. Sem foto.
 
 O código em mãos é o payload já definido em `punch_code.py`: `unidade|cpf|matrícula` (`render_code` / `read_code`). Exige matrícula e unidade vigente. O app fotografa o QR e lê esse texto. Não há campo para digitar o código.
 
-O payload lido tem de ser o do funcionário da sessão. Se a leitura falhar ou for de outra pessoa, a marcação não entra e dá para tentar de novo.
+O payload lido tem de ser o do funcionário da sessão. Se a leitura falhar ou for de outra pessoa, a marcação não entra e dá para tentar de novo. Sem rede a marcação não entra e não fica no aparelho. A fila offline é só do reconhecimento facial.
 
 Em seguida a câmera pede a selfie. Ela é obrigatória e fica guardada na marcação. Não passa por reconhecimento: não gera embedding e não decide quem é a pessoa.
 
@@ -198,3 +198,29 @@ A flexível e a tolerância não entram na Carga nem na Livre.
 Alterar horário, folga, total, tolerância ou flexível pede a data em que o conteúdo novo passa a valer. A apuração anterior lê o conteúdo da época. Período fechado bloqueia essa data, como na vigência. Mudar a quantidade de dias pede de novo, nessa data, em qual dia da sequência ela cai. Trocar o horário de um dia não move a contagem de quem já está no meio.
 
 Jornada já cadastrada, inclusive a Jornada Padrão, vira Programada de 7 dias: o horário atual de segunda a sexta, sábado e domingo de folga, flexível desligada, tolerância de 10 minutos. Na vigência já existente, a data de início cai no dia da sequência que preserva a semana. Uma quarta-feira continua dia de trabalho. Esse encaixe pelo dia da semana vale só nessa conversão.
+
+## Ponto 13 — Aparelho compartilhado
+
+O aplicativo de cada funcionário permanece como está. Uma pessoa entra com a própria conta e registra o ponto da empresa da sessão. O aparelho compartilhado é outro aplicativo, na pasta `mobile2`, ao lado de `mobile`. A identidade visual é a mesma do `mobile`. Mudam as telas que esse aparelho precisa: não há login de funcionário, não há home da pessoa, não há solicitação, apuração nem banco. A tela libera o aparelho e registra o ponto.
+
+Nesse aparelho cabem várias empresas sem relação entre si. Cada uma autoriza o aparelho pela própria conta. A senha e a sessão do administrador não vão para o aparelho.
+
+### Liberação
+
+Na instalação, o `mobile2` gera um identificador daquele aparelho e o guarda. No site, o administrador da empresa pede um código de liberação. O código é curto, vale alguns minutos e serve uma vez. Significa só que o aparelho que o apresentar pode registrar ponto naquela empresa.
+
+Quem configura digita o código. O aplicativo envia o identificador e o código. O servidor confere, grava o vínculo daquele aparelho com aquela empresa e invalida o código. No lugar, devolve uma chave só de registro de ponto. A chave fica no aparelho. Com ela não se abre o site, não se lista funcionário e não se altera cadastro.
+
+Pelo menos uma empresa é obrigatória. Outra empresa entra do mesmo modo, com o código gerado na conta dela. O aparelho passa a ter uma chave por empresa. Revogar no site derruba a chave daquela empresa e apaga os embeddings dela no aparelho. A chave e os embeddings das outras permanecem. Sem rede, a revogação vale quando o aparelho volta a falar com o servidor. A fila dessa empresa sobe e o servidor a recusa.
+
+### Registro
+
+Os dois botões ficam sempre na tela: reconhecimento facial e QR Code. O registro simples não existe nesse aplicativo. Quem está como simples continua no aplicativo de cada funcionário. O servidor recusa marcação simples vinda do aparelho compartilhado.
+
+O método continua sendo o da ficha de cada funcionário, não o da conta. O botão fica habilitado quando, entre as empresas pareadas, existe ao menos uma pessoa naquele método. Uma empresa só com facial deixa o QR Code desabilitado. Uma empresa com os dois métodos deixa os dois habilitados. Duas empresas em métodos diferentes deixam os dois habilitados. Duas empresas só no facial deixam o QR Code desabilitado. Essa habilitação vem do servidor, porque o tipo da ficha pode mudar depois.
+
+No facial, o aparelho baixa os embeddings de quem usa facial em cada empresa pareada e guarda separado por empresa. Com rede, a foto sobe e o servidor compara em cada empresa, só entre quem está no facial. Sem rede, o aparelho compara com os embeddings locais, também empresa por empresa, no mesmo modelo do aplicativo de cada funcionário. A marcação fica na fila se uma empresa reconhecer e as outras não. Se duas reconhecerem, ou se nenhuma reconhecer, a marcação não entra e não fica no aparelho. Quando a internet volta, a fila sobe e o servidor repete a comparação. Se o rosto não confirmar, se a pessoa mudou de método ou se a empresa revogou o aparelho, aquela marcação não entra. A última habilitação recebida do servidor vale sem rede, para o facial poder registrar.
+
+No QR Code, a marcação só entra com rede, no `mobile` e no `mobile2`. Sem rede ela não entra e não fica no aparelho. O aparelho lê o payload já definido, `unidade|cpf|matrícula`. A marcação entra se esse código apontar para uma única pessoa, entre as empresas pareadas, com tipo QR Code. Duas pessoas ou nenhuma recusam a marcação. A selfie continua obrigatória, como no Ponto 2.
+
+A evidência da marcação segue o Ponto 2 e o Ponto 8: o facial grava a captura, o QR Code grava a foto do código e a selfie. A marcação fica na empresa e no funcionário que o servidor reconheceu.
