@@ -64,6 +64,7 @@ def test_lista_e_filtro_sem_sql():
         "subscriptions",
         "charges",
         "audits",
+        "clock-devices",
     ]
     found = [item for item in items if item["name"] == "tenants"]
     assert len(found) == 1

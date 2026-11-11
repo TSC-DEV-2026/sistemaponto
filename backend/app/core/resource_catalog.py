@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+from app.schemas.clock_device import ClockDeviceOut
 from app.schemas.membership import MembershipOut
 from app.schemas.tenant import TenantOut
 from app.schemas.workforce import (
@@ -58,6 +59,7 @@ RESOURCES: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     "subscriptions": (SubscriptionOut, SubscriptionOut),
     "charges": (ChargeOut, ChargeOut),
     "audits": (AuditOut, AuditOut),
+    "clock-devices": (ClockDeviceOut, ClockDeviceOut),
 }
 
 

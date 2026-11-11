@@ -11,6 +11,7 @@ import {
   Lock,
   ScrollText,
   Shield,
+  MonitorSmartphone,
   Smartphone,
   Tags,
   Users,
@@ -119,6 +120,17 @@ export const navGroups: NavGroup[] = [
           { title: "Funcionários", text: "Nenhum funcionário." },
           { title: "Cargos", text: "Nenhum cargo." },
           { title: "Centros de custo", text: "Nenhum centro de custo." },
+        ],
+      },
+      {
+        to: "/clock-devices",
+        label: "Aparelhos",
+        icon: MonitorSmartphone,
+        adminOnly: true,
+        lead: "Libera um aparelho para várias pessoas registrarem o ponto.",
+        sections: [
+          { title: "Código", text: "Uso único, válido por alguns minutos." },
+          { title: "Empresas", text: "Cada conta libera o próprio aparelho." },
         ],
       },
       {

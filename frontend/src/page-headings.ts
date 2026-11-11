@@ -61,6 +61,7 @@ const patterns: Pattern[] = [
   { path: "/people/new", title: "Novo funcionário", subtitle: "Cadastro da ficha" },
   { path: "/people/:id/edit", title: "Editar funcionário", subtitle: "Atualize a ficha" },
   { path: "/people/:id", title: "Funcionário", subtitle: "Ficha do funcionário" },
+  { path: "/clock-devices", title: "Aparelhos", subtitle: "Libere o aparelho compartilhado" },
   { path: "/bulk-changes", title: "Operações em massa", subtitle: "Altere várias pessoas de uma vez" },
   { path: "/reports", title: "Relatórios", subtitle: "Consulte informações e indicadores" },
   { path: "/organization", title: "Estrutura Organizacional", subtitle: "Gerencie a estrutura da empresa" },
