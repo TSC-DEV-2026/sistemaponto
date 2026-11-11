@@ -561,9 +561,14 @@ class WorkforceService:
         selfie_image: bytes | None = None,
         face_image: bytes | None = None,
         client_event_id: str | None = None,
+        trusted_device: bool = False,
     ) -> Punch:
         employee = self._employee(scope, int(data["employee_id"]))
-        self._can_punch(scope, employee, source)
+        if trusted_device:
+            if source not in {"qr", "face"}:
+                raise AppError(400, "Este aparelho não registra ponto simples.")
+        else:
+            self._can_punch(scope, employee, source)
         chosen = source or self._punch_source(scope, employee)
         self._assert_clock_method(employee, chosen)
         occurred = assert_aware(data["occurred_at"])
@@ -715,6 +720,110 @@ class WorkforceService:
             cursor += 1
         start = (page - 1) * limit
         return ready[start : start + limit], len(ready)
+
+    def device_face_candidate(self, tenant_id: int, image: bytes) -> int | None:
+        scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
+        try:
+            vector = self.embedder(image)
+        except AppError:
+            raise
+        except ValueError:
+            raise AppError(400, "O rosto não foi reconhecido.") from None
+        except Exception:
+            logger.exception("falha ao comparar o rosto no aparelho tenant_id=%s", tenant_id)
+            raise AppError(503, "Reconhecimento indisponível") from None
+        return best_match(vector, self._face_registry(scope))
+
+    def device_qr_candidates(self, tenant_id: int, content: str) -> list[int]:
+        parsed = read_code(content)
+        if parsed is None:
+            return []
+        found = []
+        page = 1
+        while True:
+            rows, total = self.repo.list_rows(
+                Employee,
+                tenant_id,
+                page=page,
+                limit=100,
+                equals={"clock_method": "qr"},
+                descending=False,
+            )
+            for employee in rows:
+                try:
+                    unit, registration = self._clock_identity(employee, self.today())
+                except AppError:
+                    continue
+                if (unit.reference_id, employee.cpf, registration) == parsed:
+                    found.append(employee.id)
+            if page * 100 >= total:
+                break
+            page += 1
+        return found
+
+    def device_method_flags(self, tenant_id: int) -> dict:
+        return {"face": self._has_clock_method(tenant_id, "face"), "qr": self._has_clock_method(tenant_id, "qr")}
+
+    def device_embeddings(self, tenant_id: int) -> list[dict]:
+        scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
+        items, total = self.list_face_embeddings(scope, 1, 100)
+        if total > len(items):
+            items, _total = self.list_face_embeddings(scope, 1, total)
+        return items
+
+    def commit_device_face(self, tenant_id: int, employee_id: int, data: dict, image: bytes) -> Punch:
+        scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
+        employee = self._employee(scope, employee_id)
+        channel = data.get("channel")
+        if channel not in {"online", "offline"}:
+            raise AppError(400, "Reconhecimento inválido.")
+        event_id = str(data.get("client_event_id") or "").strip() or None
+        if channel == "offline" and event_id is None:
+            raise AppError(400, "Informe o evento do aparelho.")
+        if event_id is not None:
+            existing = self._punch_by_event(scope, employee.id, event_id)
+            if existing is not None:
+                return existing
+        self._assert_clock_method(employee, "face")
+        if self._embedding(scope, employee.id) is None:
+            raise AppError(400, "Este funcionário não tem foto de referência.")
+        if self.device_face_candidate(tenant_id, image) != employee.id:
+            raise AppError(400, "O rosto não foi reconhecido.")
+        return self.create_punch(
+            scope,
+            {"employee_id": employee.id, "occurred_at": data["occurred_at"], "note": None},
+            source="face",
+            channel=channel,
+            face_image=image,
+            client_event_id=event_id,
+            trusted_device=True,
+        )
+
+    def commit_device_qr(self, tenant_id: int, employee_id: int, data: dict, qr_image: bytes, selfie_image: bytes) -> Punch:
+        scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
+        self._employee(scope, employee_id)
+        content = str(data.get("content") or "").strip()
+        if self.device_qr_candidates(tenant_id, content) != [employee_id]:
+            raise AppError(400, "O QR Code não foi aceito.")
+        return self.create_punch(
+            scope,
+            {"employee_id": employee_id, "occurred_at": data["occurred_at"], "note": None},
+            source="qr",
+            qr_image=qr_image,
+            selfie_image=selfie_image,
+            trusted_device=True,
+        )
+
+    def _has_clock_method(self, tenant_id: int, method: str) -> bool:
+        _rows, total = self.repo.list_rows(
+            Employee,
+            tenant_id,
+            page=1,
+            limit=1,
+            equals={"clock_method": method},
+            descending=False,
+        )
+        return total > 0
 
     def store_selfie(self, scope: Scope, content_type: str, body: bytes) -> str:
         self._known(scope)

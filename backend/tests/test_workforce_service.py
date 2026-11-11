@@ -3051,3 +3051,55 @@ def test_turno_que_passa_da_meia_noite_fica_no_dia_que_comecou():
     assert day_result(result, date(2026, 10, 6))["worked_minutes"] == 12 * 60
     assert day_result(result, date(2026, 10, 6))["overtime_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 0
+
+
+def test_aparelho_reconhece_rosto_e_qr_sem_sessao_da_pessoa():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    _access(repo, 10, "member")
+    face = workforce.create_employee(
+        admin(),
+        {**admitted(date(2026, 10, 1), "22222222222", 9), "clock_method": "face", "face_image": photo(b"ana")},
+    )
+    simple = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "33333333333", 10))
+    assert workforce.device_face_candidate(1, b"ana") == face["id"]
+    assert workforce.device_face_candidate(1, b"bia") is None
+    assert simple["id"] not in {item["employee_id"] for item in workforce.device_embeddings(1)}
+    saved = workforce.commit_device_face(
+        1,
+        face["id"],
+        {"occurred_at": at(8, 0, 6), "channel": "offline", "client_event_id": "evt-aparelho"},
+        b"ana",
+    )
+    assert saved.source == "face"
+    assert saved.channel == "offline"
+    again = workforce.commit_device_face(
+        1,
+        face["id"],
+        {"occurred_at": at(8, 0, 6), "channel": "offline", "client_event_id": "evt-aparelho"},
+        b"other",
+    )
+    assert again.id == saved.id
+    with pytest.raises(AppError) as refused:
+        workforce.commit_device_face(
+            1,
+            simple["id"],
+            {"occurred_at": at(8, 5, 6), "channel": "online", "client_event_id": None},
+            b"ana",
+        )
+    assert refused.value.message == "Este funcionário não usa esse tipo de registro."
+    qr = workforce.create_employee(admin(), employee_payload("52998224725", 11))
+    _access(repo, 11, "member")
+    workforce.update_employee(admin(), qr["id"], {"clock_method": "qr", "registration_number": "A1"})
+    unit = assign_unit(workforce, qr["id"], "Matriz", date(2026, 10, 1))
+    content = f"{unit.id}|52998224725|A1"
+    assert workforce.device_qr_candidates(1, content) == [qr["id"]]
+    marked = workforce.commit_device_qr(
+        1,
+        qr["id"],
+        {"occurred_at": at(9, 0, 6), "content": content},
+        b"qr",
+        b"selfie",
+    )
+    assert marked.source == "qr"
+    assert marked.employee_id == qr["id"]

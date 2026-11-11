@@ -459,3 +459,43 @@ class Charge(Base):
     period_end = Column(Date, nullable=False)
     paid_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ClockDevice(Base):
+    __tablename__ = "clock_devices"
+    __table_args__ = (UniqueConstraint("public_id", name="uq_clock_device_public_id"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    public_id = Column(String(80), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ClockReleaseCode(Base):
+    __tablename__ = "clock_release_codes"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    code_hash = Column(String(64), nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_by_person_id = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ClockDeviceGrant(Base):
+    __tablename__ = "clock_device_grants"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    device_id = Column(BigInteger, ForeignKey("clock_devices.id"), nullable=False, index=True)
+    tenant_id = _tenant()
+    token_hash = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ClockEnrollAttempt(Base):
+    __tablename__ = "clock_enroll_attempts"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    public_id = Column(String(80), nullable=False, index=True)
+    failed_at = Column(DateTime(timezone=True), nullable=False)

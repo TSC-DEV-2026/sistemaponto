@@ -8,7 +8,9 @@ from app.repositories.tenant_repository import TenantRepository
 from app.services.auth_service import AuthService
 from app.services.authenticator_client import AuthenticatorClient
 from app.services.membership_service import MembershipService
+from app.repositories.clock_device_repository import ClockDeviceRepository
 from app.repositories.workforce_repository import WorkforceRepository
+from app.services.clock_device_service import ClockDeviceService
 from app.services.tenant_service import TenantService
 from app.services.workforce_service import WorkforceService
 
@@ -33,6 +35,13 @@ def get_workforce_service(
     authenticator: AuthenticatorClient = Depends(get_authenticator),
 ) -> WorkforceService:
     return WorkforceService(WorkforceRepository(db), authenticator=authenticator)
+
+
+def get_clock_device_service(
+    db: Session = Depends(get_db),
+    workforce: WorkforceService = Depends(get_workforce_service),
+) -> ClockDeviceService:
+    return ClockDeviceService(ClockDeviceRepository(db), workforce)
 
 
 def get_auth_service(

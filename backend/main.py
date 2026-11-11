@@ -10,7 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.middleware import CsrfMiddleware, SecurityHeadersMiddleware
 from app.api.openapi import install_docs_security
-from app.api.routes import auth, memberships, meta, tenants, workforce
+from app.api.routes import auth, clock_devices, memberships, meta, tenants, workforce
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.limiter import limiter
@@ -63,7 +63,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-CSRF-Token", "X-Client", "Authorization"],
+        allow_headers=["Content-Type", "X-CSRF-Token", "X-Client", "Authorization", "X-Device-Id", "X-Device-Keys"],
     )
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(tenants.router, prefix="/api/v1")
@@ -71,6 +71,8 @@ def create_app() -> FastAPI:
     app.include_router(meta.router, prefix="/api/v1")
     for router in workforce.routers:
         app.include_router(router, prefix="/api/v1")
+    app.include_router(clock_devices.devices, prefix="/api/v1")
+    app.include_router(clock_devices.codes, prefix="/api/v1")
     install_docs_security(app)
     return app
 
