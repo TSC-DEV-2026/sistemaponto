@@ -8,7 +8,11 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class QrFitScanner extends StatefulWidget {
-  const QrFitScanner({required this.controller, required this.onDetect, super.key});
+  const QrFitScanner({
+    required this.controller,
+    required this.onDetect,
+    super.key,
+  });
 
   final MobileScannerController controller;
   final void Function(BarcodeCapture capture) onDetect;
@@ -26,7 +30,10 @@ class _QrFitScannerState extends State<QrFitScanner> {
     if (_sent) {
       return;
     }
-    final code = capture.barcodes.map((item) => item.rawValue).whereType<String>().firstWhere((item) => item.trim().isNotEmpty, orElse: () => '');
+    final code = capture.barcodes
+        .map((item) => item.rawValue)
+        .whereType<String>()
+        .firstWhere((item) => item.trim().isNotEmpty, orElse: () => '');
     if (code.isEmpty || capture.image == null) {
       return;
     }
@@ -49,42 +56,63 @@ class _QrFitScannerState extends State<QrFitScanner> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 360,
-      width: double.infinity,
+    return SizedBox.expand(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final side = math.min(constraints.maxWidth, constraints.maxHeight) * 0.62;
+          final side =
+              math.min(constraints.maxWidth, constraints.maxHeight) * 0.62;
           final window = Rect.fromCenter(
             center: Offset(constraints.maxWidth / 2, constraints.maxHeight / 2),
             width: side,
             height: side,
           );
-          return ClipRRect(
-            borderRadius: const BorderRadius.all(Radius.circular(10)),
-            child: MobileScanner(
-              controller: widget.controller,
-              scanWindow: window,
-              onDetect: _hold,
-              overlayBuilder: (context, overlayConstraints) {
-                return SizedBox(
-                  width: overlayConstraints.maxWidth,
-                  height: overlayConstraints.maxHeight,
-                  child: Stack(
-                    children: [
-                      CustomPaint(
-                        size: Size(overlayConstraints.maxWidth, overlayConstraints.maxHeight),
-                        painter: _QrFitPainter(window: window),
+          return MobileScanner(
+            controller: widget.controller,
+            fit: BoxFit.cover,
+            scanWindow: window,
+            onDetect: _hold,
+            overlayBuilder: (context, overlayConstraints) {
+              return SizedBox(
+                width: overlayConstraints.maxWidth,
+                height: overlayConstraints.maxHeight,
+                child: Stack(
+                  children: [
+                    CustomPaint(
+                      size: Size(
+                        overlayConstraints.maxWidth,
+                        overlayConstraints.maxHeight,
                       ),
-                      Positioned.fill(
-                        child: ValueListenableBuilder(
-                          valueListenable: widget.controller,
-                          builder: (context, state, _) {
-                            final count = state.availableCameras;
-                            if (count != null && count < 2) {
-                              return const SizedBox.shrink();
-                            }
-                            return Center(
+                      painter: _QrFitPainter(window: window),
+                    ),
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      top: math.min(
+                        window.bottom + 10,
+                        overlayConstraints.maxHeight - 120,
+                      ),
+                      child: const Text(
+                        'Encaixe o QR Code',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: BrandColors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: ValueListenableBuilder(
+                        valueListenable: widget.controller,
+                        builder: (context, state, _) {
+                          final count = state.availableCameras;
+                          if (count != null && count < 2) {
+                            return const SizedBox.shrink();
+                          }
+                          return SafeArea(
+                            child: Center(
                               child: IconButton(
                                 onPressed: () async {
                                   try {
@@ -93,27 +121,21 @@ class _QrFitScannerState extends State<QrFitScanner> {
                                 },
                                 iconSize: 64,
                                 tooltip: 'Trocar câmera',
-                                icon: const Icon(LucideIcons.arrowDownUp, color: BrandColors.white, size: 64),
+                                icon: const Icon(
+                                  LucideIcons.arrowDownUp,
+                                  color: BrandColors.white,
+                                  size: 64,
+                                ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                      Positioned(
-                        left: 12,
-                        right: 12,
-                        top: math.min(window.bottom + 10, overlayConstraints.maxHeight - 28),
-                        child: const Text(
-                          'Encaixe o QR Code',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: BrandColors.white, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
       ),
@@ -131,7 +153,10 @@ class _QrFitPainter extends CustomPainter {
     final cutout = RRect.fromRectAndRadius(window, const Radius.circular(12));
     canvas
       ..saveLayer(Offset.zero & size, Paint())
-      ..drawRect(Offset.zero & size, Paint()..color = BrandColors.ink.withValues(alpha: 0.55))
+      ..drawRect(
+        Offset.zero & size,
+        Paint()..color = BrandColors.ink.withValues(alpha: 0.55),
+      )
       ..drawRRect(cutout, Paint()..blendMode = BlendMode.clear)
       ..restore()
       ..drawRRect(
@@ -150,14 +175,39 @@ class _QrFitPainter extends CustomPainter {
     canvas
       ..drawLine(window.topLeft, window.topLeft + const Offset(arm, 0), corners)
       ..drawLine(window.topLeft, window.topLeft + const Offset(0, arm), corners)
-      ..drawLine(window.topRight, window.topRight + const Offset(-arm, 0), corners)
-      ..drawLine(window.topRight, window.topRight + const Offset(0, arm), corners)
-      ..drawLine(window.bottomLeft, window.bottomLeft + const Offset(arm, 0), corners)
-      ..drawLine(window.bottomLeft, window.bottomLeft + const Offset(0, -arm), corners)
-      ..drawLine(window.bottomRight, window.bottomRight + const Offset(-arm, 0), corners)
-      ..drawLine(window.bottomRight, window.bottomRight + const Offset(0, -arm), corners);
+      ..drawLine(
+        window.topRight,
+        window.topRight + const Offset(-arm, 0),
+        corners,
+      )
+      ..drawLine(
+        window.topRight,
+        window.topRight + const Offset(0, arm),
+        corners,
+      )
+      ..drawLine(
+        window.bottomLeft,
+        window.bottomLeft + const Offset(arm, 0),
+        corners,
+      )
+      ..drawLine(
+        window.bottomLeft,
+        window.bottomLeft + const Offset(0, -arm),
+        corners,
+      )
+      ..drawLine(
+        window.bottomRight,
+        window.bottomRight + const Offset(-arm, 0),
+        corners,
+      )
+      ..drawLine(
+        window.bottomRight,
+        window.bottomRight + const Offset(0, -arm),
+        corners,
+      );
   }
 
   @override
-  bool shouldRepaint(covariant _QrFitPainter oldDelegate) => oldDelegate.window != window;
+  bool shouldRepaint(covariant _QrFitPainter oldDelegate) =>
+      oldDelegate.window != window;
 }
