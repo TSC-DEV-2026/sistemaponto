@@ -10,6 +10,7 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
 import '../../../../shared/widgets/screen_back_button.dart';
 import '../../data/clock_flow.dart';
+import '../widgets/qr_fit_scanner.dart';
 
 class QrPunchScreen extends ConsumerStatefulWidget {
   const QrPunchScreen({required this.employeeId, super.key});
@@ -105,13 +106,9 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
             const SizedBox(height: 12),
             Text('QR Code', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
-            const Text('Fotografe o código da sua unidade. Em seguida a câmera pede a selfie. Se a leitura falhar, nada é gravado e você tenta de novo.'),
+            const Text('Encaixe o QR Code no quadrado. Fora dele a leitura não entra. Em seguida a câmera pede a selfie.'),
             const SizedBox(height: 16),
-            if (!scanned)
-              SizedBox(
-                height: 280,
-                child: MobileScanner(controller: _scanner, onDetect: _onDetect),
-              )
+            if (!scanned) QrFitScanner(controller: _scanner, onDetect: _onDetect)
             else ...[
               const Text('QR lido. Agora tire a selfie.'),
               const SizedBox(height: 12),
