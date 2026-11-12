@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/widgets/screen_back_button.dart';
 import '../../providers/device_provider.dart';
+import '../widgets/qr_fit_scanner.dart';
 
 class QrPunchResult {
   const QrPunchResult({required this.message, required this.ok, this.released = false});
@@ -104,10 +105,9 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
             const SizedBox(height: 12),
             Text('QR Code', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
-            const Text('Fotografe o código. Em seguida a câmera pede a selfie. Sem internet a marcação não fica no aparelho.'),
+            const Text('Encaixe o QR Code no quadrado. Fora dele a leitura não entra. Em seguida a câmera pede a selfie. Sem internet a marcação não fica no aparelho.'),
             const SizedBox(height: 16),
-            if (!scanned)
-              SizedBox(height: 280, child: MobileScanner(controller: _scanner, onDetect: _onDetect))
+            if (!scanned) QrFitScanner(controller: _scanner, onDetect: _onDetect)
             else ...[
               const Text('QR lido. Agora tire a selfie.'),
               const SizedBox(height: 12),
