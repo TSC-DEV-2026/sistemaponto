@@ -252,3 +252,39 @@ Depois de gravar, a apuração do período roda de novo e a linha mostra o resul
 Em período fechado, corrigir, falta, atestado e abono ficam visíveis e desativados. Ver detalhes continua.
 
 Com solicitação pendente que cobre o dia, a alteração manual fica bloqueada, na apuração e na ficha. Pedido aceito, negado ou cancelado libera a alteração. Solicitações e o aplicativo do funcionário permanecem. Aprovar continua gravando o ponto.
+
+## Ponto 15 — Classificação
+
+A empresa cria classificações e, em cada uma, cadastra os valores. No funcionário entra um valor de cada classificação, com data. Centro de custo deixa de ser um cadastro fixo e passa a ser uma classificação. A Apuração em Jornada e Ponto permanece: a classificação não calcula ponto, falta, hora extra, adicional nem banco.
+
+Hoje `cost_centers` guarda o nome, único na empresa. A vigência de tipo `cost_center` em `employee_vigencies` aponta para um centro, com `valid_from` e `valid_to`. A ficha, o filtro da lista de funcionários e a operação em massa usam esse vínculo. Empresa nova nasce com o valor Centro de custo Padrão. Não há relatório de pessoas por centro de custo. A apuração não lê centro de custo.
+
+### Cadastro
+
+Entram a classificação e os valores dela. O nome da classificação é único na empresa. O nome do valor é único dentro da classificação. Dá para criar, alterar e listar. Classificação ou valor que já tenha vigência não é excluído, e o histórico conserva o nome.
+
+Empresa que já tem centros de custo ganha a classificação Centro de custo, um valor para cada nome que já existe, e cada vigência de centro de custo passa a apontar para o valor correspondente. Empresa nova continua nascendo com essa classificação e o valor Centro de custo Padrão. As outras classificações só existem quando a empresa cria. A cópia é aditiva. A tabela `cost_centers` permanece nesta etapa.
+
+### Funcionário
+
+A vigência passa a ser de uma classificação e do valor escolhido. Gravar o valor de Cor dos olhos não encerra Centro de custo: cada classificação tem a própria vigência aberta. A pessoa tem, no máximo, um valor vigente de cada. Pode ficar sem valor.
+
+A troca pede a data em que o valor novo passa a valer. A vigência aberta daquela classificação encerra, e o valor antigo fica no histórico. Período fechado bloqueia a data, como nos outros vínculos. A ficha devolve o valor vigente de cada classificação.
+
+No filtro, classificações diferentes se somam. Cor dos olhos Castanho e Margem de idade 18-59 devolve quem tem os dois. Dois valores da mesma classificação se alternam. Castanho e Verde devolve quem tem um ou o outro. A data da consulta usa o valor que valia naquele dia.
+
+Cargo, jornada, equipe, unidade, setor, sindicato, gestor e tipo de registro continuam vínculos próprios.
+
+### Massa e relatório
+
+A operação em massa de centro de custo passa a escolher a classificação, o novo valor e a data. O filtro dela usa as mesmas classificações, com a mesma combinação do filtro da lista. Se uma pessoa da seleção falhar, nenhuma daquele lote é salva, como já acontece.
+
+Entra um relatório de pessoas. A consulta pede o dia e as classificações. Cada linha traz o nome e o valor vigente de cada classificação pedida naquele dia, com os mesmos filtros.
+
+### Site
+
+Em Pessoas, Centros de custo sai e entra Classificações. A lista mostra as classificações. Dentro de cada uma ficam os valores. A ficha do funcionário mostra um campo por classificação. A operação em massa e os filtros da lista passam a usar classificação. O relatório de pessoas fica em Relatórios.
+
+Com o site lendo a classificação, a API deixa de gravar em `cost_centers`. A tabela antiga permanece até uma limpeza posterior, só com o que já foi copiado.
+
+Mais de um valor da mesma classificação na mesma pessoa fica de fora. Valor livre digitado na ficha fica de fora. O aplicativo não usa classificação.
