@@ -46,7 +46,10 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
     if (_locked || _content != null) {
       return;
     }
-    final code = capture.barcodes.map((item) => item.rawValue).whereType<String>().firstWhere((item) => item.trim().isNotEmpty, orElse: () => '');
+    final code = capture.barcodes
+        .map((item) => item.rawValue)
+        .whereType<String>()
+        .firstWhere((item) => item.trim().isNotEmpty, orElse: () => '');
     final image = capture.image;
     if (code.isEmpty || image == null) {
       return;
@@ -70,7 +73,9 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
       if (!mounted) {
         return;
       }
-      final path = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const SelfieCameraScreen()));
+      final path = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (_) => const SelfieCameraScreen()),
+      );
       if (path != null && mounted) {
         setState(() => _selfiePath = path);
       }
@@ -101,11 +106,15 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
         selfie: await File(selfie).readAsBytes(),
       );
       if (mounted) {
-        Navigator.of(context).pop(const PunchResult(message: 'Marcação por QR registrada.', ok: true));
+        Navigator.of(context).pop(
+          const PunchResult(message: 'Marcação por QR registrada.', ok: true),
+        );
       }
     } on ApiException catch (error) {
       if (mounted) {
-        Navigator.of(context).pop(PunchResult(message: error.message, ok: false));
+        Navigator.of(
+          context,
+        ).pop(PunchResult(message: error.message, ok: false));
       }
     }
   }
@@ -113,6 +122,58 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
   @override
   Widget build(BuildContext context) {
     final scanned = _content != null;
+    if (!scanned) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            QrFitScanner(controller: _scanner, onDetect: _onDetect),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        heightFactor: 1,
+                        child: ScreenBackButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Material(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text(
+                            'Encaixe o QR Code no quadrado. Fora dele a leitura não entra. Em seguida a câmera pede a selfie.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -122,23 +183,24 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
             const SizedBox(height: 12),
             Text('QR Code', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
-            const Text('Encaixe o QR Code no quadrado. Fora dele a leitura não entra. Em seguida a câmera pede a selfie.'),
-            const SizedBox(height: 16),
-            if (!scanned) QrFitScanner(controller: _scanner, onDetect: _onDetect)
-            else ...[
-              const Text('QR lido. Agora tire a selfie.'),
-              const SizedBox(height: 12),
-              BusyButton(
-                kind: BusyButtonKind.outlined,
-                onPressed: _takeSelfie,
-                label: _selfiePath == null ? 'Tirar selfie' : 'Selfie pronta',
-              ),
-              const SizedBox(height: 12),
-              BusyButton(onPressed: _selfiePath == null ? null : _send, label: 'Registrar'),
-            ],
+            const Text('QR lido. Agora tire a selfie.'),
+            const SizedBox(height: 12),
+            BusyButton(
+              kind: BusyButtonKind.outlined,
+              onPressed: _takeSelfie,
+              label: _selfiePath == null ? 'Tirar selfie' : 'Selfie pronta',
+            ),
+            const SizedBox(height: 12),
+            BusyButton(
+              onPressed: _selfiePath == null ? null : _send,
+              label: 'Registrar',
+            ),
             if (_error != null) ...[
               const SizedBox(height: 16),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ],
           ],
         ),

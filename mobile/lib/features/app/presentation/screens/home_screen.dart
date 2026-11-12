@@ -61,7 +61,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() {
         _employee = null;
         _missing = false;
-        _profileError = user == null ? 'Sem conexão. A sessão continua neste aparelho.' : 'Seu acesso ainda não está ligado a um funcionário.';
+        _profileError = user == null
+            ? 'Sem conexão. A sessão continua neste aparelho.'
+            : 'Seu acesso ainda não está ligado a um funcionário.';
       });
       return;
     }
@@ -81,7 +83,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final client = ref.read(apiClientProvider);
     ref.read(loaderProvider.notifier).state = true;
     try {
-      final people = await client.get('/api/v1/employees', query: {'person_id': personId, 'limit': 1});
+      final people = await client.get(
+        '/api/v1/employees',
+        query: {'person_id': personId, 'limit': 1},
+      );
       final rows = pageItems(people);
       if (!mounted) {
         return;
@@ -128,7 +133,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     final id = _employeeId(employee);
-    if ('${employee['clock_method'] ?? 'simple'}' != 'face' || _facePreparedFor == id) {
+    if ('${employee['clock_method'] ?? 'simple'}' != 'face' ||
+        _facePreparedFor == id) {
       return;
     }
     _facePreparedFor = id;
@@ -142,11 +148,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     final client = ref.read(apiClientProvider);
     try {
-      final page = await client.get('/api/v1/employee-vigencies', query: {
-        'employee_id': _employeeId(employee),
-        'kind': 'journey',
-        'limit': 20,
-      });
+      final page = await client.get(
+        '/api/v1/employee-vigencies',
+        query: {
+          'employee_id': _employeeId(employee),
+          'kind': 'journey',
+          'limit': 20,
+        },
+      );
       if (!mounted) {
         return;
       }
@@ -158,14 +167,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _applyJourney(ApiClient client, List<Map<String, dynamic>> vigencies, DateTime today) async {
+  Future<void> _applyJourney(
+    ApiClient client,
+    List<Map<String, dynamic>> vigencies,
+    DateTime today,
+  ) async {
     Map<String, dynamic>? current;
     DateTime? currentFrom;
     final day = DateTime(today.year, today.month, today.day);
     for (final row in vigencies) {
       final from = DateTime.tryParse('${row['valid_from']}');
-      final until = row['valid_to'] == null ? null : DateTime.tryParse('${row['valid_to']}');
-      final open = from != null && !from.isAfter(day) && (until == null || !until.isBefore(day));
+      final until = row['valid_to'] == null
+          ? null
+          : DateTime.tryParse('${row['valid_to']}');
+      final open =
+          from != null &&
+          !from.isAfter(day) &&
+          (until == null || !until.isBefore(day));
       if (open && (currentFrom == null || from.isAfter(currentFrom))) {
         current = row;
         currentFrom = from;
@@ -225,11 +243,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       if (tab == 'apuracao') {
         final today = DateTime.now();
-        final page = await client.get('/api/v1/time-results', query: {
-          'employee_id': id,
-          'starts_on': dayStamp(monthStart(today)),
-          'ends_on': dayStamp(monthEnd(today)),
-        });
+        final page = await client.get(
+          '/api/v1/time-results',
+          query: {
+            'employee_id': id,
+            'starts_on': dayStamp(monthStart(today)),
+            'ends_on': dayStamp(monthEnd(today)),
+          },
+        );
         if (!mounted || ticket != _panelTicket) {
           return;
         }
@@ -238,7 +259,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _panelReady = true;
         });
       } else if (tab == 'marcacoes') {
-        final page = await client.get('/api/v1/punches', query: {'employee_id': id, 'limit': 100});
+        final page = await client.get(
+          '/api/v1/punches',
+          query: {'employee_id': id, 'limit': 100},
+        );
         if (!mounted || ticket != _panelTicket) {
           return;
         }
@@ -247,7 +271,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _panelReady = true;
         });
       } else if (tab == 'banco') {
-        final bank = await client.get('/api/v1/hour-bank', query: {'employee_id': id});
+        final bank = await client.get(
+          '/api/v1/hour-bank',
+          query: {'employee_id': id},
+        );
         if (!mounted || ticket != _panelTicket) {
           return;
         }
@@ -317,9 +344,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (employee == null) {
       return;
     }
-    final result = await Navigator.of(context).push<PunchResult>(
-      MaterialPageRoute(builder: (_) => QrPunchScreen(employeeId: _employeeId(employee))),
-    );
+    final result = await Navigator.of(context, rootNavigator: true)
+        .push<PunchResult>(
+          MaterialPageRoute(
+            builder: (_) => QrPunchScreen(employeeId: _employeeId(employee)),
+          ),
+        );
     if (result == null || !mounted) {
       return;
     }
@@ -331,16 +361,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (employee == null) {
       return;
     }
-    final path = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const FaceCameraScreen()),
-    );
+    final path = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<String>(MaterialPageRoute(builder: (_) => const FaceCameraScreen()));
     if (path == null || !mounted) {
       return;
     }
     final client = ref.read(apiClientProvider);
     ref.read(loaderProvider.notifier).state = true;
     try {
-      final message = await ClockFlow(client).punchFace(employeeId: _employeeId(employee), imagePath: path);
+      final message = await ClockFlow(
+        client,
+      ).punchFace(employeeId: _employeeId(employee), imagePath: path);
       if (mounted) {
         _showNotice(message, ok: true);
       }
@@ -360,7 +393,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
       final samePerson = previous.user?.personId == next.user?.personId;
-      final sameTenant = previous.user?.activeTenant?.id == next.user?.activeTenant?.id;
+      final sameTenant =
+          previous.user?.activeTenant?.id == next.user?.activeTenant?.id;
       if (!samePerson || !sameTenant) {
         _facePreparedFor = null;
         _load();
@@ -376,7 +410,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 12),
             Text(
               _notice!,
-              style: TextStyle(color: _noticeOk ? null : Theme.of(context).colorScheme.error),
+              style: TextStyle(
+                color: _noticeOk ? null : Theme.of(context).colorScheme.error,
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -386,19 +422,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               for (final tab in _tabs)
                 tab.$1 == _tab
-                    ? FilledButton(onPressed: () => _select(tab.$1), child: Text(tab.$2))
-                    : OutlinedButton(onPressed: () => _select(tab.$1), child: Text(tab.$2)),
+                    ? FilledButton(
+                        onPressed: () => _select(tab.$1),
+                        child: Text(tab.$2),
+                      )
+                    : OutlinedButton(
+                        onPressed: () => _select(tab.$1),
+                        child: Text(tab.$2),
+                      ),
             ],
           ),
           const SizedBox(height: 16),
           if (_missing)
             const Text('Seu acesso ainda não está ligado a um funcionário.')
           else if (employee == null)
-            Text(_profileError ?? 'Sem conexão. A sessão continua neste aparelho.')
+            Text(
+              _profileError ?? 'Sem conexão. A sessão continua neste aparelho.',
+            )
           else if (_tab == 'registro')
             _registro(employee)
           else if (_panelError != null)
-            Text(_panelError!, style: TextStyle(color: Theme.of(context).colorScheme.error))
+            Text(
+              _panelError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            )
           else if (!_panelReady)
             const SizedBox.shrink()
           else if (_tab == 'apuracao')
@@ -419,9 +466,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('${employee['full_name']}'),
-        Text('Situação: ${employee['situation'] == 'dismissed' ? 'Desligado' : 'Ativo'}'),
+        Text(
+          'Situação: ${employee['situation'] == 'dismissed' ? 'Desligado' : 'Ativo'}',
+        ),
         Text('Jornada: ${employee['journey_label'] ?? 'Sem jornada vigente'}'),
-        if (employee['unit_label'] != null) Text('Unidade: ${employee['unit_label']}'),
+        if (employee['unit_label'] != null)
+          Text('Unidade: ${employee['unit_label']}'),
         if (_journey != null) Text(_journeyLine(_journey!)),
         const SizedBox(height: 16),
         Text('Registro: ${_clockLabel(method)}'),
@@ -443,9 +493,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Saldo ${showMinutes(bank['balance_minutes'])}'),
-        Text('Créditos ${showMinutes(bank['credit_minutes'])} · Débitos ${showMinutes(bank['debit_minutes'])}'),
+        Text(
+          'Créditos ${showMinutes(bank['credit_minutes'])} · Débitos ${showMinutes(bank['debit_minutes'])}',
+        ),
         if ('${bank['warning'] ?? ''}'.isNotEmpty) Text('${bank['warning']}'),
-        const Text('O adicional noturno fica separado do saldo. A quitação é feita na gestão.'),
+        const Text(
+          'O adicional noturno fica separado do saldo. A quitação é feita na gestão.',
+        ),
       ],
     );
   }
@@ -454,7 +508,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final valid = _punches.where((punch) => punch['valid'] != false).toList();
     final old = _punches.where((punch) => punch['valid'] == false).toList();
     return [
-      Text('Marcações que valem', style: Theme.of(context).textTheme.titleMedium),
+      Text(
+        'Marcações que valem',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
       const SizedBox(height: 8),
       ...valid.map(_punchTile),
       if (valid.isEmpty) const Text('Nenhuma marcação válida.'),
@@ -468,23 +525,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _clockButton(bool dismissed, String method) {
     if (method == 'qr') {
-      return BusyButton(onPressed: dismissed ? null : _openQr, label: 'Registrar com QR');
+      return BusyButton(
+        onPressed: dismissed ? null : _openQr,
+        label: 'Registrar com QR',
+      );
     }
     if (method == 'face') {
-      return BusyButton(onPressed: dismissed ? null : _openFace, label: 'Registrar com o rosto');
+      return BusyButton(
+        onPressed: dismissed ? null : _openFace,
+        label: 'Registrar com o rosto',
+      );
     }
-    return BusyButton(onPressed: dismissed ? null : _punchSimple, label: 'Registrar marcação');
+    return BusyButton(
+      onPressed: dismissed ? null : _punchSimple,
+      label: 'Registrar marcação',
+    );
   }
 
   Widget _dayTile(Map<String, dynamic> day) {
     final warnings = day['warnings'];
-    final lines = warnings is List ? warnings.map((item) => '$item').where((item) => item.isNotEmpty).toList() : <String>[];
+    final lines = warnings is List
+        ? warnings
+              .map((item) => '$item')
+              .where((item) => item.isNotEmpty)
+              .toList()
+        : <String>[];
     final extra = <String>[
-      if ((day['delay_minutes'] ?? 0) != 0) 'Atraso ${showMinutes(day['delay_minutes'])}',
-      if ((day['early_leave_minutes'] ?? 0) != 0) 'Saída antecipada ${showMinutes(day['early_leave_minutes'])}',
-      if ((day['overtime_minutes'] ?? 0) != 0) 'Extra ${showMinutes(day['overtime_minutes'])}',
-      if ((day['shortage_minutes'] ?? 0) != 0) 'Falta de horas ${showMinutes(day['shortage_minutes'])}',
-      if ((day['night_additional_minutes'] ?? 0) != 0) 'Adicional noturno ${showMinutes(day['night_additional_minutes'])}',
+      if ((day['delay_minutes'] ?? 0) != 0)
+        'Atraso ${showMinutes(day['delay_minutes'])}',
+      if ((day['early_leave_minutes'] ?? 0) != 0)
+        'Saída antecipada ${showMinutes(day['early_leave_minutes'])}',
+      if ((day['overtime_minutes'] ?? 0) != 0)
+        'Extra ${showMinutes(day['overtime_minutes'])}',
+      if ((day['shortage_minutes'] ?? 0) != 0)
+        'Falta de horas ${showMinutes(day['shortage_minutes'])}',
+      if ((day['night_additional_minutes'] ?? 0) != 0)
+        'Adicional noturno ${showMinutes(day['night_additional_minutes'])}',
       if (day['incomplete'] == true) 'Incompleto',
       if (day['absence'] == true) 'Falta',
       if (day['holiday'] == true) 'Feriado',
@@ -502,7 +578,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _punchTile(Map<String, dynamic> punch) {
     final valid = punch['valid'] != false;
-    final source = punchSourceLabel['${punch['source']}'] ?? '${punch['source'] ?? ''}';
+    final source =
+        punchSourceLabel['${punch['source']}'] ?? '${punch['source'] ?? ''}';
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(showWhen('${punch['occurred_at']}')),
@@ -530,6 +607,9 @@ String _clockLabel(String method) {
 }
 
 String _journeyLine(Map<String, dynamic> journey) {
-  String piece(String key) => '${journey[key] ?? ''}'.substring(0, '${journey[key] ?? ''}'.length >= 5 ? 5 : '${journey[key] ?? ''}'.length);
+  String piece(String key) => '${journey[key] ?? ''}'.substring(
+    0,
+    '${journey[key] ?? ''}'.length >= 5 ? 5 : '${journey[key] ?? ''}'.length,
+  );
   return 'Escala ${piece('morning_start')}–${piece('morning_end')} e ${piece('afternoon_start')}–${piece('afternoon_end')}';
 }
