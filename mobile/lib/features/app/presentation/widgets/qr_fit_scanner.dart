@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -74,6 +75,28 @@ class _QrFitScannerState extends State<QrFitScanner> {
                       CustomPaint(
                         size: Size(overlayConstraints.maxWidth, overlayConstraints.maxHeight),
                         painter: _QrFitPainter(window: window),
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: ValueListenableBuilder(
+                          valueListenable: widget.controller,
+                          builder: (context, state, _) {
+                            final count = state.availableCameras;
+                            if (count != null && count < 2) {
+                              return const SizedBox.shrink();
+                            }
+                            return TextButton.icon(
+                              onPressed: () async {
+                                try {
+                                  await widget.controller.switchCamera();
+                                } catch (_) {}
+                              },
+                              icon: const Icon(LucideIcons.switchCamera, color: BrandColors.white),
+                              label: const Text('Trocar câmera', style: TextStyle(color: BrandColors.white)),
+                            );
+                          },
+                        ),
                       ),
                       Positioned(
                         left: 12,

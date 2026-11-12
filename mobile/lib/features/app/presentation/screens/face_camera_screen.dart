@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../face/blink_challenge.dart';
@@ -25,6 +26,9 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
   bool _streamOn = false;
   bool _processing = false;
   bool _capturing = false;
+  bool _opening = false;
+  bool _canSwitch = false;
+  CameraLensDirection _direction = CameraLensDirection.front;
   String _instruction = 'Abrindo câmera...';
 
   @override
@@ -38,10 +42,14 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
     );
     _challenge = BlinkChallenge();
     _instruction = _challenge.instructionForPhase();
-    unawaited(_open());
+    unawaited(_open(CameraLensDirection.front));
   }
 
-  Future<void> _open() async {
+  Future<void> _open(CameraLensDirection direction) async {
+    if (_opening) {
+      return;
+    }
+    _opening = true;
     try {
       final cameras = await availableCameras();
       if (!mounted) {
@@ -51,10 +59,18 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
         _leave('Nenhuma câmera encontrada.');
         return;
       }
-      final camera = cameras.firstWhere(
-        (item) => item.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
+      final hasFront = cameras.any((item) => item.lensDirection == CameraLensDirection.front);
+      final hasBack = cameras.any((item) => item.lensDirection == CameraLensDirection.back);
+      final camera = cameras.firstWhere((item) => item.lensDirection == direction, orElse: () => cameras.first);
+      await _stop();
+      final previous = _controller;
+      _controller = null;
+      if (mounted) {
+        setState(() {});
+      }
+      if (previous != null) {
+        await previous.dispose();
+      }
       final controller = CameraController(
         camera,
         ResolutionPreset.medium,
@@ -69,6 +85,8 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
       setState(() {
         _controller = controller;
         _camera = camera;
+        _direction = camera.lensDirection;
+        _canSwitch = hasFront && hasBack;
       });
       await controller.startImageStream(_onFrame);
       _streamOn = true;
@@ -76,11 +94,23 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
       if (mounted) {
         _leave('Não foi possível abrir a câmera.');
       }
+    } finally {
+      _opening = false;
     }
   }
 
+  Future<void> _switchCamera() async {
+    if (_capturing || _opening) {
+      return;
+    }
+    _challenge = BlinkChallenge();
+    final next = _direction == CameraLensDirection.front ? CameraLensDirection.back : CameraLensDirection.front;
+    setState(() => _instruction = _challenge.instructionForPhase());
+    await _open(next);
+  }
+
   Future<void> _onFrame(CameraImage image) async {
-    if (_processing || _capturing || _challenge.isTerminal) {
+    if (_processing || _capturing || _opening || _challenge.isTerminal) {
       return;
     }
     final camera = _camera;
@@ -216,6 +246,13 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
                             ),
                           ),
                         ),
+                        const Spacer(),
+                        if (_canSwitch)
+                          TextButton.icon(
+                            onPressed: _capturing ? null : _switchCamera,
+                            icon: const Icon(LucideIcons.switchCamera, color: Colors.white),
+                            label: const Text('Trocar câmera', style: TextStyle(color: Colors.white)),
+                          ),
                       ],
                     ),
                   ),

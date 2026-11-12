@@ -1,14 +1,15 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/widgets/screen_back_button.dart';
 import '../../providers/device_provider.dart';
 import '../widgets/qr_fit_scanner.dart';
+import 'selfie_camera_screen.dart';
 
 class QrPunchResult {
   const QrPunchResult({required this.message, required this.ok, this.released = false});
@@ -29,7 +30,7 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
   final _scanner = MobileScannerController(returnImage: true);
   String? _content;
   Uint8List? _qrImage;
-  XFile? _selfieFile;
+  String? _selfiePath;
   String? _error;
   bool _locked = false;
 
@@ -39,13 +40,23 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _freeCamera() async {
+    try {
+      await _scanner.stop();
+    } catch (_) {}
+  }
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_locked || _content != null) {
       return;
     }
     final code = capture.barcodes.map((item) => item.rawValue).whereType<String>().firstWhere((item) => item.trim().isNotEmpty, orElse: () => '');
     final image = capture.image;
     if (code.isEmpty || image == null) {
+      return;
+    }
+    await _freeCamera();
+    if (!mounted) {
       return;
     }
     setState(() {
@@ -58,9 +69,14 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
   Future<void> _takeSelfie() async {
     setState(() => _error = null);
     try {
-      final shot = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 80);
-      if (shot != null && mounted) {
-        setState(() => _selfieFile = shot);
+      await _freeCamera();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (!mounted) {
+        return;
+      }
+      final path = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const SelfieCameraScreen()));
+      if (path != null && mounted) {
+        setState(() => _selfiePath = path);
       }
     } catch (_) {
       if (mounted) {
@@ -72,7 +88,7 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
   Future<void> _send() async {
     final content = _content;
     final qrImage = _qrImage;
-    final selfie = _selfieFile;
+    final selfie = _selfiePath;
     if (content == null || qrImage == null || selfie == null) {
       setState(() => _error = 'Fotografe o QR Code e a selfie.');
       return;
@@ -82,7 +98,7 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
       _locked = true;
     });
     try {
-      await ref.read(deviceFlowProvider).punchQr(content: content, qrImage: qrImage, selfie: await selfie.readAsBytes());
+      await ref.read(deviceFlowProvider).punchQr(content: content, qrImage: qrImage, selfie: await File(selfie).readAsBytes());
       if (mounted) {
         Navigator.of(context).pop(const QrPunchResult(message: 'Marcação por QR registrada.', ok: true));
       }
@@ -111,7 +127,7 @@ class _QrPunchScreenState extends ConsumerState<QrPunchScreen> {
             else ...[
               const Text('QR lido. Agora tire a selfie.'),
               const SizedBox(height: 12),
-              OutlinedButton(onPressed: _locked ? null : _takeSelfie, child: Text(_selfieFile == null ? 'Tirar selfie' : 'Selfie pronta')),
+              OutlinedButton(onPressed: _locked ? null : _takeSelfie, child: Text(_selfiePath == null ? 'Tirar selfie' : 'Selfie pronta')),
               const SizedBox(height: 12),
               FilledButton(onPressed: _locked ? null : _send, child: const Text('Registrar')),
             ],
