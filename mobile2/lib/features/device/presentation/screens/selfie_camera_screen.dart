@@ -133,18 +133,20 @@ class _SelfieCameraScreenState extends State<SelfieCameraScreen> {
                       children: [
                         ScreenBackButton(onPressed: () => Navigator.of(context).pop()),
                         const Spacer(),
-                        if (_canSwitch)
-                          TextButton.icon(
-                            onPressed: ready ? _switchCamera : null,
-                            icon: const Icon(LucideIcons.switchCamera, color: BrandColors.white),
-                            label: const Text('Trocar câmera', style: TextStyle(color: BrandColors.white)),
-                          ),
-                        const SizedBox(height: 8),
                         FilledButton(onPressed: ready ? _take : null, child: const Text('Tirar selfie')),
                       ],
                     ),
                   ),
                 ),
+                if (_canSwitch)
+                  Center(
+                    child: IconButton(
+                      onPressed: ready ? _switchCamera : null,
+                      iconSize: 64,
+                      tooltip: 'Trocar câmera',
+                      icon: const Icon(LucideIcons.arrowDownUp, color: BrandColors.white, size: 64),
+                    ),
+                  ),
               ],
             ),
     );

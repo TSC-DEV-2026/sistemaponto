@@ -76,9 +76,7 @@ class _QrFitScannerState extends State<QrFitScanner> {
                         size: Size(overlayConstraints.maxWidth, overlayConstraints.maxHeight),
                         painter: _QrFitPainter(window: window),
                       ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
+                      Positioned.fill(
                         child: ValueListenableBuilder(
                           valueListenable: widget.controller,
                           builder: (context, state, _) {
@@ -86,14 +84,17 @@ class _QrFitScannerState extends State<QrFitScanner> {
                             if (count != null && count < 2) {
                               return const SizedBox.shrink();
                             }
-                            return TextButton.icon(
-                              onPressed: () async {
-                                try {
-                                  await widget.controller.switchCamera();
-                                } catch (_) {}
-                              },
-                              icon: const Icon(LucideIcons.switchCamera, color: BrandColors.white),
-                              label: const Text('Trocar câmera', style: TextStyle(color: BrandColors.white)),
+                            return Center(
+                              child: IconButton(
+                                onPressed: () async {
+                                  try {
+                                    await widget.controller.switchCamera();
+                                  } catch (_) {}
+                                },
+                                iconSize: 64,
+                                tooltip: 'Trocar câmera',
+                                icon: const Icon(LucideIcons.arrowDownUp, color: BrandColors.white, size: 64),
+                              ),
                             );
                           },
                         ),

@@ -246,17 +246,19 @@ class _FaceCameraScreenState extends State<FaceCameraScreen> {
                             ),
                           ),
                         ),
-                        const Spacer(),
-                        if (_canSwitch)
-                          TextButton.icon(
-                            onPressed: _capturing ? null : _switchCamera,
-                            icon: const Icon(LucideIcons.switchCamera, color: Colors.white),
-                            label: const Text('Trocar câmera', style: TextStyle(color: Colors.white)),
-                          ),
                       ],
                     ),
                   ),
                 ),
+                if (_canSwitch)
+                  Center(
+                    child: IconButton(
+                      onPressed: _capturing ? null : _switchCamera,
+                      iconSize: 64,
+                      tooltip: 'Trocar câmera',
+                      icon: const Icon(LucideIcons.arrowDownUp, color: Colors.white, size: 64),
+                    ),
+                  ),
                 if (_capturing) const ColoredBox(color: Color(0x66000000), child: Center(child: CircularProgressIndicator())),
               ],
             ),
