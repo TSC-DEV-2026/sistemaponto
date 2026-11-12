@@ -4,6 +4,7 @@ REPORTS = (
     ("hour_bank", "Banco de Horas"),
     ("occurrence", "Ocorrências"),
     ("management", "Gestão"),
+    ("marking", "Marcações"),
 )
 
 REPORT_NAMES = dict(REPORTS)

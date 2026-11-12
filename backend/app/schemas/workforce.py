@@ -745,12 +745,14 @@ class TimeResultOut(BaseModel):
     warnings: list[str]
     first_entry_at: datetime | None = None
     last_exit_at: datetime | None = None
+    balance_minutes: int | None = None
 
 
 class TimeResultsOut(BaseModel):
     employee_id: int
     starts_on: date
     ends_on: date
+    balance_minutes: int | None = None
     items: list[TimeResultOut]
 
 

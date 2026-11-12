@@ -92,7 +92,7 @@ def settle_day(
 ) -> dict:
     if plan is None:
         workday = work_date.weekday() < 5
-        schedule = schedule_for(journey, work_date) if workday else {"start": None, "end": None, "expected": 0, "break_minutes": 0}
+        schedule = {"start": None, "end": None, "expected": 0, "break_minutes": 0}
         mode = "legacy"
         flexible = False
         tolerance = TOLERANCE_MINUTES
@@ -107,6 +107,8 @@ def settle_day(
     closed_pair = len(moments) >= 2 and len(moments) % 2 == 0
     incomplete = workday and len(moments) % 2 == 1 and not excused
     absence = workday and counted == 0 and len(moments) == 0 and not excused
+    if plan is None:
+        absence = False
     expected = 0
     delay = 0
     early = 0
@@ -163,6 +165,8 @@ def settle_day(
     for text in extra_warnings:
         if text not in warnings:
             warnings.append(text)
+    if plan is None and "Sem jornada prevista" not in warnings:
+        warnings.append("Sem jornada prevista")
     folga_worked = mode == "programada" and not workday and not holiday and not vacation and not leave and closed_pair and worked > 0
     eligible = mode not in {"livre", "carga"} and (
         holiday or folga_worked or (workday and not vacation and not leave and not full_allowance and not full_certificate and not incomplete)
