@@ -293,12 +293,14 @@ export type TimeResult = {
   warnings: string[]
   first_entry_at?: string | null
   last_exit_at?: string | null
+  balance_minutes?: number | null
 }
 
 export type TimeResults = {
   employee_id: number
   starts_on: string
   ends_on: string
+  balance_minutes?: number | null
   items: TimeResult[]
 }
 

@@ -31,7 +31,9 @@ export const requestKindLabel: Record<string, string> = {
   vacation: "Férias",
 }
 
-export const manualTimeOffKinds = ["allowance", "certificate", "leave", "vacation"] as const
+export const manualTimeOffKinds = ["absence", "allowance", "certificate", "leave", "vacation"] as const
+
+export const absenceKinds = ["absence", "certificate", "vacation", "allowance", "leave"] as const
 
 export const occurrenceKindLabel: Record<string, string> = {
   adjustment: "Ajuste de ponto",

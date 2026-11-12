@@ -5,33 +5,28 @@ import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { ApuracaoDialog, type ApuracaoMode } from "@/components/workforce/ApuracaoDialog"
 import { ApuracaoDaySummary, dayMarks } from "@/components/workforce/apuracao-day"
-import { readApuracaoQuery, rememberApuracaoScroll, saveApuracaoQuery } from "@/components/workforce/apuracao-session"
+import { readApuracaoQuery, saveApuracaoQuery } from "@/components/workforce/apuracao-session"
+import { moduleQuietClass } from "@/components/workforce/module-visual"
+import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { getTimeResults, type Employee, type TimeResult, type TimeResults } from "@/services/workforce.service"
+import { getTimeResults, type Employee, type TimeResults } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { resultNote } from "@/pages/workforce/journey"
+import { cn } from "@/utils/cn"
 import { punchDay, showDate, showDuration } from "@/utils/labels"
 
 function today() {
   return punchDay(new Date().toISOString())
 }
 
-function hasSignal(item: TimeResult) {
+function DayAction({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
   return (
-    item.expected_minutes > 0 ||
-    item.worked_minutes > 0 ||
-    item.delay_minutes > 0 ||
-    item.early_leave_minutes > 0 ||
-    item.overtime_minutes > 0 ||
-    item.shortage_minutes > 0 ||
-    item.bank_minutes !== 0 ||
-    item.night_minutes > 0 ||
-    item.absence ||
-    item.incomplete ||
-    item.holiday ||
-    item.warnings.length > 0
+    <button type="button" className={cn(moduleQuietClass, "h-10 px-3 disabled:cursor-not-allowed disabled:opacity-50")} disabled={disabled} onClick={onClick}>
+      {label}
+    </button>
   )
 }
 
@@ -57,6 +52,11 @@ export function TimeResultsPanel({
   const [result, setResult] = useState<TimeResults | null>(returning && saved ? saved.result : null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [open, setOpen] = useState<{ day: string; mode: ApuracaoMode } | null>(null)
+  const role = useAuthStore((state) => state.user?.role)
+  const canAct = role === "admin" || role === "manager"
+  const personId = employeeId ?? (result ? result.employee_id : selected ? Number(selected) : null)
+  const locks = useDayLocks(personId)
 
   useEffect(() => {
     if (appearance !== "module" || employeeId != null) return
@@ -108,7 +108,30 @@ export function TimeResultsPanel({
     }
   }
 
-  const visible = result?.items.filter(hasSignal) ?? []
+  const visible = result?.items ?? []
+  const opened = open && result ? result.items.find((item) => item.work_date.slice(0, 10) === open.day) : undefined
+
+  async function refresh() {
+    if (!result) return
+    try {
+      const data = await getTimeResults(result.employee_id, result.starts_on.slice(0, 10), result.ends_on.slice(0, 10))
+      setResult(data)
+      locks.reload()
+      if (appearance === "module" && tenantId) {
+        saveApuracaoQuery({
+          tenantId,
+          employeeId: data.employee_id,
+          startsOn: data.starts_on,
+          endsOn: data.ends_on,
+          result: data,
+          scrollY: 0,
+          scrollPending: false,
+        })
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
+    }
+  }
 
   if (appearance === "module") {
     return (
@@ -147,22 +170,46 @@ export function TimeResultsPanel({
             <p className="mt-1 text-sm text-brand-muted">Consulte os resultados por dia.</p>
             <p className="mt-2 text-sm text-[#52525B]">
               Período {showDate(result.starts_on)} a {showDate(result.ends_on)}
+              {result.balance_minutes != null ? <span className="ml-2 font-semibold text-[#0A0A0A]">Saldo do período {showDuration(result.balance_minutes)}</span> : null}
             </p>
             {visible.length > 0 ? (
               <div className="mt-4 flex flex-col gap-3">
-                {visible.map((item) => (
-                  <ApuracaoDaySummary
-                    key={item.work_date}
-                    item={item}
-                    to={`/schedules/apuracao/${item.work_date.slice(0, 10)}?funcionario=${result.employee_id}&de=${result.starts_on.slice(0, 10)}&ate=${result.ends_on.slice(0, 10)}`}
-                    onOpen={() => rememberApuracaoScroll(window.scrollY)}
-                  />
-                ))}
+                {visible.map((item) => {
+                  const day = item.work_date.slice(0, 10)
+                  const locked = locks.lockDay(day)
+                  return (
+                    <ApuracaoDaySummary
+                      key={item.work_date}
+                      item={item}
+                      balance={item.balance_minutes}
+                      onOpen={() => setOpen({ day, mode: "details" })}
+                      actions={canAct ? (
+                        <>
+                          <DayAction label="Corrigir marcações" disabled={Boolean(locked)} onClick={() => setOpen({ day, mode: "correct" })} />
+                          <DayAction label="Lançar falta" disabled={Boolean(locked)} onClick={() => setOpen({ day, mode: "absence" })} />
+                          <DayAction label="Atestado ou abono" disabled={Boolean(locked)} onClick={() => setOpen({ day, mode: "timeoff" })} />
+                          {locked ? <span className="text-sm text-[#64748B]">{locked}</span> : null}
+                        </>
+                      ) : null}
+                    />
+                  )
+                })}
               </div>
             ) : (
               <p className="mt-4 text-sm text-brand-quiet">Nenhum resultado encontrado para o período selecionado.</p>
             )}
           </section>
+        ) : null}
+        {opened && open && personId ? (
+          <ApuracaoDialog
+            item={opened}
+            employeeId={personId}
+            mode={open.mode}
+            lockMessage={locks.lockDay(open.day)}
+            lockRange={locks.lockRange}
+            onClose={() => setOpen(null)}
+            onSaved={refresh}
+          />
         ) : null}
       </section>
     )
@@ -201,12 +248,12 @@ export function TimeResultsPanel({
                 Previsto {showDuration(item.expected_minutes)} · Trabalhado {showDuration(item.worked_minutes)} · Atraso {showDuration(item.delay_minutes)} · Saída antecipada {showDuration(item.early_leave_minutes)}
               </p>
               <p className="text-muted-foreground">
-                Hora extra {showDuration(item.overtime_minutes)} · Falta de tempo {showDuration(item.shortage_minutes)} · Banco {showDuration(item.bank_minutes)} · Noturno {showDuration(item.night_minutes)} · Adicional {showDuration(item.night_additional_minutes)}
+                Hora extra {showDuration(item.overtime_minutes)} · Falta de tempo {showDuration(item.shortage_minutes)} · Banco {showDuration(item.bank_minutes)}{item.balance_minutes != null ? ` · Saldo ${showDuration(item.balance_minutes)}` : ""} · Noturno {showDuration(item.night_minutes)} · Adicional {showDuration(item.night_additional_minutes)}
               </p>
               {dayMarks(item) ? <p>{dayMarks(item)}</p> : null}
             </li>
           ))}
-          {visible.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum dia com jornada, marcação ou ocorrência neste período.</li> : null}
+          {visible.length === 0 ? <li className="px-4 py-3 text-sm text-muted-foreground">Nenhum dia neste período.</li> : null}
         </ul>
       ) : null}
     </section>

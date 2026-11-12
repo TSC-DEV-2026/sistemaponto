@@ -13,13 +13,14 @@ import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
+import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { createRecord, listRecords, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
-import { certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
+import { absenceKinds, certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
 
-const occurrenceKinds = Object.entries(occurrenceKindLabel)
+const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceKindLabel[id]] as const)
 
 function tabPath(kind: string) {
   const first = occurrenceKinds[0]?.[0]
@@ -202,7 +203,7 @@ export function OccurrencesPage() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <DomainTabs
         module
-        title="Ajustes e Ocorrências"
+        title="Ausências"
         action={
           canLaunch ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
@@ -229,7 +230,7 @@ export function OccurrenceEntryPage() {
   const navigate = useNavigate()
   const [search] = useSearchParams()
   const kind = search.get("tipo") || ""
-  const known = Object.prototype.hasOwnProperty.call(occurrenceKindLabel, kind)
+  const known = absenceKinds.includes(kind as (typeof absenceKinds)[number])
   const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
   const canLaunch = canLaunchKind(role, kind)
   const asksReason = known && kind !== "vacation" && kind !== "leave" && kind !== "punch_entry"
@@ -244,6 +245,10 @@ export function OccurrenceEntryPage() {
   const [draft, setDraft] = useState<TimeOffDraft>(emptyTimeOff)
   const [fileKey, setFileKey] = useState(0)
   const [error, setError] = useState("")
+  const locks = useDayLocks(employeeId ? Number(employeeId) : null)
+  const spanStart = manual ? draft.startsOn : startsOn
+  const spanEnd = manual ? (draft.mode === "hours" ? draft.startsOn : draft.endsOn || spanStart) : endsOn || spanStart
+  const blocked = locks.lockRange(spanStart, spanEnd)
 
   useEffect(() => {
     if (!role) return
@@ -290,6 +295,10 @@ export function OccurrenceEntryPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
+    if (blocked) {
+      setError(blocked)
+      return
+    }
     try {
       const span: Record<string, unknown> = manual ? timeOffBody(draft, kind) : { starts_on: startsOn, ends_on: endsOn || null }
       if (manual && kind === "certificate" && draft.photo) {
@@ -315,7 +324,7 @@ export function OccurrenceEntryPage() {
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
-          <p className="mt-1 text-sm text-[#64748B]">{manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
+          <p className="mt-1 text-sm text-[#64748B]">{kind === "absence" ? "Informe o funcionário e o dia." : manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="occurrence-employee">
@@ -356,7 +365,8 @@ export function OccurrenceEntryPage() {
           </Label>
           <textarea id="occurrence-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
-        <Button type="submit" className={modulePrimaryClass}>
+        {blocked ? <p className="text-sm text-[#64748B]">{blocked}</p> : null}
+        <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>
           Salvar
         </Button>
       </ActionForm>
