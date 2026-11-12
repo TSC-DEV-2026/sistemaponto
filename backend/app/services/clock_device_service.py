@@ -3,6 +3,8 @@ import re
 import secrets
 from datetime import timedelta
 
+from sqlalchemy.exc import IntegrityError
+
 from app.core.exceptions import AppError
 from app.core.images import decode_image
 from app.core.security import hash_secret, new_secret, utcnow
@@ -13,6 +15,8 @@ logger = logging.getLogger("sistemaponto.clock_device")
 
 CODE_TTL = timedelta(minutes=10)
 FAILURE_LIMIT = 5
+CODE_LENGTH = 9
+CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 PUBLIC_ID = re.compile(r"[A-Za-z0-9_-]{8,80}")
 
 
@@ -26,26 +30,35 @@ class ClockDeviceService:
         self._admin(scope)
         self.workforce.assert_usable(scope)
         now = self.clock()
-        raw = self._fresh_code(now)
-        row = self.repo.add(
-            ClockReleaseCode(
-                tenant_id=scope.tenant_id,
-                code_hash=hash_secret(raw),
-                expires_at=now + CODE_TTL,
-                used_at=None,
-                created_by_person_id=scope.person_id,
-                created_at=now,
-            )
-        )
-        logger.info("código de aparelho gerado tenant_id=%s", scope.tenant_id)
-        return {"code": f"{raw[:3]} {raw[3:]}", "expires_at": row.expires_at}
+        for _ in range(8):
+            raw = self._new_code()
+            digest = hash_secret(raw)
+            if self.repo.code_exists(digest):
+                continue
+            try:
+                row = self.repo.add(
+                    ClockReleaseCode(
+                        tenant_id=scope.tenant_id,
+                        code_hash=digest,
+                        expires_at=now + CODE_TTL,
+                        used_at=None,
+                        created_by_person_id=scope.person_id,
+                        created_at=now,
+                    )
+                )
+            except IntegrityError:
+                self.repo.abandon()
+                continue
+            logger.info("código de aparelho gerado tenant_id=%s", scope.tenant_id)
+            return {"code": self._present(raw), "expires_at": row.expires_at}
+        raise AppError(503, "Não foi possível gerar o código.")
 
     def enroll(self, public_id: str, code: str) -> dict:
         identity = self._public_id(public_id)
         now = self.clock()
         self._guard(identity, now)
         try:
-            digits = self._digits(code)
+            digits = self._normalize(code)
         except AppError:
             self._fail(identity, now)
             raise
@@ -201,12 +214,11 @@ class ClockDeviceService:
             raise AppError(401, "Aparelho não liberado.")
         return usable
 
-    def _fresh_code(self, now) -> str:
-        for _ in range(5):
-            raw = f"{secrets.randbelow(1_000_000):06d}"
-            if not self.repo.unused_codes(hash_secret(raw), now):
-                return raw
-        raise AppError(503, "Não foi possível gerar o código.")
+    def _new_code(self) -> str:
+        return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+
+    def _present(self, raw: str) -> str:
+        return f"{raw[:3]} {raw[3:6]} {raw[6:]}"
 
     def _guard(self, public_id: str, now) -> None:
         if self.repo.recent_failures(public_id, now - CODE_TTL) >= FAILURE_LIMIT:
@@ -239,11 +251,11 @@ class ClockDeviceService:
             return None
         return self._public_id(value)
 
-    def _digits(self, value: str) -> str:
-        digits = "".join(character for character in str(value or "") if character.isdigit())
-        if len(digits) != 6:
+    def _normalize(self, value: str) -> str:
+        text = "".join(character for character in str(value or "").upper() if character not in " -")
+        if len(text) != CODE_LENGTH or any(character not in CODE_ALPHABET for character in text):
             raise AppError(400, "O código não foi aceito.")
-        return digits
+        return text
 
     def _keys(self, keys: list[str]) -> list[str]:
         clean = []

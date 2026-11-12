@@ -54,7 +54,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             Text(
               widget.adding
                   ? 'Digite o código gerado na outra conta. A empresa que já está aqui permanece.'
-                  : 'Digite o código gerado no site. Ele vale uma vez e por poucos minutos.',
+                  : 'Digite o código gerado no site. Ele mistura letras e números, vale uma vez e por poucos minutos.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             if (device.publicId.isNotEmpty) ...[
@@ -66,8 +66,14 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             const SizedBox(height: 24),
             TextField(
               controller: _code,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]'))],
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              enableSuggestions: false,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 ]')),
+                LengthLimitingTextInputFormatter(11),
+              ],
               decoration: const InputDecoration(labelText: 'Código'),
             ),
             if (_error.isNotEmpty) ...[
