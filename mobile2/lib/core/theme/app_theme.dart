@@ -13,6 +13,7 @@ class BrandColors {
   static const cta = Color(0xFF1E8A3A);
   static const ctaDeep = Color(0xFF187432);
   static const wordmark = Color(0xFF2DA468);
+  static const rep = Color(0xFFB8860B);
   static const focus = Color(0xFF53BB7E);
   static const danger = Color(0xFFEF5350);
   static const field = Color(0xFFE4E8ED);
@@ -24,24 +25,25 @@ class BrandColors {
 }
 
 ThemeData appTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: BrandColors.cta,
-    brightness: Brightness.light,
-  ).copyWith(
-    primary: BrandColors.cta,
-    onPrimary: BrandColors.white,
-    primaryContainer: BrandColors.tint,
-    onPrimaryContainer: BrandColors.ctaDeep,
-    secondary: BrandColors.wordmark,
-    onSecondary: BrandColors.white,
-    error: BrandColors.danger,
-    onError: BrandColors.white,
-    surface: BrandColors.white,
-    onSurface: BrandColors.heading,
-    onSurfaceVariant: BrandColors.quiet,
-    outline: BrandColors.field,
-    outlineVariant: BrandColors.card,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: BrandColors.cta,
+        brightness: Brightness.light,
+      ).copyWith(
+        primary: BrandColors.cta,
+        onPrimary: BrandColors.white,
+        primaryContainer: BrandColors.tint,
+        onPrimaryContainer: BrandColors.ctaDeep,
+        secondary: BrandColors.wordmark,
+        onSecondary: BrandColors.white,
+        error: BrandColors.danger,
+        onError: BrandColors.white,
+        surface: BrandColors.white,
+        onSurface: BrandColors.heading,
+        onSurfaceVariant: BrandColors.quiet,
+        outline: BrandColors.field,
+        outlineVariant: BrandColors.card,
+      );
   const radius = BorderRadius.all(Radius.circular(10));
   const fieldBorder = OutlineInputBorder(
     borderRadius: radius,
@@ -60,7 +62,10 @@ ThemeData appTheme() {
     dividerColor: BrandColors.card,
     textTheme: text.copyWith(
       bodySmall: text.bodySmall?.copyWith(color: BrandColors.quiet),
-      labelLarge: text.labelLarge?.copyWith(fontWeight: FontWeight.w600, color: BrandColors.heading),
+      labelLarge: text.labelLarge?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: BrandColors.heading,
+      ),
     ),
     iconTheme: const IconThemeData(color: BrandColors.quiet),
     appBarTheme: const AppBarTheme(
@@ -84,7 +89,9 @@ ThemeData appTheme() {
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
-        return IconThemeData(color: selected ? BrandColors.cta : BrandColors.quiet);
+        return IconThemeData(
+          color: selected ? BrandColors.cta : BrandColors.quiet,
+        );
       }),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -117,15 +124,28 @@ ThemeData appTheme() {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: BrandColors.white,
-      labelStyle: const TextStyle(color: BrandColors.heading, fontWeight: FontWeight.w600, fontSize: 14),
-      floatingLabelStyle: const TextStyle(color: BrandColors.ctaDeep, fontWeight: FontWeight.w600),
+      labelStyle: const TextStyle(
+        color: BrandColors.heading,
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+      ),
+      floatingLabelStyle: const TextStyle(
+        color: BrandColors.ctaDeep,
+        fontWeight: FontWeight.w600,
+      ),
       hintStyle: const TextStyle(color: BrandColors.placeholder, fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       border: fieldBorder,
       enabledBorder: fieldBorder,
-      focusedBorder: fieldBorder.copyWith(borderSide: const BorderSide(color: BrandColors.focus, width: 1.5)),
-      errorBorder: fieldBorder.copyWith(borderSide: const BorderSide(color: BrandColors.danger)),
-      focusedErrorBorder: fieldBorder.copyWith(borderSide: const BorderSide(color: BrandColors.danger, width: 1.5)),
+      focusedBorder: fieldBorder.copyWith(
+        borderSide: const BorderSide(color: BrandColors.focus, width: 1.5),
+      ),
+      errorBorder: fieldBorder.copyWith(
+        borderSide: const BorderSide(color: BrandColors.danger),
+      ),
+      focusedErrorBorder: fieldBorder.copyWith(
+        borderSide: const BorderSide(color: BrandColors.danger, width: 1.5),
+      ),
     ),
     cardTheme: const CardThemeData(
       color: BrandColors.white,
@@ -136,7 +156,9 @@ ThemeData appTheme() {
         side: BorderSide(color: BrandColors.card),
       ),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: BrandColors.cta),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: BrandColors.cta,
+    ),
     snackBarTheme: const SnackBarThemeData(
       backgroundColor: BrandColors.heading,
       contentTextStyle: TextStyle(color: BrandColors.white),
