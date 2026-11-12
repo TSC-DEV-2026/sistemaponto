@@ -837,9 +837,10 @@ class WorkforceService:
         )
 
     def correct_punches(self, scope: Scope, data: dict) -> dict:
-        self._admin(scope)
         employee = self._employee(scope, int(data["employee_id"]))
+        self._can_launch(scope, employee)
         day, moments = self._normalize_day(data["punches"])
+        self._assert_no_pending(scope, employee.id, day, day)
         created = self._replace_day(
             scope,
             employee,
@@ -868,6 +869,8 @@ class WorkforceService:
     def create_occurrence(self, scope: Scope, data: dict, *, source: str = "admin", request_id: int | None = None) -> Occurrence:
         employee = self._employee(scope, int(data["employee_id"]))
         kind = data["kind"]
+        if kind in {"punch_entry", "adjustment"} and source != "approved_request":
+            raise AppError(400, "O lançamento de marcação não existe. Corrija as marcações do dia.")
         if source == "approved_request":
             origin = "approved_request"
         elif kind in MANUAL_OCCURRENCE_KINDS:
@@ -879,6 +882,8 @@ class WorkforceService:
         self._days_only(kind, data)
         start, end, starts_at, ends_at = self._span(data)
         self._assert_span_open(scope.tenant_id, start, end)
+        if source != "approved_request":
+            self._assert_no_pending(scope, employee.id, start, end)
         cid, crm, doctor = self._medical(kind, data)
         photo_key = self._photo_key(scope, kind, data.get("photo_key"))
         reason_id = self._reason(scope, kind if kind in REASON_KINDS else None, data.get("reason_id"))
@@ -922,6 +927,7 @@ class WorkforceService:
         self._admin(scope)
         row = self.get_occurrence(scope, row_id)
         self._assert_open(scope.tenant_id, row.starts_on)
+        self._assert_no_pending(scope, row.employee_id, row.starts_on, row.ends_on)
         if "note" in data:
             row.note = self._note(data.get("note"))
             self.repo.add(row)
@@ -1295,11 +1301,22 @@ class WorkforceService:
             raise AppError(400, "A apuração aceita no máximo 62 dias")
         employee = self._employee(scope, employee_id)
         self._visible(scope, employee.id)
+        items = self._day_results(scope, employee, starts_on, ends_on)
+        balance = None
+        if employee.hour_bank:
+            balances = self._balances_on(scope, employee, [item["work_date"] for item in items])
+            for item in items:
+                item["balance_minutes"] = balances.get(item["work_date"], 0)
+            balance = balances.get(ends_on, 0)
+        else:
+            for item in items:
+                item["balance_minutes"] = None
         return {
             "employee_id": employee.id,
             "starts_on": starts_on,
             "ends_on": ends_on,
-            "items": self._day_results(scope, employee, starts_on, ends_on),
+            "balance_minutes": balance,
+            "items": items,
         }
 
     def report_catalog(self, scope: Scope, page: int, limit: int) -> tuple[list[dict], int]:
@@ -1351,9 +1368,30 @@ class WorkforceService:
             lines = self._bank_lines(scope, people, starts_on, ends_on)
         elif kind == "occurrence":
             lines = self._occurrence_lines(scope, people, starts_on, ends_on)
+        elif kind == "marking":
+            lines = self._marking_lines(scope, people, starts_on, ends_on)
         else:
             lines = self._management_lines(scope, people, starts_on, ends_on, employee_id is None)
         return sorted(lines, key=lambda item: (item["occurred_on"], item["full_name"] or "", item["title"], item["detail"]))
+
+    def _marking_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
+        start_at, _ignored = day_bounds(starts_on)
+        _start, end_at = day_bounds(ends_on)
+        lines = []
+        for employee in people:
+            for punch in self.repo.punches_between(scope.tenant_id, employee.id, start_at, end_at):
+                local = punch.occurred_at.astimezone(BR)
+                state = "vale" if punch.valid else "deixou de valer"
+                lines.append(
+                    {
+                        "employee_id": employee.id,
+                        "full_name": employee.full_name,
+                        "occurred_on": local.date(),
+                        "title": local.strftime("%H:%M"),
+                        "detail": f"{state}; {punch.source}",
+                    }
+                )
+        return lines
 
     def _report_people(self, scope: Scope, employee_id: int | None) -> list[Employee]:
         ids = self._visible_ids(scope)
@@ -1795,6 +1833,9 @@ class WorkforceService:
 
     def _project_hour_bank(self, scope: Scope, employee: Employee, until: date | None = None) -> dict:
         limit = self.today() if until is None or until > self.today() else until
+        return project_balance(self._bank_events(scope, employee, limit), limit)
+
+    def _bank_events(self, scope: Scope, employee: Employee, limit: date) -> list[tuple]:
         items = []
         if employee.admission_date <= limit:
             items = self._day_results(scope, employee, employee.admission_date, limit)
@@ -1811,7 +1852,13 @@ class WorkforceService:
                 events.append((entry.entry_on, entry.id, entry.effect, entry.minutes))
             else:
                 events.append((entry.entry_on, entry.id, entry.kind, entry.minutes))
-        return project_balance(events, limit)
+        return events
+
+    def _balances_on(self, scope: Scope, employee: Employee, days: list[date]) -> dict[date, int]:
+        if not days:
+            return {}
+        events = self._bank_events(scope, employee, max(days))
+        return {day: project_balance([event for event in events if event[0] <= day], day)["balance_minutes"] for day in days}
 
     def _night_limit(self, scope: Scope, vigencies: list, journeys: dict, day: date) -> time | None:
         vigency = self._vigency_on(vigencies, day)
@@ -2741,7 +2788,7 @@ class WorkforceService:
             self._can_manage_period(scope)
             return
         if source == "manual":
-            self._admin(scope)
+            self._can_launch(scope, employee)
             return
         if source not in {None, "employee", "qr", "face"} or employee.person_id != scope.person_id:
             raise AppError(403, "Sem permissão")
@@ -3373,6 +3420,11 @@ class WorkforceService:
                 created_at=self.clock(),
             )
         )
+
+    def _assert_no_pending(self, scope: Scope, employee_id: int, start: date, end: date) -> None:
+        for request in self.repo.pending_overlapping(scope.tenant_id, start, end):
+            if request.employee_id == employee_id:
+                raise AppError(409, "Há solicitação pendente cobrindo este dia")
 
     def _assert_open(self, tenant_id: int, day: date) -> None:
         if self.repo.closed_covering(tenant_id, day) is not None:

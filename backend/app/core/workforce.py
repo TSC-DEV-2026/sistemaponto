@@ -45,7 +45,7 @@ OCCURRENCE_FOR_REQUEST = {
     "leave": "leave",
     "vacation": "vacation",
 }
-MANUAL_OCCURRENCE_KINDS = ("allowance", "certificate", "leave", "vacation")
+MANUAL_OCCURRENCE_KINDS = ("absence", "allowance", "certificate", "leave", "vacation")
 CERTIFICATE_CONFLICT = "período abonado conflita com registro de ponto"
 AUDIT_ACTION = {
     "job": "Alteração de cargo",

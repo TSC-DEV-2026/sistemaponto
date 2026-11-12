@@ -308,6 +308,15 @@ class Memory:
                 return row
         return None
 
+    def punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime):
+        found = [
+            row
+            for row in self._of(Punch, tenant_id)
+            if row.employee_id == employee_id and start <= row.occurred_at < end
+        ]
+        found.sort(key=lambda item: (item.occurred_at, item.id))
+        return found
+
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime):
         found = [
             row
@@ -743,7 +752,7 @@ def test_correcao_manual_do_administrador_segue_a_mesma_troca():
     )
     with pytest.raises(AppError) as denied:
         workforce.correct_punches(
-            scope(7, "manager"),
+            scope(7, "member"),
             {"employee_id": person["id"], "punches": [at(8, 30, day=7), at(18, 0, day=7)], "note": None},
         )
     assert denied.value.status_code == 403
@@ -2038,7 +2047,7 @@ def test_inadimplencia_avisa_e_bloqueia_em_7_dias():
 def test_catalogo_tem_um_relatorio_por_grupo():
     workforce, _repo = service()
     page, total = workforce.report_catalog(admin(), 1, 2)
-    assert total == 5
+    assert total == 6
     assert [row["name"] for row in page] == ["Ponto", "Jornada"]
     rest, _total = workforce.report_catalog(admin(), 2, 2)
     assert [row["name"] for row in rest] == ["Banco de Horas", "Ocorrências"]
@@ -3103,3 +3112,138 @@ def test_aparelho_reconhece_rosto_e_qr_sem_sessao_da_pessoa():
     )
     assert marked.source == "qr"
     assert marked.employee_id == qr["id"]
+
+
+def _absence(employee_id: int, day: date) -> dict:
+    return {
+        "employee_id": employee_id,
+        "kind": "absence",
+        "starts_on": day,
+        "ends_on": None,
+        "starts_at": None,
+        "ends_at": None,
+        "reason_id": None,
+        "note": None,
+        "cid": None,
+        "crm": None,
+        "doctor_name": None,
+        "photo_key": None,
+    }
+
+
+def test_lancamento_de_marcacao_nao_grava():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    for kind in ("punch_entry", "adjustment"):
+        with pytest.raises(AppError) as caught:
+            workforce.create_occurrence(admin(), {**_absence(person["id"], date(2026, 10, 6)), "kind": kind})
+        assert caught.value.status_code == 400
+        assert caught.value.message == "O lançamento de marcação não existe. Corrija as marcações do dia."
+
+
+def test_gestor_corrige_o_dia_e_lanca_falta_na_equipe():
+    workforce, repo = service()
+    for person_id, role in ((8, "manager"), (9, "member"), (10, "member")):
+        access = Membership(person_id=person_id, tenant_id=1, role=role)
+        access.id = repo.seq
+        repo.seq += 1
+        repo.memberships.append(access)
+    leader = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    work_journey(workforce, mate["id"])
+    corrected = workforce.correct_punches(
+        scope(8, "manager"),
+        {"employee_id": mate["id"], "punches": [at(8, 0), at(12, 0)], "note": None},
+    )
+    assert [row.source for row in corrected["punches"]] == ["manual", "manual"]
+    launched = workforce.create_occurrence(scope(8, "manager"), _absence(mate["id"], date(2026, 10, 7)))
+    assert launched.kind == "absence"
+    assert launched.source == "manual"
+    with pytest.raises(AppError) as other:
+        workforce.correct_punches(
+            scope(8, "manager"),
+            {"employee_id": outsider["id"], "punches": [at(9, 0)], "note": None},
+        )
+    with pytest.raises(AppError) as member:
+        workforce.create_occurrence(scope(9, "member"), _absence(mate["id"], date(2026, 10, 8)))
+    assert other.value.status_code == 403
+    assert member.value.status_code == 403
+
+
+def test_pedido_pendente_bloqueia_correcao_e_falta():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0))
+    pending = workforce.create_request(admin(), adjustment([at(9, 0)]))
+    with pytest.raises(AppError) as correction:
+        workforce.correct_punches(admin(), {"employee_id": person["id"], "punches": [at(10, 0)], "note": None})
+    with pytest.raises(AppError) as absence:
+        workforce.create_occurrence(admin(), _absence(person["id"], date(2026, 10, 6)))
+    assert correction.value.status_code == 409
+    assert correction.value.message == "Há solicitação pendente cobrindo este dia"
+    assert absence.value.message == correction.value.message
+    workforce.decide_request(admin(), pending["id"], {"status": "rejected", "decision_note": None})
+    corrected = workforce.correct_punches(admin(), {"employee_id": person["id"], "punches": [at(10, 0)], "note": None})
+    assert corrected["punches"][0].source == "manual"
+
+
+def test_dia_sem_jornada_leva_o_texto():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    day = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    assert day["warnings"] == ["Sem jornada prevista"]
+    assert day["absence"] is False
+    assert day["expected_minutes"] == 0
+    assert day["balance_minutes"] is None
+
+
+def test_saldo_do_periodo_inclui_os_dias_anteriores():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 6)))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (18, 18))
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (17, 38))
+    later = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
+    row = later["items"][0]
+    assert row["bank_minutes"] == -10
+    assert row["balance_minutes"] == 20
+    assert later["balance_minutes"] == 20
+    both = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    assert day_result(both, date(2026, 10, 6))["balance_minutes"] == 30
+    assert day_result(both, date(2026, 10, 7))["balance_minutes"] == 20
+    assert both["balance_minutes"] == 20
+
+
+def test_relatorio_de_marcacoes_lista_as_que_valem_e_as_que_deixaram():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0))
+    workforce.correct_punches(admin(), {"employee_id": person["id"], "punches": [at(9, 0), at(18, 0)], "note": None})
+    kept = workforce.report(admin(), "punch", date(2026, 10, 6), date(2026, 10, 6), person["id"], 1, 10)
+    assert kept["name"] == "Ponto"
+    listed = workforce.report(admin(), "marking", date(2026, 10, 6), date(2026, 10, 6), person["id"], 1, 10)
+    assert listed["name"] == "Marcações"
+    details = {row["detail"] for row in listed["items"]}
+    assert "vale; manual" in details
+    assert "deixou de valer; employee" in details
+    assert {row["title"] for row in listed["items"]} == {"08:00", "09:00", "12:00", "18:00"}

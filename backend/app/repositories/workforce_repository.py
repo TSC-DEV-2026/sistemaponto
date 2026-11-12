@@ -399,6 +399,19 @@ class WorkforceRepository:
             .all()
         )
 
+    def punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
+        return (
+            self.db.query(Punch)
+            .filter(
+                Punch.tenant_id == tenant_id,
+                Punch.employee_id == employee_id,
+                Punch.occurred_at >= start,
+                Punch.occurred_at < end,
+            )
+            .order_by(Punch.occurred_at.asc(), Punch.id.asc())
+            .all()
+        )
+
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
         return (
             self.db.query(Punch)
