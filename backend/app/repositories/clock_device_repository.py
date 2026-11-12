@@ -17,6 +17,12 @@ class ClockDeviceRepository:
     def device_by_public_id(self, public_id: str) -> ClockDevice | None:
         return self.db.query(ClockDevice).filter(ClockDevice.public_id == public_id).one_or_none()
 
+    def code_exists(self, code_hash: str) -> bool:
+        return self.db.query(ClockReleaseCode.id).filter(ClockReleaseCode.code_hash == code_hash).first() is not None
+
+    def abandon(self) -> None:
+        self.db.rollback()
+
     def unused_codes(self, code_hash: str, now: datetime) -> list[ClockReleaseCode]:
         return (
             self.db.query(ClockReleaseCode)

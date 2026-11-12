@@ -207,7 +207,7 @@ Nesse aparelho cabem várias empresas sem relação entre si. Cada uma autoriza 
 
 ### Liberação
 
-Na instalação, o `mobile2` gera um identificador daquele aparelho e o guarda. No site, o administrador da empresa pede um código de liberação. O código é curto, vale alguns minutos e serve uma vez. Significa só que o aparelho que o apresentar pode registrar ponto naquela empresa.
+Na instalação, o `mobile2` gera um identificador daquele aparelho e o guarda. No site, o administrador da empresa pede um código de liberação. O código tem 9 caracteres, com letras e números, vale alguns minutos e serve uma vez. Ele não se repete entre empresas, mesmo depois de usado ou vencido. Significa só que o aparelho que o apresentar pode registrar ponto naquela empresa.
 
 Quem configura digita o código. O aplicativo envia o identificador e o código. O servidor confere, grava o vínculo daquele aparelho com aquela empresa e invalida o código. No lugar, devolve uma chave só de registro de ponto. A chave fica no aparelho. Com ela não se abre o site, não se lista funcionário e não se altera cadastro.
 

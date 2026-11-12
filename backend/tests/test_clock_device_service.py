@@ -6,7 +6,9 @@ import pytest
 from app.core.exceptions import AppError
 from app.core.security import hash_secret
 from app.models.workforce import ClockDevice, ClockDeviceGrant, ClockEnrollAttempt, ClockReleaseCode
-from app.services.clock_device_service import ClockDeviceService
+from sqlalchemy.exc import IntegrityError
+
+from app.services.clock_device_service import CODE_ALPHABET, ClockDeviceService
 from app.services.workforce_service import Scope
 
 NOW = datetime(2026, 11, 11, 18, 0, tzinfo=timezone.utc)
@@ -30,6 +32,12 @@ class Devices:
         for row in self.rows:
             if isinstance(row, ClockDevice) and row.public_id == public_id:
                 return row
+        return None
+
+    def code_exists(self, code_hash: str) -> bool:
+        return any(isinstance(row, ClockReleaseCode) and row.code_hash == code_hash for row in self.rows)
+
+    def abandon(self) -> None:
         return None
 
     def unused_codes(self, code_hash: str, now: datetime):
@@ -133,8 +141,9 @@ def test_codigo_libera_uma_vez_e_guarda_so_o_hash():
     service, _companies = build()
     issued = service.issue_code(admin())
     digits = issued["code"].replace(" ", "")
-    assert issued["code"][3] == " "
-    assert len(digits) == 6
+    assert issued["code"].count(" ") == 2
+    assert len(digits) == 9
+    assert all(character in CODE_ALPHABET for character in digits)
     enrolled = service.enroll("recept-01", issued["code"])
     device = service.repo.device_by_public_id("recept-01")
     grant = service.repo.active_grant(device.id, 4)
@@ -143,6 +152,35 @@ def test_codigo_libera_uma_vez_e_guarda_so_o_hash():
     with pytest.raises(AppError) as again:
         service.enroll("recept-01", digits)
     assert again.value.message == "O código não foi aceito."
+
+
+def test_codigo_nao_repete_entre_empresas():
+    service, _companies = build()
+    service._new_code = lambda: "ABCDEFGHJ"
+    first = service.issue_code(admin(4))
+    pending = iter(["ABCDEFGHJ", "23456789A"])
+    service._new_code = lambda: next(pending)
+    second = service.issue_code(admin(9))
+    assert first["code"].replace(" ", "") == "ABCDEFGHJ"
+    assert second["code"].replace(" ", "") == "23456789A"
+    enrolled = service.enroll("recept-01", "abc def ghj")
+    assert enrolled["tenant_id"] == 4
+
+
+def test_gravacao_repetida_gera_outro_codigo():
+    service, _companies = build()
+    pending = iter(["ABCDEFGHJ", "23456789A"])
+    service._new_code = lambda: next(pending)
+    original = service.repo.add
+
+    def add(row):
+        if isinstance(row, ClockReleaseCode) and row.code_hash == hash_secret("ABCDEFGHJ"):
+            raise IntegrityError("dup", {}, Exception("dup"))
+        return original(row)
+
+    service.repo.add = add
+    issued = service.issue_code(admin())
+    assert issued["code"].replace(" ", "") == "23456789A"
 
 
 def test_codigo_vencido_nao_libera():

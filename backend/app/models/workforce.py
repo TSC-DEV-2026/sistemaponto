@@ -472,6 +472,7 @@ class ClockDevice(Base):
 
 class ClockReleaseCode(Base):
     __tablename__ = "clock_release_codes"
+    __table_args__ = (UniqueConstraint("code_hash", name="uq_clock_release_codes_code_hash"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
