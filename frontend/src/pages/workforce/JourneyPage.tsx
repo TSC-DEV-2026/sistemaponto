@@ -1,5 +1,5 @@
 import { FormEvent, useContext, useEffect, useState } from "react"
-import { Clock, Layers, Pencil, Plus } from "lucide-react"
+import { Clock, Layers, Plus } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -15,7 +15,7 @@ import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { BankBalance } from "@/components/workforce/HourBankPanel"
-import { PunchCorrectionForm, PunchLists } from "@/components/workforce/PunchDay"
+import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
 import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
@@ -29,56 +29,10 @@ export function JourneyPage() {
       title="Jornada e Ponto"
       tabs={[
         { id: "jornadas", label: "Jornadas", panel: <CatalogList catalog="journeys" presentation="journey" /> },
-        { id: "marcacoes", label: "Marcações", panel: <PunchScheduleList /> },
         { id: "apuracao", label: "Apuração", panel: <ResultsSchedule /> },
         { id: "banco", label: "Banco de horas", panel: <BankScheduleList /> },
       ]}
     />
-  )
-}
-
-function PunchScheduleList() {
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const setTabAction = useContext(TabAction)
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [error, setError] = useState("")
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setTabAction(null)
-      return () => setTabAction(null)
-    }
-    setTabAction(
-      <Button asChild className={modulePrimaryClass}>
-        <Link to="/schedules/adjustments">
-          <Pencil className="h-4 w-4" />
-          Ajustar marcações
-        </Link>
-      </Button>,
-    )
-    return () => setTabAction(null)
-  }, [isAdmin, setTabAction])
-
-  useEffect(() => {
-    let active = true
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
-      .then((page) => {
-        if (active) setEmployees(page.items)
-      })
-      .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
-
-  return (
-    <div className="space-y-3">
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <PunchLists employees={employees} appearance="module" />
-    </div>
   )
 }
 
@@ -266,8 +220,8 @@ export function PunchAdjustPage() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    if (!role || role === "admin") return
-    navigate("/schedules?aba=marcacoes", { replace: true })
+    if (!role || role === "admin" || role === "manager") return
+    navigate("/schedules?aba=apuracao", { replace: true })
   }, [role, navigate])
 
   useEffect(() => {
@@ -286,13 +240,13 @@ export function PunchAdjustPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <BackLink to="/schedules?aba=marcacoes" appearance="detail" />
+      <BackLink to="/schedules?aba=apuracao" appearance="detail" />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <PunchCorrectionForm
         appearance="module"
         employees={employees}
         onSaved={async () => {
-          navigate("/schedules?aba=marcacoes")
+          navigate("/schedules?aba=apuracao")
         }}
       />
     </div>

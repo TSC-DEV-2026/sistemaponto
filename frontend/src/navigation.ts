@@ -52,10 +52,9 @@ export const navGroups: NavGroup[] = [
         to: "/schedules",
         label: "Jornada e Ponto",
         icon: Clock,
-        lead: "Jornada é o previsto. Marcação é o ocorrido. Apuração é o resultado.",
+        lead: "Jornada é o previsto. Apuração é o resultado do período.",
         sections: [
           { title: "Jornadas", text: "Nenhuma jornada cadastrada." },
-          { title: "Marcações", text: "Nenhuma marcação." },
           { title: "Apuração", text: "Resultado do período." },
           { title: "Banco de horas", text: "Saldo contínuo." },
         ],
@@ -73,12 +72,10 @@ export const navGroups: NavGroup[] = [
       },
       {
         to: "/occurrences",
-        label: "Ajustes e Ocorrências",
+        label: "Ausências",
         icon: ClipboardList,
-        lead: "Tratamento administrativo. Motivo padronizado quando houver catálogo. Observação complementar quando couber.",
+        lead: "Falta, atestado, férias, abono e afastamento. Motivo padronizado quando houver catálogo.",
         sections: [
-          { title: "Ajustes de ponto", text: "Nenhum ajuste." },
-          { title: "Lançamentos de marcações", text: "Nenhum lançamento." },
           { title: "Faltas", text: "Nenhuma falta registrada." },
           { title: "Atestados", text: "Nenhum atestado efetivado." },
           { title: "Férias", text: "Nenhuma ocorrência de férias." },
@@ -152,6 +149,7 @@ export const navGroups: NavGroup[] = [
         lead: "Consulta analítica. O dashboard permanece a visão operacional.",
         sections: [
           { title: "Ponto", text: "Histórico da apuração." },
+          { title: "Marcações", text: "Batidas que valem e as que deixaram de valer." },
           { title: "Jornada", text: "Histórico da vigência." },
           { title: "Banco de Horas", text: "Saldo e lançamentos." },
           { title: "Ocorrências", text: "O que já foi lançado." },

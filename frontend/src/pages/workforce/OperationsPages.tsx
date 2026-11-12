@@ -1891,6 +1891,15 @@ export function ReportsPage() {
 }
 
 function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: string }) {
+  if (kind === "marking") {
+    const state = item.detail.startsWith("vale") ? "Vale" : "Deixou de valer"
+    return (
+      <li className="min-w-0 px-4 py-3 text-sm transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none">
+        <p className="font-medium text-[#0A0A0A]">{item.full_name || "Não informado"}</p>
+        <p className="mt-1 text-[#52525B]">{showDate(item.occurred_on)} · {item.title} · {state}</p>
+      </li>
+    )
+  }
   if (kind === "punch") {
     const worked = punchMeasure(item.detail, "trabalhadas")
     const extra = punchMeasure(item.detail, "hora extra")

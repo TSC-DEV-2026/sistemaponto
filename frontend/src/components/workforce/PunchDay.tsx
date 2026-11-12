@@ -30,6 +30,7 @@ export function DayTimesFields({
   onDay,
   onTimes,
   tone = "plain",
+  lockDay = false,
 }: {
   dayId: string
   day: string
@@ -37,6 +38,7 @@ export function DayTimesFields({
   onDay: (value: string) => void
   onTimes: (value: string[]) => void
   tone?: "plain" | "module"
+  lockDay?: boolean
 }) {
   function changeTime(index: number, value: string) {
     onTimes(times.map((item, position) => (position === index ? value : item)))
@@ -45,7 +47,7 @@ export function DayTimesFields({
   if (tone === "module") {
     return (
       <>
-        <DatePickerField id={dayId} label="Dia" value={day} onChange={onDay} required />
+        {lockDay ? null : <DatePickerField id={dayId} label="Dia" value={day} onChange={onDay} required />}
         <div className="space-y-2">
           <Label className={moduleLabelClass}>Marcações do dia</Label>
           {times.map((time, index) => (
@@ -71,10 +73,12 @@ export function DayTimesFields({
 
   return (
     <>
-      <div className="space-y-2">
-        <Label htmlFor={dayId}>Dia</Label>
-        <input id={dayId} className={fieldClass} type="date" value={day} onChange={(event) => onDay(event.target.value)} required />
-      </div>
+      {lockDay ? null : (
+        <div className="space-y-2">
+          <Label htmlFor={dayId}>Dia</Label>
+          <input id={dayId} className={fieldClass} type="date" value={day} onChange={(event) => onDay(event.target.value)} required />
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Marcações do dia</Label>
         {times.map((time, index) => (
@@ -103,25 +107,35 @@ export function PunchCorrectionForm({
   employeeId,
   onSaved,
   appearance = "plain",
+  fixedDay,
+  guard,
 }: {
   employees?: Employee[]
   employeeId?: number
   onSaved: () => Promise<void>
   appearance?: "plain" | "module"
+  fixedDay?: string
+  guard?: (day: string) => string
 }) {
   const [selected, setSelected] = useState("")
-  const [day, setDay] = useState("")
+  const [day, setDay] = useState(fixedDay || "")
   const [times, setTimes] = useState(["", ""])
   const [note, setNote] = useState("")
   const [error, setError] = useState("")
+  const chosenDay = fixedDay || day
+  const blocked = guard?.(chosenDay) || ""
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
+    if (blocked) {
+      setError(blocked)
+      return
+    }
     try {
       await createRecord("/punches/corrections", {
         employee_id: employeeId ?? Number(selected),
-        punches: momentsOf(day, times),
+        punches: momentsOf(chosenDay, times),
         note: note.trim() || null,
       })
       setTimes(["", ""])
@@ -145,15 +159,15 @@ export function PunchCorrectionForm({
           <EmployeeCombobox id="correction-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
         </div>
       ) : null}
-      <DayTimesFields dayId="correction-day" day={day} times={times} onDay={setDay} onTimes={setTimes} tone={module ? "module" : "plain"} />
+      <DayTimesFields dayId="correction-day" day={chosenDay} times={times} onDay={setDay} onTimes={setTimes} tone={module ? "module" : "plain"} lockDay={Boolean(fixedDay)} />
       <div className="space-y-2">
         <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-note">
           Observação
         </Label>
         <textarea id="correction-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" className={module ? modulePrimaryClass : undefined}>
+      {blocked || error ? <p className="text-sm text-destructive">{blocked || error}</p> : null}
+      <Button type="submit" className={module ? modulePrimaryClass : undefined} disabled={Boolean(blocked)}>
         Corrigir o dia
       </Button>
     </ActionForm>

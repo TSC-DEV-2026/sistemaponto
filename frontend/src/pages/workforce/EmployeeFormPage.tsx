@@ -13,6 +13,7 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
+import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { CertificatePhotoField, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
@@ -21,7 +22,7 @@ import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { isoWeekday } from "@/pages/workforce/journey"
-import { clockMethodLabel, manualTimeOffKinds, occurrenceKindLabel } from "@/utils/labels"
+import { absenceKinds, clockMethodLabel, manualTimeOffKinds, occurrenceKindLabel } from "@/utils/labels"
 
 const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
   { kind: "job", label: "Cargo", path: "/jobs", searchKey: "name", icon: Briefcase },
@@ -84,6 +85,8 @@ export function EmployeeFormPage() {
   const isAdmin = role === "admin"
   const [tab, setTab] = useState("data")
   const canRecordEvent = isAdmin || role === "manager"
+  const canCorrect = isAdmin || role === "manager"
+  const locks = useDayLocks(id)
   const linkTarget = vigencyTargets.find((item) => item.kind === tab)
   const manualEvent = manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number])
   const asksReason = occurrenceKind !== "vacation" && occurrenceKind !== "leave" && occurrenceKind !== "punch_entry"
@@ -245,6 +248,13 @@ export function EmployeeFormPage() {
       setError("Informe a data de início.")
       return
     }
+    const spanStart = manualEvent ? offDraft.startsOn : startsOn
+    const spanEnd = manualEvent ? (offDraft.mode === "hours" ? offDraft.startsOn : offDraft.endsOn || spanStart) : endsOn || spanStart
+    const blocked = locks.lockRange(spanStart, spanEnd)
+    if (blocked) {
+      setError(blocked)
+      return
+    }
     setSavingEvent(true)
     try {
       const span: Record<string, unknown> = manualEvent ? timeOffBody(offDraft, occurrenceKind) : { starts_on: startsOn, ends_on: endsOn || null }
@@ -322,8 +332,8 @@ export function EmployeeFormPage() {
               { id: "data", label: "Dados", icon: User, show: true },
               ...vigencyTargets.map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               { id: "bank", label: "Banco de horas", icon: Timer, show: isAdmin || role === "manager" },
-              { id: "correction", label: "Correção", icon: Clock, show: isAdmin },
-              { id: "events", label: "Ocorrências", icon: ClipboardList, show: canRecordEvent },
+              { id: "correction", label: "Correção", icon: Clock, show: canCorrect },
+              { id: "events", label: "Ausências", icon: ClipboardList, show: canRecordEvent },
             ]
           )
             .filter((item) => item.show)
@@ -533,7 +543,7 @@ export function EmployeeFormPage() {
       ) : null}
       {id !== null && tab === "events" && canRecordEvent ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">Registrar ocorrência</h2>
+          <h2 className="text-lg font-semibold text-[#0A0A0A]">Registrar ausência</h2>
           <div className="max-w-md space-y-2">
             <Label className={moduleLabelClass} htmlFor="employee-occurrence-kind">Tipo</Label>
             <SiteSelect
@@ -541,9 +551,9 @@ export function EmployeeFormPage() {
               value={occurrenceKind}
               className="h-12"
               icon={ClipboardList}
-              options={Object.entries(occurrenceKindLabel)
-                .filter(([value]) => isAdmin || manualTimeOffKinds.includes(value as (typeof manualTimeOffKinds)[number]))
-                .map(([value, label]) => ({ value, label }))}
+              options={absenceKinds
+                .filter((value) => isAdmin || manualTimeOffKinds.includes(value))
+                .map((value) => ({ value, label: occurrenceKindLabel[value] }))}
               onChange={(value) => {
                 setOccurrenceKind(value)
                 setReasonId("")
@@ -583,12 +593,12 @@ export function EmployeeFormPage() {
           </div>
           <Button type="button" className={modulePrimaryClass} disabled={savingEvent} onClick={() => void saveOccurrence()}>
             {savingEvent ? <Spinner className="h-4 w-4" /> : null}
-            Registrar ocorrência
+            Registrar ausência
           </Button>
         </section>
       ) : null}
       {id !== null && tab === "bank" && (isAdmin || role === "manager") ? <HourBankPanel employeeId={id} canLaunch usesBank={usesBank} appearance="module" /> : null}
-      {id !== null && tab === "correction" && isAdmin ? <PunchCorrectionForm employeeId={id} appearance="module" onSaved={async () => undefined} /> : null}
+      {id !== null && tab === "correction" && canCorrect ? <PunchCorrectionForm employeeId={id} appearance="module" guard={locks.lockDay} onSaved={async () => undefined} /> : null}
     </div>
   )
 }
