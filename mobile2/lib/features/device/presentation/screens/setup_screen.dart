@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/api_exception.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../providers/device_provider.dart';
 
@@ -49,7 +50,31 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Text(widget.adding ? 'Adicionar empresa' : 'Liberar aparelho', style: Theme.of(context).textTheme.headlineSmall),
+            if (!widget.adding) ...[
+              Text.rich(
+                TextSpan(
+                  text: 'sistema',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  children: [
+                    TextSpan(
+                      text: 'ponto',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: 'rep',
+                      style: TextStyle(color: BrandColors.rep),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              widget.adding ? 'Adicionar empresa' : 'Liberar aparelho',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             Text(
               widget.adding
@@ -59,7 +84,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             ),
             if (device.publicId.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('Identificador deste aparelho', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'Identificador deste aparelho',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 4),
               SelectableText(device.publicId),
             ],
@@ -78,13 +106,22 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ],
             const SizedBox(height: 24),
-            FilledButton(onPressed: device.ready ? _submit : null, child: const Text('Liberar')),
+            FilledButton(
+              onPressed: device.ready ? _submit : null,
+              child: const Text('Liberar'),
+            ),
             if (widget.adding) ...[
               const SizedBox(height: 8),
-              TextButton(onPressed: () => context.go('/'), child: const Text('Voltar')),
+              TextButton(
+                onPressed: () => context.go('/'),
+                child: const Text('Voltar'),
+              ),
             ],
           ],
         ),
