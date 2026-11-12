@@ -224,3 +224,31 @@ No facial, o aparelho baixa os embeddings de quem usa facial em cada empresa par
 No QR Code, a marcação só entra com rede, no `mobile` e no `mobile2`. Sem rede ela não entra e não fica no aparelho. O aparelho lê o payload já definido, `unidade|cpf|matrícula`. A marcação entra se esse código apontar para uma única pessoa, entre as empresas pareadas, com tipo QR Code. Duas pessoas ou nenhuma recusam a marcação. A selfie continua obrigatória, como no Ponto 2.
 
 A evidência da marcação segue o Ponto 2 e o Ponto 8: o facial grava a captura, o QR Code grava a foto do código e a selfie. A marcação fica na empresa e no funcionário que o servidor reconheceu.
+
+## Ponto 14 — Apuração do dia e ausências
+
+A conferência do gestor passa a acontecer na Apuração. Marcações sai de Jornada e Ponto, e Ajustes e Ocorrências vira a seção de ausências.
+
+### Marcações no relatório
+
+Jornada e Ponto fica com Jornadas, Apuração e Banco de horas. A opção Marcações do Ponto 3 sai. A lista das batidas que valem e das que deixaram de valer entra em Relatórios, como consulta. O relatório que hoje se chama Ponto permanece o histórico da apuração. Não passa a ser a lista de batidas.
+
+O lançamento de marcação deixa de existir. Não grava ocorrência e não cria batida. A correção do dia é o caminho que altera o ponto: a pessoa informa os horários que devem valer. As batidas antigas deixam de valer e ficam no histórico. A origem continua `manual`. A solicitação de ajuste aprovada continua gravando as marcações do dia, com a origem que já tem.
+
+### Ausências
+
+Ajustes e Ocorrências passa a se chamar Ausências. As opções são Falta, Atestado, Férias, Abono e Afastamento. Ajuste de ponto sai do menu. Férias e afastamento ficam só aqui, porque são um período.
+
+### Apuração
+
+A pessoa escolhe o funcionário e o período e clica em Apurar. Cada dia do período aparece, inclusive o dia sem jornada prevista. Esse dia leva o texto Sem jornada prevista.
+
+Quando o funcionário usa banco de horas, o saldo mostrado é o do período e já inclui os dias anteriores ao intervalo. Na linha de cada dia entra o saldo acumulado até aquela data. Ver detalhes abre na mesma tela, com o demonstrativo de hoje: entrada, saída, previsto, trabalhado, atraso, saída antecipada, hora extra, falta de tempo, noturno e adicional. Nesse detalhe há a opção de ver só o saldo daquele dia.
+
+Em cada dia, administrador e gestor corrigem as marcações, lançam falta e lançam atestado ou abono. Atestado e abono saem do mesmo botão, com a escolha do tipo. O atestado pede o período do dia, a foto e os dados médicos. O abono pede o período e o motivo. A falta pede o motivo quando houver catálogo. O gestor passa a poder corrigir o dia e lançar falta, o que hoje é só do administrador.
+
+Depois de gravar, a apuração do período roda de novo e a linha mostra o resultado novo.
+
+Em período fechado, corrigir, falta, atestado e abono ficam visíveis e desativados. Ver detalhes continua.
+
+Com solicitação pendente que cobre o dia, a alteração manual fica bloqueada, na apuração e na ficha. Pedido aceito, negado ou cancelado libera a alteração. Solicitações e o aplicativo do funcionário permanecem. Aprovar continua gravando o ponto.
