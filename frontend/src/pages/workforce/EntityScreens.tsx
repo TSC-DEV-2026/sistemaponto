@@ -16,8 +16,7 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
-import { ClassificationFilter, classificationQuery } from "@/components/workforce/ClassificationFilter"
-import { createRecord, getRecord, listRecords, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
@@ -775,7 +774,6 @@ function downloadPdf(bytes: Uint8Array<ArrayBuffer>, filename: string) {
 }
 
 export function EmployeeList() {
-  const [valueIds, setValueIds] = useState<number[]>([])
   const [note, setNote] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -809,13 +807,6 @@ export function EmployeeList() {
     <div className="space-y-3">
       {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <section className={moduleCardClass}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Classificações</h2>
-        <p className="mt-1 text-sm text-[#64748B]">Valores da mesma classificação se alternam. Classificações diferentes se somam.</p>
-        <div className="mt-4">
-          <ClassificationFilter selected={valueIds} onChange={setValueIds} />
-        </div>
-      </section>
       <RecordList<Employee>
         path="/employees"
         filters={(query) => {
@@ -833,7 +824,6 @@ export function EmployeeList() {
         detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
         empty="Nenhum funcionário."
         extra={extra}
-        extraParams={classificationQuery(valueIds) ? { classification_value_id: classificationQuery(valueIds) } : {}}
         presentation="people"
         searchPlaceholder="Pesquisar por nome ou CPF"
       />
@@ -914,127 +904,214 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
 }
 
 function ClassificationValues({ classificationId, canEdit }: { classificationId: number; canEdit: boolean }) {
-  const [items, setItems] = useState<NamedRecord[]>([])
-  const [name, setName] = useState("")
-  const [drafts, setDrafts] = useState<Record<number, string>>({})
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState("")
+  const [sort, setSort] = useState<{ dir: "asc" | "desc" } | null>(null)
+  const [pending, setPending] = useState<number | null>(null)
+  const list = usePagedList<NamedRecord>("/classification-values", {
+    classification_id: classificationId,
+    ...(query.trim() ? { name: query.trim() } : {}),
+  })
 
-  async function load() {
-    const page = await listRecords<NamedRecord>("/classification-values", {
-      page: 1,
-      limit: 100,
-      classification_id: classificationId,
-    })
-    const found = [...page.items]
-    const pages = Math.ceil(page.total / 100)
-    for (let index = 2; index <= pages; index += 1) {
-      const next = await listRecords<NamedRecord>("/classification-values", {
-        page: index,
-        limit: 100,
-        classification_id: classificationId,
-      })
-      found.push(...next.items)
-    }
-    setItems(found)
-    setDrafts(Object.fromEntries(found.map((item) => [item.id, item.name])))
-  }
-
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    load()
-      .catch(() => {
-        if (active) setError("Não foi possível carregar os valores.")
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [classificationId])
-
-  async function addValue() {
-    const next = name.trim()
-    if (!next) return
-    setError("")
-    try {
-      await createRecord("/classification-values", { classification_id: classificationId, name: next })
-      setName("")
-      await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o valor.")
-    }
-  }
-
-  async function rename(item: NamedRecord) {
-    const next = (drafts[item.id] || "").trim()
-    if (!next || next === item.name) return
-    setError("")
-    try {
-      await updateRecord("/classification-values", item.id, { name: next })
-      await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o valor.")
-    }
-  }
+  const rows = !sort ? list.items : [...list.items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR") * (sort.dir === "asc" ? 1 : -1))
 
   async function remove(item: NamedRecord) {
-    setError("")
+    list.setError("")
     try {
       await removeRecord("/classification-values", item.id)
-      await load()
+      setPending(null)
+      list.reload()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível excluir o valor.")
+      list.setError(caught instanceof Error ? caught.message : "Não foi possível excluir o valor.")
     }
   }
 
   return (
-    <div className="space-y-3 border-t border-[#F1F5F9] pt-5">
-      <h3 className="text-base font-semibold text-[#0A0A0A]">Valores</h3>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {loading ? <Spinner label="Carregando os valores" className="h-6 w-6 text-[#1E8A3A]" /> : null}
-      {!loading && items.length === 0 ? <p className="text-sm text-[#64748B]">Nenhum valor.</p> : null}
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={item.id} className="flex flex-wrap items-center gap-2">
-            {canEdit ? (
-              <Input
-                className={moduleFieldClass}
-                value={drafts[item.id] ?? item.name}
-                aria-label={`Valor ${item.name}`}
-                onChange={(event) => setDrafts((current) => ({ ...current, [item.id]: event.target.value }))}
-              />
-            ) : (
-              <span className="text-sm font-medium text-[#0A0A0A]">{item.name}</span>
-            )}
-            {canEdit ? (
-              <>
-                <Button type="button" className={moduleQuietClass} onClick={() => void rename(item)}>
-                  Salvar
-                </Button>
-                <Button type="button" className={moduleDangerClass} onClick={() => void remove(item)}>
-                  <Trash2 className="h-4 w-4" />
-                  Excluir
-                </Button>
-              </>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      {canEdit ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="classification-value-name">Novo valor</Label>
-            <Input id="classification-value-name" className={moduleFieldClass} value={name} onChange={(event) => setName(event.target.value)} />
-          </div>
-          <Button type="button" className={modulePrimaryClass} onClick={() => void addValue()}>
-            <Plus className="h-4 w-4" />
-            Adicionar
-          </Button>
+    <div className="space-y-4">
+      <section className={moduleCardClass}>
+        <PeopleSearch id="classification-values-search" value={query} placeholder="Pesquisar" onChange={setQuery} onSearch={list.reload} />
+      </section>
+      {list.error ? <p className="text-sm text-destructive">{list.error}</p> : null}
+      <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[#F1F5F9]">
+                <th className="px-4 py-3 text-left font-semibold">
+                  <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#64748B] transition-colors duration-200 hover:text-[#334155]" onClick={() => setSort((current) => (!current ? { dir: "asc" } : current.dir === "asc" ? { dir: "desc" } : null))}>
+                    Nome
+                    <SortArrows active={Boolean(sort)} dir={sort?.dir ?? "asc"} />
+                  </button>
+                </th>
+                <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-[#64748B]">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((item) => (
+                <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                        <Tags className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                      </span>
+                      <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{item.name}</span>
+                    </div>
+                  </td>
+                  <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">
+                    {pending === item.id ? (
+                      <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                        <span className="text-sm text-[#0A0A0A]">Excluir {item.name}?</span>
+                        <Button type="button" className={moduleDangerClass} onClick={() => void remove(item)}>
+                          Excluir
+                        </Button>
+                        <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="inline-flex justify-center gap-1.5">
+                        <Button asChild variant="outline" className={moduleIconClass}>
+                          <Link to={`/people/classifications/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`} title="Visualizar">
+                            <Eye className="h-4 w-4" strokeWidth={1.75} />
+                          </Link>
+                        </Button>
+                        {canEdit ? (
+                          <Button asChild variant="outline" className={moduleIconClass}>
+                            <Link to={`/people/classifications/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`} title="Editar">
+                              <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                            </Link>
+                          </Button>
+                        ) : null}
+                        {canEdit ? (
+                          <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${item.name}`} title="Excluir" onClick={() => setPending(item.id)}>
+                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                        ) : null}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-10 text-center text-sm text-[#64748B]" colSpan={2}>
+                    {list.loading ? <span className="inline-flex w-full justify-center"><Spinner /></span> : "Nenhum valor."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
-      ) : null}
+        <div className="border-t border-[#F1F5F9] px-4 py-3">
+          <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone="module" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) {
+  const params = useParams()
+  const navigate = useNavigate()
+  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const classificationId = Number(params.id)
+  const valueId = Number(params.valueId)
+  const backTo = `/people/classifications/${classificationId}`
+  const [name, setName] = useState("")
+  const [error, setError] = useState("")
+  const [loaded, setLoaded] = useState(mode === "new")
+
+  useEffect(() => {
+    if (!Number.isInteger(classificationId) || classificationId <= 0) {
+      navigate("/people?aba=classificacoes", { replace: true })
+      return
+    }
+    if (mode !== "view" && !isAdmin) navigate(backTo, { replace: true })
+  }, [isAdmin, mode, classificationId, backTo, navigate])
+
+  useEffect(() => {
+    if (mode === "new") return
+    let active = true
+    setLoaded(false)
+    setError("")
+    getRecord<NamedRecord & { classification_id?: number }>("/classification-values", valueId)
+      .then((row) => {
+        if (!active) return
+        if (row.classification_id != null && row.classification_id !== classificationId) {
+          navigate(backTo, { replace: true })
+          return
+        }
+        setName(row.name || "")
+        setLoaded(true)
+      })
+      .catch((caught: unknown) => {
+        if (!active) return
+        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        setLoaded(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [mode, valueId, classificationId])
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    setError("")
+    const next = name.trim()
+    if (!next) return
+    try {
+      if (mode === "new") await createRecord("/classification-values", { classification_id: classificationId, name: next })
+      else await updateRecord("/classification-values", valueId, { name: next })
+      navigate(backTo)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    }
+  }
+
+  if (mode !== "new" && !loaded && !error) {
+    return (
+      <div className="w-full min-w-0 space-y-5">
+        <BackLink to={backTo} appearance="detail" />
+        <section className={cn(moduleCardClass, "mx-auto flex min-h-[280px] w-full max-w-[680px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+          <Spinner label="Carregando o valor" className="h-8 w-8 text-[#1E8A3A]" />
+          <p className="text-sm font-medium text-[#64748B]">Carregando o valor</p>
+        </section>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to={backTo} appearance="detail" />
+      <section className={cn(moduleCardClass, "mx-auto w-full max-w-[680px] space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <Tags className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">{mode === "view" ? name || "Valor" : mode === "new" ? "Novo valor" : "Editar valor"}</h2>
+            <p className="text-sm text-[#64748B]">{mode === "view" ? "Valor" : mode === "new" ? "Informe o nome do valor." : "Atualize o nome do valor."}</p>
+          </div>
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {mode === "view" ? (
+          <RecordField icon={Tags} label="Nome" wide>
+            {name.trim() ? name : <EmptyMark />}
+          </RecordField>
+        ) : (
+        <ActionForm className="space-y-5" onSubmit={onSubmit}>
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="classification-value-name">Nome</Label>
+            <Input id="classification-value-name" className={moduleFieldClass} required value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+            <Button type="submit" className={modulePrimaryClass}>
+              <Save className="h-4 w-4" />
+              Salvar
+            </Button>
+          </div>
+        </ActionForm>
+        )}
+      </section>
     </div>
   )
 }
@@ -1159,10 +1236,21 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     }
     const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
     const subtitle = mode === "view" ? (catalog === "jobs" ? "Cargo" : "Classificação") : mode === "new" ? `Informe o nome do ${noun}.` : `Atualize o nome do ${noun}.`
+    const valuesOnPage = catalog === "classifications" && mode === "view"
     return (
       <div className="w-full min-w-0 space-y-5">
-        <BackLink to={entry.backTo} appearance="detail" />
-        <section className={cn(moduleCardClass, "mx-auto w-full max-w-[680px] space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <BackLink to={entry.backTo} appearance="detail" />
+          {valuesOnPage && isAdmin ? (
+            <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
+              <Link to={`/people/classifications/${id}/values/new`}>
+                <Plus className="h-4 w-4" />
+                Novo valor
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+        <section className={cn(moduleCardClass, valuesOnPage ? "w-full" : "mx-auto w-full max-w-[680px]", "space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
               <Icon className="h-5 w-5" strokeWidth={1.75} />
@@ -1174,10 +1262,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
-            <>
-              <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
-              {catalog === "classifications" ? <ClassificationValues classificationId={id} canEdit={isAdmin} /> : null}
-            </>
+            <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
           ) : (
             <ActionForm className="space-y-5" onSubmit={onSubmit}>
               {entry.fields.map((field) => (
@@ -1197,6 +1282,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             </ActionForm>
           )}
         </section>
+        {valuesOnPage ? <ClassificationValues classificationId={id} canEdit={isAdmin} /> : null}
       </div>
     )
   }

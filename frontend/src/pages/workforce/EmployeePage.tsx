@@ -86,6 +86,31 @@ function FieldTile({ icon, label, children }: { icon: LucideIcon; label: string;
   )
 }
 
+function ClassificationTile({ items }: { items: { classification_id: number; name: string; value_name: string }[] }) {
+  const rows = [...items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
+  return (
+    <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none md:col-span-2">
+      <FieldMark icon={Tags} />
+      <div className="min-w-0 flex-1">
+        <dt className="text-xs leading-4 text-[#64748B]">Classificações</dt>
+        {rows.length === 0 ? (
+          <dd className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]"><EmptyMark /></dd>
+        ) : (
+          <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
+            <ul className="space-y-1.5">
+              {rows.map((item) => (
+                <li key={item.classification_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                  {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
+                </li>
+              ))}
+            </ul>
+          </dd>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function requestInitials(fullName: string) {
   const particles = new Set(["de", "da", "do", "dos", "das", "e"])
   const parts = fullName
@@ -573,11 +598,7 @@ export function EmployeePage() {
                   {value?.trim() ? value : <EmptyMark />}
                 </FieldTile>
               ))}
-              {(employee.classifications || []).map((item) => (
-                <FieldTile key={item.classification_id} icon={Tags} label={item.name}>
-                  {item.value_name?.trim() ? item.value_name : <EmptyMark />}
-                </FieldTile>
-              ))}
+              <ClassificationTile items={employee.classifications || []} />
             </dl>
             <p className="mt-4 text-sm text-[#64748B]">Unidade e setor acompanham a equipe.</p>
           </section>
