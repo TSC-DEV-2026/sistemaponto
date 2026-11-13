@@ -171,6 +171,7 @@ export function EmployeeFormPage() {
   const [clockMethod, setClockMethod] = useState("simple")
   const [faceFile, setFaceFile] = useState<File | null>(null)
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
+  const [hasFacePhoto, setHasFacePhoto] = useState(false)
   const [usesBank, setUsesBank] = useState(false)
   const [error, setError] = useState("")
   const [linkChoices, setLinkChoices] = useState<{ value: string; label: string; kind?: string; length?: number }[]>([])
@@ -217,6 +218,7 @@ export function EmployeeFormPage() {
         setRegistration(person.registration_number || "")
         setClockMethod(person.clock_method || "simple")
         setFaceUrl(person.face_url)
+        setHasFacePhoto(Boolean(person.face_key || person.face_url))
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -531,13 +533,26 @@ export function EmployeeFormPage() {
             <Label className={moduleLabelClass} htmlFor="face-image">
               Foto de referência
             </Label>
-            <CertificatePhotoField id="face-image" fileKey={0} photo={faceFile} accept="image/png,image/jpeg" emptyLabel="Arraste ou selecione a foto" hint="PNG ou JPG (máx. 2 MB)" onChange={setFaceFile} />
-            {faceUrl ? (
-              <a className="text-sm font-medium text-[#1E8A3A]" href={faceUrl} target="_blank" rel="noreferrer">
-                Ver foto de referência
-              </a>
+            {hasFacePhoto ? (
+              <div className="flex items-start gap-3 rounded-xl border border-[rgba(30,138,58,0.16)] bg-[#EAF7EF] px-4 py-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
+                <p className="text-sm leading-6 text-[#334155]">
+                  A foto de referência já foi enviada neste cadastro.
+                  {faceUrl ? (
+                    <>
+                      {" "}
+                      <a className="font-medium text-[#1E8A3A]" href={faceUrl} target="_blank" rel="noreferrer">
+                        Ver foto
+                      </a>
+                      .
+                    </>
+                  ) : null}{" "}
+                  Envie outra abaixo só se quiser substituir.
+                </p>
+              </div>
             ) : null}
-            <p className="text-sm text-[#64748B]">Pode ficar vazia. Sem a foto, a batida responde que não há foto de referência. Quando enviada, o servidor guarda o embedding e a foto.</p>
+            <CertificatePhotoField id="face-image" fileKey={0} photo={faceFile} accept="image/png,image/jpeg" emptyLabel={hasFacePhoto ? "Arraste ou selecione uma nova foto" : "Arraste ou selecione a foto"} hint="PNG ou JPG (máx. 2 MB)" onChange={setFaceFile} />
+            <p className="text-sm text-[#64748B]">{hasFacePhoto ? "A foto atual permanece até você enviar outra." : "Pode ficar vazia. Sem a foto, a batida responde que não há foto de referência. Quando enviada, o servidor guarda o embedding e a foto."}</p>
           </div>
         ) : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
