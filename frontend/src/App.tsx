@@ -37,7 +37,7 @@ import {
   RequestsPage,
   TimeClockPage,
 } from "@/pages/workforce/OperationsPages"
-import { EntityRecordPage } from "@/pages/workforce/EntityScreens"
+import { ClassificationValueFormPage, EntityRecordPage } from "@/pages/workforce/EntityScreens"
 import { OccurrenceEntryPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
 import { ClosingFormPage } from "@/pages/workforce/ClosingFormPage"
@@ -98,6 +98,9 @@ const router = createBrowserRouter([
                   { path: "/people/jobs/:id", element: <EntityRecordPage catalog="jobs" mode="view" /> },
                   { path: "/people/classifications/new", element: <EntityRecordPage catalog="classifications" mode="new" /> },
                   { path: "/people/classifications/:id/edit", element: <EntityRecordPage catalog="classifications" mode="edit" /> },
+                  { path: "/people/classifications/:id/values/new", element: <ClassificationValueFormPage mode="new" /> },
+                  { path: "/people/classifications/:id/values/:valueId/edit", element: <ClassificationValueFormPage mode="edit" /> },
+                  { path: "/people/classifications/:id/values/:valueId", element: <ClassificationValueFormPage mode="view" /> },
                   { path: "/people/classifications/:id", element: <EntityRecordPage catalog="classifications" mode="view" /> },
                   { path: "/people/cost-centers/new", element: <Navigate to="/people/classifications/new" replace /> },
                   { path: "/people/cost-centers/:id/edit", element: <Navigate to="/people?aba=classificacoes" replace /> },

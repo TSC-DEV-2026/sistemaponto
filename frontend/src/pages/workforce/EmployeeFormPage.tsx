@@ -48,25 +48,21 @@ function readFaceImage(file: File) {
 }
 
 function ClassificationAssignment({ employeeId }: { employeeId: number }) {
-  const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[]; current: string }[]>([])
-  const [chosen, setChosen] = useState<Record<number, string>>({})
-  const [dates, setDates] = useState<Record<number, string>>({})
-  const [notes, setNotes] = useState<Record<number, string>>({})
-  const [saving, setSaving] = useState<number | null>(null)
+  const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[] }[]>([])
+  const [classificationId, setClassificationId] = useState("")
+  const [valueId, setValueId] = useState("")
+  const [validFrom, setValidFrom] = useState("")
+  const [note, setNote] = useState("")
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
-
-  async function load() {
-    const [page, person] = await Promise.all([
-      loadClassificationGroups(),
-      getRecord<Employee>("/employees", employeeId),
-    ])
-    const current = new Map((person.classifications || []).map((item) => [item.classification_id, item.value_name]))
-    setGroups(page.map((item) => ({ ...item, current: current.get(item.id) || "" })))
-  }
+  const selected = groups.find((item) => String(item.id) === classificationId)
 
   useEffect(() => {
     let active = true
-    load()
+    loadClassificationGroups()
+      .then((page) => {
+        if (active) setGroups(page)
+      })
       .catch(() => {
         if (active) setMessage("Não foi possível carregar as classificações.")
       })
@@ -75,72 +71,88 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
     }
   }, [employeeId])
 
-  async function save(groupId: number) {
-    const valueId = chosen[groupId]
-    const day = dates[groupId]
+  async function save() {
+    if (!classificationId) {
+      setMessage("Selecione a classificação.")
+      return
+    }
     if (!valueId) {
       setMessage("Selecione o valor.")
       return
     }
-    if (!day) {
+    if (!validFrom) {
       setMessage("Informe a data de início.")
       return
     }
     setMessage("")
-    setSaving(groupId)
+    setSaving(true)
     try {
       await createRecord("/employee-vigencies", {
         employee_id: employeeId,
         kind: "classification",
         reference_id: Number(valueId),
-        valid_from: day,
-        note: notes[groupId]?.trim() || null,
+        valid_from: validFrom,
+        note: note.trim() || null,
       })
-      setChosen((current) => ({ ...current, [groupId]: "" }))
-      setDates((current) => ({ ...current, [groupId]: "" }))
-      setNotes((current) => ({ ...current, [groupId]: "" }))
-      await load()
+      setClassificationId("")
+      setValueId("")
+      setValidFrom("")
+      setNote("")
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar a classificação.")
     } finally {
-      setSaving(null)
+      setSaving(false)
     }
   }
 
   return (
     <section className={cn(moduleCardClass, "space-y-5")}>
-      <h2 className="text-lg font-semibold text-[#0A0A0A]">Classificações</h2>
-      <p className="text-sm text-[#64748B]">Um valor de cada. A troca pede a data e encerra só aquela classificação.</p>
+      <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar classificações</h2>
       {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
-      {groups.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma classificação.</p> : null}
-      {groups.map((group) => (
-        <div key={group.id} className="space-y-3 border-t border-[#F1F5F9] pt-4">
-          <p className="text-sm font-semibold text-[#0A0A0A]">{group.name}</p>
-          <p className="text-sm text-[#64748B]">Vigente: {group.current || "sem valor"}</p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label className={moduleLabelClass} htmlFor={`classification-${group.id}`}>Valor</Label>
-              <SiteSelect
-                id={`classification-${group.id}`}
-                value={chosen[group.id] || ""}
-                placeholder="Selecione"
-                className="h-12"
-                options={group.values.map((item) => ({ value: String(item.id), label: item.name }))}
-                onChange={(next) => setChosen((current) => ({ ...current, [group.id]: next }))}
-              />
-            </div>
-            <DatePickerField id={`classification-from-${group.id}`} label="Início" value={dates[group.id] || ""} onChange={(next) => setDates((current) => ({ ...current, [group.id]: next }))} />
-            <div className="space-y-2 md:col-span-2">
-              <Label className={moduleLabelClass} htmlFor={`classification-note-${group.id}`}>Observação</Label>
-              <textarea id={`classification-note-${group.id}`} className={cn(moduleTextClass, "min-h-24")} value={notes[group.id] || ""} onChange={(event) => setNotes((current) => ({ ...current, [group.id]: event.target.value }))} />
-            </div>
-          </div>
-          <Button type="button" className={modulePrimaryClass} disabled={saving === group.id} onClick={() => void save(group.id)}>
-            {saving === group.id ? <Spinner className="h-4 w-4" /> : null}
-            Salvar {group.name.toLocaleLowerCase("pt-BR")}
-          </Button>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor="employee-classification">Classificação</Label>
+          <SiteSelect
+            id="employee-classification"
+            value={classificationId}
+            searchable
+            searchPath="/classifications"
+            searchPlaceholder="Pesquisar classificação"
+            placeholder="Selecione"
+            className="h-12"
+            icon={Tags}
+            options={groups.map((item) => ({ value: String(item.id), label: item.name }))}
+            onChange={(next) => {
+              setClassificationId(next)
+              setValueId("")
+            }}
+          />
         </div>
-      ))}
+        <div className="space-y-2">
+          <Label className={moduleLabelClass} htmlFor="employee-classification-value">Valor</Label>
+          <SiteSelect
+            id="employee-classification-value"
+            value={valueId}
+            searchable={Boolean(classificationId)}
+            searchPath={classificationId ? "/classification-values" : undefined}
+            searchParams={classificationId ? { classification_id: Number(classificationId) } : undefined}
+            searchPlaceholder="Pesquisar valor"
+            placeholder="Selecione"
+            className="h-12"
+            options={(selected?.values || []).map((item) => ({ value: String(item.id), label: item.name }))}
+            onChange={setValueId}
+          />
+        </div>
+        <DatePickerField id="employee-classification-from" label="Início" value={validFrom} onChange={setValidFrom} />
+        <div className="space-y-2 md:col-span-2">
+          <Label className={moduleLabelClass} htmlFor="employee-classification-note">Observação</Label>
+          <textarea id="employee-classification-note" className={cn(moduleTextClass, "min-h-24")} value={note} onChange={(event) => setNote(event.target.value)} />
+        </div>
+      </div>
+      <Button type="button" className={modulePrimaryClass} disabled={saving} onClick={() => void save()}>
+        {saving ? <Spinner className="h-4 w-4" /> : null}
+        Salvar classificação
+      </Button>
     </section>
   )
 }
