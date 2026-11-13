@@ -30,12 +30,12 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/people?aba=cargos",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
-  "cost-centers": {
-    path: "/cost-centers",
-    newLabel: "Novo centro de custo",
-    editTitle: "Editar centro de custo",
-    empty: "Nenhum centro de custo.",
-    backTo: "/people?aba=centros",
+  classifications: {
+    path: "/classifications",
+    newLabel: "Nova classificação",
+    editTitle: "Editar classificação",
+    empty: "Nenhuma classificação.",
+    backTo: "/people?aba=classificacoes",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
   units: {

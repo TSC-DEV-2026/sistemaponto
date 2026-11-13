@@ -13,7 +13,7 @@ type Pattern = PageHeading & {
 const catalogAreas: Record<string, { base: string; subtitle: string }> = {
   journeys: { base: "/schedules/journeys", subtitle: "Acompanhe as jornadas e marcações" },
   jobs: { base: "/people/jobs", subtitle: "Gerencie os funcionários" },
-  "cost-centers": { base: "/people/cost-centers", subtitle: "Gerencie os funcionários" },
+  classifications: { base: "/people/classifications", subtitle: "Gerencie os funcionários" },
   units: { base: "/organization/units", subtitle: "Gerencie a estrutura da empresa" },
   sectors: { base: "/organization/sectors", subtitle: "Gerencie a estrutura da empresa" },
   teams: { base: "/organization/teams", subtitle: "Gerencie a estrutura da empresa" },

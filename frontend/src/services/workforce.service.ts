@@ -24,6 +24,13 @@ export type NamedRecord = {
   holiday_date?: string | null
 }
 
+export type EmployeeClassification = {
+  classification_id: number
+  name: string
+  value_id: number
+  value_name: string
+}
+
 export type Employee = {
   id: number
   full_name: string
@@ -46,6 +53,7 @@ export type Employee = {
   team_label: string | null
   union_label: string | null
   manager_label: string | null
+  classifications?: EmployeeClassification[]
 }
 
 export type Vigency = {
@@ -53,6 +61,7 @@ export type Vigency = {
   employee_id: number
   kind: string
   reference_id: number | null
+  classification_id?: number | null
   label: string
   valid_from: string
   valid_to: string | null
@@ -436,7 +445,15 @@ export function getHourBank(employeeId: number) {
   return read<HourBank>(() => api.get<ApiResponse<HourBank>>("/hour-bank", { params: { employee_id: employeeId } }))
 }
 
-export function getReport(kind: string, startsOn: string, endsOn: string, page: number, employeeId?: number, limit = 20) {
+export function getReport(
+  kind: string,
+  startsOn: string,
+  endsOn: string,
+  page: number,
+  employeeId?: number,
+  limit = 20,
+  extra?: Record<string, string>,
+) {
   return read<Report>(() =>
     api.get<ApiResponse<Report>>("/reports", {
       params: {
@@ -446,6 +463,7 @@ export function getReport(kind: string, startsOn: string, endsOn: string, page: 
         page,
         limit,
         employee_id: employeeId,
+        ...extra,
       },
     }),
   )

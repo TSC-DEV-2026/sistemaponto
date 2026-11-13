@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom"
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom"
 
 import { AppShell } from "@/components/layouts/AppShell"
 import { Toaster } from "@/components/ui/toaster"
@@ -96,9 +96,13 @@ const router = createBrowserRouter([
                   { path: "/people/jobs/new", element: <EntityRecordPage catalog="jobs" mode="new" /> },
                   { path: "/people/jobs/:id/edit", element: <EntityRecordPage catalog="jobs" mode="edit" /> },
                   { path: "/people/jobs/:id", element: <EntityRecordPage catalog="jobs" mode="view" /> },
-                  { path: "/people/cost-centers/new", element: <EntityRecordPage catalog="cost-centers" mode="new" /> },
-                  { path: "/people/cost-centers/:id/edit", element: <EntityRecordPage catalog="cost-centers" mode="edit" /> },
-                  { path: "/people/cost-centers/:id", element: <EntityRecordPage catalog="cost-centers" mode="view" /> },
+                  { path: "/people/classifications/new", element: <EntityRecordPage catalog="classifications" mode="new" /> },
+                  { path: "/people/classifications/:id/edit", element: <EntityRecordPage catalog="classifications" mode="edit" /> },
+                  { path: "/people/classifications/:id", element: <EntityRecordPage catalog="classifications" mode="view" /> },
+                  { path: "/people/cost-centers/new", element: <Navigate to="/people/classifications/new" replace /> },
+                  { path: "/people/cost-centers/:id/edit", element: <Navigate to="/people?aba=classificacoes" replace /> },
+                  { path: "/people/cost-centers/:id", element: <Navigate to="/people?aba=classificacoes" replace /> },
+                  { path: "/people/cost-centers", element: <Navigate to="/people?aba=classificacoes" replace /> },
                   { path: "/people/:id", element: <EmployeePage /> },
                   { path: "/people", element: <PeoplePage /> },
                   { path: "/clock-devices", element: <ClockDevicesPage /> },
