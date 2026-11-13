@@ -4,11 +4,12 @@ import { FormEvent, useState } from "react"
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
+import { TimePickerField } from "@/components/ui/time-picker-field"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
@@ -51,10 +52,12 @@ export function DayTimesFields({
         <div className="space-y-2">
           <Label className={moduleLabelClass}>Marcações do dia</Label>
           {times.map((time, index) => (
-            <div key={index} className="flex min-w-0 flex-col gap-2 lg:flex-row">
-              <input className={cn(moduleFieldClass, "min-w-0 flex-1")} type="time" step={60} value={time} aria-label={`Marcação ${index + 1}`} onChange={(event) => changeTime(index, event.target.value)} required={index === 0} />
+            <div key={index} className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">
+              <div className="min-w-0 flex-1">
+                <TimePickerField id={`${dayId}-time-${index}`} value={time} inputLabel={`Marcação ${index + 1}`} onChange={(value) => changeTime(index, value)} />
+              </div>
               {times.length > 1 ? (
-                <Button type="button" variant="outline" className={cn(moduleQuietClass, "shrink-0 hover:border-[rgba(239,83,80,0.4)] hover:bg-[rgba(239,83,80,0.08)] hover:text-[#EF5350]")} onClick={() => onTimes(times.filter((_, position) => position !== index))}>
+                <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-12 shrink-0 hover:border-[rgba(239,83,80,0.4)] hover:bg-[rgba(239,83,80,0.08)] hover:text-[#EF5350]")} onClick={() => onTimes(times.filter((_, position) => position !== index))}>
                   <Trash2 className="h-4 w-4" />
                   Remover
                 </Button>
@@ -82,8 +85,10 @@ export function DayTimesFields({
       <div className="space-y-2">
         <Label>Marcações do dia</Label>
         {times.map((time, index) => (
-          <div key={index} className="flex gap-2">
-            <input className={fieldClass} type="time" value={time} aria-label={`Marcação ${index + 1}`} onChange={(event) => changeTime(index, event.target.value)} required={index === 0} />
+          <div key={index} className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <TimePickerField id={`${dayId}-time-${index}`} value={time} inputLabel={`Marcação ${index + 1}`} onChange={(value) => changeTime(index, value)} />
+            </div>
             {times.length > 1 ? (
               <Button type="button" variant="outline" onClick={() => onTimes(times.filter((_, position) => position !== index))}>
                 <Trash2 className="h-4 w-4" />
@@ -108,6 +113,7 @@ export function PunchCorrectionForm({
   onSaved,
   appearance = "plain",
   fixedDay,
+  formId,
   guard,
 }: {
   employees?: Employee[]
@@ -115,6 +121,7 @@ export function PunchCorrectionForm({
   onSaved: () => Promise<void>
   appearance?: "plain" | "module"
   fixedDay?: string
+  formId?: string
   guard?: (day: string) => string
 }) {
   const [selected, setSelected] = useState("")
@@ -130,6 +137,11 @@ export function PunchCorrectionForm({
     setError("")
     if (blocked) {
       setError(blocked)
+      return
+    }
+    const filled = times.map((item) => item.trim()).filter(Boolean)
+    if (filled.length % 2 !== 0) {
+      setError("Informe as marcações em pares. Cada entrada precisa de uma saída.")
       return
     }
     try {
@@ -149,7 +161,7 @@ export function PunchCorrectionForm({
   const module = appearance === "module"
 
   return (
-    <ActionForm className={module ? cn(moduleCardClass, "space-y-5") : "grid gap-3 rounded-md border border-border bg-card p-3"} onSubmit={onSubmit}>
+    <ActionForm id={formId} className={formId ? "space-y-5" : module ? cn(moduleCardClass, "space-y-5") : "grid gap-3 rounded-md border border-border bg-card p-3"} onSubmit={onSubmit}>
       <p className={module ? "text-sm leading-6 text-[#52525B]" : "text-sm text-muted-foreground"}>A correção manual substitui as marcações que valem neste dia. As antigas deixam de valer e ficam no histórico. Origem: manual.</p>
       {employees ? (
         <div className="space-y-2">
@@ -167,9 +179,11 @@ export function PunchCorrectionForm({
         <textarea id="correction-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
       {blocked || error ? <p className="text-sm text-destructive">{blocked || error}</p> : null}
-      <Button type="submit" className={module ? modulePrimaryClass : undefined} disabled={Boolean(blocked)}>
-        Corrigir o dia
-      </Button>
+      {formId ? null : (
+        <Button type="submit" className={module ? modulePrimaryClass : undefined} disabled={Boolean(blocked)}>
+          Corrigir o dia
+        </Button>
+      )}
     </ActionForm>
   )
 }

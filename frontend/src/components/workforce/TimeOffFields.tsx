@@ -144,6 +144,7 @@ export function TimeOffFields({
   appearance = "plain",
   showPhoto = true,
   hideMode = false,
+  fixedDay = false,
 }: {
   idPrefix: string
   kind: string
@@ -153,6 +154,7 @@ export function TimeOffFields({
   appearance?: "plain" | "module"
   showPhoto?: boolean
   hideMode?: boolean
+  fixedDay?: boolean
 }) {
   function patch(partial: Partial<TimeOffDraft>) {
     onChange({ ...draft, ...partial })
@@ -173,14 +175,14 @@ export function TimeOffFields({
               id={`${idPrefix}-mode`}
               value={mode}
               options={[
-                { value: "days", label: "Dia inteiro ou vários dias" },
+                { value: "days", label: fixedDay ? "Dia inteiro" : "Dia inteiro ou vários dias" },
                 { value: "hours", label: "Algumas horas de um dia" },
               ]}
               onChange={(value) => patch({ mode: value === "hours" ? "hours" : "days" })}
             />
           </div>
         )}
-        {mode === "days" ? (
+        {fixedDay ? null : mode === "days" ? (
           <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
             <DatePickerField id={`${idPrefix}-start`} label="De" value={draft.startsOn} onChange={(startsOn) => patch({ startsOn })} required />
             <DatePickerField id={`${idPrefix}-end`} label="Até" value={draft.endsOn} onChange={(endsOn) => patch({ endsOn })} />
@@ -194,6 +196,12 @@ export function TimeOffFields({
             </div>
           </>
         )}
+        {fixedDay && mode === "hours" ? (
+          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+            <TimePickerField id={`${idPrefix}-from`} label="De" value={draft.startTime} onChange={(startTime) => patch({ startTime })} required />
+            <TimePickerField id={`${idPrefix}-to`} label="Até" value={draft.endTime} onChange={(endTime) => patch({ endTime })} required />
+          </div>
+        ) : null}
         {kind === "certificate" ? (
           <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-[#F0F0F2] pt-5 lg:grid-cols-2">
             <p className="text-sm font-semibold text-[#1B2534] lg:col-span-2">Dados do atestado</p>

@@ -12,9 +12,21 @@ import { moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/compone
 import { emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { createRecord, listRecords, uploadCertificatePhoto, type NamedRecord, type TimeResult } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { showDate, showDuration } from "@/utils/labels"
+import { showDuration } from "@/utils/labels"
 
 export type ApuracaoMode = "details" | "correct" | "absence" | "timeoff"
+
+const dialogTitle: Record<ApuracaoMode, string> = {
+  details: "Detalhes do dia",
+  correct: "Corrigir marcações",
+  absence: "Lançar falta",
+  timeoff: "Atestado ou abono",
+}
+
+function longDate(iso: string) {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number)
+  return new Date(year, (month || 1) - 1, day || 1).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
+}
 
 export function ApuracaoDialog({
   item,
@@ -108,8 +120,7 @@ export function ApuracaoDialog({
 
   async function saveTimeOff() {
     setError("")
-    const spanEnd = draft.mode === "hours" ? draft.startsOn : draft.endsOn || draft.startsOn
-    const blocked = lockRange?.(draft.startsOn, spanEnd) || lockMessage
+    const blocked = lockRange?.(day, day) || lockMessage
     if (blocked) {
       setError(blocked)
       return
@@ -120,7 +131,7 @@ export function ApuracaoDialog({
     }
     setSaving(true)
     try {
-      const span = timeOffBody(draft, offKind)
+      const span = timeOffBody({ ...draft, startsOn: day, endsOn: day }, offKind)
       if (offKind === "certificate" && draft.photo) {
         span.photo_key = (await uploadCertificatePhoto(draft.photo)).key
       }
@@ -150,17 +161,18 @@ export function ApuracaoDialog({
       }}
     >
       <div role="dialog" aria-modal="true" aria-labelledby="apuracao-dialog-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)]">
-        <div className="flex items-start justify-between gap-3">
-          <h2 id="apuracao-dialog-title" className="text-lg font-semibold text-[#111827]">
-            {showDate(item.work_date)}
-          </h2>
-          <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
-            <X className="h-4 w-4" aria-hidden />
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h2 id="apuracao-dialog-title" className="text-xl font-bold tracking-tight text-[#0A0A0A]">{dialogTitle[mode]}</h2>
+            <p className="mt-0.5 text-sm text-[#64748B]">{longDate(item.work_date)}</p>
+          </div>
+          <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#0A0A0A] transition-colors duration-200 hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
+            <X className="h-5 w-5" strokeWidth={2.5} aria-hidden />
           </button>
         </div>
-        <div className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto">
-          <ApuracaoDayDetails item={item} />
-          {item.balance_minutes != null ? (
+        <div className="-mx-5 mt-3 min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
+          {mode === "details" ? <ApuracaoDayDetails item={item} /> : null}
+          {mode === "details" && item.balance_minutes != null ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E4E7] px-4 py-3">
               <p className="text-sm text-[#52525B]">
                 {dayOnly ? "Saldo deste dia" : "Saldo acumulado até este dia"}
@@ -176,6 +188,7 @@ export function ApuracaoDialog({
               employeeId={employeeId}
               appearance="module"
               fixedDay={day}
+              formId="apuracao-correction"
               guard={() => lockMessage}
               onSaved={async () => {
                 await onSaved()
@@ -185,33 +198,27 @@ export function ApuracaoDialog({
           ) : null}
           {mode === "absence" ? (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-[#0A0A0A]">Lançar falta</h3>
               {asksReason ? (
-                <div className="max-w-md space-y-2">
+                <div className="space-y-2">
                   <Label className={moduleLabelClass} htmlFor="apuracao-absence-reason">Motivo</Label>
-                  <SiteSelect id="apuracao-absence-reason" value={reasonId} searchable searchPath="/reasons" searchParams={{ kind: "absence", active: true }} searchPlaceholder="Pesquisar motivo" placeholder="Selecione" className="h-12" options={reasons.map((reason) => ({ value: String(reason.id), label: reason.name }))} onChange={setReasonId} />
+                  <SiteSelect id="apuracao-absence-reason" value={reasonId} searchable searchPath="/reasons" searchParams={{ kind: "absence", active: true }} searchPlaceholder="Pesquisar motivo" placeholder="Selecione" className="h-12 w-full shadow-none hover:shadow-none focus-visible:shadow-none" options={reasons.map((reason) => ({ value: String(reason.id), label: reason.name }))} onChange={setReasonId} />
                 </div>
               ) : null}
               <div className="space-y-2">
                 <Label className={moduleLabelClass} htmlFor="apuracao-absence-note">Observação</Label>
-                <textarea id="apuracao-absence-note" className={cn(moduleTextClass, "min-h-24")} value={note} onChange={(event) => setNote(event.target.value)} />
+                <textarea id="apuracao-absence-note" className={cn(moduleTextClass, "min-h-24 shadow-none hover:shadow-none focus:shadow-none")} value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
               {lockMessage || error ? <p className="text-sm text-destructive">{lockMessage || error}</p> : null}
-              <Button type="button" className={modulePrimaryClass} disabled={saving || Boolean(lockMessage)} onClick={() => void saveAbsence()}>
-                {saving ? <Spinner className="h-4 w-4" /> : null}
-                Lançar falta
-              </Button>
             </div>
           ) : null}
           {mode === "timeoff" ? (
             <div className="space-y-4">
-              <h3 className="text-base font-semibold text-[#0A0A0A]">Atestado ou abono</h3>
-              <div className="max-w-md space-y-2">
+              <div className="space-y-2">
                 <Label className={moduleLabelClass} htmlFor="apuracao-off-kind">Tipo</Label>
                 <SiteSelect
                   id="apuracao-off-kind"
                   value={offKind}
-                  className="h-12"
+                  className="h-12 w-full shadow-none hover:shadow-none focus-visible:shadow-none"
                   options={[{ value: "certificate", label: "Atestado" }, { value: "allowance", label: "Abono" }]}
                   onChange={(value) => {
                     setOffKind(value as "certificate" | "allowance")
@@ -221,23 +228,48 @@ export function ApuracaoDialog({
                   }}
                 />
               </div>
-              <TimeOffFields idPrefix="apuracao-off" kind={offKind} draft={draft} fileKey={fileKey} onChange={setDraft} appearance="module" />
-              <div className="max-w-md space-y-2">
+              <TimeOffFields
+                idPrefix="apuracao-off"
+                kind={offKind}
+                draft={draft}
+                fileKey={fileKey}
+                appearance="module"
+                fixedDay
+                onChange={(next) => setDraft({ ...next, startsOn: day, endsOn: day })}
+              />
+              <div className="space-y-2">
                 <Label className={moduleLabelClass} htmlFor="apuracao-off-reason">Motivo</Label>
-                <SiteSelect id="apuracao-off-reason" value={reasonId} searchable searchPath="/reasons" searchParams={{ kind: offKind, active: true }} searchPlaceholder="Pesquisar motivo" placeholder="Selecione" className="h-12" options={reasons.map((reason) => ({ value: String(reason.id), label: reason.name }))} onChange={setReasonId} />
+                <SiteSelect id="apuracao-off-reason" value={reasonId} searchable searchPath="/reasons" searchParams={{ kind: offKind, active: true }} searchPlaceholder="Pesquisar motivo" placeholder="Selecione" className="h-12 w-full shadow-none hover:shadow-none focus-visible:shadow-none" options={reasons.map((reason) => ({ value: String(reason.id), label: reason.name }))} onChange={setReasonId} />
               </div>
               <div className="space-y-2">
                 <Label className={moduleLabelClass} htmlFor="apuracao-off-note">Observação</Label>
-                <textarea id="apuracao-off-note" className={cn(moduleTextClass, "min-h-24")} value={note} onChange={(event) => setNote(event.target.value)} />
+                <textarea id="apuracao-off-note" className={cn(moduleTextClass, "min-h-24 shadow-none hover:shadow-none focus:shadow-none")} value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
               {lockMessage || error ? <p className="text-sm text-destructive">{lockMessage || error}</p> : null}
+            </div>
+          ) : null}
+        </div>
+        {mode === "details" ? null : (
+          <div className="mt-5 flex shrink-0 justify-end">
+            {mode === "correct" ? (
+              <Button type="submit" form="apuracao-correction" className={modulePrimaryClass} disabled={Boolean(lockMessage)}>
+                Corrigir o dia
+              </Button>
+            ) : null}
+            {mode === "absence" ? (
+              <Button type="button" className={modulePrimaryClass} disabled={saving || Boolean(lockMessage)} onClick={() => void saveAbsence()}>
+                {saving ? <Spinner className="h-4 w-4" /> : null}
+                Lançar falta
+              </Button>
+            ) : null}
+            {mode === "timeoff" ? (
               <Button type="button" className={modulePrimaryClass} disabled={saving || Boolean(lockMessage)} onClick={() => void saveTimeOff()}>
                 {saving ? <Spinner className="h-4 w-4" /> : null}
                 Salvar
               </Button>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

@@ -1,18 +1,20 @@
-import { FormEvent, useEffect, useState } from "react"
+import { AlertTriangle, Bell, Calendar, CalendarOff, CheckCircle2, Clock, FilePlus2 } from "lucide-react"
+import { FormEvent, useEffect, useState, type ReactNode } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Label } from "@/components/ui/label"
+import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
 import { ApuracaoDialog, type ApuracaoMode } from "@/components/workforce/ApuracaoDialog"
-import { ApuracaoDaySummary, dayMarks } from "@/components/workforce/apuracao-day"
+import { ApuracaoDaySummary, DayIconButton, dayFilter, dayMarks, dayStatus } from "@/components/workforce/apuracao-day"
 import { readApuracaoQuery, saveApuracaoQuery } from "@/components/workforce/apuracao-session"
-import { moduleQuietClass } from "@/components/workforce/module-visual"
 import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
-import { getTimeResults, type Employee, type TimeResults } from "@/services/workforce.service"
+import { moduleLabelClass } from "@/components/workforce/module-visual"
+import { getTimeResults, type Employee, type TimeResult, type TimeResults } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { resultNote } from "@/pages/workforce/journey"
 import { cn } from "@/utils/cn"
@@ -22,11 +24,136 @@ function today() {
   return punchDay(new Date().toISOString())
 }
 
-function DayAction({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+function DayAction({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" className={cn(moduleQuietClass, "h-10 px-3 disabled:cursor-not-allowed disabled:opacity-50")} disabled={disabled} onClick={onClick}>
-      {label}
-    </button>
+    <DayIconButton label={label} disabled={disabled} onClick={onClick}>
+      {children}
+    </DayIconButton>
+  )
+}
+
+function SummaryCard({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: "alert" | "warn" | "ok" }) {
+  const toneClass = tone === "alert"
+    ? "border-[#F3C7C7] bg-[#FFF8F8]"
+    : tone === "warn"
+      ? "border-[#F0E2B0] bg-[#FFF9EC]"
+      : "border-[#D7EBD9] bg-[rgba(30,138,58,0.06)]"
+  const iconClass = tone === "alert"
+    ? "bg-[#FDECEC] text-[#C62828]"
+    : tone === "warn"
+      ? "bg-[#FFF3CC] text-[#A16207]"
+      : "bg-white text-[#1E8A3A]"
+  const valueClass = tone === "alert" ? "text-[#C62828]" : tone === "warn" ? "text-[#8A5A00]" : "text-[#14532D]"
+  return (
+    <div className={cn("flex min-w-[9.5rem] flex-1 items-center gap-3 rounded-xl border px-3 py-3", toneClass)}>
+      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", iconClass)}>
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs text-[#64748B]">{label}</span>
+        <span className={cn("block text-2xl font-bold tabular-nums leading-none", valueClass)}>{value}</span>
+      </span>
+    </div>
+  )
+}
+
+const dayFilters = [
+  { id: "all", label: "Todos" },
+  { id: "absence", label: "Não veio" },
+  { id: "unscheduled", label: "Sem jornada prevista" },
+  { id: "alert", label: "Para conferir" },
+  { id: "clear", label: "Sem ocorrência" },
+] as const
+
+function ResultadoApuracao({
+  result,
+  visible,
+  canAct,
+  lockDay,
+  onOpen,
+}: {
+  result: TimeResults
+  visible: TimeResult[]
+  canAct: boolean
+  lockDay: (day: string) => string
+  onOpen: (day: string, mode: ApuracaoMode) => void
+}) {
+  const [filter, setFilter] = useState<(typeof dayFilters)[number]["id"]>("all")
+  const shown = filter === "all" ? visible : visible.filter((item) => dayFilter(item) === filter)
+  const counts = visible.reduce((total, item) => {
+    const kind = dayStatus(item).kind
+    total[kind] += 1
+    return total
+  }, { absence: 0, alert: 0, clear: 0 })
+  return (
+    <section className="rounded-2xl border border-[#E6EEE8] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-7">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.10)] text-[#1E8A3A]">
+              <Calendar className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div>
+              <h3 className="text-2xl font-bold tracking-tight text-[#0A0A0A]">Resultado da apuração</h3>
+              <p className="mt-0.5 text-sm text-[#64748B]">Consulte os resultados por dia.</p>
+            </div>
+          </div>
+          <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[rgba(30,138,58,0.10)] px-3 py-1.5 text-sm font-medium text-[#187432]">
+            <Calendar className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            Período {showDate(result.starts_on)} a {showDate(result.ends_on)}
+            {result.balance_minutes != null ? <span className="font-semibold">· Saldo {showDuration(result.balance_minutes)}</span> : null}
+          </p>
+        </div>
+        <div className="flex flex-1 flex-wrap gap-3 xl:max-w-xl xl:justify-end">
+          <SummaryCard icon={<AlertTriangle className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Total de faltas" value={counts.absence} tone="alert" />
+          <SummaryCard icon={<Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Dias para conferir" value={counts.alert} tone="warn" />
+          <SummaryCard icon={<CheckCircle2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Dias sem ocorrência" value={counts.clear} tone="ok" />
+        </div>
+      </div>
+      <div className="mt-5 border-t border-[#E6EEE8] pt-5">
+        <div className="mb-4 w-full space-y-2">
+          <Label className={moduleLabelClass} htmlFor="apuracao-day-filter">Situação</Label>
+          <SiteSelect
+            id="apuracao-day-filter"
+            value={filter}
+            options={dayFilters.map((option) => ({ value: option.id, label: option.label }))}
+            onChange={(value) => setFilter(value as (typeof dayFilters)[number]["id"])}
+          />
+        </div>
+        {shown.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {shown.map((item) => {
+              const day = item.work_date.slice(0, 10)
+              const locked = lockDay(day)
+              return (
+                <ApuracaoDaySummary
+                  key={item.work_date}
+                  item={item}
+                  balance={item.balance_minutes}
+                  onOpen={() => onOpen(day, "details")}
+                  actions={canAct ? (
+                    <>
+                      <DayAction label="Corrigir marcações" disabled={Boolean(locked)} onClick={() => onOpen(day, "correct")}>
+                        <Clock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      </DayAction>
+                      <DayAction label="Lançar falta" disabled={Boolean(locked)} onClick={() => onOpen(day, "absence")}>
+                        <CalendarOff className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      </DayAction>
+                      <DayAction label="Atestado ou abono" disabled={Boolean(locked)} onClick={() => onOpen(day, "timeoff")}>
+                        <FilePlus2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                      </DayAction>
+                      {locked ? <span className="max-w-[10rem] text-xs text-[#64748B]">{locked}</span> : null}
+                    </>
+                  ) : null}
+                />
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-brand-quiet">{visible.length === 0 ? "Nenhum resultado encontrado para o período selecionado." : "Nenhum dia neste filtro."}</p>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -165,40 +292,13 @@ export function TimeResultsPanel({
           </div>
         ) : null}
         {result ? (
-          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-            <h3 className="text-base font-semibold text-brand-ink">Resultado da apuração</h3>
-            <p className="mt-1 text-sm text-brand-muted">Consulte os resultados por dia.</p>
-            <p className="mt-2 text-sm text-[#52525B]">
-              Período {showDate(result.starts_on)} a {showDate(result.ends_on)}
-              {result.balance_minutes != null ? <span className="ml-2 font-semibold text-[#0A0A0A]">Saldo do período {showDuration(result.balance_minutes)}</span> : null}
-            </p>
-            {visible.length > 0 ? (
-              <div className="mt-4 flex flex-col gap-3">
-                {visible.map((item) => {
-                  const day = item.work_date.slice(0, 10)
-                  const locked = locks.lockDay(day)
-                  return (
-                    <ApuracaoDaySummary
-                      key={item.work_date}
-                      item={item}
-                      balance={item.balance_minutes}
-                      onOpen={() => setOpen({ day, mode: "details" })}
-                      actions={canAct ? (
-                        <>
-                          <DayAction label="Corrigir marcações" disabled={Boolean(locked)} onClick={() => setOpen({ day, mode: "correct" })} />
-                          <DayAction label="Lançar falta" disabled={Boolean(locked)} onClick={() => setOpen({ day, mode: "absence" })} />
-                          <DayAction label="Atestado ou abono" disabled={Boolean(locked)} onClick={() => setOpen({ day, mode: "timeoff" })} />
-                          {locked ? <span className="text-sm text-[#64748B]">{locked}</span> : null}
-                        </>
-                      ) : null}
-                    />
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-brand-quiet">Nenhum resultado encontrado para o período selecionado.</p>
-            )}
-          </section>
+          <ResultadoApuracao
+            result={result}
+            visible={visible}
+            canAct={canAct}
+            lockDay={locks.lockDay}
+            onOpen={(day, mode) => setOpen({ day, mode })}
+          />
         ) : null}
         {opened && open && personId ? (
           <ApuracaoDialog
