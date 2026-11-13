@@ -1,4 +1,4 @@
-import { X } from "lucide-react"
+import { Clock, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
+import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { ApuracaoDayDetails } from "@/components/workforce/apuracao-day"
 import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
-import { emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
-import { createRecord, listRecords, uploadCertificatePhoto, type NamedRecord, type TimeResult } from "@/services/workforce.service"
+import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
+import { createRecord, listRecords, uploadCertificatePhoto, type NamedRecord, type Punch, type TimeResult } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { showDuration } from "@/utils/labels"
+import { punchDay, punchOrigin, showClock, showDuration } from "@/utils/labels"
 
 export type ApuracaoMode = "details" | "correct" | "absence" | "timeoff"
 
@@ -26,6 +27,90 @@ const dialogTitle: Record<ApuracaoMode, string> = {
 function longDate(iso: string) {
   const [year, month, day] = iso.slice(0, 10).split("-").map(Number)
   return new Date(year, (month || 1) - 1, day || 1).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
+}
+
+const detailTabs = [
+  { id: "punches", label: "Ponto" },
+  { id: "hours", label: "Demonstrativo" },
+] as const
+
+async function punchesOnDay(employeeId: number, day: string) {
+  const found: Punch[] = []
+  for (const valid of [true, false]) {
+    let page = 1
+    for (;;) {
+      const result = await listRecords<Punch>("/punches", { employee_id: employeeId, valid, page, limit: 100 })
+      if (result.items.length === 0) break
+      let older = true
+      for (const item of result.items) {
+        const stamp = punchDay(item.occurred_at)
+        if (stamp === day) found.push(item)
+        if (stamp >= day) older = false
+      }
+      if (older || page * 100 >= result.total || page >= 8) break
+      page += 1
+    }
+  }
+  return found.sort((left, right) => left.occurred_at.localeCompare(right.occurred_at))
+}
+
+function DayPunches({ employeeId, day }: { employeeId: number; day: string }) {
+  const [items, setItems] = useState<Punch[] | null>(null)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let active = true
+    setItems(null)
+    setError("")
+    punchesOnDay(employeeId, day)
+      .then((rows) => {
+        if (active) setItems(rows)
+      })
+      .catch((caught: unknown) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar as marcações.")
+      })
+    return () => {
+      active = false
+    }
+  }, [employeeId, day])
+
+  if (error) return <p className="text-sm text-destructive">{error}</p>
+  if (!items) {
+    return (
+      <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-4 py-10" role="status" aria-live="polite">
+        <Spinner />
+      </div>
+    )
+  }
+  if (items.length === 0) {
+    return <p className="rounded-xl border border-dashed border-[#E4E4E7] px-4 py-8 text-center text-sm text-[#71717A]">Nenhuma marcação neste dia.</p>
+  }
+  return (
+    <ul className="divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E4E4E7] bg-white">
+      {items.map((item) => (
+        <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(30,138,58,0.10)] text-[#1E8A3A]">
+            <Clock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold tabular-nums text-[#0A0A0A]">{showClock(item.occurred_at)}</span>
+            <span className="mt-0.5 block text-xs text-[#64748B]">
+              {punchOrigin(item.source)}
+              {item.channel === "online" ? " · Online" : item.channel === "offline" ? " · Offline" : ""}
+              {item.valid ? "" : " · Deixou de valer"}
+            </span>
+          </span>
+          {item.qr_url || item.selfie_url || item.face_url ? (
+            <span className="flex shrink-0 flex-wrap justify-end gap-3 text-xs">
+              <DocumentLink href={item.qr_url} label="Ver QR" />
+              <DocumentLink href={item.selfie_url} label="Ver selfie" />
+              <DocumentLink href={item.face_url} label="Ver rosto" />
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export function ApuracaoDialog({
@@ -46,6 +131,7 @@ export function ApuracaoDialog({
   onSaved: () => Promise<void>
 }) {
   const day = item.work_date.slice(0, 10)
+  const [detailTab, setDetailTab] = useState<(typeof detailTabs)[number]["id"]>("punches")
   const [dayOnly, setDayOnly] = useState(false)
   const [offKind, setOffKind] = useState<"certificate" | "allowance">("certificate")
   const [draft, setDraft] = useState<TimeOffDraft>({ ...emptyTimeOff(), startsOn: day, endsOn: day })
@@ -171,8 +257,28 @@ export function ApuracaoDialog({
           </button>
         </div>
         <div className="-mx-5 mt-3 min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
-          {mode === "details" ? <ApuracaoDayDetails item={item} /> : null}
-          {mode === "details" && item.balance_minutes != null ? (
+          {mode === "details" ? (
+            <div className="flex justify-center">
+            <SlidingHighlight className="inline-flex max-w-full rounded-xl bg-[#E7E8EA] p-1" role="tablist" aria-label="Detalhe do dia">
+              {detailTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={detailTab === tab.id}
+                  data-slide-active={detailTab === tab.id ? "true" : undefined}
+                  className={cn("relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none", detailTab === tab.id ? "text-[#1E8A3A]" : "text-[#52525B] hover:text-[#0A0A0A]")}
+                  onClick={() => setDetailTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </SlidingHighlight>
+            </div>
+          ) : null}
+          {mode === "details" && detailTab === "punches" ? <DayPunches employeeId={employeeId} day={day} /> : null}
+          {mode === "details" && detailTab === "hours" ? <ApuracaoDayDetails item={item} /> : null}
+          {mode === "details" && detailTab === "hours" && item.balance_minutes != null ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E4E7] px-4 py-3">
               <p className="text-sm text-[#52525B]">
                 {dayOnly ? "Saldo deste dia" : "Saldo acumulado até este dia"}
