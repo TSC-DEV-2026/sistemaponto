@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
-import { Briefcase, Building2, CalendarClock, ClipboardList, Clock, Info, Landmark, Save, Timer, User, UserRound, Users, type LucideIcon } from "lucide-react"
+import { Briefcase, Building2, CalendarClock, ClipboardList, Clock, Info, Save, Tags, Timer, User, UserRound, Users, type LucideIcon } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
+import { loadClassificationGroups } from "@/components/workforce/ClassificationFilter"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
@@ -27,7 +28,6 @@ import { absenceKinds, clockMethodLabel, manualTimeOffKinds, occurrenceKindLabel
 const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
   { kind: "job", label: "Cargo", path: "/jobs", searchKey: "name", icon: Briefcase },
   { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: CalendarClock },
-  { kind: "cost_center", label: "Centro de custo", path: "/cost-centers", searchKey: "name", icon: Landmark },
   { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: Users },
   { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: Building2 },
   { kind: "manager", label: "Gestor", path: "/employees", searchKey: "full_name", icon: UserRound },
@@ -45,6 +45,104 @@ function readFaceImage(file: File) {
     reader.onerror = () => reject(new Error("A foto de referência não foi aceita."))
     reader.readAsDataURL(file)
   })
+}
+
+function ClassificationAssignment({ employeeId }: { employeeId: number }) {
+  const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[]; current: string }[]>([])
+  const [chosen, setChosen] = useState<Record<number, string>>({})
+  const [dates, setDates] = useState<Record<number, string>>({})
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [saving, setSaving] = useState<number | null>(null)
+  const [message, setMessage] = useState("")
+
+  async function load() {
+    const [page, person] = await Promise.all([
+      loadClassificationGroups(),
+      getRecord<Employee>("/employees", employeeId),
+    ])
+    const current = new Map((person.classifications || []).map((item) => [item.classification_id, item.value_name]))
+    setGroups(page.map((item) => ({ ...item, current: current.get(item.id) || "" })))
+  }
+
+  useEffect(() => {
+    let active = true
+    load()
+      .catch(() => {
+        if (active) setMessage("Não foi possível carregar as classificações.")
+      })
+    return () => {
+      active = false
+    }
+  }, [employeeId])
+
+  async function save(groupId: number) {
+    const valueId = chosen[groupId]
+    const day = dates[groupId]
+    if (!valueId) {
+      setMessage("Selecione o valor.")
+      return
+    }
+    if (!day) {
+      setMessage("Informe a data de início.")
+      return
+    }
+    setMessage("")
+    setSaving(groupId)
+    try {
+      await createRecord("/employee-vigencies", {
+        employee_id: employeeId,
+        kind: "classification",
+        reference_id: Number(valueId),
+        valid_from: day,
+        note: notes[groupId]?.trim() || null,
+      })
+      setChosen((current) => ({ ...current, [groupId]: "" }))
+      setDates((current) => ({ ...current, [groupId]: "" }))
+      setNotes((current) => ({ ...current, [groupId]: "" }))
+      await load()
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar a classificação.")
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <section className={cn(moduleCardClass, "space-y-5")}>
+      <h2 className="text-lg font-semibold text-[#0A0A0A]">Classificações</h2>
+      <p className="text-sm text-[#64748B]">Um valor de cada. A troca pede a data e encerra só aquela classificação.</p>
+      {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
+      {groups.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma classificação.</p> : null}
+      {groups.map((group) => (
+        <div key={group.id} className="space-y-3 border-t border-[#F1F5F9] pt-4">
+          <p className="text-sm font-semibold text-[#0A0A0A]">{group.name}</p>
+          <p className="text-sm text-[#64748B]">Vigente: {group.current || "sem valor"}</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className={moduleLabelClass} htmlFor={`classification-${group.id}`}>Valor</Label>
+              <SiteSelect
+                id={`classification-${group.id}`}
+                value={chosen[group.id] || ""}
+                placeholder="Selecione"
+                className="h-12"
+                options={group.values.map((item) => ({ value: String(item.id), label: item.name }))}
+                onChange={(next) => setChosen((current) => ({ ...current, [group.id]: next }))}
+              />
+            </div>
+            <DatePickerField id={`classification-from-${group.id}`} label="Início" value={dates[group.id] || ""} onChange={(next) => setDates((current) => ({ ...current, [group.id]: next }))} />
+            <div className="space-y-2 md:col-span-2">
+              <Label className={moduleLabelClass} htmlFor={`classification-note-${group.id}`}>Observação</Label>
+              <textarea id={`classification-note-${group.id}`} className={cn(moduleTextClass, "min-h-24")} value={notes[group.id] || ""} onChange={(event) => setNotes((current) => ({ ...current, [group.id]: event.target.value }))} />
+            </div>
+          </div>
+          <Button type="button" className={modulePrimaryClass} disabled={saving === group.id} onClick={() => void save(group.id)}>
+            {saving === group.id ? <Spinner className="h-4 w-4" /> : null}
+            Salvar {group.name.toLocaleLowerCase("pt-BR")}
+          </Button>
+        </div>
+      ))}
+    </section>
+  )
 }
 
 export function EmployeeFormPage() {
@@ -331,6 +429,7 @@ export function EmployeeFormPage() {
             [
               { id: "data", label: "Dados", icon: User, show: true },
               ...vigencyTargets.map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
+              { id: "classification", label: "Classificações", icon: Tags, show: isAdmin && id !== null },
               { id: "bank", label: "Banco de horas", icon: Timer, show: isAdmin || role === "manager" },
               { id: "correction", label: "Correção", icon: Clock, show: canCorrect },
               { id: "events", label: "Ausências", icon: ClipboardList, show: canRecordEvent },
@@ -473,6 +572,7 @@ export function EmployeeFormPage() {
         </div>
       </ActionForm>
       ) : null}
+      {id !== null && tab === "classification" && isAdmin ? <ClassificationAssignment employeeId={id} /> : null}
       {id !== null && linkTarget && isAdmin ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
           <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar {linkTarget.label.toLocaleLowerCase("pt-BR")}</h2>

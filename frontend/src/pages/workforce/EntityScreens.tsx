@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Ban, Briefcase, Building2, Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, Users, type LucideIcon } from "lucide-react"
+import { Ban, Briefcase, Building2, Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Tags, Trash2, Users, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { authInputClass } from "@/components/auth-screen"
@@ -16,7 +16,8 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { optionsOf, type CatalogField } from "@/components/workforce/CatalogPanel"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
-import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { ClassificationFilter, classificationQuery } from "@/components/workforce/ClassificationFilter"
+import { createRecord, getRecord, listRecords, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
@@ -282,6 +283,7 @@ export function RecordList<T extends Row>({
   searchPlaceholder = "Pesquisar",
   searchTitle,
   searchLead,
+  extraParams = {},
 }: {
   path: string
   filters?: (query: string) => ListParams
@@ -299,6 +301,7 @@ export function RecordList<T extends Row>({
   searchPlaceholder?: string
   searchTitle?: string
   searchLead?: string
+  extraParams?: ListParams
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const setTabAction = useContext(TabAction)
@@ -312,6 +315,7 @@ export function RecordList<T extends Row>({
   const list = usePagedList<T>(path, {
     ...(filters ? filters(query) : query.trim() ? { name: query.trim() } : {}),
     ...selectedFilters(selects, chosen),
+    ...extraParams,
   })
 
   useEffect(() => {
@@ -771,6 +775,7 @@ function downloadPdf(bytes: Uint8Array<ArrayBuffer>, filename: string) {
 }
 
 export function EmployeeList() {
+  const [valueIds, setValueIds] = useState<number[]>([])
   const [note, setNote] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -804,6 +809,13 @@ export function EmployeeList() {
     <div className="space-y-3">
       {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <section className={moduleCardClass}>
+        <h2 className="text-lg font-semibold text-[#0A0A0A]">Classificações</h2>
+        <p className="mt-1 text-sm text-[#64748B]">Valores da mesma classificação se alternam. Classificações diferentes se somam.</p>
+        <div className="mt-4">
+          <ClassificationFilter selected={valueIds} onChange={setValueIds} />
+        </div>
+      </section>
       <RecordList<Employee>
         path="/employees"
         filters={(query) => {
@@ -821,6 +833,7 @@ export function EmployeeList() {
         detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
         empty="Nenhum funcionário."
         extra={extra}
+        extraParams={classificationQuery(valueIds) ? { classification_value_id: classificationQuery(valueIds) } : {}}
         presentation="people"
         searchPlaceholder="Pesquisar por nome ou CPF"
       />
@@ -895,8 +908,134 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       searchTitle={organizationCopy[catalog]?.title}
       searchLead={organizationCopy[catalog]?.lead}
       searchPlaceholder={presentation === "organization" ? "Buscar por nome..." : "Pesquisar"}
-      mark={organizationCopy[catalog]?.mark ?? (catalog === "cost-centers" ? Building2 : catalog === "jobs" ? Briefcase : undefined)}
+      mark={organizationCopy[catalog]?.mark ?? (catalog === "classifications" ? Tags : catalog === "jobs" ? Briefcase : undefined)}
     />
+  )
+}
+
+function ClassificationValues({ classificationId, canEdit }: { classificationId: number; canEdit: boolean }) {
+  const [items, setItems] = useState<NamedRecord[]>([])
+  const [name, setName] = useState("")
+  const [drafts, setDrafts] = useState<Record<number, string>>({})
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+
+  async function load() {
+    const page = await listRecords<NamedRecord>("/classification-values", {
+      page: 1,
+      limit: 100,
+      classification_id: classificationId,
+    })
+    const found = [...page.items]
+    const pages = Math.ceil(page.total / 100)
+    for (let index = 2; index <= pages; index += 1) {
+      const next = await listRecords<NamedRecord>("/classification-values", {
+        page: index,
+        limit: 100,
+        classification_id: classificationId,
+      })
+      found.push(...next.items)
+    }
+    setItems(found)
+    setDrafts(Object.fromEntries(found.map((item) => [item.id, item.name])))
+  }
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    load()
+      .catch(() => {
+        if (active) setError("Não foi possível carregar os valores.")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [classificationId])
+
+  async function addValue() {
+    const next = name.trim()
+    if (!next) return
+    setError("")
+    try {
+      await createRecord("/classification-values", { classification_id: classificationId, name: next })
+      setName("")
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o valor.")
+    }
+  }
+
+  async function rename(item: NamedRecord) {
+    const next = (drafts[item.id] || "").trim()
+    if (!next || next === item.name) return
+    setError("")
+    try {
+      await updateRecord("/classification-values", item.id, { name: next })
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o valor.")
+    }
+  }
+
+  async function remove(item: NamedRecord) {
+    setError("")
+    try {
+      await removeRecord("/classification-values", item.id)
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível excluir o valor.")
+    }
+  }
+
+  return (
+    <div className="space-y-3 border-t border-[#F1F5F9] pt-5">
+      <h3 className="text-base font-semibold text-[#0A0A0A]">Valores</h3>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {loading ? <Spinner label="Carregando os valores" className="h-6 w-6 text-[#1E8A3A]" /> : null}
+      {!loading && items.length === 0 ? <p className="text-sm text-[#64748B]">Nenhum valor.</p> : null}
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <li key={item.id} className="flex flex-wrap items-center gap-2">
+            {canEdit ? (
+              <Input
+                className={moduleFieldClass}
+                value={drafts[item.id] ?? item.name}
+                aria-label={`Valor ${item.name}`}
+                onChange={(event) => setDrafts((current) => ({ ...current, [item.id]: event.target.value }))}
+              />
+            ) : (
+              <span className="text-sm font-medium text-[#0A0A0A]">{item.name}</span>
+            )}
+            {canEdit ? (
+              <>
+                <Button type="button" className={moduleQuietClass} onClick={() => void rename(item)}>
+                  Salvar
+                </Button>
+                <Button type="button" className={moduleDangerClass} onClick={() => void remove(item)}>
+                  <Trash2 className="h-4 w-4" />
+                  Excluir
+                </Button>
+              </>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {canEdit ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="classification-value-name">Novo valor</Label>
+            <Input id="classification-value-name" className={moduleFieldClass} value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          <Button type="button" className={modulePrimaryClass} onClick={() => void addValue()}>
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </Button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -1004,9 +1143,9 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     }
   }
 
-  if (catalog === "jobs" || catalog === "cost-centers") {
-    const Icon = catalog === "jobs" ? Briefcase : Building2
-    const noun = catalog === "jobs" ? "cargo" : "centro de custo"
+  if (catalog === "jobs" || catalog === "classifications") {
+    const Icon = catalog === "jobs" ? Briefcase : Tags
+    const noun = catalog === "jobs" ? "cargo" : "classificação"
     if (mode !== "new" && !loaded && !error) {
       return (
         <div className="w-full min-w-0 space-y-5">
@@ -1019,7 +1158,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       )
     }
     const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
-    const subtitle = mode === "view" ? (catalog === "jobs" ? "Cargo" : "Centro de custo") : mode === "new" ? `Informe o nome do ${noun}.` : `Atualize o nome do ${noun}.`
+    const subtitle = mode === "view" ? (catalog === "jobs" ? "Cargo" : "Classificação") : mode === "new" ? `Informe o nome do ${noun}.` : `Atualize o nome do ${noun}.`
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={entry.backTo} appearance="detail" />
@@ -1035,7 +1174,10 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
-            <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
+            <>
+              <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
+              {catalog === "classifications" ? <ClassificationValues classificationId={id} canEdit={isAdmin} /> : null}
+            </>
           ) : (
             <ActionForm className="space-y-5" onSubmit={onSubmit}>
               {entry.fields.map((field) => (

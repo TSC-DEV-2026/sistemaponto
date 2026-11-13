@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
+import { ClassificationFilter, classificationQuery, loadClassificationGroups } from "@/components/workforce/ClassificationFilter"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
@@ -27,6 +28,7 @@ import {
   updateRecord,
   type Closing,
   type Employee,
+  type NamedRecord,
   type FiscalFile,
   type FiscalImport,
   type Notice,
@@ -1599,7 +1601,14 @@ function monthStart() {
   return `${punchDay(new Date().toISOString()).slice(0, 8)}01`
 }
 
-type ReportQuery = { kind: string; startsOn: string; endsOn: string; employeeId: string }
+type ReportQuery = {
+  kind: string
+  startsOn: string
+  endsOn: string
+  employeeId: string
+  classificationValueId: string
+  classificationIds: string
+}
 
 function punchMeasure(detail: string, label: string) {
   const match = new RegExp(`${label} (\\d+) min`).exec(detail)
@@ -1637,6 +1646,9 @@ export function ReportsPage() {
   const [startsOn, setStartsOn] = useState(monthStart)
   const [endsOn, setEndsOn] = useState(() => punchDay(new Date().toISOString()))
   const [employeeId, setEmployeeId] = useState("")
+  const [valueIds, setValueIds] = useState<number[]>([])
+  const [showIds, setShowIds] = useState<number[]>([])
+  const [classifications, setClassifications] = useState<NamedRecord[]>([])
   const [result, setResult] = useState<Report | null>(null)
   const [applied, setApplied] = useState<ReportQuery | null>(null)
   const [loading, setLoading] = useState(false)
@@ -1657,12 +1669,14 @@ export function ReportsPage() {
       listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 }),
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
     ])
-      .then(([reports, people]) => {
+      .then(async ([reports, people]) => {
         if (!active) {
           return
         }
         setCatalog(reports.items)
         setEmployees(people.items)
+        const groups = await loadClassificationGroups().catch(() => null)
+        if (active && groups) setClassifications(groups.map((item) => ({ id: item.id, name: item.name })))
         if (reports.items[0]) {
           setKind(reports.items[0].kind)
         }
@@ -1683,7 +1697,7 @@ export function ReportsPage() {
   async function openPage(page: number, next: ReportQuery) {
     const ticket = requestId.current + 1
     requestId.current = ticket
-    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId
+    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.classificationValueId === next.classificationValueId && applied.classificationIds === next.classificationIds
     setLoading(true)
     setError("")
     if (!sameQuery) {
@@ -1691,7 +1705,10 @@ export function ReportsPage() {
       setResult(null)
     }
     try {
-      const data = await getReport(next.kind, next.startsOn, next.endsOn, page, next.employeeId ? Number(next.employeeId) : undefined)
+      const extra: Record<string, string> = {}
+      if (next.classificationValueId) extra.classification_value_id = next.classificationValueId
+      if (next.classificationIds) extra.classification_ids = next.classificationIds
+      const data = await getReport(next.kind, next.startsOn, next.endsOn, page, next.employeeId ? Number(next.employeeId) : undefined, 20, extra)
       if (ticket !== requestId.current) return
       setApplied(next)
       setResult(data)
@@ -1708,7 +1725,15 @@ export function ReportsPage() {
   async function consult(event: FormEvent) {
     event.preventDefault()
     if (loading) return
-    await openPage(1, { kind, startsOn, endsOn, employeeId })
+    const people = kind === "people"
+    await openPage(1, {
+      kind,
+      startsOn,
+      endsOn: people ? startsOn : endsOn,
+      employeeId,
+      classificationValueId: people ? classificationQuery(valueIds) : "",
+      classificationIds: people ? classificationQuery(showIds) : "",
+    })
   }
 
   async function printReport() {
@@ -1716,11 +1741,14 @@ export function ReportsPage() {
     setError("")
     const employee = applied.employeeId ? Number(applied.employeeId) : undefined
     try {
-      const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100)
+      const extra: Record<string, string> = {}
+      if (applied.classificationValueId) extra.classification_value_id = applied.classificationValueId
+      if (applied.classificationIds) extra.classification_ids = applied.classificationIds
+      const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100, extra)
       const items = [...first.items]
       const pageCount = Math.max(1, Math.ceil(first.total / first.limit))
       for (let page = 2; page <= pageCount; page += 1) {
-        const next = await getReport(applied.kind, applied.startsOn, applied.endsOn, page, employee, 100)
+        const next = await getReport(applied.kind, applied.startsOn, applied.endsOn, page, employee, 100, extra)
         items.push(...next.items)
       }
       const bytes = reportPdf({
@@ -1755,7 +1783,7 @@ export function ReportsPage() {
   return (
     <div className="w-full min-w-0 space-y-4">
       <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={consult}>
-        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto] xl:items-end">
+        <div className={cn("grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:items-end", kind === "people" ? "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]" : "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]")}>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-kind">
               Tipo de relatório
@@ -1763,11 +1791,13 @@ export function ReportsPage() {
             <SiteSelect id="report-kind" value={kind} icon={FileText} loading={!filtersReady} options={catalog.map((item) => ({ value: item.kind, label: item.name }))} onChange={setKind} />
           </div>
           <div className="min-w-0">
-            <DatePickerField id="report-start" label="De" value={startsOn} onChange={setStartsOn} required />
+            <DatePickerField id="report-start" label={kind === "people" ? "Dia" : "De"} value={startsOn} onChange={setStartsOn} required />
           </div>
+          {kind === "people" ? null : (
           <div className="min-w-0">
             <DatePickerField id="report-end" label="Até" value={endsOn} onChange={setEndsOn} required />
           </div>
+          )}
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-employee">
               Funcionário
@@ -1779,6 +1809,34 @@ export function ReportsPage() {
             Consultar
           </Button>
         </div>
+        {kind === "people" ? (
+          <div className="mt-5 space-y-4 border-t border-[#F1F5F9] pt-5">
+            <div>
+              <p className="text-sm font-semibold text-[#0A0A0A]">Classificações no relatório</p>
+              <p className="mt-1 text-sm text-[#64748B]">Sem marcação, o relatório mostra todas.</p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {classifications.map((item) => (
+                  <label key={item.id} className="flex items-center gap-2 text-sm text-[#334155]">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[#1E8A3A]"
+                      checked={showIds.includes(item.id)}
+                      onChange={() => setShowIds((current) => (current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]))}
+                    />
+                    {item.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#0A0A0A]">Filtro de pessoas</p>
+              <p className="mt-1 text-sm text-[#64748B]">Valores da mesma classificação se alternam. Classificações diferentes se somam.</p>
+              <div className="mt-3">
+                <ClassificationFilter selected={valueIds} onChange={setValueIds} />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </ActionForm>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {result && applied ? (
@@ -1786,7 +1844,7 @@ export function ReportsPage() {
           {(
             [
               [FileText, "Tipo", result.name],
-              [Calendar, "Período", `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`],
+              [Calendar, result.starts_on === result.ends_on ? "Dia" : "Período", result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`],
               [User, "Funcionário", consultedPerson(applied, employees, result.items)],
               [List, "Registros encontrados", String(result.total)],
             ] as const
@@ -1821,7 +1879,7 @@ export function ReportsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[#0A0A0A]">
-                {result.name} · {showDate(result.starts_on)} a {showDate(result.ends_on)}
+                {result.name} · {result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`}
               </h2>
               <p className="text-sm text-[#71717A]">{result.total === 0 ? "Nenhum registro encontrado" : `${result.total} registros encontrados`}</p>
             </div>

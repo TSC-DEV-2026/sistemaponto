@@ -1,8 +1,15 @@
-import { Briefcase, Building2, Users } from "lucide-react"
+import { Briefcase, Tags, Users } from "lucide-react"
+import { useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { CatalogList, DomainTabs, EmployeeList } from "@/pages/workforce/EntityScreens"
 
 export function PeoplePage() {
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    if (params.get("aba") === "centros") setParams({ aba: "classificacoes" }, { replace: true })
+  }, [params, setParams])
+
   return (
     <DomainTabs
       title="Pessoas"
@@ -10,7 +17,7 @@ export function PeoplePage() {
       tabs={[
         { id: "funcionarios", label: "Funcionários", icon: Users, panel: <EmployeeList /> },
         { id: "cargos", label: "Cargos", icon: Briefcase, panel: <CatalogList catalog="jobs" presentation="people" /> },
-        { id: "centros", label: "Centros de custo", icon: Building2, panel: <CatalogList catalog="cost-centers" presentation="people" /> },
+        { id: "classificacoes", label: "Classificações", icon: Tags, panel: <CatalogList catalog="classifications" presentation="people" /> },
       ]}
     />
   )

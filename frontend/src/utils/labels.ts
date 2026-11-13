@@ -59,6 +59,7 @@ export const vigencyKindLabel: Record<string, string> = {
   job: "Cargo",
   journey: "Jornada",
   cost_center: "Centro de custo",
+  classification: "Classificação",
   unit: "Unidade",
   sector: "Setor",
   team: "Equipe",

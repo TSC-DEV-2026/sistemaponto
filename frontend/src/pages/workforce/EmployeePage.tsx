@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Briefcase, Building2, Calendar, CalendarDays, ClipboardList, Clock, FileText, Hash, History, IdCard, Landmark, Layers, Mail, Pencil, QrCode, ScanFace, Settings, Timer, Trash2, User, UserRound, Users, X, type LucideIcon } from "lucide-react"
+import { ArrowLeftRight, Briefcase, Building2, Calendar, CalendarDays, ClipboardList, Clock, FileText, Hash, History, IdCard, Landmark, Layers, Mail, Pencil, QrCode, ScanFace, Settings, Tags, Timer, Trash2, User, UserRound, Users, X, type LucideIcon } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate, useParams } from "react-router-dom"
@@ -320,6 +320,7 @@ export function EmployeePage() {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [vigencies, setVigencies] = useState<Vigency[]>([])
   const [journeys, setJourneys] = useState<NamedRecord[]>([])
+  const [classificationNames, setClassificationNames] = useState<Record<number, string>>({})
   const [saved, setSaved] = useState(0)
   const [historyKind, setHistoryKind] = useState("")
   const [eventKind, setEventKind] = useState("")
@@ -357,6 +358,12 @@ export function EmployeePage() {
     setRegistration(person.registration_number || "")
     setVigencies(links.items)
     setJourneys(journeyPage.items)
+    try {
+      const classificationPage = await listRecords<NamedRecord>("/classifications", { page: 1, limit: 100 })
+      setClassificationNames(Object.fromEntries(classificationPage.items.map((item) => [item.id, item.name])))
+    } catch {
+      setClassificationNames({})
+    }
     setSaved((current) => current + 1)
   }
 
@@ -555,16 +562,20 @@ export function EmployeePage() {
                 [
                   [Briefcase, "Cargo", employee.job_label],
                   [Clock, "Jornada", employee.journey_label],
-                  [Building2, "Centro de custo", employee.cost_center_label],
                   [Building2, "Unidade", employee.unit_label],
                   [Layers, "Setor", employee.sector_label],
                   [Users, "Equipe", employee.team_label],
                   [Landmark, "Sindicato", employee.union_label],
                   [UserRound, "Gestor", employee.manager_label],
                 ] as const
-              ).map(([icon, label, value]) => (
+                ).map(([icon, label, value]) => (
                 <FieldTile key={label} icon={icon} label={label}>
                   {value?.trim() ? value : <EmptyMark />}
+                </FieldTile>
+              ))}
+              {(employee.classifications || []).map((item) => (
+                <FieldTile key={item.classification_id} icon={Tags} label={item.name}>
+                  {item.value_name?.trim() ? item.value_name : <EmptyMark />}
                 </FieldTile>
               ))}
             </dl>
@@ -720,7 +731,7 @@ export function EmployeePage() {
               <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
                 {history.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                    {vigencyKindLabel[item.kind] || item.kind}: {situationLabel[item.label] || item.label} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
+                    {item.kind === "classification" ? `${item.classification_id ? classificationNames[item.classification_id] || "Classificação" : "Classificação"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
                   </li>
                 ))}
               </ul>

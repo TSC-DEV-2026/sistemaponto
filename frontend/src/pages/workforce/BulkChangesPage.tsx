@@ -11,11 +11,11 @@ import {
   Eye,
   Filter,
   Info,
-  Landmark,
   Layers,
   Pencil,
   Plus,
   ScanLine,
+  Tags,
   Search,
   Trash2,
   UserCog,
@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
+import { ClassificationFilter, classificationQuery } from "@/components/workforce/ClassificationFilter"
 import { ListPager, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
@@ -45,7 +46,7 @@ import { clockMethodLabel, showDate } from "@/utils/labels"
 const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
 
 const catalog = [
-  { id: "cost_center", kind: "cost_center", title: "Alterar centro de custo", description: "Define um novo centro de custo para os funcionários.", valueName: "Novo centro de custo", icon: Landmark, path: "/cost-centers", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "classification", kind: "classification", title: "Alterar classificação", description: "Define o valor de uma classificação para os funcionários.", valueName: "Novo valor", icon: Tags, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "job", kind: "job", title: "Alterar cargo", description: "Define um novo cargo.", valueName: "Novo cargo", icon: Briefcase, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: CalendarClock, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e unidade acompanham a equipe.", valueName: "Nova equipe", icon: Users, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
@@ -64,7 +65,6 @@ const steps = [
 
 const filterFields = [
   ["job_id", "Cargo", "/jobs"],
-  ["cost_center_id", "Centro de custo", "/cost-centers"],
   ["journey_id", "Jornada", "/journeys"],
   ["team_id", "Equipe", "/teams"],
   ["sector_id", "Setor", "/sectors"],
@@ -217,6 +217,9 @@ export function BulkChangesPage() {
   const [cycleTouched, setCycleTouched] = useState(false)
   const [note, setNote] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterValues, setFilterValues] = useState<number[]>([])
+  const [classificationId, setClassificationId] = useState("")
+  const [classificationValues, setClassificationValues] = useState<Choice[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [allFilterSelected, setAllFilterSelected] = useState(false)
   const [marking, setMarking] = useState(false)
@@ -256,8 +259,9 @@ export function BulkChangesPage() {
     let active = true
     const paths = [...new Set([...filterFields.map((item) => item[2]), ...catalog.map((item) => item.path).filter(Boolean)])]
     Promise.all(paths.map(async (path) => [path, path === "/employees" ? await loadManagerChoices() : await loadChoices(path)] as const))
-      .then((loaded) => {
-        if (active) setChoices(Object.fromEntries(loaded))
+      .then(async (loaded) => {
+        const groups = await loadChoices("/classifications").catch(() => [])
+        if (active) setChoices({ ...Object.fromEntries(loaded), "/classifications": groups })
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -266,6 +270,34 @@ export function BulkChangesPage() {
       active = false
     }
   }, [isAdmin])
+
+  useEffect(() => {
+    if (!classificationId) {
+      setClassificationValues([])
+      return
+    }
+    let active = true
+    loadAll<NamedRecord>("/classification-values", { classification_id: Number(classificationId) })
+      .then((items) => {
+        if (active) setClassificationValues(items.map((item) => ({ value: String(item.id), label: item.name || "Não informado" })))
+      })
+      .catch(() => {
+        if (active) setClassificationValues([])
+      })
+    return () => {
+      active = false
+    }
+  }, [classificationId])
+
+  useEffect(() => {
+    const query = classificationQuery(filterValues)
+    setFilters((current) => {
+      const next = { ...current }
+      if (query) next.classification_value_id = query
+      else delete next.classification_value_id
+      return next
+    })
+  }, [filterValues])
 
   useEffect(() => {
     if (!list.loading) setListed(true)
@@ -318,6 +350,7 @@ export function BulkChangesPage() {
   function chooseOperation(next: OperationId) {
     if (next !== operationId) {
       setValue("")
+      setClassificationId("")
       setValidFrom("")
       setCycleDay("")
       setCycleTouched(false)
@@ -380,6 +413,7 @@ export function BulkChangesPage() {
   function valueOptions() {
     if (!operation) return []
     if (operation.id === "clock_method") return clockOptions
+    if (operation.id === "classification") return classificationValues
     return choices[operation.path] || []
   }
 
@@ -612,6 +646,13 @@ export function BulkChangesPage() {
                     <SiteSelect id="bulk-situation" value={filters.situation || ""} className="h-12" options={situationOptions} onChange={(next) => setFilters((current) => ({ ...current, situation: next }))} />
                   </div>
                 </div>
+                <div className="mt-4">
+                  <p className="text-sm font-semibold text-[#0A0A0A]">Classificações</p>
+                  <p className="mt-1 text-sm text-[#64748B]">Valores da mesma classificação se alternam. Classificações diferentes se somam.</p>
+                  <div className="mt-3">
+                    <ClassificationFilter selected={filterValues} onChange={setFilterValues} />
+                  </div>
+                </div>
               </div>
               ) : null}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -701,6 +742,23 @@ export function BulkChangesPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {operation.id === "classification" ? (
+                  <div className="space-y-2">
+                    <Label className={moduleLabelClass} htmlFor="bulk-classification">Classificação</Label>
+                    <SiteSelect
+                      id="bulk-classification"
+                      value={classificationId}
+                      placeholder="Selecione"
+                      searchable
+                      className="h-12"
+                      options={[{ value: "", label: "Selecione" }, ...(choices["/classifications"] || [])]}
+                      onChange={(next) => {
+                        setClassificationId(next)
+                        setValue("")
+                      }}
+                    />
+                  </div>
+                ) : null}
                 {operation.needsValue ? (
                   <div className="space-y-2">
                     <Label className={moduleLabelClass} htmlFor="bulk-value">{operation.valueName}</Label>
@@ -709,7 +767,7 @@ export function BulkChangesPage() {
                       value={value}
                       placeholder="Selecione"
                       searchable={operation.id !== "clock_method"}
-                      searchPath={operation.id === "clock_method" || operation.path === "/employees" ? undefined : operation.path}
+                      searchPath={operation.id === "clock_method" || operation.id === "classification" || operation.path === "/employees" ? undefined : operation.path}
                       searchPlaceholder="Pesquisar"
                       className="h-12"
                       options={valueOptions()}
