@@ -47,7 +47,7 @@ def _query_names(operation: dict) -> set[str]:
     return {item["name"] for item in operation.get("parameters", []) if item["in"] == "query"}
 
 
-def test_lista_de_cargos_mostra_o_nome_no_swagger():
+def test_lista_de_funcoes_mostra_o_nome_no_swagger():
     schema = create_app().openapi()
     params = schema["paths"]["/api/v1/jobs"]["get"]["parameters"]
     name = next(item for item in params if item["name"] == "name")

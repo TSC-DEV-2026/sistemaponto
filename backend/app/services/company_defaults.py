@@ -30,7 +30,7 @@ REASON_NAMES = {
 
 
 def ensure_company_defaults(db: Session, tenant_id: int) -> None:
-    _named(db, Job, tenant_id, "Cargo Padrão")
+    _named(db, Job, tenant_id, "Função Padrão")
     _default_classification(db, tenant_id)
     unit = _named(db, Unit, tenant_id, "Unidade Padrão")
     sector = _named(db, Sector, tenant_id, "Setor Padrão", unit_id=unit.id)

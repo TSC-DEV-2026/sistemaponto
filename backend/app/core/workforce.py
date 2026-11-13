@@ -50,7 +50,7 @@ OCCURRENCE_FOR_REQUEST = {
 MANUAL_OCCURRENCE_KINDS = ("absence", "allowance", "certificate", "leave", "vacation")
 CERTIFICATE_CONFLICT = "período abonado conflita com registro de ponto"
 AUDIT_ACTION = {
-    "job": "Alteração de cargo",
+    "job": "Alteração de função",
     "journey": "Alteração de jornada",
     "cost_center": "Alteração de centro de custo",
     "classification": "Alteração de classificação",

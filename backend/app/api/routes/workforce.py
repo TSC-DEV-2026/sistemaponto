@@ -423,7 +423,7 @@ def list_employees(
     "/changes",
     status_code=201,
     summary="Alterar funcionários em massa",
-    description="Uma operação por vez: cargo, jornada, classificação, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e unidade. Se uma pessoa falhar, nenhuma do lote é salva.",
+    description="Uma operação por vez: função, jornada, classificação, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e unidade. Se uma pessoa falhar, nenhuma do lote é salva.",
 )
 def change_employees(
     body: EmployeeBulkCreate,
