@@ -209,7 +209,7 @@ export const navGroups: NavGroup[] = [
       {
         to: "/reasons",
         label: "Motivos",
-        icon: Tags,
+        icon: StickyNote,
         lead: "Catálogo da organização. A observação complementar continua possível.",
         sections: [
           { title: "Ajustes", text: "Nenhum motivo." },
