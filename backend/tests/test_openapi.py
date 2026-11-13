@@ -15,6 +15,8 @@ def test_docs_mostra_cliente_e_bearer():
 LIST_FILTERS = {
     "/api/v1/jobs": {"name"},
     "/api/v1/cost-centers": {"name"},
+    "/api/v1/classifications": {"name"},
+    "/api/v1/classification-values": {"name", "classification_id"},
     "/api/v1/units": {"name"},
     "/api/v1/sectors": {"name", "unit_id"},
     "/api/v1/teams": {"name", "sector_id"},

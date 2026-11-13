@@ -8,6 +8,7 @@ from app.models.tenant import Tenant
 from app.models.workforce import (
     Audit,
     Charge,
+    Classification,
     Closing,
     ClosingEvent,
     Employee,
@@ -215,16 +216,71 @@ class WorkforceRepository:
             found.setdefault(row.employee_id, {})[row.kind] = row
         return found
 
-    def open_vigency(self, employee_id: int, kind: str) -> EmployeeVigency | None:
+    def open_vigency(
+        self, employee_id: int, kind: str, classification_id: int | None = None
+    ) -> EmployeeVigency | None:
+        query = self.db.query(EmployeeVigency).filter(
+            EmployeeVigency.employee_id == employee_id,
+            EmployeeVigency.kind == kind,
+            EmployeeVigency.valid_to.is_(None),
+        )
+        if classification_id is not None:
+            query = query.filter(EmployeeVigency.classification_id == classification_id)
+        return query.one_or_none()
+
+    def classification_named(self, tenant_id: int, name: str):
         return (
-            self.db.query(EmployeeVigency)
-            .filter(
-                EmployeeVigency.employee_id == employee_id,
-                EmployeeVigency.kind == kind,
-                EmployeeVigency.valid_to.is_(None),
-            )
+            self.db.query(Classification)
+            .filter(Classification.tenant_id == tenant_id, Classification.name == name)
             .one_or_none()
         )
+
+    def rows_of(self, model, tenant_id: int):
+        return (
+            self.db.query(model)
+            .filter(model.tenant_id == tenant_id)
+            .order_by(model.name.asc(), model.id.asc())
+            .all()
+        )
+
+    def employees_with_values(self, tenant_id: int, classification_id: int, day: date, reference_ids: set[int]) -> set[int]:
+        rows = (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.kind == "classification",
+                EmployeeVigency.classification_id == classification_id,
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
+            .all()
+        )
+        chosen: dict[int, EmployeeVigency] = {}
+        for row in rows:
+            chosen[row.employee_id] = row
+        return {employee_id for employee_id, row in chosen.items() if row.reference_id in reference_ids}
+
+    def applicable_classifications(self, employee_ids: list[int], day: date) -> dict[int, dict[int, EmployeeVigency]]:
+        if not employee_ids:
+            return {}
+        rows = (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.employee_id.in_(employee_ids),
+                EmployeeVigency.kind == "classification",
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
+            .all()
+        )
+        found: dict[int, dict[int, EmployeeVigency]] = {}
+        for row in rows:
+            if row.classification_id is None:
+                continue
+            found.setdefault(row.employee_id, {})[row.classification_id] = row
+        return found
 
     def applicable(self, employee_id: int, kind: str, day: date) -> EmployeeVigency | None:
         return (

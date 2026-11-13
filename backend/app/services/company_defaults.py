@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.core.journey_plan import ORIGIN, legacy_days
-from app.core.workforce import REASON_KINDS, today_in_brazil
+from app.core.workforce import COST_CENTER_CLASSIFICATION, REASON_KINDS, today_in_brazil
 from app.models.workforce import (
-    CostCenter,
+    Classification,
+    ClassificationValue,
     Job,
     Journey,
     JourneyDay,
@@ -30,7 +31,7 @@ REASON_NAMES = {
 
 def ensure_company_defaults(db: Session, tenant_id: int) -> None:
     _named(db, Job, tenant_id, "Cargo Padrão")
-    _named(db, CostCenter, tenant_id, "Centro de custo Padrão")
+    _default_classification(db, tenant_id)
     unit = _named(db, Unit, tenant_id, "Unidade Padrão")
     sector = _named(db, Sector, tenant_id, "Setor Padrão", unit_id=unit.id)
     _named(db, Team, tenant_id, "Equipe Padrão", sector_id=sector.id)
@@ -108,6 +109,35 @@ def _ensure_journey_version(db: Session, journey: Journey) -> None:
                 )
             )
     db.flush()
+
+
+def _default_classification(db: Session, tenant_id: int) -> None:
+    found = (
+        db.query(Classification)
+        .filter(Classification.tenant_id == tenant_id, Classification.name == COST_CENTER_CLASSIFICATION)
+        .one_or_none()
+    )
+    if found is None:
+        found = Classification(tenant_id=tenant_id, name=COST_CENTER_CLASSIFICATION)
+        db.add(found)
+        db.flush()
+    value = (
+        db.query(ClassificationValue)
+        .filter(
+            ClassificationValue.classification_id == found.id,
+            ClassificationValue.name == "Centro de custo Padrão",
+        )
+        .one_or_none()
+    )
+    if value is None:
+        db.add(
+            ClassificationValue(
+                tenant_id=tenant_id,
+                classification_id=found.id,
+                name="Centro de custo Padrão",
+            )
+        )
+        db.flush()
 
 
 def _named(db: Session, model, tenant_id: int, name: str, **extra):

@@ -9,6 +9,8 @@ from app.api.responses import json_data
 from app.api.serialization import dump_one, dump_page
 from app.core.exceptions import AppError
 from app.models.workforce import (
+    Classification,
+    ClassificationValue,
     CostCenter,
     Holiday,
     Job,
@@ -29,6 +31,9 @@ from app.schemas.workforce import (
     CertificatePhotoOut,
     ChargeOut,
     ChargeUpdate,
+    ClassificationValueCreate,
+    ClassificationValueOut,
+    ClassificationValueUpdate,
     ClosingCreate,
     ClosingOut,
     ClosingUpdate,
@@ -113,6 +118,7 @@ INT_FILTERS = {
     "job_id",
     "journey_id",
     "cost_center_id",
+    "classification_id",
     "team_id",
     "manager_id",
     "employee_id",
@@ -163,6 +169,9 @@ def _filter_parameter(name: str) -> inspect.Parameter:
     elif name in BOOL_FILTERS:
         annotation = bool | None
         default = Query(default=None)
+    elif name in {"classification_value_id", "classification_ids"}:
+        annotation = str | None
+        default = Query(default=None, max_length=500, description="Ids separados por vírgula")
     elif name in {"name", "full_name"}:
         annotation = str | None
         default = Query(default=None, max_length=255, description="Trecho do nome")
@@ -282,6 +291,17 @@ def mount_named(
 routers = [
     mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named("/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named("/classifications", "classifications", Classification, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named(
+        "/classification-values",
+        "classification-values",
+        ClassificationValue,
+        ClassificationValueCreate,
+        ClassificationValueUpdate,
+        ClassificationValueOut,
+        ("name", "classification_id"),
+        page_size=20,
+    ),
     mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named("/sectors", "sectors", Sector, SectorCreate, SectorUpdate, SectorOut, ("name", "unit_id"), page_size=20),
     mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "sector_id"), page_size=20),
@@ -347,7 +367,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, sector_id, team_id, union_id, manager_id, situation.",
+    description="Filtros: full_name, cpf, person_id, job_id, journey_id, cost_center_id, classification_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. classification_value_id aceita vários ids separados por vírgula: classificações diferentes se somam e valores da mesma classificação se alternam.",
 )
 @searchable(
     "full_name",
@@ -356,6 +376,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
     "job_id",
     "journey_id",
     "cost_center_id",
+    "classification_value_id",
     "unit_id",
     "sector_id",
     "team_id",
@@ -385,6 +406,7 @@ def list_employees(
                 "job_id",
                 "journey_id",
                 "cost_center_id",
+                "classification_value_id",
                 "unit_id",
                 "sector_id",
                 "team_id",
@@ -401,7 +423,7 @@ def list_employees(
     "/changes",
     status_code=201,
     summary="Alterar funcionários em massa",
-    description="Uma operação por vez: cargo, jornada, centro de custo, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e unidade. Se uma pessoa falhar, nenhuma do lote é salva.",
+    description="Uma operação por vez: cargo, jornada, classificação, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e unidade. Se uma pessoa falhar, nenhuma do lote é salva.",
 )
 def change_employees(
     body: EmployeeBulkCreate,
@@ -1111,8 +1133,29 @@ def report_catalog(
     return json_data(dump_page(items, total, page, limit, ReportCatalogOut, fields))
 
 
-@reads.get("/reports", summary="Relatório analítico do período")
+@reads.get(
+    "/reports",
+    summary="Relatório analítico do período",
+    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe as classificações da linha. classification_value_id filtra como na lista de funcionários.",
+)
+@searchable(
+    "full_name",
+    "cpf",
+    "person_id",
+    "job_id",
+    "journey_id",
+    "cost_center_id",
+    "classification_value_id",
+    "classification_ids",
+    "unit_id",
+    "sector_id",
+    "team_id",
+    "union_id",
+    "manager_id",
+    "situation",
+)
 def reports(
+    request: Request,
     kind: str = Query(min_length=1, max_length=32),
     starts_on: date = Query(),
     ends_on: date = Query(),
@@ -1122,7 +1165,28 @@ def reports(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit)
+    filters = read_filters(
+        request,
+        (
+            "full_name",
+            "cpf",
+            "person_id",
+            "job_id",
+            "journey_id",
+            "cost_center_id",
+            "classification_value_id",
+            "unit_id",
+            "sector_id",
+            "team_id",
+            "union_id",
+            "manager_id",
+            "situation",
+        ),
+    )
+    shown = read_filters(request, ("classification_ids",))
+    if shown.get("classification_ids"):
+        filters["classification_id"] = shown["classification_ids"]
+    result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit, filters)
     return json_data(dump_one(result, ReportOut, None))
 
 

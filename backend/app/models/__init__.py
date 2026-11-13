@@ -4,6 +4,8 @@ from app.models.tenant import Tenant
 from app.models.workforce import (  # noqa: F401
     Audit,
     Charge,
+    Classification,
+    ClassificationValue,
     Closing,
     ClosingEvent,
     CostCenter,

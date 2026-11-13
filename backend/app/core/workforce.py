@@ -9,6 +9,7 @@ VIGENCY_KINDS = (
     "job",
     "journey",
     "cost_center",
+    "classification",
     "unit",
     "sector",
     "team",
@@ -16,6 +17,7 @@ VIGENCY_KINDS = (
     "manager",
     "status",
 )
+COST_CENTER_CLASSIFICATION = "Centro de custo"
 STATUS_LABELS = ("active", "dismissed")
 REQUEST_KINDS = ("adjustment", "allowance", "certificate", "leave", "vacation")
 DECISIONS = ("approved", "rejected", "cancelled")
@@ -51,6 +53,7 @@ AUDIT_ACTION = {
     "job": "Alteração de cargo",
     "journey": "Alteração de jornada",
     "cost_center": "Alteração de centro de custo",
+    "classification": "Alteração de classificação",
     "unit": "Alteração de unidade",
     "sector": "Alteração de setor",
     "team": "Alteração de equipe",

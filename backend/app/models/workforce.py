@@ -38,6 +38,25 @@ class CostCenter(Base):
     name = Column(String(255), nullable=False)
 
 
+class Classification(Base):
+    __tablename__ = "classifications"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_classification_tenant_name"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    name = Column(String(255), nullable=False)
+
+
+class ClassificationValue(Base):
+    __tablename__ = "classification_values"
+    __table_args__ = (UniqueConstraint("classification_id", "name", name="uq_classification_value_name"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    classification_id = Column(BigInteger, ForeignKey("classifications.id"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+
+
 class Unit(Base):
     __tablename__ = "units"
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_unit_tenant_name"),)
@@ -202,6 +221,7 @@ class EmployeeVigency(Base):
     employee_id = Column(BigInteger, ForeignKey("employees.id"), nullable=False, index=True)
     kind = Column(String(32), nullable=False)
     reference_id = Column(BigInteger, nullable=True)
+    classification_id = Column(BigInteger, ForeignKey("classifications.id"), nullable=True, index=True)
     label = Column(String(255), nullable=False)
     valid_from = Column(Date, nullable=False)
     valid_to = Column(Date, nullable=True)

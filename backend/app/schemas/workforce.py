@@ -20,6 +20,7 @@ VigencyKind = Literal[
     "job",
     "journey",
     "cost_center",
+    "classification",
     "unit",
     "sector",
     "team",
@@ -42,6 +43,30 @@ class NamedOut(BaseModel):
     name: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ClassificationValueCreate(BaseModel):
+    classification_id: int
+    name: str = Field(min_length=1, max_length=255)
+
+
+class ClassificationValueUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class ClassificationValueOut(BaseModel):
+    id: int
+    classification_id: int
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmployeeClassificationOut(BaseModel):
+    classification_id: int
+    name: str
+    value_id: int
+    value_name: str
 
 
 class SectorCreate(NamedCreate):
@@ -248,6 +273,7 @@ class EmployeeOut(BaseModel):
     team_label: str | None
     union_label: str | None
     manager_label: str | None
+    classifications: list[EmployeeClassificationOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -256,6 +282,7 @@ BulkKind = Literal[
     "job",
     "journey",
     "cost_center",
+    "classification",
     "team",
     "union",
     "manager",
@@ -298,6 +325,7 @@ class VigencyOut(BaseModel):
     employee_id: int
     kind: str
     reference_id: int | None
+    classification_id: int | None = None
     label: str
     valid_from: date
     valid_to: date | None

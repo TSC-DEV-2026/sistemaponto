@@ -13,6 +13,9 @@ from app.models.membership import Membership
 from app.models.workforce import (
     Audit,
     Charge,
+    Classification,
+    CostCenter,
+    ClassificationValue,
     Closing,
     ClosingEvent,
     Employee,
@@ -212,11 +215,59 @@ class Memory:
             if row.kind == kind and row.reference_id == reference_id
         ]
 
-    def open_vigency(self, employee_id: int, kind: str):
+    def open_vigency(self, employee_id: int, kind: str, classification_id: int | None = None):
         for row in self.rows:
-            if isinstance(row, EmployeeVigency) and row.employee_id == employee_id and row.kind == kind and row.valid_to is None:
+            if not isinstance(row, EmployeeVigency) or row.employee_id != employee_id or row.kind != kind or row.valid_to is not None:
+                continue
+            if classification_id is not None and row.classification_id != classification_id:
+                continue
+            return row
+        return None
+
+    def classification_named(self, tenant_id: int, name: str):
+        for row in self._of(Classification, tenant_id):
+            if row.name == name:
                 return row
         return None
+
+    def rows_of(self, model, tenant_id: int):
+        found = self._of(model, tenant_id)
+        found.sort(key=lambda item: (getattr(item, "name", ""), item.id))
+        return found
+
+    def employees_with_values(self, tenant_id: int, classification_id: int, day: date, reference_ids: set[int]) -> set[int]:
+        rows = [
+            row
+            for row in self._of(EmployeeVigency, tenant_id)
+            if row.kind == "classification"
+            and row.classification_id == classification_id
+            and row.valid_from <= day
+            and (row.valid_to is None or row.valid_to >= day)
+        ]
+        rows.sort(key=lambda item: (item.valid_from, item.id))
+        chosen: dict[int, EmployeeVigency] = {}
+        for row in rows:
+            chosen[row.employee_id] = row
+        return {employee_id for employee_id, row in chosen.items() if row.reference_id in reference_ids}
+
+    def applicable_classifications(self, employee_ids: list[int], day: date):
+        if not employee_ids:
+            return {}
+        rows = [
+            row
+            for row in self.rows
+            if isinstance(row, EmployeeVigency)
+            and row.employee_id in employee_ids
+            and row.kind == "classification"
+            and row.classification_id is not None
+            and row.valid_from <= day
+            and (row.valid_to is None or row.valid_to >= day)
+        ]
+        rows.sort(key=lambda item: (item.valid_from, item.id))
+        found: dict[int, dict[int, EmployeeVigency]] = {}
+        for row in rows:
+            found.setdefault(row.employee_id, {})[row.classification_id] = row
+        return found
 
     def applicable(self, employee_id: int, kind: str, day: date):
         rows = [
@@ -2047,7 +2098,7 @@ def test_inadimplencia_avisa_e_bloqueia_em_7_dias():
 def test_catalogo_tem_um_relatorio_por_grupo():
     workforce, _repo = service()
     page, total = workforce.report_catalog(admin(), 1, 2)
-    assert total == 6
+    assert total == 7
     assert [row["name"] for row in page] == ["Ponto", "Jornada"]
     rest, _total = workforce.report_catalog(admin(), 2, 2)
     assert [row["name"] for row in rest] == ["Banco de Horas", "Ocorrências"]
@@ -3247,3 +3298,148 @@ def test_relatorio_de_marcacoes_lista_as_que_valem_e_as_que_deixaram():
     assert "vale; manual" in details
     assert "deixou de valer; employee" in details
     assert {row["title"] for row in listed["items"]} == {"08:00", "09:00", "12:00", "18:00"}
+
+
+def _value(workforce, classification_id: int, name: str):
+    return workforce.create_named(
+        ClassificationValue, admin(), {"name": name, "classification_id": classification_id}
+    )
+
+
+def _classify(workforce, employee_id: int, value_id: int, day: date):
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": employee_id,
+            "kind": "classification",
+            "reference_id": value_id,
+            "valid_from": day,
+            "note": None,
+        },
+    )
+
+
+def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    brown = _value(workforce, eyes.id, "Castanho")
+    green = _value(workforce, eyes.id, "Verde")
+    age = workforce.create_named(Classification, admin(), {"name": "Margem de idade"})
+    adult = _value(workforce, age.id, "18-59")
+    with pytest.raises(AppError) as repeated:
+        _value(workforce, eyes.id, "Castanho")
+    assert repeated.value.status_code == 409
+    _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
+    _classify(workforce, person["id"], adult.id, date(2026, 10, 1))
+    _classify(workforce, person["id"], green.id, date(2026, 10, 6))
+    current = workforce.get_employee(admin(), person["id"])
+    assert {(item["name"], item["value_name"]) for item in current["classifications"]} == {
+        ("Cor dos olhos", "Verde"),
+        ("Margem de idade", "18-59"),
+    }
+    with pytest.raises(AppError) as blocked_value:
+        workforce.delete_named(ClassificationValue, admin(), brown.id)
+    assert blocked_value.value.status_code == 409
+    with pytest.raises(AppError) as blocked_kind:
+        workforce.delete_named(Classification, admin(), eyes.id)
+    assert blocked_kind.value.status_code == 409
+    assert repo.get_row(Classification, 1, eyes.id) is not None
+    center = workforce.create_named(CostCenter, admin(), {"name": "Obra A"})
+    assert repo.get_row(CostCenter, 1, center.id) is None
+    assert repo.get_row(ClassificationValue, 1, center.id).name == "Obra A"
+
+
+def test_filtro_de_classificacao_soma_e_alterna():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    second = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    brown = _value(workforce, eyes.id, "Castanho")
+    green = _value(workforce, eyes.id, "Verde")
+    age = workforce.create_named(Classification, admin(), {"name": "Margem de idade"})
+    adult = _value(workforce, age.id, "18-59")
+    _classify(workforce, first["id"], brown.id, date(2026, 10, 1))
+    _classify(workforce, first["id"], adult.id, date(2026, 10, 1))
+    _classify(workforce, second["id"], green.id, date(2026, 10, 1))
+    _classify(workforce, second["id"], adult.id, date(2026, 10, 1))
+    both, both_total = workforce.list_employees(
+        admin(), 1, 20, {"classification_value_id": f"{brown.id},{adult.id}"}
+    )
+    assert both_total == 1
+    assert both[0].id == first["id"]
+    either, either_total = workforce.list_employees(
+        admin(), 1, 20, {"classification_value_id": f"{brown.id},{green.id}"}
+    )
+    assert either_total == 2
+    assert {row.id for row in either} == {first["id"], second["id"]}
+
+
+def test_lote_de_classificacao_nao_mexe_na_outra():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    brown = _value(workforce, eyes.id, "Castanho")
+    blue = _value(workforce, eyes.id, "Azul")
+    age = workforce.create_named(Classification, admin(), {"name": "Margem de idade"})
+    adult = _value(workforce, age.id, "18-59")
+    _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
+    _classify(workforce, person["id"], adult.id, date(2026, 10, 1))
+    before = len([row for row in repo.rows if isinstance(row, EmployeeVigency)])
+    with pytest.raises(AppError):
+        workforce.change_employees(
+            admin(),
+            {
+                "employee_ids": [person["id"], 999],
+                "kind": "classification",
+                "reference_id": blue.id,
+                "valid_from": date(2026, 10, 6),
+                "note": None,
+            },
+        )
+    assert len([row for row in repo.rows if isinstance(row, EmployeeVigency)]) == before
+    workforce.change_employees(
+        admin(),
+        {
+            "employee_ids": [person["id"]],
+            "kind": "classification",
+            "reference_id": blue.id,
+            "valid_from": date(2026, 10, 6),
+            "note": None,
+        },
+    )
+    current = workforce.get_employee(admin(), person["id"])
+    assert {(item["name"], item["value_name"]) for item in current["classifications"]} == {
+        ("Cor dos olhos", "Azul"),
+        ("Margem de idade", "18-59"),
+    }
+
+
+def test_relatorio_de_pessoas_usa_o_valor_do_dia():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    brown = _value(workforce, eyes.id, "Castanho")
+    green = _value(workforce, eyes.id, "Verde")
+    _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
+    _classify(workforce, person["id"], green.id, date(2026, 10, 6))
+    early = workforce.report(
+        admin(), "people", date(2026, 10, 5), date(2026, 10, 5), person["id"], 1, 10
+    )
+    assert early["name"] == "Pessoas"
+    assert early["items"][0]["detail"] == "Cor dos olhos: Castanho"
+    later = workforce.report(
+        admin(),
+        "people",
+        date(2026, 10, 6),
+        date(2026, 10, 6),
+        None,
+        1,
+        10,
+        {"classification_value_id": str(green.id), "classification_id": str(eyes.id)},
+    )
+    assert [row["full_name"] for row in later["items"]] == [person["full_name"]]
+    assert later["items"][0]["detail"] == "Cor dos olhos: Verde"
+    with pytest.raises(AppError) as span:
+        workforce.report(admin(), "people", date(2026, 10, 1), date(2026, 10, 6), None, 1, 10)
+    assert span.value.message == "O relatório de pessoas pede um dia"
