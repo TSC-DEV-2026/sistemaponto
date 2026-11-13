@@ -1,5 +1,6 @@
 import { Clock } from "lucide-react"
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent, type RefObject } from "react"
+import { createPortal } from "react-dom"
 
 import { Label } from "@/components/ui/label"
 import { cn } from "@/utils/cn"
@@ -65,6 +66,7 @@ export function TimePickerField({
   inputLabel?: string
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hourListRef = useRef<HTMLDivElement>(null)
   const minuteListRef = useRef<HTMLDivElement>(null)
@@ -72,7 +74,7 @@ export function TimePickerField({
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [above, setAbove] = useState(false)
-  const [alignRight, setAlignRight] = useState(false)
+  const [spot, setSpot] = useState({ top: 0, left: 0 })
   const [draft, setDraft] = useState(showValue(value))
   const [hour, setHour] = useState<number | null>(null)
   const [minute, setMinute] = useState<number | null>(null)
@@ -86,12 +88,22 @@ export function TimePickerField({
   useEffect(() => {
     if (open) {
       setMounted(true)
-      const rect = rootRef.current?.getBoundingClientRect()
-      if (rect) {
-        setAbove(rect.bottom + 292 > window.innerHeight && rect.top > 292)
-        setAlignRight(rect.left + 196 > window.innerWidth - 16)
+      function place() {
+        const rect = rootRef.current?.getBoundingClientRect()
+        if (!rect) return
+        const panelWidth = 188
+        const openAbove = rect.bottom + 292 > window.innerHeight && rect.top > 292
+        const left = rect.left + panelWidth > window.innerWidth - 16 ? Math.max(8, rect.right - panelWidth) : rect.left
+        setAbove(openAbove)
+        setSpot({ top: openAbove ? rect.top - 6 : rect.bottom + 6, left })
       }
-      return
+      place()
+      window.addEventListener("resize", place)
+      window.addEventListener("scroll", place, true)
+      return () => {
+        window.removeEventListener("resize", place)
+        window.removeEventListener("scroll", place, true)
+      }
     }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setMounted(false)
@@ -104,7 +116,9 @@ export function TimePickerField({
   useEffect(() => {
     if (!open) return
     function onPointer(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+      const target = event.target as Node
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     function onKey(event: globalThis.KeyboardEvent) {
       if (event.key !== "Escape") return
@@ -172,7 +186,8 @@ export function TimePickerField({
   }
 
   function onBlur(event: FocusEvent<HTMLInputElement>) {
-    if (rootRef.current?.contains(event.relatedTarget as Node)) return
+    const next = event.relatedTarget as Node | null
+    if ((next && rootRef.current?.contains(next)) || (next && panelRef.current?.contains(next))) return
     if (!draft.trim()) {
       setDraft("")
       onChange("")
@@ -275,17 +290,18 @@ export function TimePickerField({
       {required ? (
         <input tabIndex={-1} aria-hidden="true" className="pointer-events-none absolute h-px w-px opacity-0" value={value} required onChange={() => undefined} />
       ) : null}
-      {mounted ? (
+      {mounted ? createPortal(
         <div
+          ref={panelRef}
           id={listId}
           role="dialog"
           aria-label="Selecionar horário"
           className={cn(
-            "absolute z-30 w-[188px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#E4E4E7] bg-white p-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
-            above ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]",
-            alignRight ? "right-0" : "left-0",
+            "fixed z-[60] w-[188px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#E4E4E7] bg-white p-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
             open ? "site-select-in" : "pointer-events-none site-select-out",
           )}
+          style={{ left: spot.left, top: spot.top, transform: above ? "translateY(-100%)" : undefined }}
+          onMouseDown={(event) => event.preventDefault()}
         >
           <div className="grid grid-cols-2 gap-1.5">
             <ClockColumn label="Horas" total={24} selected={hour} listRef={hourListRef} onSelect={setHour} onMove={move} />
@@ -299,7 +315,8 @@ export function TimePickerField({
               Confirmar
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   )

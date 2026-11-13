@@ -1,4 +1,4 @@
-import { AlertTriangle, FileText } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Eye, Timer, type LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import type { TimeResult } from "@/services/workforce.service"
@@ -32,22 +32,58 @@ export function calendarParts(iso: string) {
   }
 }
 
+export const dayIconClass =
+  "group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] shadow-none transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EDF6EF] hover:text-[#1E8A3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+
+export function DayIconButton({ label, disabled = false, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" className={cn(dayIconClass, disabled && "pointer-events-none")} disabled={disabled} aria-label={label} onClick={onClick}>
+      {children}
+      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#E2E8F0] bg-white px-2 py-1 text-xs font-medium text-[#0A0A0A] opacity-0 shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+        {label}
+      </span>
+    </button>
+  )
+}
+
+export function dayFilter(item: TimeResult) {
+  if (item.absence) return "absence" as const
+  if (item.warnings.some((warning) => warning.toLocaleLowerCase("pt-BR").includes("sem jornada prevista"))) return "unscheduled" as const
+  return dayStatus(item).kind === "clear" ? "clear" as const : "alert" as const
+}
+
+export function dayStatus(item: TimeResult) {
+  if (item.absence) return { kind: "absence" as const, label: "Falta" }
+  const notes = marks(item)
+  if (notes.length === 0 && item.shortage_minutes <= 0 && !item.incomplete) return { kind: "clear" as const, label: "Sem ocorrência" }
+  const label = notes[0] || (item.shortage_minutes > 0 ? "Falta de tempo" : "Ponto a conferir")
+  return { kind: "alert" as const, label }
+}
+
+function situationIcon(label: string): LucideIcon {
+  if (label === "Falta") return AlertTriangle
+  if (label === "Sem ocorrência") return CheckCircle2
+  return Timer
+}
+
 export function SituationBadge({ item }: { item: TimeResult }) {
   const labels = marks(item)
   const shown = labels.length > 0 ? labels : ["Sem ocorrência"]
   return (
     <span className="flex min-w-0 max-w-full flex-wrap gap-1.5">
       {shown.map((label) => {
+        const Icon = situationIcon(label)
         const absence = label === "Falta"
+        const clear = label === "Sem ocorrência"
         return (
           <span
             key={label}
             className={cn(
               "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left text-xs font-semibold leading-4",
-              absence ? "bg-[rgba(239,83,80,0.12)] text-[#C62828]" : "bg-[#F4F4F5] text-[#52525B]",
+              absence ? "bg-[rgba(239,83,80,0.12)] text-[#C62828]" : clear ? "bg-[rgba(30,138,58,0.10)] text-[#187432]" : "bg-[#FFF6D8] text-[#8A5A00]",
             )}
           >
-            {absence ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> : null}
+            <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
             <span className="min-w-0 break-words">{label}</span>
           </span>
         )
@@ -59,43 +95,66 @@ export function SituationBadge({ item }: { item: TimeResult }) {
 function Metric({ label, value, alert = false }: { label: string; value: string; alert?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs text-[#52525B]">{label}</p>
-      <p className={cn("mt-0.5 text-sm font-semibold tabular-nums text-[#0A0A0A]", alert && "text-[#C62828]")}>{value}</p>
+      <p className="truncate text-xs text-[#52525B]">{label}</p>
+      <p className={cn("mt-0.5 truncate text-sm font-semibold tabular-nums text-[#0A0A0A]", alert && "text-[#C62828]")}>{value}</p>
     </div>
   )
 }
 
-export function ApuracaoDaySummary({ item, onOpen, balance, actions }: { item: TimeResult; onOpen: () => void; balance?: number | null; actions?: ReactNode }) {
-  const date = calendarParts(item.work_date)
+function StatusPill({ item }: { item: TimeResult }) {
+  const status = dayStatus(item)
+  const tone = status.kind === "absence"
+    ? "bg-[#FDECEC] text-[#C62828]"
+    : status.kind === "clear"
+      ? "bg-[rgba(30,138,58,0.10)] text-[#187432]"
+      : "bg-[#FFF6D8] text-[#8A5A00]"
+  const Icon = situationIcon(status.label)
   return (
-    <article className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] sm:p-[18px]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-      <div className="flex h-[72px] w-16 shrink-0 flex-col items-center justify-center rounded-[10px] bg-[#F4F4F5]" aria-hidden>
-        <span className="text-[10px] font-semibold tracking-[0.08em] text-[#52525B]">{date.week}</span>
-        <span className="text-xl font-bold leading-none tabular-nums text-[#0A0A0A]">{date.day}</span>
-        <span className="mt-0.5 text-[10px] font-semibold tracking-[0.08em] text-[#52525B]">{date.month}</span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <SituationBadge item={item} />
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    <span className={cn("inline-flex w-max max-w-full items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-center text-xs font-semibold leading-4", tone)}>
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+      <span className="min-w-0 break-words">{status.label}</span>
+    </span>
+  )
+}
+
+export function ApuracaoDaySummary({
+  item,
+  onOpen,
+  balance,
+  actions,
+}: {
+  item: TimeResult
+  onOpen: () => void
+  balance?: number | null
+  actions?: ReactNode
+}) {
+  const date = calendarParts(item.work_date)
+  const showBank = balance != null
+  return (
+    <article className="rounded-xl border border-[#E4E8E6] bg-[#F7F8F7] px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-white" aria-hidden>
+          <span className="text-[10px] font-semibold tracking-[0.08em] text-[#187432]">{date.week}</span>
+          <span className="text-lg font-bold leading-none tabular-nums text-[#0A0A0A]">{date.day}</span>
+          <span className="text-[10px] font-semibold tracking-[0.08em] text-[#187432]">{date.month}</span>
+        </div>
+        <div className="flex w-48 shrink-0 justify-center">
+          <StatusPill item={item} />
+        </div>
+        <div className={cn("grid min-w-0 flex-1 gap-x-3", showBank ? "grid-cols-5" : "grid-cols-4")}>
           <Metric label="Entrada" value={showClock(item.first_entry_at)} />
           <Metric label="Saída" value={showClock(item.last_exit_at)} />
-          <Metric label="Previsto" value={showDuration(item.expected_minutes)} />
-          <Metric label="Trabalhado" value={showDuration(item.worked_minutes)} />
+          <Metric label="Hora extra" value={showDuration(item.overtime_minutes)} />
           <Metric label="Falta de tempo" value={showDuration(item.shortage_minutes)} alert={item.shortage_minutes > 0} />
-          {balance != null ? <Metric label="Saldo do banco" value={showDuration(balance)} /> : null}
+          {showBank ? <Metric label="Banco de horas" value={showDuration(balance)} /> : null}
+        </div>
+        <div className="flex w-48 shrink-0 flex-wrap items-center justify-end gap-1.5">
+          <DayIconButton label="Ver detalhes" onClick={onOpen}>
+            <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </DayIconButton>
+          {actions}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,color,box-shadow] duration-200 hover:border-[rgba(30,138,58,0.45)] hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none lg:self-center"
-      >
-        <FileText className="h-[17px] w-[17px]" strokeWidth={1.75} aria-hidden />
-        Ver detalhes
-      </button>
-      </div>
-      {actions ? <div className="mt-4 flex flex-wrap items-center gap-2">{actions}</div> : null}
     </article>
   )
 }
