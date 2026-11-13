@@ -727,7 +727,7 @@ def test_periodo_fechado_bloqueia_marcacao():
     assert caught.value.status_code == 409
 
 
-def test_auditoria_registra_quem_alterou_o_cargo():
+def test_auditoria_registra_quem_alterou_a_funcao():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     job = workforce.create_named(Job, admin(), {"name": "Auxiliar"})
@@ -736,7 +736,7 @@ def test_auditoria_registra_quem_alterou_o_cargo():
         {"employee_id": person["id"], "kind": "job", "reference_id": job.id, "label": None, "valid_from": date(2026, 10, 1), "note": None},
     )
     audits = [row for row in repo.rows if isinstance(row, Audit)]
-    assert any(row.action == "Alteração de cargo" and row.person_id == 7 for row in audits)
+    assert any(row.action == "Alteração de função" and row.person_id == 7 for row in audits)
 
 
 def test_ajuste_pendente_guarda_o_dia_sem_alterar_marcacao():
