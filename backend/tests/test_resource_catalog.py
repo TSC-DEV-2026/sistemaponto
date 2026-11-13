@@ -40,6 +40,8 @@ def test_lista_e_filtro_sem_sql():
         "memberships",
         "jobs",
         "cost-centers",
+        "classifications",
+        "classification-values",
         "units",
         "sectors",
         "teams",
