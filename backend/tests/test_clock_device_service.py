@@ -154,7 +154,7 @@ def test_codigo_libera_uma_vez_e_guarda_so_o_hash():
     assert again.value.message == "O código não foi aceito."
 
 
-def test_codigo_nao_repete_entre_empresas():
+def test_codigo_nao_repete_entre_organizacoes():
     service, _companies = build()
     service._new_code = lambda: "ABCDEFGHJ"
     first = service.issue_code(admin(4))
@@ -192,7 +192,7 @@ def test_codigo_vencido_nao_libera():
     assert expired.value.message == "O código não foi aceito."
 
 
-def test_rosto_de_uma_empresa_registra_e_de_duas_nao():
+def test_rosto_de_uma_organizacao_registra_e_de_duas_nao():
     service, companies = build()
     wecan = pair(service, 4)
     ast = pair(service, 9)
@@ -211,7 +211,7 @@ def test_rosto_de_uma_empresa_registra_e_de_duas_nao():
             [wecan["key"], ast["key"]],
             {"image": PHOTO, "channel": "online", "occurred_at": NOW, "client_event_id": None},
         )
-    assert both.value.message == "O rosto foi reconhecido em mais de uma empresa."
+    assert both.value.message == "O rosto foi reconhecido em mais de uma organização."
     assert [item for item in companies.commits if item[1] == 9] == []
 
 
@@ -239,7 +239,7 @@ def test_qr_com_duas_pessoas_nao_registra():
     assert saved["punch"]["source"] == "qr"
 
 
-def test_revogar_derruba_so_a_chave_da_empresa():
+def test_revogar_derruba_so_a_chave_da_organizacao():
     service, companies = build()
     wecan = pair(service, 4)
     ast = pair(service, 9)

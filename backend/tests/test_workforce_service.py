@@ -2235,7 +2235,7 @@ def assign_unit(workforce, employee_id: int, unit_name: str, day: date):
     return unit
 
 
-def test_equipe_grava_setor_e_unidade_e_a_troca_realinha():
+def test_equipe_grava_setor_e_empresa_e_a_troca_realinha():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     old_unit = workforce.create_named(Unit, admin(), {"name": "Antiga"})
@@ -2265,7 +2265,7 @@ def test_equipe_grava_setor_e_unidade_e_a_troca_realinha():
                 "note": None,
             },
         )
-    assert direct_unit.value.message == "Informe a equipe. Unidade e setor acompanham a equipe."
+    assert direct_unit.value.message == "Informe a equipe. Empresa e setor acompanham a equipe."
     with pytest.raises(AppError) as direct_sector:
         workforce.create_vigency(
             admin(),
@@ -2278,7 +2278,7 @@ def test_equipe_grava_setor_e_unidade_e_a_troca_realinha():
                 "note": None,
             },
         )
-    assert direct_sector.value.message == "Informe a equipe. Unidade e setor acompanham a equipe."
+    assert direct_sector.value.message == "Informe a equipe. Empresa e setor acompanham a equipe."
     unit_c = workforce.create_named(Unit, admin(), {"name": "C"})
     sector_b = workforce.create_named(Sector, admin(), {"name": "B", "unit_id": unit_c.id})
     team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector_b.id})
@@ -2363,10 +2363,10 @@ def test_qr_e_rosto_so_marcam_quando_sao_aceitos():
     assert updated["registration_number"] == "A1"
     with pytest.raises(AppError) as duplicated:
         workforce.update_employee(admin(), other["id"], {"registration_number": "A1"})
-    assert duplicated.value.message == "Matrícula já cadastrada nesta empresa"
+    assert duplicated.value.message == "Matrícula já cadastrada nesta organização"
     with pytest.raises(AppError) as missing_unit:
         workforce.punch_code(scope(9, "member"), person["id"])
-    assert missing_unit.value.message == "O funcionário não tem unidade vigente."
+    assert missing_unit.value.message == "O funcionário não tem empresa vigente."
     unit = assign_unit(workforce, person["id"], "Matriz", date(2026, 10, 1))
     code = workforce.punch_code(scope(9, "member"), person["id"])
     assert code["content"] == f"{unit.id}|22222222222|A1"
@@ -2616,7 +2616,7 @@ def test_pessoa_ja_ligada_recusa_sem_criar_outro_vinculo():
     assert repo.count_model(Employee, tenant_id=1) == 1
 
 
-def test_cpf_repetido_na_empresa_nao_chama_o_autenticador_de_novo():
+def test_cpf_repetido_na_organizacao_nao_chama_o_autenticador_de_novo():
     cpf = "52998224725"
     BOUND[cpf] = 7
     workforce, _repo = service()
@@ -2624,7 +2624,7 @@ def test_cpf_repetido_na_empresa_nao_chama_o_autenticador_de_novo():
     assert len(workforce.authenticator.upserts) == 1
     with pytest.raises(AppError) as caught:
         workforce.create_employee(admin(), _ficha(cpf, "ana@example.com"))
-    assert caught.value.message == "CPF já cadastrado nesta empresa"
+    assert caught.value.message == "CPF já cadastrado nesta organização"
     assert len(workforce.authenticator.upserts) == 1
 
 

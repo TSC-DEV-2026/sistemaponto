@@ -31,7 +31,7 @@ FORGOT_MESSAGE = "Se o e-mail existir, enviaremos as instruções."
     "/register",
     response_model=Envelope[SessionOut],
     summary="Cadastro público",
-    description="Cria a empresa e o admin. Repassa CPF, e-mail, nome e senha ao autenticador. CPF já existente devolve must_login e não abre sessão.",
+    description="Cria a organização e o admin. Repassa CPF, e-mail, nome e senha ao autenticador. CPF já existente devolve must_login e não abre sessão.",
     status_code=201,
 )
 @limiter.limit("10/minute")
@@ -46,7 +46,7 @@ def register(request: Request, body: RegisterCreate, service: AuthService = Depe
     "/login",
     response_model=Envelope[SessionOut],
     summary="Login",
-    description="CPF e senha conferidos no autenticador. Um vínculo já escolhe a empresa. Vários vínculos devolvem a lista até o switch-tenant.",
+    description="CPF e senha conferidos no autenticador. Um vínculo já escolhe a organização. Vários vínculos devolvem a lista até o switch-tenant.",
 )
 @limiter.limit("10/minute")
 def login(request: Request, body: LoginIn, service: AuthService = Depends(get_auth_service)):
@@ -92,7 +92,7 @@ def logout(request: Request, service: AuthService = Depends(get_auth_service)):
     "/me",
     response_model=Envelope[SessionOut],
     summary="Sessão atual",
-    description="Nome, e-mail e CPF da pessoa logada, com o papel e as empresas. O CPF não é editado aqui.",
+    description="Nome, e-mail e CPF da pessoa logada, com o papel e as organizações. O CPF não é editado aqui.",
 )
 def me(request: Request, service: AuthService = Depends(get_auth_service)):
     actor = get_actor(request)
@@ -115,8 +115,8 @@ def update_me(request: Request, body: AccountUpdate, service: AuthService = Depe
 @router.delete(
     "/me",
     response_model=Envelope[None],
-    summary="Sair desta empresa",
-    description="Remove o acesso desta pessoa nesta empresa. A única administradora não é removida.",
+    summary="Sair desta organização",
+    description="Remove o acesso desta pessoa nesta organização. A única administradora não é removida.",
 )
 def leave_me(request: Request, service: AuthService = Depends(get_auth_service)):
     actor = get_actor(request)
@@ -127,7 +127,7 @@ def leave_me(request: Request, service: AuthService = Depends(get_auth_service))
 @router.post(
     "/switch-tenant",
     response_model=Envelope[SessionOut],
-    summary="Trocar de empresa",
+    summary="Trocar de organização",
     description="Renova a sessão com o tenant_id escolhido, se a pessoa tiver vínculo.",
 )
 def switch_tenant(

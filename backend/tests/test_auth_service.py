@@ -130,7 +130,7 @@ def test_minha_conta_mostra_nome_email_e_cpf_e_salva_sem_trocar_cpf():
     assert person.cpf == "12345678900"
 
 
-def test_unica_administradora_nao_sai_da_empresa():
+def test_unica_administradora_nao_sai_da_organizacao():
     service, tenants, memberships, _refreshes, authenticator = build()
     person = authenticator.add(cpf="12345678900", email="ana@x.com", full_name="Ana", password="senha1234")
     other = authenticator.add(cpf="22222222222", email="bia@x.com", full_name="Bia", password="senha1234")
@@ -140,7 +140,7 @@ def test_unica_administradora_nao_sai_da_empresa():
     with pytest.raises(AppError) as blocked:
         service.leave_tenant(person.person_id, tenant.id)
     assert blocked.value.status_code == 400
-    assert blocked.value.message == "A empresa precisa de um administrador."
+    assert blocked.value.message == "A organização precisa de um administrador."
     assert memberships.get_by_person_and_tenant(person.person_id, tenant.id) is not None
     service.leave_tenant(other.person_id, tenant.id)
     assert memberships.get_by_person_and_tenant(other.person_id, tenant.id) is None

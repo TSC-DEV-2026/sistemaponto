@@ -165,7 +165,7 @@ class ClockDeviceService:
                 matches.append((grant, employee_id))
         if len(matches) != 1:
             if len(matches) > 1:
-                raise AppError(400, "O rosto foi reconhecido em mais de uma empresa.")
+                raise AppError(400, "O rosto foi reconhecido em mais de uma organização.")
             raise AppError(400, "O rosto não foi reconhecido.")
         grant, employee_id = matches[0]
         punch = self.workforce.commit_device_face(grant.tenant_id, employee_id, data, image)

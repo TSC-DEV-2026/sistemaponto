@@ -32,19 +32,19 @@ export const catalogs: Record<string, Catalog> = {
   },
   classifications: {
     path: "/classifications",
-    newLabel: "Nova classificação",
-    editTitle: "Editar classificação",
-    empty: "Nenhuma classificação.",
-    backTo: "/people?aba=classificacoes",
+    newLabel: "Novo grupo",
+    editTitle: "Editar grupo",
+    empty: "Nenhum grupo.",
+    backTo: "/people?aba=grupos",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
   units: {
     path: "/units",
-    newLabel: "Nova unidade",
-    editTitle: "Editar unidade",
-    empty: "Nenhuma unidade.",
-    backTo: "/organization?aba=unidades",
-    fields: [{ name: "name", label: "Nome da unidade", type: "text", required: true }],
+    newLabel: "Nova empresa",
+    editTitle: "Editar empresa",
+    empty: "Nenhuma empresa.",
+    backTo: "/organization?aba=empresas",
+    fields: [{ name: "name", label: "Nome da empresa", type: "text", required: true }],
   },
   sectors: {
     path: "/sectors",
@@ -54,7 +54,7 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/organization?aba=setores",
     fields: [
       { name: "name", label: "Nome do setor", type: "text", required: true },
-      { name: "unit_id", label: "Unidade", type: "select", required: true, searchPath: "/units", loadOptions: () => optionsOf("/units") },
+      { name: "unit_id", label: "Empresa", type: "select", required: true, searchPath: "/units", loadOptions: () => optionsOf("/units") },
     ],
   },
   teams: {

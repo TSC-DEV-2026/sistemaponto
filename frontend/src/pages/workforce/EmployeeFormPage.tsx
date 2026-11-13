@@ -64,7 +64,7 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
         if (active) setGroups(page)
       })
       .catch(() => {
-        if (active) setMessage("Não foi possível carregar as classificações.")
+        if (active) setMessage("Não foi possível carregar os grupos.")
       })
     return () => {
       active = false
@@ -73,7 +73,7 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
 
   async function save() {
     if (!classificationId) {
-      setMessage("Selecione a classificação.")
+      setMessage("Selecione o grupo.")
       return
     }
     if (!valueId) {
@@ -99,7 +99,7 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
       setValidFrom("")
       setNote("")
     } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar a classificação.")
+      setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar o grupo.")
     } finally {
       setSaving(false)
     }
@@ -107,17 +107,17 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
 
   return (
     <section className={cn(moduleCardClass, "space-y-5")}>
-      <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar classificações</h2>
+      <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar grupos</h2>
       {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className={moduleLabelClass} htmlFor="employee-classification">Classificação</Label>
+          <Label className={moduleLabelClass} htmlFor="employee-classification">Grupo</Label>
           <SiteSelect
             id="employee-classification"
             value={classificationId}
             searchable
             searchPath="/classifications"
-            searchPlaceholder="Pesquisar classificação"
+            searchPlaceholder="Pesquisar grupo"
             placeholder="Selecione"
             className="h-12"
             icon={Tags}
@@ -151,7 +151,7 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
       </div>
       <Button type="button" className={modulePrimaryClass} disabled={saving} onClick={() => void save()}>
         {saving ? <Spinner className="h-4 w-4" /> : null}
-        Salvar classificação
+        Salvar grupo
       </Button>
     </section>
   )
@@ -443,7 +443,7 @@ export function EmployeeFormPage() {
             [
               { id: "data", label: "Dados", icon: User, show: true },
               ...vigencyTargets.map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
-              { id: "classification", label: "Classificações", icon: Tags, show: isAdmin && id !== null },
+              { id: "classification", label: "Grupos", icon: Tags, show: isAdmin && id !== null },
               { id: "bank", label: "Banco de horas", icon: Timer, show: isAdmin || role === "manager" },
               { id: "correction", label: "Correção", icon: Clock, show: canCorrect },
               { id: "events", label: "Ausências", icon: ClipboardList, show: canRecordEvent },
@@ -561,7 +561,7 @@ export function EmployeeFormPage() {
               Matrícula
             </Label>
             <Input id="registration" className={moduleFieldClass} value={registration} onChange={(event) => setRegistration(event.target.value)} />
-            <p className="text-sm leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
+            <p className="text-sm leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
           </div>
         </div>
         <button

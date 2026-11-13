@@ -92,7 +92,7 @@ function ClassificationTile({ items }: { items: { classification_id: number; nam
     <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none md:col-span-2">
       <FieldMark icon={Tags} />
       <div className="min-w-0 flex-1">
-        <dt className="text-xs leading-4 text-[#64748B]">Classificações</dt>
+        <dt className="text-xs leading-4 text-[#64748B]">Grupos</dt>
         {rows.length === 0 ? (
           <dd className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]"><EmptyMark /></dd>
         ) : (
@@ -554,7 +554,7 @@ export function EmployeePage() {
                 ) : null}
               </FieldTile>
             </dl>
-            <p className="mt-3 text-xs leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e unidade vigente. Na empresa ela não se repete.</p>
+            <p className="mt-3 text-xs leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
           </section>
           <section className={fichaCardClass}>
             <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
@@ -587,7 +587,7 @@ export function EmployeePage() {
                 [
                   [Briefcase, "Função", employee.job_label],
                   [Clock, "Jornada", employee.journey_label],
-                  [Building2, "Unidade", employee.unit_label],
+                  [Building2, "Empresa", employee.unit_label],
                   [Layers, "Setor", employee.sector_label],
                   [Users, "Equipe", employee.team_label],
                   [Landmark, "Sindicato", employee.union_label],
@@ -600,7 +600,7 @@ export function EmployeePage() {
               ))}
               <ClassificationTile items={employee.classifications || []} />
             </dl>
-            <p className="mt-4 text-sm text-[#64748B]">Unidade e setor acompanham a equipe.</p>
+            <p className="mt-4 text-sm text-[#64748B]">Empresa e setor acompanham a equipe.</p>
           </section>
         </div>
       ) : null}
@@ -752,7 +752,7 @@ export function EmployeePage() {
               <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
                 {history.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                    {item.kind === "classification" ? `${item.classification_id ? classificationNames[item.classification_id] || "Classificação" : "Classificação"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
+                    {item.kind === "classification" ? `${item.classification_id ? classificationNames[item.classification_id] || "Grupo" : "Grupo"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
                   </li>
                 ))}
               </ul>

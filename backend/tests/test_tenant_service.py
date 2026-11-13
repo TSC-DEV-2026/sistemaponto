@@ -36,7 +36,7 @@ def test_create_grava_documento():
     assert (row.trial_ends_at - row.trial_started_at).days == TRIAL_DAYS
 
 
-def test_empresa_nova_abre_trial_de_sete_dias():
+def test_organizacao_nova_abre_trial_de_sete_dias():
     service, repo = _service()
     row = service.create_public("Oficina")
     assert row.employee_capacity == TRIAL_EMPLOYEE_CAPACITY

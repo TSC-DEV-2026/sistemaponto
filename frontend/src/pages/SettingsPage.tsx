@@ -1,4 +1,4 @@
-import { Bell, Building2, ChevronRight, IdCard, KeyRound, Mail, Pencil, Save, Send, Shield, User, type LucideIcon } from "lucide-react"
+import { Bell, Layers, ChevronRight, IdCard, KeyRound, Mail, Pencil, Save, Send, Shield, User, type LucideIcon } from "lucide-react"
 import { FormEvent, useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 
@@ -48,7 +48,7 @@ function AccountFact({ icon: Icon, label, value, wrap = false }: { icon: LucideI
 }
 
 const management = [
-  { icon: Building2, title: "Empresas", text: "Gerenciar empresas.", to: "/tenants", admin: false },
+  { icon: Layers, title: "Organizações", text: "Gerenciar organizações.", to: "/tenants", admin: false },
   { icon: Bell, title: "Notificações", text: "Configurações de notificações.", to: "/notifications", admin: false },
   { icon: Shield, title: "Permissões e acessos", text: "Gerenciar acessos.", to: "/memberships", admin: true },
 ] as const

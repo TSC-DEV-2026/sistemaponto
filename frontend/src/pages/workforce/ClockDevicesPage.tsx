@@ -117,7 +117,7 @@ export function ClockDevicesPage() {
       </section>
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       <section className={moduleCardClass}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Aparelhos desta empresa</h2>
+        <h2 className="text-lg font-semibold text-[#0A0A0A]">Aparelhos desta organização</h2>
         {loading ? (
           <div className="flex justify-center py-10" role="status">
             <Spinner label="Carregando os aparelhos" className="h-8 w-8 text-[#1E8A3A]" />

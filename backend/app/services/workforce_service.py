@@ -405,7 +405,7 @@ class WorkforceService:
         employee = self._employee(scope, int(data["employee_id"]))
         kind = data["kind"]
         if kind in {"unit", "sector"}:
-            raise AppError(400, "Informe a equipe. Unidade e setor acompanham a equipe.")
+            raise AppError(400, "Informe a equipe. Empresa e setor acompanham a equipe.")
         valid_from = data["valid_from"]
         self._assert_open(scope.tenant_id, valid_from)
         classification_id = None
@@ -541,7 +541,7 @@ class WorkforceService:
             if entering:
                 tenant = self.repo.get_tenant(scope.tenant_id)
                 if tenant is None:
-                    raise AppError(404, "Empresa não encontrada")
+                    raise AppError(404, "Organização não encontrada")
                 active = self.repo.count_active(scope.tenant_id, self.today())
                 if active + len(entering) > tenant.employee_capacity:
                     raise AppError(409, f"{entering[0].full_name}: limite de funcionários do plano atingido")
@@ -1239,7 +1239,7 @@ class WorkforceService:
         self._known(scope)
         tenant = self.repo.get_tenant(scope.tenant_id)
         if tenant is None:
-            raise AppError(404, "Empresa não encontrada")
+            raise AppError(404, "Organização não encontrada")
         start, end = day_bounds(self.today())
         return {
             "active_employees": self.repo.count_active(scope.tenant_id, self.today()),
@@ -2340,7 +2340,7 @@ class WorkforceService:
         if model is ClassificationValue and current is None:
             classification_id = data.get("classification_id")
             if classification_id is None:
-                raise AppError(400, "Selecione a classificação")
+                raise AppError(400, "Selecione o grupo")
             self._row(Classification, scope, int(classification_id))
             payload["classification_id"] = int(classification_id)
         return payload
@@ -2362,7 +2362,7 @@ class WorkforceService:
 
     def _guard_catalog(self, model, row) -> None:
         checks = {
-            Unit: (Sector, {"unit_id": row.id}, "Existem setores nesta unidade."),
+            Unit: (Sector, {"unit_id": row.id}, "Existem setores nesta empresa."),
             Sector: (Team, {"sector_id": row.id}, "Existem equipes neste setor."),
             LaborUnion: (LaborAgreement, {"union_id": row.id}, "Existem acordos neste sindicato."),
         }
@@ -2513,7 +2513,7 @@ class WorkforceService:
                 Employee, scope.tenant_id, page=1, limit=1, equals={"cpf": cpf}, descending=False
             )
             if taken and (current is None or taken[0].id != current.id):
-                raise AppError(409, "CPF já cadastrado nesta empresa")
+                raise AppError(409, "CPF já cadastrado nesta organização")
             payload["cpf"] = cpf
         if current is None or "email" in data:
             payload["email"] = self._email(data.get("email"))
@@ -2661,7 +2661,7 @@ class WorkforceService:
                     "full_name": person.full_name,
                     "occurred_on": day,
                     "title": "Pessoas",
-                    "detail": "; ".join(parts) if parts else "sem classificação",
+                    "detail": "; ".join(parts) if parts else "sem grupo",
                 }
             )
         return lines
@@ -2751,7 +2751,7 @@ class WorkforceService:
     def _assert_capacity(self, scope: Scope) -> None:
         tenant = self.repo.get_tenant(scope.tenant_id)
         if tenant is None:
-            raise AppError(404, "Empresa não encontrada")
+            raise AppError(404, "Organização não encontrada")
         if self.repo.count_active(scope.tenant_id, self.today()) >= tenant.employee_capacity:
             raise AppError(409, "Limite de funcionários do plano atingido")
 
@@ -2908,7 +2908,7 @@ class WorkforceService:
         key = str(value).strip()
         prefix = f"{scope.tenant_id}/certificates/"
         if not key.startswith(prefix) or ".." in key:
-            raise AppError(400, "A foto não pertence a esta empresa")
+            raise AppError(400, "A foto não pertence a esta organização")
         return key
 
     def _period_has_punch(
@@ -2973,7 +2973,7 @@ class WorkforceService:
             descending=False,
         )
         if taken and (current is None or taken[0].id != current.id):
-            raise AppError(409, "Matrícula já cadastrada nesta empresa")
+            raise AppError(409, "Matrícula já cadastrada nesta organização")
         return number
 
     def _qr_card(self, employee: Employee) -> dict | None:
@@ -2998,7 +2998,7 @@ class WorkforceService:
             raise AppError(400, "Informe a matrícula.")
         unit = self.repo.applicable(employee.id, "unit", day)
         if unit is None or unit.reference_id is None:
-            raise AppError(400, "O funcionário não tem unidade vigente.")
+            raise AppError(400, "O funcionário não tem empresa vigente.")
         return unit, employee.registration_number
 
     def _own_clock(self, scope: Scope, employee: Employee) -> None:
@@ -3281,7 +3281,7 @@ class WorkforceService:
     def create_subscription(self, scope: Scope, data: dict) -> dict:
         self._admin(scope)
         if self.repo.subscription_for(scope.tenant_id) is not None:
-            raise AppError(409, "A empresa já tem um plano")
+            raise AppError(409, "A organização já tem um plano")
         capacity = self._capacity_block(int(data["capacity"]))
         self._fit_capacity(scope, capacity)
         tenant = self._billing_tenant(scope)
@@ -3472,7 +3472,7 @@ class WorkforceService:
     def _billing_tenant(self, scope: Scope):
         tenant = self.repo.get_tenant(scope.tenant_id)
         if tenant is None:
-            raise AppError(404, "Empresa não encontrada")
+            raise AppError(404, "Organização não encontrada")
         return tenant
 
     def _notify_reviewers(self, scope: Scope, employee: Employee, kind: str) -> None:

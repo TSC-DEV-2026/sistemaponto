@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type AnimationEvent as ReactAnimationEvent, type KeyboardEvent as ReactKeyboardEvent } from "react"
-import { Building2, Check, ChevronDown } from "lucide-react"
+import { Layers, Check, ChevronDown } from "lucide-react"
 
 import { switchTenant } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
@@ -90,7 +90,7 @@ export function TenantSwitcher() {
     return null
   }
 
-  const currentName = activeTenant?.name || "Empresa"
+  const currentName = activeTenant?.name || "Organização"
 
   return (
     <div className="relative" ref={root}>
@@ -104,11 +104,11 @@ export function TenantSwitcher() {
         aria-haspopup="menu"
         aria-expanded={phase !== "closed"}
         aria-controls={menuId}
-        aria-label={`Empresa, ${currentName}`}
+        aria-label={`Organização, ${currentName}`}
         onClick={() => (phase === "open" ? hideMenu() : setPhase("open"))}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E7F6EE] text-[#1E8A3A]" aria-hidden>
-          <Building2 className="h-4 w-4" strokeWidth={1.75} />
+          <Layers className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <span className="hidden max-w-[140px] truncate text-[13px] font-medium text-brand-ink sm:block">{currentName}</span>
         <ChevronDown className="profile-chevron h-4 w-4 shrink-0 text-brand-quiet" strokeWidth={1.75} aria-hidden />
@@ -117,14 +117,14 @@ export function TenantSwitcher() {
         <div
           id={menuId}
           role="menu"
-          aria-label="Empresa"
+          aria-label="Organização"
           data-state={phase === "open" ? "open" : "closing"}
           className="profile-menu absolute right-0 z-30 mt-2 w-[270px] max-w-[calc(100vw-3rem)] origin-top-right rounded-[14px] border border-[#E7EBF0] bg-white p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.09),0_22px_48px_rgba(15,23,42,0.06)]"
           onKeyDown={onMenuKey}
           onAnimationEnd={onMenuAnimationEnd}
         >
           <div className="px-2.5 py-2">
-            <p className="text-xs font-medium text-brand-quiet">Empresa</p>
+            <p className="text-xs font-medium text-brand-quiet">Organização</p>
             <p className="mt-0.5 truncate text-sm font-semibold text-brand-ink">{currentName}</p>
           </div>
           <div className="mx-2 my-1 h-px bg-[#E7EBF0]" />
@@ -139,7 +139,7 @@ export function TenantSwitcher() {
                 className="profile-item flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px]"
                 onClick={() => void onChoose(tenant.id)}
               >
-                <Building2 className="profile-item-icon h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
+                <Layers className="profile-item-icon h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
                 <span className="min-w-0 flex-1 truncate">{tenant.name}</span>
                 {selected ? <Check className="h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden /> : null}
               </button>
