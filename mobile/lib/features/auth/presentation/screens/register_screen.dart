@@ -80,7 +80,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             TextField(controller: _email, decoration: const InputDecoration(labelText: 'E-mail')),
             const SizedBox(height: 12),
-            TextField(controller: _company, decoration: const InputDecoration(labelText: 'Empresa')),
+            TextField(controller: _company, decoration: const InputDecoration(labelText: 'Organização')),
             const SizedBox(height: 12),
             SecretField(controller: _password, label: 'Senha'),
             if (_error.isNotEmpty) ...[

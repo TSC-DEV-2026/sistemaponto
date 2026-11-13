@@ -1,4 +1,4 @@
-import { Building2, Plus } from "lucide-react"
+import { Layers, Plus } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -46,10 +46,10 @@ export function TenantFormPage() {
       <section className={cn(moduleCardClass, "w-full space-y-5")}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <Building2 className="h-5 w-5" strokeWidth={1.75} />
+            <Layers className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Nova empresa</h2>
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Nova organização</h2>
             <p className="text-sm text-[#64748B]">Informe o nome e o CNPJ.</p>
           </div>
         </div>

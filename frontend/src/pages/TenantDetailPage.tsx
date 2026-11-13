@@ -1,4 +1,4 @@
-import { Building2, FileText, Pencil, Save, Trash2, type LucideIcon } from "lucide-react"
+import { Layers, FileText, Pencil, Save, Trash2, type LucideIcon } from "lucide-react"
 import { FormEvent, useEffect, useState, type ReactNode } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 
@@ -107,24 +107,24 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <Building2 className="h-5 w-5" strokeWidth={1.75} />
+            <Layers className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{loaded && name.trim() ? name : "Empresa"}</h2>
-            <p className="text-sm text-[#64748B]">{mode === "edit" ? "Atualize os dados da empresa." : "Dados da empresa."}</p>
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">{loaded && name.trim() ? name : "Organização"}</h2>
+            <p className="text-sm text-[#64748B]">{mode === "edit" ? "Atualize os dados da organização." : "Dados da organização."}</p>
           </div>
         </div>
         {!loaded ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando a empresa" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando a organização" className="h-8 w-8 text-[#1E8A3A]" />
           </div>
         ) : mode === "view" ? (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Fact icon={Building2} label="Nome">{name.trim() ? name : <span className="font-medium text-[#94A3B8]">Não informado</span>}</Fact>
+              <Fact icon={Layers} label="Nome">{name.trim() ? name : <span className="font-medium text-[#94A3B8]">Não informado</span>}</Fact>
               <Fact icon={FileText} label="CNPJ">{document ? document : <span className="font-medium text-[#94A3B8]">Não informado</span>}</Fact>
             </div>
-            {!canEdit ? <p className="text-sm text-[#64748B]">Troque para esta empresa para editá-la.</p> : null}
+            {!canEdit ? <p className="text-sm text-[#64748B]">Troque para esta organização para editá-la.</p> : null}
             {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
           </>
         ) : (
@@ -142,7 +142,7 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
             {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
             {confirming ? (
               <div className="flex flex-col gap-3 rounded-xl border border-[#F3D7A1] bg-[#FFF8EB] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-[#8A5A00]">Excluir esta empresa?</p>
+                <p className="text-sm text-[#8A5A00]">Excluir esta organização?</p>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setConfirming(false)}>Cancelar</Button>
                   <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={() => onDelete()}>

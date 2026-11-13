@@ -471,7 +471,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         Text('Jornada: ${employee['journey_label'] ?? 'Sem jornada vigente'}'),
         if (employee['unit_label'] != null)
-          Text('Unidade: ${employee['unit_label']}'),
+          Text('Empresa: ${employee['unit_label']}'),
         if (_journey != null) Text(_journeyLine(_journey!)),
         const SizedBox(height: 16),
         Text('Registro: ${_clockLabel(method)}'),

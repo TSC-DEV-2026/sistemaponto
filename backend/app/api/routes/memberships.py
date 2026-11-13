@@ -22,7 +22,7 @@ def _blank(value: str | None) -> str | None:
     "",
     response_model=Envelope[Page[MembershipOut]],
     summary="Listar vínculos",
-    description="Vínculos da empresa ativa. Paginada. Filtros nomeados: role, person_id.",
+    description="Vínculos da organização ativa. Paginada. Filtros nomeados: role, person_id.",
 )
 def list_memberships(
     page: int = Query(1, ge=1),
@@ -47,7 +47,7 @@ def list_memberships(
     "/{membership_id}",
     response_model=Envelope[MembershipOut],
     summary="Detalhe do vínculo",
-    description="Um vínculo da empresa ativa.",
+    description="Um vínculo da organização ativa.",
 )
 def get_membership(
     membership_id: int,
@@ -65,7 +65,7 @@ def get_membership(
     "",
     response_model=Envelope[MembershipOut],
     summary="Vincular pessoa",
-    description="Acha ou cria a pessoa no autenticador, sem senha, e grava o vínculo nesta empresa.",
+    description="Acha ou cria a pessoa no autenticador, sem senha, e grava o vínculo nesta organização.",
     status_code=201,
 )
 def create_membership(
@@ -81,7 +81,7 @@ def create_membership(
     "/{membership_id}",
     response_model=Envelope[MembershipOut],
     summary="Atualizar vínculo",
-    description="Altera o papel na empresa ativa.",
+    description="Altera o papel na organização ativa.",
 )
 def update_membership(
     membership_id: int,
@@ -100,7 +100,7 @@ def update_membership(
     "/{membership_id}",
     response_model=Envelope[None],
     summary="Excluir vínculo",
-    description="Remove a pessoa desta empresa. A empresa precisa continuar com um administrador.",
+    description="Remove a pessoa desta organização. A organização precisa continuar com um administrador.",
 )
 def delete_membership(
     membership_id: int,

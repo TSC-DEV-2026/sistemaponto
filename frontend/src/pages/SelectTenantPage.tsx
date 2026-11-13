@@ -15,13 +15,13 @@ export function SelectTenantPage() {
       useAuthStore.getState().setSession(session)
       window.location.assign("/")
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível escolher a empresa.")
+      setError(caught instanceof Error ? caught.message : "Não foi possível escolher a organização.")
     }
   }
 
   return (
     <div className="mx-auto max-w-lg space-y-4 py-10">
-      <h1 className="text-xl font-semibold">Escolha a empresa</h1>
+      <h1 className="text-xl font-semibold">Escolha a organização</h1>
       {tenants.map((tenant) => (
         <Button key={tenant.id} type="button" variant="outline" className="w-full justify-start" onClick={() => choose(tenant.id)}>
           {tenant.name}

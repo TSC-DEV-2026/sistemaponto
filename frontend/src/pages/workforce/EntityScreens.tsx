@@ -784,7 +784,7 @@ export function EmployeeList() {
     try {
       const cards = await listQrCards()
       if (cards.length === 0) {
-        setNote("Nenhum QR Code para imprimir. O funcionário precisa usar essa modalidade, ter matrícula e unidade vigente.")
+        setNote("Nenhum QR Code para imprimir. O funcionário precisa usar essa modalidade, ter matrícula e empresa vigente.")
         return
       }
       downloadPdf(qrCardsPdf(cards), "qr-codes.pdf")
@@ -832,13 +832,13 @@ export function EmployeeList() {
 }
 
 const linkedSelects: Record<string, { key: string; label: string; source: string }> = {
-  sectors: { key: "unit_id", label: "Unidade", source: "/units" },
+  sectors: { key: "unit_id", label: "Empresa", source: "/units" },
   teams: { key: "sector_id", label: "Setor", source: "/sectors" },
   agreements: { key: "union_id", label: "Sindicato", source: "/unions" },
 }
 
 const organizationCopy: Record<string, { title: string; lead: string; mark: LucideIcon }> = {
-  units: { title: "Pesquisar unidades", lead: "Consulte as unidades cadastradas.", mark: Building2 },
+  units: { title: "Pesquisar empresas", lead: "Consulte as empresas cadastradas.", mark: Building2 },
   sectors: { title: "Pesquisar setores", lead: "Consulte os setores cadastrados.", mark: Network },
   teams: { title: "Pesquisar equipes", lead: "Consulte as equipes cadastradas.", mark: Users },
   unions: { title: "Filtros de pesquisa", lead: "Consulte os sindicatos cadastrados.", mark: Landmark },
@@ -1022,7 +1022,7 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
 
   useEffect(() => {
     if (!Number.isInteger(classificationId) || classificationId <= 0) {
-      navigate("/people?aba=classificacoes", { replace: true })
+      navigate("/people?aba=grupos", { replace: true })
       return
     }
     if (mode !== "view" && !isAdmin) navigate(backTo, { replace: true })
@@ -1222,7 +1222,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
 
   if (catalog === "jobs" || catalog === "classifications") {
     const Icon = catalog === "jobs" ? Briefcase : Tags
-    const noun = catalog === "jobs" ? "função" : "classificação"
+    const noun = catalog === "jobs" ? "função" : "grupo"
     const article = catalog === "jobs" ? "a" : "o"
     if (mode !== "new" && !loaded && !error) {
       return (
@@ -1236,7 +1236,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       )
     }
     const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
-    const subtitle = mode === "view" ? (catalog === "jobs" ? "Função" : "Classificação") : mode === "new" ? `Informe o nome d${article} ${noun}.` : `Atualize o nome d${article} ${noun}.`
+    const subtitle = mode === "view" ? (catalog === "jobs" ? "Função" : "Grupo") : mode === "new" ? `Informe o nome d${article} ${noun}.` : `Atualize o nome d${article} ${noun}.`
     const valuesOnPage = catalog === "classifications" && mode === "view"
     return (
       <div className="w-full min-w-0 space-y-5">
@@ -1290,7 +1290,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
 
   if (catalog === "units" || catalog === "sectors" || catalog === "teams") {
     const Icon = catalog === "units" ? Building2 : catalog === "teams" ? Users : Network
-    const noun = catalog === "units" ? "unidade" : catalog === "teams" ? "equipe" : "setor"
+    const noun = catalog === "units" ? "empresa" : catalog === "teams" ? "equipe" : "setor"
     const article = catalog === "sectors" ? "o" : "a"
     const possession = catalog === "sectors" ? "do" : "da"
     if (mode !== "new" && !loaded && !error) {

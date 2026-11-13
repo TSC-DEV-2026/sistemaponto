@@ -172,7 +172,7 @@ class AuthService:
         if row is None:
             raise AppError(404, "Vínculo não encontrado")
         if row.role == "admin" and self.memberships.count_admins(tenant_id) <= 1:
-            raise AppError(400, "A empresa precisa de um administrador.")
+            raise AppError(400, "A organização precisa de um administrador.")
         self.memberships.delete(row)
         logger.info("acesso removido person_id=%s tenant_id=%s", person_id, tenant_id)
 

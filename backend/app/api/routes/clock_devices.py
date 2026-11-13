@@ -37,7 +37,7 @@ def device_keys(request: Request) -> tuple[str, list[str]]:
     return public_id, keys
 
 
-@devices.get("", summary="Listar aparelhos", description="Aparelhos liberados nesta empresa. Filtro: public_id.")
+@devices.get("", summary="Listar aparelhos", description="Aparelhos liberados nesta organização. Filtro: public_id.")
 def list_devices(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
@@ -62,8 +62,8 @@ def device_methods(
 
 @devices.get(
     "/face-embeddings",
-    summary="Baixar os rostos das empresas liberadas",
-    description="Somente quem usa reconhecimento facial. Cada item traz a empresa. X-Device-Id e X-Device-Keys.",
+    summary="Baixar os rostos das organizações liberadas",
+    description="Somente quem usa reconhecimento facial. Cada item traz a organização. X-Device-Id e X-Device-Keys.",
 )
 def device_embeddings(
     request: Request,
@@ -77,7 +77,7 @@ def device_embeddings(
     return json_data(dump_page(items, total, page, limit, DeviceFaceEmbeddingOut, fields))
 
 
-@devices.post("", status_code=201, summary="Liberar o aparelho com o código", description="O código vale uma vez. A resposta traz a chave desta empresa.")
+@devices.post("", status_code=201, summary="Liberar o aparelho com o código", description="O código vale uma vez. A resposta traz a chave desta organização.")
 def enroll_device(
     body: ClockDeviceEnroll,
     service: ClockDeviceService = Depends(get_clock_device_service),
@@ -86,7 +86,7 @@ def enroll_device(
     return json_data(dump_one(row, ClockDeviceEnrolledOut, None), status_code=201)
 
 
-@devices.post("/face-punches", status_code=201, summary="Registrar ponto facial no aparelho", description="Compara cada empresa separada. Entra se uma só reconhecer.")
+@devices.post("/face-punches", status_code=201, summary="Registrar ponto facial no aparelho", description="Compara cada organização separada. Entra se uma só reconhecer.")
 def punch_face(
     request: Request,
     body: DeviceFacePunchCreate,
@@ -97,7 +97,7 @@ def punch_face(
     return json_data(dump_one(row, DevicePunchOut, None), status_code=201)
 
 
-@devices.post("/qr-punches", status_code=201, summary="Registrar ponto por QR Code no aparelho", description="Entra se o código apontar para uma única pessoa entre as empresas liberadas.")
+@devices.post("/qr-punches", status_code=201, summary="Registrar ponto por QR Code no aparelho", description="Entra se o código apontar para uma única pessoa entre as organizações liberadas.")
 def punch_qr(
     request: Request,
     body: DeviceQrPunchCreate,
@@ -130,7 +130,7 @@ def update_device(
     return json_data(None)
 
 
-@devices.delete("/{row_id}", summary="Revogar aparelho", description="Derruba a chave desta empresa. As outras empresas do aparelho permanecem.")
+@devices.delete("/{row_id}", summary="Revogar aparelho", description="Derruba a chave desta organização. As outras organizações do aparelho permanecem.")
 def revoke_device(
     row_id: int,
     actor: Actor = Depends(require_admin),

@@ -13,7 +13,7 @@ import {
   Shield,
   MonitorSmartphone,
   Smartphone,
-  Tags,
+  StickyNote,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -66,7 +66,7 @@ export const navGroups: NavGroup[] = [
         lead: "Modalidades do registro feito pelo funcionário no app.",
         sections: [
           { title: "Registro Simples", text: "Botão do funcionário." },
-          { title: "QR Code + Selfie", text: "Unidade, CPF e matrícula." },
+          { title: "QR Code + Selfie", text: "Empresa, CPF e matrícula." },
           { title: "Reconhecimento facial", text: "Online e offline." },
         ],
       },
@@ -112,11 +112,11 @@ export const navGroups: NavGroup[] = [
         to: "/people",
         label: "Pessoas",
         icon: Users,
-        lead: "Funcionários, funções e classificações. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
+        lead: "Funcionários, funções e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
         sections: [
           { title: "Funcionários", text: "Nenhum funcionário." },
           { title: "Funções", text: "Nenhuma função." },
-          { title: "Classificações", text: "Nenhuma classificação." },
+          { title: "Grupos", text: "Nenhum grupo." },
         ],
       },
       {
@@ -127,7 +127,7 @@ export const navGroups: NavGroup[] = [
         lead: "Libera um aparelho para várias pessoas registrarem o ponto.",
         sections: [
           { title: "Código", text: "Uso único, válido por alguns minutos." },
-          { title: "Empresas", text: "Cada conta libera o próprio aparelho." },
+          { title: "Organizações", text: "Cada conta libera o próprio aparelho." },
         ],
       },
       {
@@ -137,7 +137,7 @@ export const navGroups: NavGroup[] = [
         adminOnly: true,
         lead: "Altera o vínculo ou o tipo de registro de várias pessoas de uma vez.",
         sections: [
-          { title: "Vínculos", text: "Função, jornada, classificação, equipe, situação, gestor e sindicato." },
+          { title: "Vínculos", text: "Função, jornada, grupo, equipe, situação, gestor e sindicato." },
           { title: "Tipo de registro", text: "Simples, QR Code ou reconhecimento facial." },
         ],
       },
@@ -165,9 +165,9 @@ export const navGroups: NavGroup[] = [
         to: "/organization",
         label: "Estrutura Organizacional",
         icon: Building2,
-        lead: "Unidades, setores e equipes. Mudança relevante preserva vigência.",
+        lead: "Empresas, setores e equipes. Mudança relevante preserva vigência.",
         sections: [
-          { title: "Unidades", text: "Nenhuma unidade." },
+          { title: "Empresas", text: "Nenhuma empresa." },
           { title: "Setores", text: "Nenhum setor." },
           { title: "Equipes", text: "Nenhuma equipe." },
         ],
@@ -210,7 +210,7 @@ export const navGroups: NavGroup[] = [
         to: "/reasons",
         label: "Motivos",
         icon: Tags,
-        lead: "Catálogo da empresa. A observação complementar continua possível.",
+        lead: "Catálogo da organização. A observação complementar continua possível.",
         sections: [
           { title: "Ajustes", text: "Nenhum motivo." },
           { title: "Faltas", text: "Nenhum motivo." },

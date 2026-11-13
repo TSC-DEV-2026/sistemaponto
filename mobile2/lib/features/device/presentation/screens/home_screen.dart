@@ -89,7 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final device = ref.watch(deviceProvider);
     final companies = device.grants.length;
-    final companyLabel = companies == 1 ? '1 empresa' : '$companies empresas';
+    final companyLabel = companies == 1 ? '1 organização' : '$companies organizações';
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -110,7 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             if (!device.face) ...[
               const SizedBox(height: 8),
-              Text('Nenhuma empresa deste aparelho usa reconhecimento facial.', style: Theme.of(context).textTheme.bodySmall),
+              Text('Nenhuma organização deste aparelho usa reconhecimento facial.', style: Theme.of(context).textTheme.bodySmall),
             ],
             const SizedBox(height: 12),
             FilledButton.icon(
@@ -120,10 +120,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             if (!device.qr) ...[
               const SizedBox(height: 8),
-              Text('Nenhuma empresa deste aparelho usa QR Code.', style: Theme.of(context).textTheme.bodySmall),
+              Text('Nenhuma organização deste aparelho usa QR Code.', style: Theme.of(context).textTheme.bodySmall),
             ],
             const SizedBox(height: 24),
-            TextButton(onPressed: () => context.go('/setup?adding=1'), child: const Text('Adicionar empresa')),
+            TextButton(onPressed: () => context.go('/setup?adding=1'), child: const Text('Adicionar organização')),
           ],
         ),
       ),

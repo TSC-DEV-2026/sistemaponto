@@ -7,7 +7,7 @@ import { CatalogList, DomainTabs, EmployeeList } from "@/pages/workforce/EntityS
 export function PeoplePage() {
   const [params, setParams] = useSearchParams()
   useEffect(() => {
-    if (params.get("aba") === "centros") setParams({ aba: "classificacoes" }, { replace: true })
+    if (params.get("aba") === "centros") setParams({ aba: "grupos" }, { replace: true })
   }, [params, setParams])
 
   return (
@@ -17,7 +17,7 @@ export function PeoplePage() {
       tabs={[
         { id: "funcionarios", label: "Funcionários", icon: Users, panel: <EmployeeList /> },
         { id: "funcoes", label: "Funções", icon: Briefcase, panel: <CatalogList catalog="jobs" presentation="people" /> },
-        { id: "classificacoes", label: "Classificações", icon: Tags, panel: <CatalogList catalog="classifications" presentation="people" /> },
+        { id: "grupos", label: "Grupos", icon: Tags, panel: <CatalogList catalog="classifications" presentation="people" /> },
       ]}
     />
   )

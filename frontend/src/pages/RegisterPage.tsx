@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, Building2, Lock, Mail, User } from "lucide-react"
+import { ArrowRight, Layers, Lock, Mail, User } from "lucide-react"
 
 import { AuthPrompt, AuthScreen, FieldBlock, authButtonClass } from "@/components/auth-screen"
 import { ActionForm } from "@/components/ui/action-form"
@@ -34,7 +34,7 @@ export function RegisterPage() {
         password,
       })
       if (session.must_login) {
-        navigate("/login", { state: { message: "Este CPF já tem senha. Entre com ela para acessar a empresa nova." } })
+        navigate("/login", { state: { message: "Este CPF já tem senha. Entre com ela para acessar a organização nova." } })
         return
       }
       useAuthStore.getState().setSession(session)
@@ -58,8 +58,8 @@ export function RegisterPage() {
         <FieldBlock id="email" label="E-mail" icon={Mail} invalid={invalid}>
           <Input id="email" type="email" autoComplete="email" placeholder="Digite seu e-mail" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </FieldBlock>
-        <FieldBlock id="company" label="Empresa" icon={Building2} invalid={invalid}>
-          <Input id="company" autoComplete="organization" placeholder="Digite o nome da empresa" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required />
+        <FieldBlock id="company" label="Organização" icon={Layers} invalid={invalid}>
+          <Input id="company" autoComplete="organization" placeholder="Digite o nome da organização" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required />
         </FieldBlock>
         <FieldBlock id="password" label="Senha" icon={Lock} invalid={invalid} password>
           <PasswordField id="password" autoComplete="new-password" placeholder="Digite sua senha" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />

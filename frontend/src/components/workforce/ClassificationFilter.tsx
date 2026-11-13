@@ -51,7 +51,7 @@ export function ClassificationFilter({
         if (active) setGroups(loaded)
       })
       .catch(() => {
-        if (active) setError("Não foi possível carregar as classificações.")
+        if (active) setError("Não foi possível carregar os grupos.")
       })
     return () => {
       active = false

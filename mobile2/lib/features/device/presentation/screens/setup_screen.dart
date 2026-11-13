@@ -72,13 +72,13 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               const SizedBox(height: 8),
             ],
             Text(
-              widget.adding ? 'Adicionar empresa' : 'Liberar aparelho',
+              widget.adding ? 'Adicionar organização' : 'Liberar aparelho',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
               widget.adding
-                  ? 'Digite o código gerado na outra conta. A empresa que já está aqui permanece.'
+                  ? 'Digite o código gerado na outra conta. A organização que já está aqui permanece.'
                   : 'Digite o código gerado no site. Ele mistura letras e números, vale uma vez e por poucos minutos.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),

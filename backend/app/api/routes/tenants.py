@@ -26,8 +26,8 @@ def _blank(value: str | None) -> str | None:
 @router.get(
     "",
     response_model=Envelope[Page[TenantOut]],
-    summary="Listar empresas",
-    description="Empresas em que a pessoa tem vínculo. Paginada. Filtros nomeados: name, slug, document.",
+    summary="Listar organizações",
+    description="Organizações em que a pessoa tem vínculo. Paginada. Filtros nomeados: name, slug, document.",
 )
 def list_tenants(
     request: Request,
@@ -55,8 +55,8 @@ def list_tenants(
 @router.get(
     "/{tenant_id}",
     response_model=Envelope[TenantOut],
-    summary="Detalhe da empresa",
-    description="Uma empresa em que a pessoa tem vínculo.",
+    summary="Detalhe da organização",
+    description="Uma organização em que a pessoa tem vínculo.",
 )
 def get_tenant(
     tenant_id: int,
@@ -67,15 +67,15 @@ def get_tenant(
     actor = get_actor(request)
     row = service.tenants.get_for_person(tenant_id, actor.person_id)
     if row is None:
-        raise AppError(404, "Empresa não encontrada")
+        raise AppError(404, "Organização não encontrada")
     return json_data(dump_one(row, TenantOut, fields))
 
 
 @router.post(
     "",
     response_model=Envelope[TenantOut],
-    summary="Criar empresa",
-    description="Quem já é admin de alguma empresa deste sistema cria outra e passa a ser admin dela.",
+    summary="Criar organização",
+    description="Quem já é admin de alguma organização deste sistema cria outra e passa a ser admin dela.",
     status_code=201,
 )
 def create_tenant(
@@ -93,8 +93,8 @@ def create_tenant(
 @router.put(
     "/{tenant_id}",
     response_model=Envelope[TenantOut],
-    summary="Atualizar empresa",
-    description="Altera a empresa ativa. O id tem de ser o tenant do JWT.",
+    summary="Atualizar organização",
+    description="Altera a organização ativa. O id tem de ser o tenant do JWT.",
 )
 def update_tenant(
     tenant_id: int,
@@ -103,10 +103,10 @@ def update_tenant(
     service: TenantService = Depends(get_tenant_service),
 ):
     if tenant_id != actor.tenant_id:
-        raise AppError(404, "Empresa não encontrada")
+        raise AppError(404, "Organização não encontrada")
     row = service.tenants.get_by_id(tenant_id)
     if row is None:
-        raise AppError(404, "Empresa não encontrada")
+        raise AppError(404, "Organização não encontrada")
     saved = service.update(row, body)
     return json_data(dump_one(saved, TenantOut, None))
 
@@ -114,8 +114,8 @@ def update_tenant(
 @router.delete(
     "/{tenant_id}",
     response_model=Envelope[None],
-    summary="Excluir empresa",
-    description="Apaga a empresa ativa e os vínculos dela.",
+    summary="Excluir organização",
+    description="Apaga a organização ativa e os vínculos dela.",
 )
 def delete_tenant(
     tenant_id: int,
@@ -123,9 +123,9 @@ def delete_tenant(
     service: TenantService = Depends(get_tenant_service),
 ):
     if tenant_id != actor.tenant_id:
-        raise AppError(404, "Empresa não encontrada")
+        raise AppError(404, "Organização não encontrada")
     row = service.tenants.get_by_id(tenant_id)
     if row is None:
-        raise AppError(404, "Empresa não encontrada")
+        raise AppError(404, "Organização não encontrada")
     service.tenants.delete(row)
     return json_data(None)

@@ -53,7 +53,7 @@ def optional_actor(request: Request) -> Actor | None:
 def require_tenant(request: Request, db: Session = Depends(get_db)) -> Actor:
     actor = get_actor(request)
     if actor.tenant_id is None:
-        raise AppError(403, "Escolha uma empresa")
+        raise AppError(403, "Escolha uma organização")
     membership = MembershipRepository(db).get_by_person_and_tenant(actor.person_id, actor.tenant_id)
     if membership is None:
         raise AppError(403, "Sem vínculo neste sistema")

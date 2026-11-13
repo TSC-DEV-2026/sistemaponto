@@ -367,7 +367,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: full_name, cpf, person_id, job_id, journey_id, cost_center_id, classification_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. classification_value_id aceita vários ids separados por vírgula: classificações diferentes se somam e valores da mesma classificação se alternam.",
+    description="Filtros: full_name, cpf, person_id, job_id, journey_id, cost_center_id, classification_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. classification_value_id aceita vários ids separados por vírgula: grupos diferentes se somam e valores do mesmo grupo se alternam.",
 )
 @searchable(
     "full_name",
@@ -423,7 +423,7 @@ def list_employees(
     "/changes",
     status_code=201,
     summary="Alterar funcionários em massa",
-    description="Uma operação por vez: função, jornada, classificação, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e unidade. Se uma pessoa falhar, nenhuma do lote é salva.",
+    description="Uma operação por vez: função, jornada, grupo, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e empresa. Se uma pessoa falhar, nenhuma do lote é salva.",
 )
 def change_employees(
     body: EmployeeBulkCreate,
@@ -448,7 +448,7 @@ def get_employee(
     "",
     status_code=201,
     summary="Criar funcionário",
-    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta empresa, cria o papel member. O tipo de registro padrão é simple. O reconhecimento facial pode ser salvo sem foto de referência.",
+    description="Grava a ficha e resolve a pessoa pelo CPF no autenticador. CPF novo exige e-mail e dispara o convite. Sem vínculo nesta organização, cria o papel member. O tipo de registro padrão é simple. O reconhecimento facial pode ser salvo sem foto de referência.",
 )
 def create_employee(
     body: EmployeeCreate,
@@ -514,7 +514,7 @@ def get_vigency(
     "",
     status_code=201,
     summary="Criar vigência",
-    description="Unidade e setor não são escolhidos aqui. Ao gravar a equipe, os dois acompanham o setor e a unidade dessa equipe, na mesma data.",
+    description="Empresa e setor não são escolhidos aqui. Ao gravar a equipe, os dois acompanham o setor e a empresa dessa equipe, na mesma data.",
 )
 def create_vigency(
     body: VigencyCreate,
@@ -596,7 +596,7 @@ def correct_punches(
     return json_data(dump_one(payload, PunchCorrectionOut, None), status_code=201)
 
 
-@face_embeddings.get("", summary="Baixar os rostos da empresa")
+@face_embeddings.get("", summary="Baixar os rostos da organização")
 def list_face_embeddings(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
@@ -1112,7 +1112,7 @@ def list_qr_cards(
     return json_data(dump_page(items, total, page, limit, QrCardOut, fields))
 
 
-@reads.get("/punch-codes", summary="QR Code da unidade, do CPF e da matrícula")
+@reads.get("/punch-codes", summary="QR Code da empresa, do CPF e da matrícula")
 def punch_code(
     employee_id: int = Query(),
     actor: Actor = Depends(require_tenant),
@@ -1136,7 +1136,7 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe as classificações da linha. classification_value_id filtra como na lista de funcionários.",
+    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe os grupos da linha. classification_value_id filtra como na lista de funcionários.",
 )
 @searchable(
     "full_name",

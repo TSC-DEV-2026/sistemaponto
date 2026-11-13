@@ -16,7 +16,7 @@ class SelectTenantScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Text('Escolher empresa', style: Theme.of(context).textTheme.headlineSmall),
+            Text('Escolher organização', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
             ...tenants.map(
               (tenant) => ListTile(

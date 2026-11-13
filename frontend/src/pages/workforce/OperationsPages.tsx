@@ -1279,7 +1279,7 @@ export function OrganizationPage() {
       title="Estrutura Organizacional"
       organization
       tabs={[
-        { id: "unidades", label: "Unidades", icon: Building2, panel: <CatalogList catalog="units" presentation="organization" /> },
+        { id: "empresas", label: "Empresas", icon: Building2, panel: <CatalogList catalog="units" presentation="organization" /> },
         { id: "setores", label: "Setores", icon: Network, panel: <CatalogList catalog="sectors" presentation="organization" /> },
         { id: "equipes", label: "Equipes", icon: Users, panel: <CatalogList catalog="teams" presentation="organization" /> },
       ]}
@@ -1427,7 +1427,7 @@ export function NotificationsPage() {
             </span>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[#0A0A0A]">Avisos</h2>
-              <p className="text-sm text-[#64748B]">Avisos da conta e da empresa.</p>
+              <p className="text-sm text-[#64748B]">Avisos da conta e da organização.</p>
             </div>
           </div>
           {canSend ? (
@@ -1812,7 +1812,7 @@ export function ReportsPage() {
         {kind === "people" ? (
           <div className="mt-5 space-y-4 border-t border-[#F1F5F9] pt-5">
             <div>
-              <p className="text-sm font-semibold text-[#0A0A0A]">Classificações no relatório</p>
+              <p className="text-sm font-semibold text-[#0A0A0A]">Grupos no relatório</p>
               <p className="mt-1 text-sm text-[#64748B]">Sem marcação, o relatório mostra todas.</p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {classifications.map((item) => (
@@ -1830,7 +1830,7 @@ export function ReportsPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-[#0A0A0A]">Filtro de pessoas</p>
-              <p className="mt-1 text-sm text-[#64748B]">Valores da mesma classificação se alternam. Classificações diferentes se somam.</p>
+              <p className="mt-1 text-sm text-[#64748B]">Valores do mesmo grupo se alternam. Grupos diferentes se somam.</p>
               <div className="mt-3">
                 <ClassificationFilter selected={valueIds} onChange={setValueIds} />
               </div>
@@ -1906,7 +1906,7 @@ export function ReportsPage() {
                   </h3>
                   <ul className="divide-y divide-[#F0F0F2]">
                     {group.items.map((item, index) => (
-                      <ReportResultRow key={`${group.date}-${item.employee_id ?? "empresa"}-${item.title}-${item.detail}-${index}`} item={item} kind={result.kind} />
+                      <ReportResultRow key={`${group.date}-${item.employee_id ?? "organização"}-${item.title}-${item.detail}-${index}`} item={item} kind={result.kind} />
                     ))}
                   </ul>
                 </section>

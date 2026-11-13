@@ -46,10 +46,10 @@ import { clockMethodLabel, showDate } from "@/utils/labels"
 const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
 
 const catalog = [
-  { id: "classification", kind: "classification", title: "Alterar classificação", description: "Define o valor de uma classificação para os funcionários.", valueName: "Novo valor", icon: Tags, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "classification", kind: "classification", title: "Alterar grupo", description: "Define o valor de um grupo para os funcionários.", valueName: "Novo valor", icon: Tags, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "job", kind: "job", title: "Alterar função", description: "Define uma nova função.", valueName: "Nova função", icon: Briefcase, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: CalendarClock, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e unidade acompanham a equipe.", valueName: "Nova equipe", icon: Users, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e empresa acompanham a equipe.", valueName: "Nova equipe", icon: Users, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "union", kind: "union", title: "Alterar sindicato", description: "Define um novo sindicato.", valueName: "Novo sindicato", icon: Building2, path: "/unions", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "manager", kind: "manager", title: "Alterar gestor", description: "Define outro funcionário como gestor.", valueName: "Novo gestor", icon: UserCog, path: "/employees", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "dismissed", kind: "status", title: "Desligamento", description: "Encerra o vínculo na data informada, gravando a situação Desligado.", valueName: "", icon: UserMinus, path: "", needsValue: false, needsDate: true, fixedLabel: "dismissed" },
@@ -68,7 +68,7 @@ const filterFields = [
   ["journey_id", "Jornada", "/journeys"],
   ["team_id", "Equipe", "/teams"],
   ["sector_id", "Setor", "/sectors"],
-  ["unit_id", "Unidade", "/units"],
+  ["unit_id", "Empresa", "/units"],
   ["union_id", "Sindicato", "/unions"],
   ["manager_id", "Gestor", "/employees"],
 ] as const
@@ -647,8 +647,8 @@ export function BulkChangesPage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <p className="text-sm font-semibold text-[#0A0A0A]">Classificações</p>
-                  <p className="mt-1 text-sm text-[#64748B]">Valores da mesma classificação se alternam. Classificações diferentes se somam.</p>
+                  <p className="text-sm font-semibold text-[#0A0A0A]">Grupos</p>
+                  <p className="mt-1 text-sm text-[#64748B]">Valores do mesmo grupo se alternam. Grupos diferentes se somam.</p>
                   <div className="mt-3">
                     <ClassificationFilter selected={filterValues} onChange={setFilterValues} />
                   </div>
@@ -744,7 +744,7 @@ export function BulkChangesPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {operation.id === "classification" ? (
                   <div className="space-y-2">
-                    <Label className={moduleLabelClass} htmlFor="bulk-classification">Classificação</Label>
+                    <Label className={moduleLabelClass} htmlFor="bulk-classification">Grupo</Label>
                     <SiteSelect
                       id="bulk-classification"
                       value={classificationId}

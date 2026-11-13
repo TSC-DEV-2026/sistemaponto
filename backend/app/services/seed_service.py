@@ -39,7 +39,7 @@ def seed_operator(db: Session) -> None:
         memberships.create(person_id=person_id, tenant_id=tenant.id, role="admin")
         ensure_company_defaults(db, tenant.id)
         db.commit()
-        logger.info("empresa inicial criada person_id=%s", person_id)
+        logger.info("organização inicial criada person_id=%s", person_id)
     except Exception:
         db.rollback()
-        logger.exception("seed da empresa inicial não aplicado")
+        logger.exception("seed da organização inicial não aplicado")
