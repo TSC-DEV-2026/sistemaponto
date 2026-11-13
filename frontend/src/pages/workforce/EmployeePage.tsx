@@ -585,7 +585,7 @@ export function EmployeePage() {
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
               {(
                 [
-                  [Briefcase, "Cargo", employee.job_label],
+                  [Briefcase, "Função", employee.job_label],
                   [Clock, "Jornada", employee.journey_label],
                   [Building2, "Unidade", employee.unit_label],
                   [Layers, "Setor", employee.sector_label],

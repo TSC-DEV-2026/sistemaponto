@@ -16,7 +16,7 @@ export function PeoplePage() {
       people
       tabs={[
         { id: "funcionarios", label: "Funcionários", icon: Users, panel: <EmployeeList /> },
-        { id: "cargos", label: "Cargos", icon: Briefcase, panel: <CatalogList catalog="jobs" presentation="people" /> },
+        { id: "funcoes", label: "Funções", icon: Briefcase, panel: <CatalogList catalog="jobs" presentation="people" /> },
         { id: "classificacoes", label: "Classificações", icon: Tags, panel: <CatalogList catalog="classifications" presentation="people" /> },
       ]}
     />

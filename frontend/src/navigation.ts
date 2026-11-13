@@ -112,10 +112,10 @@ export const navGroups: NavGroup[] = [
         to: "/people",
         label: "Pessoas",
         icon: Users,
-        lead: "Funcionários, cargos e classificações. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
+        lead: "Funcionários, funções e classificações. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
         sections: [
           { title: "Funcionários", text: "Nenhum funcionário." },
-          { title: "Cargos", text: "Nenhum cargo." },
+          { title: "Funções", text: "Nenhuma função." },
           { title: "Classificações", text: "Nenhuma classificação." },
         ],
       },
@@ -137,7 +137,7 @@ export const navGroups: NavGroup[] = [
         adminOnly: true,
         lead: "Altera o vínculo ou o tipo de registro de várias pessoas de uma vez.",
         sections: [
-          { title: "Vínculos", text: "Cargo, jornada, classificação, equipe, situação, gestor e sindicato." },
+          { title: "Vínculos", text: "Função, jornada, classificação, equipe, situação, gestor e sindicato." },
           { title: "Tipo de registro", text: "Simples, QR Code ou reconhecimento facial." },
         ],
       },

@@ -24,10 +24,10 @@ export const catalogs: Record<string, Catalog> = {
   },
   jobs: {
     path: "/jobs",
-    newLabel: "Novo cargo",
-    editTitle: "Editar cargo",
-    empty: "Nenhum cargo.",
-    backTo: "/people?aba=cargos",
+    newLabel: "Nova função",
+    editTitle: "Editar função",
+    empty: "Nenhuma função.",
+    backTo: "/people?aba=funcoes",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
   classifications: {
