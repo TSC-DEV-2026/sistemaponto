@@ -1222,20 +1222,21 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
 
   if (catalog === "jobs" || catalog === "classifications") {
     const Icon = catalog === "jobs" ? Briefcase : Tags
-    const noun = catalog === "jobs" ? "cargo" : "classificação"
+    const noun = catalog === "jobs" ? "função" : "classificação"
+    const article = catalog === "jobs" ? "a" : "o"
     if (mode !== "new" && !loaded && !error) {
       return (
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
           <section className={cn(moduleCardClass, "mx-auto flex min-h-[280px] w-full max-w-[680px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-            <Spinner label={`Carregando o ${noun}`} className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando o {noun}</p>
+            <Spinner label={`Carregando ${article} ${noun}`} className="h-8 w-8 text-[#1E8A3A]" />
+            <p className="text-sm font-medium text-[#64748B]">Carregando {article} {noun}</p>
           </section>
         </div>
       )
     }
     const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
-    const subtitle = mode === "view" ? (catalog === "jobs" ? "Cargo" : "Classificação") : mode === "new" ? `Informe o nome do ${noun}.` : `Atualize o nome do ${noun}.`
+    const subtitle = mode === "view" ? (catalog === "jobs" ? "Função" : "Classificação") : mode === "new" ? `Informe o nome d${article} ${noun}.` : `Atualize o nome d${article} ${noun}.`
     const valuesOnPage = catalog === "classifications" && mode === "view"
     return (
       <div className="w-full min-w-0 space-y-5">

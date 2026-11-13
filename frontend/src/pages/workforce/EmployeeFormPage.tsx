@@ -26,7 +26,7 @@ import { isoWeekday } from "@/pages/workforce/journey"
 import { absenceKinds, clockMethodLabel, manualTimeOffKinds, occurrenceKindLabel } from "@/utils/labels"
 
 const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
-  { kind: "job", label: "Cargo", path: "/jobs", searchKey: "name", icon: Briefcase },
+  { kind: "job", label: "Função", path: "/jobs", searchKey: "name", icon: Briefcase },
   { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: CalendarClock },
   { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: Users },
   { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: Building2 },

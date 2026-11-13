@@ -56,7 +56,7 @@ export const occurrenceNewLabel: Record<string, string> = {
 }
 
 export const vigencyKindLabel: Record<string, string> = {
-  job: "Cargo",
+  job: "Função",
   journey: "Jornada",
   cost_center: "Centro de custo",
   classification: "Classificação",

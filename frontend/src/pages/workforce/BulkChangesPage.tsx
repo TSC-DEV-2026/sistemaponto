@@ -47,7 +47,7 @@ const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] 
 
 const catalog = [
   { id: "classification", kind: "classification", title: "Alterar classificação", description: "Define o valor de uma classificação para os funcionários.", valueName: "Novo valor", icon: Tags, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "job", kind: "job", title: "Alterar cargo", description: "Define um novo cargo.", valueName: "Novo cargo", icon: Briefcase, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "job", kind: "job", title: "Alterar função", description: "Define uma nova função.", valueName: "Nova função", icon: Briefcase, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: CalendarClock, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e unidade acompanham a equipe.", valueName: "Nova equipe", icon: Users, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "union", kind: "union", title: "Alterar sindicato", description: "Define um novo sindicato.", valueName: "Novo sindicato", icon: Building2, path: "/unions", needsValue: true, needsDate: true, fixedLabel: "" },
@@ -64,7 +64,7 @@ const steps = [
 ] as const
 
 const filterFields = [
-  ["job_id", "Cargo", "/jobs"],
+  ["job_id", "Função", "/jobs"],
   ["journey_id", "Jornada", "/journeys"],
   ["team_id", "Equipe", "/teams"],
   ["sector_id", "Setor", "/sectors"],
