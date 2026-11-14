@@ -66,6 +66,7 @@ from app.models.workforce import (
     ClassificationValue,
     Closing,
     ClosingEvent,
+    ClosingJourneyPin,
     CostCenter,
     Employee,
     EmployeeVigency,
@@ -1156,6 +1157,7 @@ class WorkforceService:
             event_note = self._required_note(data)
             row.note = event_note
             row.status = "cancelled"
+            self.repo.delete_pins_for_closing(row.id)
         elif status == "open":
             if row.status not in {"closed", "cancelled"}:
                 raise AppError(409, "Só um período fechado ou cancelado pode ser reaberto")
@@ -1164,9 +1166,12 @@ class WorkforceService:
             row.status = "open"
             row.closed_at = None
             row.closed_by_person_id = None
+            self.repo.delete_pins_for_closing(row.id)
         else:
             raise AppError(400, "Situação inválida")
         self.repo.add(row)
+        if status == "closed":
+            self._pin_journeys(scope, row)
         self.repo.add(
             ClosingEvent(
                 tenant_id=scope.tenant_id,
@@ -2064,18 +2069,19 @@ class WorkforceService:
         if "note" in data:
             journey.note = self._note(data.get("note"))
         if self._journey_content_sent(data):
-            current = self._spec_on(scope.tenant_id, journey, self.today())
+            current = self._spec_latest(scope.tenant_id, journey)
             spec = self._spec_from(data, current)
             when = data.get("valid_from") or self.today()
             spec.valid_from = when
-            previous = self._spec_on(scope.tenant_id, journey, when)
+            previous = self._spec_latest(scope.tenant_id, journey)
             if not same_content(previous, spec):
-                self._assert_open(scope.tenant_id, when)
                 latest = self._latest_version(scope.tenant_id, journey.id)
                 if latest is not None and when < latest.valid_from:
                     raise AppError(400, "A vigência da jornada precisa ser igual ou posterior à atual")
                 if previous.kind == "programada" and spec.kind == "programada" and previous.length != spec.length:
+                    self._assert_open(scope.tenant_id, when)
                     self._reanchor(scope, journey, when, spec.length, data.get("anchors") or [])
+                self._freeze_closed(scope.tenant_id, journey)
                 self._write_version(scope, journey, spec)
                 morning, morning_end, afternoon, afternoon_end = clocks_of(spec)
                 journey.morning_start = morning
@@ -2161,6 +2167,8 @@ class WorkforceService:
             if row.valid_from == spec.valid_from
         ]
         for version in existing:
+            if self.repo.version_is_pinned(version.id):
+                continue
             self._delete_version(version)
         version = self.repo.add(
             JourneyVersion(
@@ -2201,6 +2209,7 @@ class WorkforceService:
         self.repo.delete(version)
 
     def _purge_journey(self, scope: Scope, journey: Journey) -> None:
+        self.repo.delete_pins_for_journey(journey.id)
         for version in list(self.repo.versions_for(scope.tenant_id, journey.id)):
             self._delete_version(version)
 
@@ -2224,7 +2233,7 @@ class WorkforceService:
             self._replace_vigency(scope, employee.id, "journey", journey.id, journey.name, valid_from, None, cycle_day)
 
     def _present_journey(self, scope: Scope, journey: Journey, spec: JourneySpec | None = None):
-        chosen = spec or self._spec_on(scope.tenant_id, journey, self.today())
+        chosen = spec or self._spec_latest(scope.tenant_id, journey)
         morning, morning_end, afternoon, afternoon_end = clocks_of(chosen)
         return SimpleNamespace(
             id=journey.id,
@@ -2243,18 +2252,39 @@ class WorkforceService:
         )
 
     def _spec_on(self, tenant_id: int, journey: Journey, day: date) -> JourneySpec:
-        chosen = None
-        for version in self.repo.versions_for(tenant_id, journey.id):
-            if version.valid_from <= day and (chosen is None or (version.valid_from, version.id) > (chosen.valid_from, chosen.id)):
-                chosen = version
+        closing = self.repo.closed_covering(tenant_id, day)
+        if closing is not None:
+            pin = self.repo.pin_on(closing.id, journey.id, day)
+            if pin is not None:
+                pinned = self.repo.get_row(JourneyVersion, tenant_id, pin.version_id)
+                if pinned is not None:
+                    return self._spec_of(journey, pinned)
+            return self._spec_covering(tenant_id, journey, day)
+        return self._spec_latest(tenant_id, journey)
+
+    def _spec_latest(self, tenant_id: int, journey: Journey) -> JourneySpec:
+        chosen = self._latest_version(tenant_id, journey.id)
         if chosen is None:
             return legacy_spec(journey.morning_start, journey.morning_end, journey.afternoon_start, journey.afternoon_end)
+        return self._spec_of(journey, chosen)
+
+    def _spec_covering(self, tenant_id: int, journey: Journey, day: date) -> JourneySpec:
+        chosen = self._version_covering(tenant_id, journey.id, day)
+        if chosen is None:
+            return legacy_spec(journey.morning_start, journey.morning_end, journey.afternoon_start, journey.afternoon_end)
+        return self._spec_of(journey, chosen)
+
+    def _version_covering(self, tenant_id: int, journey_id: int, day: date) -> JourneyVersion | None:
+        chosen = None
+        for version in self.repo.versions_for(tenant_id, journey_id):
+            if version.valid_from <= day and (chosen is None or (version.valid_from, version.id) > (chosen.valid_from, chosen.id)):
+                chosen = version
+        return chosen
+
+    def _spec_of(self, journey: Journey, chosen: JourneyVersion) -> JourneySpec:
         days: list[DaySpec] = []
         for stored in self.repo.days_for(chosen.id):
-            spans = [
-                SpanSpec(span.starts_at, span.ends_at)
-                for span in self.repo.spans_for(stored.id)
-            ]
+            spans = [SpanSpec(span.starts_at, span.ends_at) for span in self.repo.spans_for(stored.id)]
             days.append(DaySpec(position=stored.position, off=bool(stored.off), spans=spans))
         days.sort(key=lambda item: item.position)
         return JourneySpec(
@@ -2265,6 +2295,52 @@ class WorkforceService:
             days=days,
             valid_from=chosen.valid_from,
         )
+
+    def _pin_journeys(self, scope: Scope, closing: Closing) -> None:
+        page = 1
+        while True:
+            journeys, total = self.repo.list_rows(
+                Journey, scope.tenant_id, page=page, limit=100, equals={}, descending=False
+            )
+            for journey in journeys:
+                if self.repo.pins_for(closing.id, journey.id):
+                    continue
+                latest = self._latest_version(scope.tenant_id, journey.id)
+                if latest is None:
+                    continue
+                self.repo.add(
+                    ClosingJourneyPin(
+                        tenant_id=scope.tenant_id,
+                        closing_id=closing.id,
+                        journey_id=journey.id,
+                        version_id=latest.id,
+                        covers_from=closing.starts_on,
+                    )
+                )
+            if page * 100 >= total or not journeys:
+                break
+            page += 1
+
+    def _freeze_closed(self, tenant_id: int, journey: Journey) -> None:
+        for closing in self.repo.closed_periods(tenant_id):
+            if self.repo.pins_for(closing.id, journey.id):
+                continue
+            previous_id = None
+            day = closing.starts_on
+            while day <= closing.ends_on:
+                version = self._version_covering(tenant_id, journey.id, day)
+                if version is not None and version.id != previous_id:
+                    self.repo.add(
+                        ClosingJourneyPin(
+                            tenant_id=tenant_id,
+                            closing_id=closing.id,
+                            journey_id=journey.id,
+                            version_id=version.id,
+                            covers_from=day,
+                        )
+                    )
+                    previous_id = version.id
+                day += timedelta(days=1)
 
     def _latest_version(self, tenant_id: int, journey_id: int):
         found = self.repo.versions_for(tenant_id, journey_id)

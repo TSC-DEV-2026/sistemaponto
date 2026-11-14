@@ -57,7 +57,7 @@ export function isoWeekday(value: string) {
 }
 
 export function resultNote(kind?: string | null) {
-  const shared = "Feriado, férias, afastamento, abono integral e atestado integral ficam por cima do tipo. O adicional noturno não entra no banco."
+  const shared = "Feriado, férias, afastamento, abono integral e atestado integral ficam por cima do tipo. O adicional noturno não entra no banco. A alteração da jornada entra nos dias em aberto. O período fechado permanece como estava."
   if (kind === "carga") return `Carga. De segunda a sábado aparece o tempo trabalhado. No domingo, ou no último dia em que a carga vale na semana, o total vira hora extra ou falta de tempo. ${shared}`
   if (kind === "livre") return `Livre. O tempo marcado é o tempo a receber. Dia sem marcação fica em zero, sem falta. ${shared}`
   if (kind === "programada") return `Programada. O dia segue a sequência da vigência. A tolerância e a flexível são as desta jornada. Folga trabalhada vira hora extra. ${shared}`

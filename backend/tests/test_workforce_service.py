@@ -18,6 +18,7 @@ from app.models.workforce import (
     ClassificationValue,
     Closing,
     ClosingEvent,
+    ClosingJourneyPin,
     Employee,
     EmployeeVigency,
     FiscalFile,
@@ -455,6 +456,35 @@ class Memory:
             if row.status == "closed" and row.starts_on <= day <= row.ends_on:
                 return row
         return None
+
+    def closed_periods(self, tenant_id: int):
+        return [row for row in self._of(Closing, tenant_id) if row.status == "closed"]
+
+    def pins_for(self, closing_id: int, journey_id: int):
+        found = [
+            row
+            for row in self.rows
+            if isinstance(row, ClosingJourneyPin) and row.closing_id == closing_id and row.journey_id == journey_id
+        ]
+        found.sort(key=lambda item: (item.covers_from, item.id))
+        return found
+
+    def pin_on(self, closing_id: int, journey_id: int, day: date):
+        found = [row for row in self.pins_for(closing_id, journey_id) if row.covers_from <= day]
+        return found[-1] if found else None
+
+    def version_is_pinned(self, version_id: int) -> bool:
+        return any(isinstance(row, ClosingJourneyPin) and row.version_id == version_id for row in self.rows)
+
+    def delete_pins_for_closing(self, closing_id: int) -> None:
+        self.rows = [
+            row for row in self.rows if not (isinstance(row, ClosingJourneyPin) and row.closing_id == closing_id)
+        ]
+
+    def delete_pins_for_journey(self, journey_id: int) -> None:
+        self.rows = [
+            row for row in self.rows if not (isinstance(row, ClosingJourneyPin) and row.journey_id == journey_id)
+        ]
 
     def pending_overlapping(self, tenant_id: int, start: date, end: date):
         found = []
@@ -3071,14 +3101,82 @@ def test_livre_nao_gera_falta_e_feriado_trabalhado_e_extra():
     assert worked["absence"] is False
 
 
-def test_alterar_horario_vale_da_data_em_diante():
+def test_alterar_horario_atualiza_os_dias_em_aberto():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     journey = work_journey(workforce, person["id"])
     workforce.update_named(Journey, admin(), journey.id, {"afternoon_end": "18:00"})
     result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
-    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 8 * 60 + 48
+    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 9 * 60
     assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 9 * 60
+
+
+def _week(off: set[int]) -> list[dict]:
+    return [
+        {"off": index in off, "spans": [] if index in off else [{"starts_at": "08:00", "ends_at": "12:00"}]}
+        for index in range(1, 8)
+    ]
+
+
+def test_periodo_fechado_guarda_a_jornada_e_o_aberto_segue_a_nova():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 9, 1)))
+    journey = workforce.create_named(Journey, admin(), {"name": "Escala", "days": _week({6, 7}), "note": None})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 9, 24),
+            "cycle_day": 5,
+            "note": None,
+        },
+    )
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 9, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    workforce.update_named(Journey, admin(), journey.id, {"days": _week({1, 7})})
+    kept = workforce.time_results(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
+    assert day_result(kept, date(2026, 9, 25))["expected_minutes"] == 0
+    assert day_result(kept, date(2026, 9, 25))["absence"] is False
+    assert day_result(kept, date(2026, 9, 27))["expected_minutes"] == 4 * 60
+    assert day_result(kept, date(2026, 9, 27))["absence"] is True
+    opened_days = workforce.time_results(admin(), person["id"], date(2026, 10, 9), date(2026, 10, 11))
+    assert day_result(opened_days, date(2026, 10, 9))["expected_minutes"] == 4 * 60
+    assert day_result(opened_days, date(2026, 10, 9))["absence"] is True
+    assert day_result(opened_days, date(2026, 10, 11))["expected_minutes"] == 0
+    assert day_result(opened_days, date(2026, 10, 11))["absence"] is False
+    workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Corrigir a escala"})
+    released = workforce.time_results(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
+    assert day_result(released, date(2026, 9, 25))["absence"] is True
+    assert day_result(released, date(2026, 9, 27))["absence"] is False
+
+
+def test_fechar_depois_da_edicao_grava_a_jornada_que_estava_valendo():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 9, 1)))
+    journey = workforce.create_named(Journey, admin(), {"name": "Escala", "days": _week({6, 7}), "note": None})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "journey",
+            "reference_id": journey.id,
+            "label": None,
+            "valid_from": date(2026, 9, 24),
+            "cycle_day": 5,
+            "note": None,
+        },
+    )
+    workforce.update_named(Journey, admin(), journey.id, {"days": _week({1, 7})})
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 9, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    workforce.update_named(Journey, admin(), journey.id, {"days": _week({6, 7})})
+    kept = workforce.time_results(admin(), person["id"], date(2026, 9, 27), date(2026, 9, 27))
+    assert day_result(kept, date(2026, 9, 27))["absence"] is False
+    later = workforce.time_results(admin(), person["id"], date(2026, 10, 11), date(2026, 10, 11))
+    assert day_result(later, date(2026, 10, 11))["absence"] is True
 
 
 def test_turno_que_passa_da_meia_noite_fica_no_dia_que_comecou():

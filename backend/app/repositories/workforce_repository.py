@@ -11,6 +11,7 @@ from app.models.workforce import (
     Classification,
     Closing,
     ClosingEvent,
+    ClosingJourneyPin,
     Employee,
     EmployeeVigency,
     FiscalFile,
@@ -581,6 +582,49 @@ class WorkforceRepository:
                 FiscalFile.ends_on >= start,
             )
             .all()
+        )
+
+    def closed_periods(self, tenant_id: int) -> list[Closing]:
+        return (
+            self.db.query(Closing)
+            .filter(Closing.tenant_id == tenant_id, Closing.status == "closed")
+            .all()
+        )
+
+    def pins_for(self, closing_id: int, journey_id: int) -> list[ClosingJourneyPin]:
+        return (
+            self.db.query(ClosingJourneyPin)
+            .filter(ClosingJourneyPin.closing_id == closing_id, ClosingJourneyPin.journey_id == journey_id)
+            .order_by(ClosingJourneyPin.covers_from.asc(), ClosingJourneyPin.id.asc())
+            .all()
+        )
+
+    def pin_on(self, closing_id: int, journey_id: int, day: date) -> ClosingJourneyPin | None:
+        return (
+            self.db.query(ClosingJourneyPin)
+            .filter(
+                ClosingJourneyPin.closing_id == closing_id,
+                ClosingJourneyPin.journey_id == journey_id,
+                ClosingJourneyPin.covers_from <= day,
+            )
+            .order_by(ClosingJourneyPin.covers_from.desc(), ClosingJourneyPin.id.desc())
+            .first()
+        )
+
+    def version_is_pinned(self, version_id: int) -> bool:
+        return (
+            self.db.query(ClosingJourneyPin.id).filter(ClosingJourneyPin.version_id == version_id).first()
+            is not None
+        )
+
+    def delete_pins_for_closing(self, closing_id: int) -> None:
+        self.db.query(ClosingJourneyPin).filter(ClosingJourneyPin.closing_id == closing_id).delete(
+            synchronize_session=False
+        )
+
+    def delete_pins_for_journey(self, journey_id: int) -> None:
+        self.db.query(ClosingJourneyPin).filter(ClosingJourneyPin.journey_id == journey_id).delete(
+            synchronize_session=False
         )
 
     def closed_covering(self, tenant_id: int, day: date) -> Closing | None:
