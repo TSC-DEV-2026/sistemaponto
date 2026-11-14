@@ -8,6 +8,7 @@ from app.models.workforce import (  # noqa: F401
     ClassificationValue,
     Closing,
     ClosingEvent,
+    ClosingJourneyPin,
     CostCenter,
     Employee,
     EmployeeVigency,

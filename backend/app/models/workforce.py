@@ -365,6 +365,20 @@ class Closing(Base):
     closed_by_person_id = Column(BigInteger, nullable=True)
 
 
+class ClosingJourneyPin(Base):
+    __tablename__ = "closing_journey_pins"
+    __table_args__ = (
+        UniqueConstraint("closing_id", "journey_id", "covers_from", name="uq_closing_journey_pin"),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    closing_id = Column(BigInteger, ForeignKey("closings.id", ondelete="CASCADE"), nullable=False, index=True)
+    journey_id = Column(BigInteger, ForeignKey("journeys.id", ondelete="CASCADE"), nullable=False, index=True)
+    version_id = Column(BigInteger, ForeignKey("journey_versions.id", ondelete="RESTRICT"), nullable=False, index=True)
+    covers_from = Column(Date, nullable=False)
+
+
 class ClosingEvent(Base):
     __tablename__ = "closing_events"
 

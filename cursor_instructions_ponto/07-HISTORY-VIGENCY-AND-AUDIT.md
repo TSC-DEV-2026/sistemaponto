@@ -61,6 +61,8 @@ Ao consultar agosto, usar a jornada anterior.
 
 Ao consultar setembro, usar a jornada vigente.
 
+A troca da jornada do funcionário continua por data. A configuração da própria jornada (dias, horários, folgas, tolerância) vale em todo dia em aberto. Ao fechar o período, essa configuração fica gravada nele. Uma edição posterior não altera os dias fechados. Reabrir ou cancelar o período faz esses dias voltarem a seguir a configuração atual.
+
 ---
 
 ## 5. Histórico dentro do funcionário

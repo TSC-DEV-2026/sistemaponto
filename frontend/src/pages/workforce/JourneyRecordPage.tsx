@@ -169,8 +169,8 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         return
       }
     }
-    if (mode === "edit" && !validFrom) {
-      setError("Informe a data em que o conteúdo novo passa a valer")
+    if (lengthChanged && !validFrom) {
+      setError("Informe o início da nova sequência")
       return
     }
     if (lengthChanged) {
@@ -192,8 +192,10 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
     }
     if (kind === "programada") body.days = plainDays(days)
     if (kind === "carga") body.weekly_time = weekly.trim()
-    if (mode === "edit") body.valid_from = validFrom
-    if (lengthChanged) body.anchors = anchors.map((item) => ({ employee_id: item.employeeId, cycle_day: Number(item.cycleDay) }))
+    if (lengthChanged) {
+      body.valid_from = validFrom
+      body.anchors = anchors.map((item) => ({ employee_id: item.employeeId, cycle_day: Number(item.cycleDay) }))
+    }
     setSaving(true)
     try {
       if (mode === "new") await createRecord("/journeys", body)
@@ -352,7 +354,10 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
             ))}
           </section>
         ) : null}
-        {mode === "edit" ? <DatePickerField id="journey-from" label="Vale a partir de" value={validFrom} required onChange={setValidFrom} /> : null}
+        {mode === "edit" ? (
+          <p className="text-sm text-[#64748B]">A nova jornada vale nos dias em aberto. Um período fechado permanece como estava.</p>
+        ) : null}
+        {lengthChanged ? <DatePickerField id="journey-from" label="Início da nova sequência" value={validFrom} required onChange={setValidFrom} /> : null}
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="journey-note">Observação</Label>
           <textarea id="journey-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
