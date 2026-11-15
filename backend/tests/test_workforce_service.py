@@ -3610,6 +3610,57 @@ def test_lote_de_classificacao_nao_mexe_na_outra():
     }
 
 
+def test_relatorio_filtra_empresa_setor_e_equipe_pela_vigencia_do_dia():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "22222222222", 9))
+    unit_a = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    unit_b = workforce.create_named(Unit, admin(), {"name": "Filial"})
+    sector_a = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit_a.id})
+    sector_b = workforce.create_named(Sector, admin(), {"name": "Apoio", "unit_id": unit_b.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector_a.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector_b.id})
+    for team, day in ((team_a, date(2026, 10, 1)), (team_b, date(2026, 10, 7))):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": day,
+                "note": None,
+            },
+        )
+    mark(workforce, person["id"], 6, (8, 0))
+    mark(workforce, person["id"], 7, (8, 0))
+    start, end = date(2026, 10, 6), date(2026, 10, 7)
+    only_a = workforce.report(admin(), "marking", start, end, None, 1, 10, {"team_id": str(team_a.id)})
+    assert [item["occurred_on"] for item in only_a["items"]] == [date(2026, 10, 6)]
+    both = workforce.report(admin(), "marking", start, end, None, 1, 10, {"team_id": f"{team_a.id},{team_b.id}"})
+    assert [item["occurred_on"] for item in both["items"]] == [date(2026, 10, 6), date(2026, 10, 7)]
+    filial = workforce.report(admin(), "marking", start, end, None, 1, 10, {"unit_id": str(unit_b.id)})
+    assert [item["occurred_on"] for item in filial["items"]] == [date(2026, 10, 7)]
+    crossed = workforce.report(
+        admin(),
+        "marking",
+        start,
+        end,
+        None,
+        1,
+        10,
+        {"unit_id": str(unit_a.id), "team_id": str(team_b.id)},
+    )
+    assert crossed["items"] == []
+    early = workforce.report(admin(), "people", date(2026, 10, 6), date(2026, 10, 6), None, 1, 10, {"sector_id": str(sector_a.id)})
+    assert [item["full_name"] for item in early["items"]] == [person["full_name"]]
+    later = workforce.report(admin(), "people", date(2026, 10, 7), date(2026, 10, 7), None, 1, 10, {"sector_id": str(sector_a.id)})
+    assert later["items"] == []
+    with pytest.raises(AppError) as invalid:
+        workforce.report(admin(), "marking", start, end, None, 1, 10, {"team_id": "a"})
+    assert invalid.value.message == "Filtro inválido"
+
+
 def test_relatorio_de_pessoas_usa_o_valor_do_dia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())

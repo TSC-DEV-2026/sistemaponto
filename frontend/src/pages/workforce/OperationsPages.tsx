@@ -14,6 +14,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
 import { ClassificationFilter, classificationQuery, loadClassificationGroups } from "@/components/workforce/ClassificationFilter"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
+import { PlaceCombobox } from "@/components/workforce/place-combobox"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
@@ -1610,6 +1611,9 @@ type ReportQuery = {
   employeeId: string
   classificationValueId: string
   classificationIds: string
+  unitIds: string
+  sectorIds: string
+  teamIds: string
 }
 
 function punchMeasure(detail: string, label: string) {
@@ -1648,6 +1652,12 @@ export function ReportsPage() {
   const [startsOn, setStartsOn] = useState(monthStart)
   const [endsOn, setEndsOn] = useState(() => punchDay(new Date().toISOString()))
   const [employeeId, setEmployeeId] = useState("")
+  const [unitIds, setUnitIds] = useState<number[]>([])
+  const [sectorIds, setSectorIds] = useState<number[]>([])
+  const [teamIds, setTeamIds] = useState<number[]>([])
+  const [units, setUnits] = useState<NamedRecord[]>([])
+  const [sectors, setSectors] = useState<NamedRecord[]>([])
+  const [teams, setTeams] = useState<NamedRecord[]>([])
   const [valueIds, setValueIds] = useState<number[]>([])
   const [showIds, setShowIds] = useState<number[]>([])
   const [classifications, setClassifications] = useState<NamedRecord[]>([])
@@ -1670,13 +1680,19 @@ export function ReportsPage() {
     Promise.all([
       listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 }),
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/units", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/sectors", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/teams", { page: 1, limit: 100 }),
     ])
-      .then(async ([reports, people]) => {
+      .then(async ([reports, people, unitPage, sectorPage, teamPage]) => {
         if (!active) {
           return
         }
         setCatalog(reports.items)
         setEmployees(people.items)
+        setUnits(unitPage.items)
+        setSectors(sectorPage.items)
+        setTeams(teamPage.items)
         const groups = await loadClassificationGroups().catch(() => null)
         if (active && groups) setClassifications(groups.map((item) => ({ id: item.id, name: item.name })))
         if (reports.items[0]) {
@@ -1699,7 +1715,7 @@ export function ReportsPage() {
   async function openPage(page: number, next: ReportQuery) {
     const ticket = requestId.current + 1
     requestId.current = ticket
-    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.classificationValueId === next.classificationValueId && applied.classificationIds === next.classificationIds
+    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.classificationValueId === next.classificationValueId && applied.classificationIds === next.classificationIds && applied.unitIds === next.unitIds && applied.sectorIds === next.sectorIds && applied.teamIds === next.teamIds
     setLoading(true)
     setError("")
     if (!sameQuery) {
@@ -1710,6 +1726,9 @@ export function ReportsPage() {
       const extra: Record<string, string> = {}
       if (next.classificationValueId) extra.classification_value_id = next.classificationValueId
       if (next.classificationIds) extra.classification_ids = next.classificationIds
+      if (next.unitIds) extra.unit_id = next.unitIds
+      if (next.sectorIds) extra.sector_id = next.sectorIds
+      if (next.teamIds) extra.team_id = next.teamIds
       const data = await getReport(next.kind, next.startsOn, next.endsOn, page, next.employeeId ? Number(next.employeeId) : undefined, 20, extra)
       if (ticket !== requestId.current) return
       setApplied(next)
@@ -1735,6 +1754,9 @@ export function ReportsPage() {
       employeeId,
       classificationValueId: people ? classificationQuery(valueIds) : "",
       classificationIds: people ? classificationQuery(showIds) : "",
+      unitIds: classificationQuery(unitIds),
+      sectorIds: classificationQuery(sectorIds),
+      teamIds: classificationQuery(teamIds),
     })
   }
 
@@ -1746,6 +1768,9 @@ export function ReportsPage() {
       const extra: Record<string, string> = {}
       if (applied.classificationValueId) extra.classification_value_id = applied.classificationValueId
       if (applied.classificationIds) extra.classification_ids = applied.classificationIds
+      if (applied.unitIds) extra.unit_id = applied.unitIds
+      if (applied.sectorIds) extra.sector_id = applied.sectorIds
+      if (applied.teamIds) extra.team_id = applied.teamIds
       const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100, extra)
       const items = [...first.items]
       const pageCount = Math.max(1, Math.ceil(first.total / first.limit))
@@ -1811,6 +1836,21 @@ export function ReportsPage() {
             Consultar
           </Button>
         </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="report-unit">Empresa</Label>
+            <PlaceCombobox id="report-unit" icon={Building2} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="report-sector">Setor</Label>
+            <PlaceCombobox id="report-sector" icon={Network} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="report-team">Equipe</Label>
+            <PlaceCombobox id="report-team" icon={Users} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
+          </div>
+        </div>
+        <p className="text-sm text-[#64748B]">Sem marcação, entram todas. Cada linha usa a vigência do dia dela. Os três filtros se somam.</p>
         {kind === "people" ? (
           <div className="mt-5 space-y-4 border-t border-[#F1F5F9] pt-5">
             <div>

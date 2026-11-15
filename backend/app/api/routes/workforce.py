@@ -1139,7 +1139,7 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe os grupos da linha. classification_value_id filtra como na lista de funcionários.",
+    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe os grupos da linha. classification_value_id filtra como na lista de funcionários. unit_id, sector_id e team_id aceitam vários ids separados por vírgula e usam a vigência do dia de cada linha.",
 )
 @searchable(
     "full_name",
@@ -1150,9 +1150,6 @@ def report_catalog(
     "cost_center_id",
     "classification_value_id",
     "classification_ids",
-    "unit_id",
-    "sector_id",
-    "team_id",
     "union_id",
     "manager_id",
     "situation",
@@ -1163,6 +1160,9 @@ def reports(
     starts_on: date = Query(),
     ends_on: date = Query(),
     employee_id: int | None = Query(default=None),
+    unit_id: str | None = Query(default=None, max_length=500, description="Ids de empresa separados por vírgula"),
+    sector_id: str | None = Query(default=None, max_length=500, description="Ids de setor separados por vírgula"),
+    team_id: str | None = Query(default=None, max_length=500, description="Ids de equipe separados por vírgula"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     actor: Actor = Depends(require_tenant),
@@ -1178,14 +1178,14 @@ def reports(
             "journey_id",
             "cost_center_id",
             "classification_value_id",
-            "unit_id",
-            "sector_id",
-            "team_id",
             "union_id",
             "manager_id",
             "situation",
         ),
     )
+    for name, value in (("unit_id", unit_id), ("sector_id", sector_id), ("team_id", team_id)):
+        if value:
+            filters[name] = value
     shown = read_filters(request, ("classification_ids",))
     if shown.get("classification_ids"):
         filters["classification_id"] = shown["classification_ids"]
