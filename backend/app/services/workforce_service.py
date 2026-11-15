@@ -988,8 +988,15 @@ class WorkforceService:
         return row
 
     def delete_occurrence(self, scope: Scope, row_id: int) -> None:
-        self.get_occurrence(scope, row_id)
-        raise AppError(409, "A ocorrência permanece no histórico.")
+        row = self.get_occurrence(scope, row_id)
+        employee = self._employee(scope, row.employee_id)
+        if row.kind in MANUAL_OCCURRENCE_KINDS:
+            self._can_launch(scope, employee)
+        else:
+            self._admin(scope)
+        self._assert_span_open(scope.tenant_id, row.starts_on, row.ends_on)
+        self._audit(scope, row.employee_id, "occurrence_delete", row.id, row.kind, None, row.starts_on)
+        self.repo.delete(row)
 
     def list_requests(self, scope: Scope, page: int, limit: int, equals: dict):
         rows, total = self._scoped_list(scope, TimeRequest, page, limit, equals)
@@ -3702,6 +3709,8 @@ class WorkforceService:
             action = "Correção de marcação"
         elif kind == "occurrence":
             action = "Registro de ocorrência"
+        elif kind == "occurrence_delete":
+            action = "Exclusão de ocorrência"
         elif kind == "request":
             action = "Decisão de solicitação"
         elif kind == "fiscal_file":
