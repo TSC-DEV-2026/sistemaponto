@@ -26,10 +26,19 @@ const vigencyTargets: { kind: string; label: string; path: string; searchKey: "n
   { kind: "job", label: "Função", path: "/jobs", searchKey: "name", icon: Briefcase },
   { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: CalendarClock },
   { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: Users },
-  { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: Building2 },
   { kind: "manager", label: "Gestor", path: "/employees", searchKey: "full_name", icon: UserRound },
+  { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: Building2 },
   { kind: "status", label: "Situação", path: "", searchKey: "name", icon: User },
 ]
+
+const vigencyHeading: Record<string, string> = {
+  job: "Nova função",
+  journey: "Nova jornada",
+  team: "Nova equipe",
+  union: "Novo sindicato",
+  manager: "Adicionar gestor",
+  status: "Alterar situação",
+}
 
 function readFaceImage(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -141,7 +150,7 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
           <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
         )}
       </div>
-      <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar grupos</h2>
+      <h2 className="text-lg font-semibold text-[#0A0A0A]">Novo grupo</h2>
       {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -207,6 +216,7 @@ export function EmployeeFormPage() {
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [hasFacePhoto, setHasFacePhoto] = useState(false)
   const [error, setError] = useState("")
+  const [endingId, setEndingId] = useState<number | null>(null)
   const [profile, setProfile] = useState<Employee | null>(null)
   const [linkChoices, setLinkChoices] = useState<{ value: string; label: string; kind?: string; length?: number }[]>([])
   const [referenceId, setReferenceId] = useState("")
@@ -352,6 +362,20 @@ export function EmployeeFormPage() {
     }
   }
 
+  async function endManager(vigencyId: number) {
+    if (id === null) return
+    setError("")
+    setEndingId(vigencyId)
+    try {
+      await updateRecord("/employee-vigencies", vigencyId, { end: true })
+      setProfile(await getRecord<Employee>("/employees", id))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível encerrar o gestor.")
+    } finally {
+      setEndingId(null)
+    }
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
@@ -403,7 +427,7 @@ export function EmployeeFormPage() {
               { id: "data", label: "Dados", icon: User, show: true },
               ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               { id: "classification", label: "Grupos", icon: Tags, show: isAdmin && id !== null },
-              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
+              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
             ]
           )
             .filter((item) => item.show)
@@ -559,11 +583,38 @@ export function EmployeeFormPage() {
       {id !== null && tab === "classification" && isAdmin ? <ClassificationAssignment employeeId={id} current={profile?.classifications || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
       {id !== null && linkTarget && isAdmin ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
-          <div>
-            <p className="text-[13px] text-[#52525B]">{linkTarget.label} atual</p>
-            <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{tabValue(linkTarget.kind, profile) || "Não informado"}</p>
-          </div>
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar {linkTarget.label.toLocaleLowerCase("pt-BR")}</h2>
+          {linkTarget.kind === "manager" ? (
+            <div>
+              <p className="text-[13px] text-[#52525B]">{(profile?.managers?.length || 0) > 1 ? "Gestores atuais" : "Gestor atual"}</p>
+              {(profile?.managers?.length || 0) === 0 ? (
+                <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
+              ) : (
+                <div className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
+                  <ul className="space-y-1.5">
+                    {(profile?.managers || []).map((item) => (
+                      <li key={item.vigency_id} className="flex items-center justify-between gap-3 rounded-md bg-[#F4F1EA] px-3 py-2">
+                        <span className="truncate text-sm font-medium leading-5 text-[#3F3F46]">{item.name}</span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-sm font-semibold text-[#1E8A3A] disabled:opacity-60"
+                          disabled={endingId === item.vigency_id}
+                          onClick={() => void endManager(item.vigency_id)}
+                        >
+                          {endingId === item.vigency_id ? "Encerrando" : "Encerrar"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <p className="text-[13px] text-[#52525B]">{linkTarget.label} atual</p>
+              <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{tabValue(linkTarget.kind, profile) || "Não informado"}</p>
+            </div>
+          )}
+          <h2 className="text-lg font-semibold text-[#0A0A0A]">{vigencyHeading[linkTarget.kind]}</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {linkTarget.kind === "status" ? (
               <div className="space-y-2">
@@ -625,7 +676,7 @@ export function EmployeeFormPage() {
           </div>
           <Button type="button" className={modulePrimaryClass} disabled={savingLink} onClick={() => void saveLink()}>
             {savingLink ? <Spinner className="h-4 w-4" /> : null}
-            Salvar {linkTarget.label.toLocaleLowerCase("pt-BR")}
+            {linkTarget.kind === "manager" ? "Adicionar gestor" : `Salvar ${linkTarget.label.toLocaleLowerCase("pt-BR")}`}
           </Button>
         </section>
       ) : null}

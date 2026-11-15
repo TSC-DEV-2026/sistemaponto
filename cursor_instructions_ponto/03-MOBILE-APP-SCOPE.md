@@ -112,7 +112,7 @@ Tipos que o funcionário pode solicitar:
 - afastamento;
 - férias.
 
-A solicitação nasce pendente e não altera o ponto até a aprovação. Uma aprovação do gestor da equipe ou do administrador basta. Não há segundo aprovador, escalonamento nem substituto.
+A solicitação nasce pendente e não altera o ponto até a aprovação. Uma aprovação do gestor da equipe, de um gestor vigente daquele funcionário, ou do administrador basta. Não há segundo aprovador, escalonamento nem substituto.
 
 ### Ajuste de Ponto
 
@@ -160,7 +160,7 @@ Permitir:
 - adicionar observação;
 - enviar para análise.
 
-O envio não significa aprovação. O documento fica visível para o solicitante, para o gestor da equipe e para o administrador.
+O envio não significa aprovação. O documento fica visível para o solicitante, para o gestor da equipe, para um gestor vigente daquele funcionário e para o administrador.
 
 ### Afastamento e férias
 

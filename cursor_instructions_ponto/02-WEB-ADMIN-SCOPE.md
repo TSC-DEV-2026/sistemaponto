@@ -125,8 +125,10 @@ O histórico deve permitir visualizar mudanças de:
 - setor;
 - equipe;
 - sindicato;
-- gestor;
+- gestor, um ou vários ao mesmo tempo;
 - situação.
+
+Um funcionário pode ter um ou vários gestores vigentes. Incluir outro não encerra os que já valem. Encerrar um deixa os demais e o registro fica no histórico. O filtro por gestor encontra quem tem aquele gestor entre os vigentes. Quem está vigente como gestor, e tem o papel de gestor, enxerga esse funcionário além da própria equipe.
 
 ---
 
@@ -205,7 +207,7 @@ Solicitações
 └── Canceladas
 ```
 
-Quem aprova é o gestor da equipe ou o administrador. Uma aprovação basta. O pedido não sobe para outra pessoa e, por enquanto, ninguém substitui o gestor ausente.
+Quem aprova é o gestor da equipe, um gestor vigente daquele funcionário, ou o administrador. Uma aprovação basta. O pedido não sobe para outra pessoa e, por enquanto, ninguém substitui o gestor ausente.
 
 Ao aprovar:
 

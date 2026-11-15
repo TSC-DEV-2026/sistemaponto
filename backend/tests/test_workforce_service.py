@@ -241,6 +241,53 @@ class Memory:
             return row
         return None
 
+    def open_manager(self, employee_id: int, reference_id: int):
+        found = [
+            row
+            for row in self.rows
+            if isinstance(row, EmployeeVigency)
+            and row.employee_id == employee_id
+            and row.kind == "manager"
+            and row.reference_id == reference_id
+            and row.valid_to is None
+        ]
+        return found[-1] if found else None
+
+    def managers_on(self, employee_ids: list[int], day: date):
+        rows = [
+            row
+            for row in self.rows
+            if isinstance(row, EmployeeVigency)
+            and row.employee_id in employee_ids
+            and row.kind == "manager"
+            and row.valid_from <= day
+            and (row.valid_to is None or row.valid_to >= day)
+        ]
+        rows.sort(key=lambda item: (item.valid_from, item.id))
+        chosen: dict[int, dict[int, EmployeeVigency]] = {}
+        for row in rows:
+            key = row.reference_id if row.reference_id is not None else -row.id
+            chosen.setdefault(row.employee_id, {})[key] = row
+        return {
+            employee_id: sorted(items.values(), key=lambda item: (item.label.casefold(), item.id))
+            for employee_id, items in chosen.items()
+        }
+
+    def employee_ids_managed_by(self, tenant_id: int, manager_id: int, day: date):
+        found = []
+        for row in self.rows:
+            if (
+                isinstance(row, EmployeeVigency)
+                and row.tenant_id == tenant_id
+                and row.kind == "manager"
+                and row.reference_id == manager_id
+                and row.valid_from <= day
+                and (row.valid_to is None or row.valid_to >= day)
+                and row.employee_id not in found
+            ):
+                found.append(row.employee_id)
+        return found
+
     def classification_named(self, tenant_id: int, name: str):
         for row in self._of(Classification, tenant_id):
             if row.name == name:
@@ -310,6 +357,17 @@ class Memory:
             and (row.valid_to is None or row.valid_to >= day)
         ]
         rows.sort(key=lambda item: (item.valid_from, item.id))
+        if kind == "manager":
+            found = []
+            seen: set[int] = set()
+            for row in rows:
+                if reference_id is not None and row.reference_id != reference_id:
+                    continue
+                if row.employee_id in seen:
+                    continue
+                seen.add(row.employee_id)
+                found.append(row.employee_id)
+            return found
         chosen: dict[int, EmployeeVigency] = {}
         for row in rows:
             chosen[row.employee_id] = row
@@ -3689,3 +3747,139 @@ def test_relatorio_de_pessoas_usa_o_valor_do_dia():
     with pytest.raises(AppError) as span:
         workforce.report(admin(), "people", date(2026, 10, 1), date(2026, 10, 6), None, 1, 10)
     assert span.value.message == "O relatório de pessoas pede um dia"
+
+
+def test_funcionario_pode_ter_varios_gestores():
+    workforce, repo = service()
+    for person_id, role in ((8, "manager"), (9, "member"), (10, "member"), (11, "member"), (12, "manager")):
+        access = Membership(person_id=person_id, tenant_id=1, role=role)
+        access.id = repo.seq
+        repo.seq += 1
+        repo.memberships.append(access)
+    leader = workforce.create_employee(admin(), employee_payload("11111111111", 8))
+    mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    staff = workforce.create_employee(admin(), employee_payload("33333333333", 10))
+    other = workforce.create_employee(admin(), employee_payload("44444444444", 11))
+    second = workforce.create_employee(admin(), employee_payload("55555555555", 12))
+    for person, name in (
+        (leader, "Lia Costa"),
+        (mate, "Bia Nunes"),
+        (staff, "Caio Dias"),
+        (other, "Davi Reis"),
+        (second, "Eva Melo"),
+    ):
+        repo.get_row(Employee, 1, person["id"]).full_name = name
+    unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    for person, team in ((leader, team_a), (mate, team_a), (staff, team_b), (other, team_b)):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "team",
+                "reference_id": team.id,
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    hidden, _total = workforce.list_employees(scope(8, "manager"), 1, 20, {})
+    assert staff["id"] not in {row.id for row in hidden}
+    with pytest.raises(AppError) as itself:
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": leader["id"],
+                "kind": "manager",
+                "reference_id": leader["id"],
+                "label": None,
+                "valid_from": date(2026, 10, 1),
+                "note": None,
+            },
+        )
+    assert itself.value.message == "O gestor precisa ser outro funcionário"
+    link = {
+        "employee_id": staff["id"],
+        "kind": "manager",
+        "reference_id": leader["id"],
+        "label": None,
+        "valid_from": date(2026, 10, 1),
+        "note": None,
+    }
+    first = workforce.create_vigency(admin(), link)
+    again_link = dict(link)
+    again_link["valid_from"] = date(2026, 10, 2)
+    with pytest.raises(AppError) as again:
+        workforce.create_vigency(admin(), again_link)
+    assert again.value.message == "Esse gestor já está vigente"
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": staff["id"],
+            "kind": "manager",
+            "reference_id": second["id"],
+            "label": None,
+            "valid_from": date(2026, 10, 1),
+            "note": None,
+        },
+    )
+    current = workforce.get_employee(admin(), staff["id"])
+    assert [item["name"] for item in current["managers"]] == ["Eva Melo", "Lia Costa"]
+    assert current["manager_label"] == "Eva Melo, Lia Costa"
+    by_leader, leader_total = workforce.list_employees(admin(), 1, 20, {"manager_id": leader["id"]})
+    by_second, second_total = workforce.list_employees(admin(), 1, 20, {"manager_id": second["id"]})
+    assert leader_total == 1 and [row.id for row in by_leader] == [staff["id"]]
+    assert second_total == 1 and [row.id for row in by_second] == [staff["id"]]
+    visible, _visible_total = workforce.list_employees(scope(8, "manager"), 1, 20, {})
+    visible_ids = {row.id for row in visible}
+    assert staff["id"] in visible_ids
+    assert mate["id"] in visible_ids
+    assert other["id"] not in visible_ids
+    eva_view, _eva_total = workforce.list_employees(scope(12, "manager"), 1, 20, {})
+    assert {row.id for row in eva_view} == {second["id"], staff["id"]}
+    outside = workforce.create_request(scope(10, "member"), adjustment([at(10, 0)]))
+    approved = workforce.decide_request(scope(8, "manager"), outside["id"], {"status": "approved", "decision_note": None})
+    assert approved["status"] == "approved"
+    workforce.change_employees(
+        admin(),
+        {
+            "employee_ids": [staff["id"]],
+            "kind": "manager",
+            "reference_id": mate["id"],
+            "label": None,
+            "clock_method": None,
+            "valid_from": TODAY,
+            "note": None,
+        },
+    )
+    added = workforce.get_employee(admin(), staff["id"])
+    assert [item["name"] for item in added["managers"]] == ["Bia Nunes", "Eva Melo", "Lia Costa"]
+    with pytest.raises(AppError) as duplicate:
+        workforce.change_employees(
+            admin(),
+            {
+                "employee_ids": [staff["id"]],
+                "kind": "manager",
+                "reference_id": mate["id"],
+                "label": None,
+                "clock_method": None,
+                "valid_from": date(2026, 10, 8),
+                "note": None,
+            },
+        )
+    assert duplicate.value.message == "Caio Dias: Esse gestor já está vigente"
+    workforce.update_vigency(admin(), first.id, {"end": True})
+    ended = workforce.get_employee(admin(), staff["id"])
+    assert [item["name"] for item in ended["managers"]] == ["Bia Nunes", "Eva Melo"]
+    after, after_total = workforce.list_employees(admin(), 1, 20, {"manager_id": leader["id"]})
+    assert after_total == 0 and after == []
+    still, still_total = workforce.list_employees(scope(8, "manager"), 1, 20, {})
+    assert staff["id"] not in {row.id for row in still}
+    opened = workforce.create_closing(admin(), {"starts_on": date(2026, 10, 7), "ends_on": date(2026, 10, 7), "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    eva = next(item for item in ended["managers"] if item["name"] == "Eva Melo")
+    with pytest.raises(AppError) as closed:
+        workforce.update_vigency(admin(), eva["vigency_id"], {"end": True})
+    assert closed.value.message == "Período fechado"

@@ -111,6 +111,34 @@ function ClassificationTile({ items }: { items: { classification_id: number; nam
   )
 }
 
+function ManagerTile({ managers }: { managers: { vigency_id: number; name: string }[] }) {
+  const rows = [...managers].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
+  if (rows.length <= 1) {
+    return (
+      <FieldTile icon={UserRound} label="Gestor">
+        {rows[0]?.name?.trim() ? rows[0].name : <EmptyMark />}
+      </FieldTile>
+    )
+  }
+  return (
+    <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none">
+      <FieldMark icon={UserRound} />
+      <div className="min-w-0 flex-1">
+        <dt className="text-xs leading-4 text-[#64748B]">Gestores</dt>
+        <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
+          <ul className="space-y-1.5">
+            {rows.map((item) => (
+              <li key={item.vigency_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                {item.name}
+              </li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+    </div>
+  )
+}
+
 function requestInitials(fullName: string) {
   const particles = new Set(["de", "da", "do", "dos", "das", "e"])
   const parts = fullName
@@ -591,13 +619,13 @@ export function EmployeePage() {
                   [Layers, "Setor", employee.sector_label],
                   [Users, "Equipe", employee.team_label],
                   [Landmark, "Sindicato", employee.union_label],
-                  [UserRound, "Gestor", employee.manager_label],
                 ] as const
                 ).map(([icon, label, value]) => (
                 <FieldTile key={label} icon={icon} label={label}>
                   {value?.trim() ? value : <EmptyMark />}
                 </FieldTile>
               ))}
+              <ManagerTile managers={employee.managers || []} />
               <ClassificationTile items={employee.classifications || []} />
             </dl>
             <p className="mt-4 text-sm text-[#64748B]">Empresa e setor acompanham a equipe.</p>

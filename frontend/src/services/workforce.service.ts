@@ -53,7 +53,14 @@ export type Employee = {
   team_label: string | null
   union_label: string | null
   manager_label: string | null
+  managers?: EmployeeManager[]
   classifications?: EmployeeClassification[]
+}
+
+export type EmployeeManager = {
+  vigency_id: number
+  reference_id: number | null
+  name: string
 }
 
 export type Vigency = {
