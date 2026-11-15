@@ -188,6 +188,7 @@ export type NoticePreference = {
   person_id: number
   kind: string
   enabled: boolean
+  channel: string
   created_at: string
 }
 

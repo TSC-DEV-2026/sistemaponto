@@ -152,6 +152,26 @@ class WorkforceRepository:
             .first()
         )
 
+    def email_between(
+        self,
+        tenant_id: int,
+        person_id: int,
+        kind: str,
+        start: datetime,
+        end: datetime,
+    ) -> NoticeEmail | None:
+        return (
+            self.db.query(NoticeEmail)
+            .filter(
+                NoticeEmail.tenant_id == tenant_id,
+                NoticeEmail.person_id == person_id,
+                NoticeEmail.kind == kind,
+                NoticeEmail.created_at >= start,
+                NoticeEmail.created_at < end,
+            )
+            .first()
+        )
+
     def employee_by_person(self, tenant_id: int, person_id: int) -> Employee | None:
         return (
             self.db.query(Employee)

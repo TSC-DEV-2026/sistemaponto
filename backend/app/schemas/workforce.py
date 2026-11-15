@@ -591,10 +591,12 @@ class NotificationOut(BaseModel):
 class NotificationPreferenceCreate(BaseModel):
     kind: str = Field(min_length=1, max_length=64)
     enabled: bool
+    channel: Literal["system", "email", "both"] = "both"
 
 
 class NotificationPreferenceUpdate(BaseModel):
     enabled: bool | None = None
+    channel: Literal["system", "email", "both"] | None = None
 
 
 class NotificationPreferenceOut(BaseModel):
@@ -602,6 +604,7 @@ class NotificationPreferenceOut(BaseModel):
     person_id: int
     kind: str
     enabled: bool
+    channel: str
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
