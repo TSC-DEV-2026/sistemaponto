@@ -1,10 +1,11 @@
-import { Check, ChevronDown, Search, User } from "lucide-react"
+import { Check, ChevronDown, Search } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react"
 
 import { authInputClass } from "@/components/auth-screen"
 import { Spinner } from "@/components/ui/spinner"
 import { listRecords, type Employee } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
+import { conceptIcon } from "@/utils/concept-icons"
 
 function fold(value: string) {
   return value
@@ -204,7 +205,7 @@ export function EmployeeCombobox({
           if (!loading) setOpen((current) => !current)
         }}
       >
-        <User className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+        <conceptIcon.employee className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
         <span className={cn("truncate", loading && "text-[#64748B]")}>{loading ? "Carregando" : selectedLabel}</span>
         {loading ? (
           <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2">

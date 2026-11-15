@@ -1,9 +1,7 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Briefcase,
-  Building2,
-  CalendarClock,
+  CalendarDays,
   Check,
   CheckCheck,
   ChevronDown,
@@ -14,14 +12,10 @@ import {
   Layers,
   Pencil,
   Plus,
-  ScanLine,
-  Tags,
   Search,
   Trash2,
-  UserCog,
   UserMinus,
   UserRound,
-  Users,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -39,20 +33,21 @@ import { createRecord, listRecords, type Employee, type NamedRecord } from "@/se
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { isoWeekday } from "@/pages/workforce/journey"
+import { conceptIcon } from "@/utils/concept-icons"
 import { clockMethodLabel, showDate } from "@/utils/labels"
 
 const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
 
 const catalog = [
-  { id: "classification", kind: "classification", title: "Alterar grupo", description: "Define o valor de um grupo para os funcionários.", valueName: "Novo valor", icon: Tags, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "job", kind: "job", title: "Alterar função", description: "Define uma nova função.", valueName: "Nova função", icon: Briefcase, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: CalendarClock, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e empresa acompanham a equipe.", valueName: "Nova equipe", icon: Users, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "union", kind: "union", title: "Alterar sindicato", description: "Define um novo sindicato.", valueName: "Novo sindicato", icon: Building2, path: "/unions", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "manager", kind: "manager", title: "Incluir gestor", description: "Inclui este gestor. Os demais permanecem.", valueName: "Gestor", icon: UserCog, path: "/employees", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "classification", kind: "classification", title: "Alterar grupo", description: "Define o valor de um grupo para os funcionários.", valueName: "Novo valor", icon: conceptIcon.group, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "job", kind: "job", title: "Alterar função", description: "Define uma nova função.", valueName: "Nova função", icon: conceptIcon.job, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: conceptIcon.journey, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e empresa acompanham a equipe.", valueName: "Nova equipe", icon: conceptIcon.team, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "union", kind: "union", title: "Alterar sindicato", description: "Define um novo sindicato.", valueName: "Novo sindicato", icon: conceptIcon.union, path: "/unions", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "manager", kind: "manager", title: "Incluir gestor", description: "Inclui este gestor. Os demais permanecem.", valueName: "Gestor", icon: conceptIcon.manager, path: "/employees", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "dismissed", kind: "status", title: "Desligamento", description: "Encerra o vínculo na data informada, gravando a situação Desligado.", valueName: "", icon: UserMinus, path: "", needsValue: false, needsDate: true, fixedLabel: "dismissed" },
   { id: "active", kind: "status", title: "Reativar", description: "Volta a situação para Ativo na data informada, respeitando o limite do plano.", valueName: "", icon: UserRound, path: "", needsValue: false, needsDate: true, fixedLabel: "active" },
-  { id: "clock_method", kind: "clock_method", title: "Alterar tipo de registro", description: "Define como o ponto é registrado. Esta operação não usa vigência.", valueName: "Novo tipo", icon: ScanLine, path: "", needsValue: true, needsDate: false, fixedLabel: "" },
+  { id: "clock_method", kind: "clock_method", title: "Alterar tipo de registro", description: "Define como o ponto é registrado. Esta operação não usa vigência.", valueName: "Novo tipo", icon: conceptIcon.record, path: "", needsValue: true, needsDate: false, fixedLabel: "" },
 ] as const
 
 const steps = [
@@ -62,12 +57,12 @@ const steps = [
 ] as const
 
 const filterFields = [
-  ["unit_id", "Empresa", "/units"],
-  ["sector_id", "Setor", "/sectors"],
-  ["team_id", "Equipe", "/teams"],
-  ["job_id", "Função", "/jobs"],
-  ["journey_id", "Jornada", "/journeys"],
-  ["union_id", "Sindicato", "/unions"],
+  ["unit_id", "Empresa", "/units", conceptIcon.unit],
+  ["sector_id", "Setor", "/sectors", conceptIcon.sector],
+  ["team_id", "Equipe", "/teams", conceptIcon.team],
+  ["job_id", "Função", "/jobs", conceptIcon.job],
+  ["journey_id", "Jornada", "/journeys", conceptIcon.journey],
+  ["union_id", "Sindicato", "/unions", conceptIcon.union],
 ] as const
 
 const situationOptions = [
@@ -606,7 +601,7 @@ export function BulkChangesPage() {
               <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                 <h4 className="text-sm font-semibold text-[#0A0A0A]">Filtros</h4>
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {filterFields.map(([key, label, path]) => (
+                  {filterFields.map(([key, label, path, icon]) => (
                     <div key={key} className="space-y-2">
                       <Label className={moduleLabelClass} htmlFor={`bulk-${key}`}>{label}</Label>
                       <SiteSelect
@@ -618,6 +613,7 @@ export function BulkChangesPage() {
                         searchKey="name"
                         searchPlaceholder={`Pesquisar ${label.toLocaleLowerCase("pt-BR")}`}
                         className="h-12"
+                        icon={icon}
                         options={[{ value: "", label: "Todos" }, ...(choices[path] || [])]}
                         onChange={(next) => setFilters((current) => ({ ...current, [key]: next }))}
                       />
@@ -625,7 +621,7 @@ export function BulkChangesPage() {
                   ))}
                   <div className="space-y-2">
                     <Label className={moduleLabelClass} htmlFor="bulk-situation">Situação</Label>
-                    <SiteSelect id="bulk-situation" value={filters.situation || ""} className="h-12" options={situationOptions} onChange={(next) => setFilters((current) => ({ ...current, situation: next }))} />
+                    <SiteSelect id="bulk-situation" value={filters.situation || ""} className="h-12" icon={conceptIcon.situation} options={situationOptions} onChange={(next) => setFilters((current) => ({ ...current, situation: next }))} />
                   </div>
                 </div>
               </div>
@@ -709,7 +705,7 @@ export function BulkChangesPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><Users className="h-4 w-4" strokeWidth={1.75} /></span>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><conceptIcon.employee className="h-4 w-4" strokeWidth={1.75} /></span>
                   <span>
                     <span className="block text-sm text-[#64748B]">Funcionários</span>
                     <span className="mt-0.5 block font-semibold text-[#0A0A0A]">{peopleCount(selected.length)} selecionados</span>
@@ -1061,7 +1057,7 @@ function ReviewScreen({
           </span>
         </article>
         <article className="flex items-center gap-3 rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><Users className="h-5 w-5" strokeWidth={1.75} /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} /></span>
           <span>
             <span className="block text-sm text-[#64748B]">Total de funcionários</span>
             <span className="mt-0.5 block text-xl font-semibold text-[#0A0A0A]">{distinctPeople}</span>
@@ -1069,7 +1065,7 @@ function ReviewScreen({
         </article>
         {sharedDate ? (
           <article className="flex items-center gap-3 rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><CalendarClock className="h-5 w-5" strokeWidth={1.75} /></span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><CalendarDays className="h-5 w-5" strokeWidth={1.75} /></span>
             <span>
               <span className="block text-sm text-[#64748B]">Vigência</span>
               <span className="mt-0.5 block text-xl font-semibold text-[#0A0A0A]">{showDate(sharedDate)}</span>

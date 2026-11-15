@@ -1,10 +1,11 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
 import { Link } from "react-router-dom"
-import { BarChart3, Calendar, ChevronRight, Clock, FileText, Users, type LucideIcon } from "lucide-react"
+import { ChevronRight, type LucideIcon } from "lucide-react"
 
 import { getDashboard, listRecords, type Dashboard, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
+import { conceptIcon } from "@/utils/concept-icons"
 import { showMoney, subscriptionStatusLabel } from "@/utils/labels"
 import { formatDate, trialDaysLeft, trialEnded } from "@/utils/trial"
 
@@ -203,19 +204,19 @@ export function HomePage() {
     <div className="-mx-4 -my-6 bg-brand-paper px-6 py-7 md:-mx-8 md:px-8 md:py-8">
       <div className="mx-auto max-w-[1240px]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <BoardCard tone={tones.green} icon={Users} title="Hoje" href="/people">
+          <BoardCard tone={tones.green} icon={conceptIcon.employee} title="Hoje" href="/people">
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.active_employees} funcionários ativos.` : null}
             </MetricLine>
           </BoardCard>
-          <BoardCard tone={tones.blue} icon={Clock} title="Ponto" href="/schedules">
+          <BoardCard tone={tones.blue} icon={conceptIcon.point} title="Ponto" href="/schedules">
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.punches_today} marcações hoje. A apuração do período fica em Ponto.` : null}
             </MetricLine>
           </BoardCard>
           <BoardCard
             tone={tones.gold}
-            icon={FileText}
+            icon={conceptIcon.request}
             title="Solicitações"
             href="/requests"
           >
@@ -227,7 +228,7 @@ export function HomePage() {
           </BoardCard>
           <BoardCard
             tone={tones.lilac}
-            icon={Calendar}
+            icon={conceptIcon.closing}
             title="Fechamento"
             href="/schedules?aba=fechamento"
           >
@@ -237,7 +238,7 @@ export function HomePage() {
           </BoardCard>
           {isAdmin ? (
             <div className="md:col-span-2">
-              <BoardCard tone={tones.plan} icon={BarChart3} title="Plano" href="/plan">
+              <BoardCard tone={tones.plan} icon={conceptIcon.plan} title="Plano" href="/plan">
                 {planText ? <p className="mt-1 text-sm leading-relaxed text-brand-muted">{planText}</p> : <LoadingLine />}
                 {boardState === "error" ? <p className="mt-1 text-sm leading-relaxed text-destructive">{boardError}</p> : null}
               </BoardCard>

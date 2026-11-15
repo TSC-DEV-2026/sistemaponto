@@ -1,6 +1,8 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Ban, Briefcase, Building2, Calendar, CalendarClock, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Tags, Trash2, Users, type LucideIcon } from "lucide-react"
+import { Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
+
+import { conceptIcon } from "@/utils/concept-icons"
 
 import { authInputClass } from "@/components/auth-screen"
 import { ActionForm } from "@/components/ui/action-form"
@@ -41,9 +43,9 @@ function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
 function catalogFieldIcon(field: CatalogField, fallback: LucideIcon) {
   if (field.type === "date") return Calendar
   if (field.type === "textarea") return FileText
-  if (field.name === "union_id") return Landmark
-  if (field.name === "unit_id") return Building2
-  if (field.name === "sector_id") return Network
+  if (field.name === "union_id") return conceptIcon.union
+  if (field.name === "unit_id") return conceptIcon.unit
+  if (field.name === "sector_id") return conceptIcon.sector
   if (field.name === "active" || field.type === "checkbox") return CircleCheck
   return fallback
 }
@@ -382,7 +384,7 @@ export function RecordList<T extends Row>({
   }
 
   if (organization) {
-    const MarkIcon = Mark ?? Building2
+    const MarkIcon = Mark ?? conceptIcon.unit
     return (
       <div className="w-full min-w-0 space-y-4">
         <section className={moduleCardClass}>
@@ -425,7 +427,7 @@ export function RecordList<T extends Row>({
                   id={`filter-${path}-${select.key}`}
                   value={chosen[select.key] ?? ""}
                   placeholder="Todos"
-                  icon={select.key === "unit_id" ? Building2 : select.key === "union_id" ? Landmark : select.key === "sector_id" ? Network : select.key === "active" ? CircleCheck : undefined}
+                  icon={select.key === "unit_id" ? conceptIcon.unit : select.key === "union_id" ? conceptIcon.union : select.key === "sector_id" ? conceptIcon.sector : select.key === "active" ? CircleCheck : undefined}
                   searchable={Boolean(select.source)}
                   searchPath={select.source}
                   searchPlaceholder={`Pesquisar ${select.label.toLocaleLowerCase("pt-BR")}`}
@@ -629,7 +631,7 @@ export function RecordList<T extends Row>({
                           </span>
                         ) : (
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
-                            {Mark ? <Mark className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <Briefcase className="h-[18px] w-[18px]" strokeWidth={1.75} />}
+                            {Mark ? <Mark className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <conceptIcon.job className="h-[18px] w-[18px]" strokeWidth={1.75} />}
                           </span>
                         )}
                         <span className="min-w-0">
@@ -839,17 +841,17 @@ const linkedSelects: Record<string, { key: string; label: string; source: string
 }
 
 const organizationCopy: Record<string, { title: string; lead: string; mark: LucideIcon }> = {
-  units: { title: "Pesquisar empresas", lead: "Consulte as empresas cadastradas.", mark: Building2 },
-  sectors: { title: "Pesquisar setores", lead: "Consulte os setores cadastrados.", mark: Network },
-  teams: { title: "Pesquisar equipes", lead: "Consulte as equipes cadastradas.", mark: Users },
-  unions: { title: "Filtros de pesquisa", lead: "Consulte os sindicatos cadastrados.", mark: Landmark },
+  units: { title: "Pesquisar empresas", lead: "Consulte as empresas cadastradas.", mark: conceptIcon.unit },
+  sectors: { title: "Pesquisar setores", lead: "Consulte os setores cadastrados.", mark: conceptIcon.sector },
+  teams: { title: "Pesquisar equipes", lead: "Consulte as equipes cadastradas.", mark: conceptIcon.team },
+  unions: { title: "Filtros de pesquisa", lead: "Consulte os sindicatos cadastrados.", mark: conceptIcon.union },
   agreements: { title: "Filtros de pesquisa", lead: "Consulte as convenções e acordos cadastrados.", mark: ScrollText },
   holidays: { title: "Filtros de pesquisa", lead: "Consulte os feriados cadastrados.", mark: Calendar },
   "punch-rules": { title: "Filtros de pesquisa", lead: "Consulte as regras de ponto cadastradas.", mark: ClipboardList },
   "reason-adjustment": { title: "Pesquisar ajustes", lead: "Consulte os motivos de ajuste cadastrados.", mark: ClipboardList },
-  "reason-absence": { title: "Pesquisar faltas", lead: "Consulte os motivos de falta cadastrados.", mark: Ban },
-  "reason-allowance": { title: "Pesquisar abonos", lead: "Consulte os motivos de abono cadastrados.", mark: CircleCheck },
-  "reason-certificate": { title: "Pesquisar atestados", lead: "Consulte os motivos de atestado cadastrados.", mark: FileText },
+  "reason-absence": { title: "Pesquisar faltas", lead: "Consulte os motivos de falta cadastrados.", mark: conceptIcon.fault },
+  "reason-allowance": { title: "Pesquisar abonos", lead: "Consulte os motivos de abono cadastrados.", mark: conceptIcon.allowance },
+  "reason-certificate": { title: "Pesquisar atestados", lead: "Consulte os motivos de atestado cadastrados.", mark: conceptIcon.certificate },
 }
 
 export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" | "people" | "organization" }) {
@@ -899,7 +901,7 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       searchTitle={organizationCopy[catalog]?.title}
       searchLead={organizationCopy[catalog]?.lead}
       searchPlaceholder={presentation === "organization" ? "Buscar por nome..." : "Pesquisar"}
-      mark={organizationCopy[catalog]?.mark ?? (catalog === "classifications" ? Tags : catalog === "jobs" ? Briefcase : catalog === "journeys" ? CalendarClock : undefined)}
+      mark={organizationCopy[catalog]?.mark ?? (catalog === "classifications" ? conceptIcon.group : catalog === "jobs" ? conceptIcon.job : catalog === "journeys" ? conceptIcon.journey : undefined)}
     />
   )
 }
@@ -952,7 +954,7 @@ function ClassificationValues({ classificationId, canEdit }: { classificationId:
                   <td className="px-4 py-3 align-middle">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
-                        <Tags className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                        <conceptIcon.group className="h-[18px] w-[18px]" strokeWidth={1.75} />
                       </span>
                       <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{item.name}</span>
                     </div>
@@ -1086,7 +1088,7 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
       <section className={cn(moduleCardClass, "mx-auto w-full max-w-[680px] space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <Tags className="h-5 w-5" strokeWidth={1.75} />
+            <conceptIcon.group className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-[#0A0A0A]">{mode === "view" ? name || "Valor" : mode === "new" ? "Novo valor" : "Editar valor"}</h2>
@@ -1095,7 +1097,7 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {mode === "view" ? (
-          <RecordField icon={Tags} label="Nome" wide>
+          <RecordField icon={conceptIcon.group} label="Nome" wide>
             {name.trim() ? name : <EmptyMark />}
           </RecordField>
         ) : (
@@ -1222,7 +1224,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   }
 
   if (catalog === "jobs" || catalog === "classifications") {
-    const Icon = catalog === "jobs" ? Briefcase : Tags
+    const Icon = catalog === "jobs" ? conceptIcon.job : conceptIcon.group
     const noun = catalog === "jobs" ? "função" : "grupo"
     const article = catalog === "jobs" ? "a" : "o"
     if (mode !== "new" && !loaded && !error) {
@@ -1290,7 +1292,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   }
 
   if (catalog === "units" || catalog === "sectors" || catalog === "teams") {
-    const Icon = catalog === "units" ? Building2 : catalog === "teams" ? Users : Network
+    const Icon = catalog === "units" ? conceptIcon.unit : catalog === "teams" ? conceptIcon.team : conceptIcon.sector
     const noun = catalog === "units" ? "empresa" : catalog === "teams" ? "equipe" : "setor"
     const article = catalog === "sectors" ? "o" : "a"
     const possession = catalog === "sectors" ? "do" : "da"
@@ -1335,7 +1337,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
                       id={`${catalog}-${field.name}`}
                       value={form[field.name] ?? ""}
                       placeholder="Selecione"
-                      icon={field.name === "unit_id" ? Building2 : Network}
+                      icon={field.name === "unit_id" ? conceptIcon.unit : conceptIcon.sector}
                       loading={!optionsReady}
                       required={field.required}
                       searchable
@@ -1365,7 +1367,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   const labor = catalog === "unions" || catalog === "agreements" || catalog === "holidays" || catalog === "punch-rules"
   if (labor) {
     const meta = {
-      unions: { icon: Landmark, noun: "sindicato", article: "o", newLead: "Informe os dados do sindicato.", editLead: "Atualize os dados do sindicato." },
+      unions: { icon: conceptIcon.union, noun: "sindicato", article: "o", newLead: "Informe os dados do sindicato.", editLead: "Atualize os dados do sindicato." },
       agreements: { icon: ScrollText, noun: "convenção", article: "a", newLead: "Informe os dados da convenção ou acordo.", editLead: "Atualize os dados da convenção ou acordo." },
       holidays: { icon: Calendar, noun: "feriado", article: "o", newLead: "Informe os dados do feriado.", editLead: "Atualize os dados do feriado." },
       "punch-rules": { icon: ClipboardList, noun: "regra de ponto", article: "a", newLead: "Informe os dados da regra de ponto.", editLead: "Atualize os dados da regra de ponto." },
@@ -1396,7 +1398,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
               id={`${catalog}-${field.name}`}
               value={form[field.name] ?? ""}
               placeholder="Selecione"
-              icon={field.name === "union_id" ? Landmark : Building2}
+              icon={field.name === "union_id" ? conceptIcon.union : conceptIcon.unit}
               loading={!optionsReady}
               required={field.required}
               searchable={Boolean(field.searchPath)}
@@ -1474,9 +1476,9 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
 
   const reasonMeta = {
     "reason-adjustment": { icon: ClipboardList, noun: "ajuste", article: "o", newLead: "Informe o nome do ajuste.", editLead: "Atualize o nome do ajuste." },
-    "reason-absence": { icon: Ban, noun: "falta", article: "a", newLead: "Informe o nome da falta.", editLead: "Atualize o nome da falta." },
-    "reason-allowance": { icon: CircleCheck, noun: "abono", article: "o", newLead: "Informe o nome do abono.", editLead: "Atualize o nome do abono." },
-    "reason-certificate": { icon: FileText, noun: "atestado", article: "o", newLead: "Informe o nome do atestado.", editLead: "Atualize o nome do atestado." },
+    "reason-absence": { icon: conceptIcon.fault, noun: "falta", article: "a", newLead: "Informe o nome da falta.", editLead: "Atualize o nome da falta." },
+    "reason-allowance": { icon: conceptIcon.allowance, noun: "abono", article: "o", newLead: "Informe o nome do abono.", editLead: "Atualize o nome do abono." },
+    "reason-certificate": { icon: conceptIcon.certificate, noun: "atestado", article: "o", newLead: "Informe o nome do atestado.", editLead: "Atualize o nome do atestado." },
   }[catalog]
   if (!reasonMeta) return null
   const Icon = reasonMeta.icon

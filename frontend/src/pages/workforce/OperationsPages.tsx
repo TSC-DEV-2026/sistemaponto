@@ -1,4 +1,6 @@
-import { ArrowLeftRight, Ban, Bell, Briefcase, Building2, Calendar, CalendarClock, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Upload, User, Users, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Upload, X } from "lucide-react"
+
+import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
@@ -1288,9 +1290,9 @@ export function OrganizationPage() {
       title="Estrutura Organizacional"
       organization
       tabs={[
-        { id: "empresas", label: "Empresas", icon: Building2, panel: <CatalogList catalog="units" presentation="organization" /> },
-        { id: "setores", label: "Setores", icon: Network, panel: <CatalogList catalog="sectors" presentation="organization" /> },
-        { id: "equipes", label: "Equipes", icon: Users, panel: <CatalogList catalog="teams" presentation="organization" /> },
+        { id: "empresas", label: "Empresas", icon: conceptIcon.unit, panel: <CatalogList catalog="units" presentation="organization" /> },
+        { id: "setores", label: "Setores", icon: conceptIcon.sector, panel: <CatalogList catalog="sectors" presentation="organization" /> },
+        { id: "equipes", label: "Equipes", icon: conceptIcon.team, panel: <CatalogList catalog="teams" presentation="organization" /> },
       ]}
     />
   )
@@ -1302,7 +1304,7 @@ export function LaborPage() {
       title="Regras Trabalhistas"
       organization
       tabs={[
-        { id: "sindicatos", label: "Sindicatos", icon: Landmark, panel: <CatalogList catalog="unions" presentation="organization" /> },
+        { id: "sindicatos", label: "Sindicatos", icon: conceptIcon.union, panel: <CatalogList catalog="unions" presentation="organization" /> },
         { id: "convencoes", label: "Convenções e acordos", icon: ScrollText, panel: <CatalogList catalog="agreements" presentation="organization" /> },
         { id: "feriados", label: "Feriados", icon: Calendar, panel: <CatalogList catalog="holidays" presentation="organization" /> },
         { id: "regras", label: "Regras de ponto", icon: ClipboardList, panel: <CatalogList catalog="punch-rules" presentation="organization" /> },
@@ -1317,10 +1319,10 @@ export function ReasonsPage() {
       title="Motivos"
       organization
       tabs={[
+        { id: "abonos", label: "Abonos", icon: conceptIcon.allowance, panel: <CatalogList catalog="reason-allowance" presentation="organization" /> },
+        { id: "atestados", label: "Atestados", icon: conceptIcon.certificate, panel: <CatalogList catalog="reason-certificate" presentation="organization" /> },
+        { id: "faltas", label: "Faltas", icon: conceptIcon.fault, panel: <CatalogList catalog="reason-absence" presentation="organization" /> },
         { id: "ajustes", label: "Ajustes", icon: ClipboardList, panel: <CatalogList catalog="reason-adjustment" presentation="organization" /> },
-        { id: "faltas", label: "Faltas", icon: Ban, panel: <CatalogList catalog="reason-absence" presentation="organization" /> },
-        { id: "abonos", label: "Abonos", icon: CircleCheck, panel: <CatalogList catalog="reason-allowance" presentation="organization" /> },
-        { id: "atestados", label: "Atestados", icon: FileText, panel: <CatalogList catalog="reason-certificate" presentation="organization" /> },
       ]}
     />
   )
@@ -1499,7 +1501,7 @@ export function NotificationsPage() {
             value={noticeEmployee}
             className="h-12"
             placeholder="Todos"
-            icon={User}
+            icon={conceptIcon.employee}
             searchable
             searchPlaceholder="Pesquisar funcionário"
             options={[{ value: "", label: "Todos" }, ...employees.map((item) => ({ value: String(item.id), label: item.full_name || "Não informado" }))]}
@@ -1862,31 +1864,31 @@ export function ReportsPage() {
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-unit">Empresa</Label>
-            <PlaceCombobox id="report-unit" icon={Building2} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
+            <PlaceCombobox id="report-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
           </div>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-sector">Setor</Label>
-            <PlaceCombobox id="report-sector" icon={Network} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
+            <PlaceCombobox id="report-sector" icon={conceptIcon.sector} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
           </div>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-team">Equipe</Label>
-            <PlaceCombobox id="report-team" icon={Users} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
+            <PlaceCombobox id="report-team" icon={conceptIcon.team} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
           </div>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-job">Função</Label>
-            <PlaceCombobox id="report-job" icon={Briefcase} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
+            <PlaceCombobox id="report-job" icon={conceptIcon.job} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
           </div>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-journey">Jornada</Label>
-            <PlaceCombobox id="report-journey" icon={CalendarClock} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
+            <PlaceCombobox id="report-journey" icon={conceptIcon.journey} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
           </div>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-union">Sindicato</Label>
-            <PlaceCombobox id="report-union" icon={Landmark} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
+            <PlaceCombobox id="report-union" icon={conceptIcon.union} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
           </div>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-situation">Situação</Label>
-            <SiteSelect id="report-situation" value={situation} className="h-[50px]" options={[{ value: "", label: "Todas" }, { value: "active", label: "Ativo" }, { value: "dismissed", label: "Desligado" }]} onChange={setSituation} />
+            <SiteSelect id="report-situation" value={situation} className="h-[50px]" icon={conceptIcon.situation} options={[{ value: "", label: "Todas" }, { value: "active", label: "Ativo" }, { value: "dismissed", label: "Desligado" }]} onChange={setSituation} />
           </div>
         </div>
         <p className="text-sm text-[#64748B]">Sem marcação, entram todos. Cada linha usa a vigência do dia dela. Os filtros se somam.</p>
@@ -1926,7 +1928,7 @@ export function ReportsPage() {
             [
               [FileText, "Tipo", result.name],
               [Calendar, result.starts_on === result.ends_on ? "Dia" : "Período", result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`],
-              [User, "Funcionário", consultedPerson(applied, employees, result.items)],
+              [conceptIcon.employee, "Funcionário", consultedPerson(applied, employees, result.items)],
               [List, "Registros encontrados", String(result.total)],
             ] as const
           ).map(([Icon, label, value]) => (
@@ -2053,7 +2055,7 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
       return (
         <li className="flex min-w-0 flex-col gap-2 px-4 py-3 transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none sm:flex-row sm:items-center sm:justify-between">
           <span className="flex min-w-0 items-center gap-2 text-sm text-[#0A0A0A]">
-            <User className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+            <conceptIcon.employee className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
             <span className="truncate">
               {item.title}
               {item.full_name ? <span className="font-medium"> · {item.full_name}</span> : null}
@@ -2490,7 +2492,7 @@ function PayrollTotalsPanel() {
       {!consulting && !result && !error && isAdmin ? (
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
-            <Users className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+            <conceptIcon.employee className="h-6 w-6" strokeWidth={1.75} aria-hidden />
           </span>
           <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum total consultado</p>
           <p className="mt-1 text-sm text-[#71717A]">Escolha o mês e o ano e consulte para ver os funcionários.</p>
@@ -2500,7 +2502,7 @@ function PayrollTotalsPanel() {
         <section className={moduleCardClass}>
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-              <Users className="h-5 w-5" strokeWidth={1.75} />
+              <conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[#0A0A0A]">Totais da folha</h2>
@@ -2510,7 +2512,7 @@ function PayrollTotalsPanel() {
           {result.items.length === 0 ? (
             <div className="px-2 py-10 text-center">
               <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
-                <Users className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+                <conceptIcon.employee className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </span>
               <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum funcionário</p>
               <p className="mt-1 text-sm text-[#71717A]">Não há totais neste mês.</p>
