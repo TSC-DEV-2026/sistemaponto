@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
-import { Briefcase, Building2, CalendarClock, ClipboardList, Clock, Info, Save, Tags, Timer, User, UserRound, Users, type LucideIcon } from "lucide-react"
+import { Briefcase, Building2, CalendarClock, Info, Save, Tags, User, UserRound, Users, type LucideIcon } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -13,17 +13,14 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
 import { loadClassificationGroups } from "@/components/workforce/ClassificationFilter"
-import { HourBankPanel } from "@/components/workforce/HourBankPanel"
-import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
-import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
-import { CertificatePhotoField, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
-import { createRecord, getRecord, listRecords, updateRecord, uploadCertificatePhoto, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
+import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeClassification, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { isoWeekday } from "@/pages/workforce/journey"
-import { absenceKinds, clockMethodLabel, manualTimeOffKinds, occurrenceKindLabel } from "@/utils/labels"
+import { clockMethodLabel, situationLabel } from "@/utils/labels"
 
 const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
   { kind: "job", label: "Função", path: "/jobs", searchKey: "name", icon: Briefcase },
@@ -47,7 +44,25 @@ function readFaceImage(file: File) {
   })
 }
 
-function ClassificationAssignment({ employeeId }: { employeeId: number }) {
+function tabValue(id: string, person: Employee | null) {
+  if (!person) return ""
+  if (id === "classification") {
+    const items = person.classifications || []
+    return items.length > 0 ? items.map((item) => `${item.name}: ${item.value_name}`).join(" · ") : "Não informado"
+  }
+  const current: Record<string, string | null | undefined> = {
+    job: person.job_label,
+    journey: person.journey_label,
+    team: person.team_label,
+    union: person.union_label,
+    manager: person.manager_label,
+    status: situationLabel[person.situation || ""],
+  }
+  if (!(id in current)) return ""
+  return current[id]?.trim() || "Não informado"
+}
+
+function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId: number; current: EmployeeClassification[]; onSaved: () => void }) {
   const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[] }[]>([])
   const [classificationId, setClassificationId] = useState("")
   const [valueId, setValueId] = useState("")
@@ -98,6 +113,7 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
       setValueId("")
       setValidFrom("")
       setNote("")
+      onSaved()
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar o grupo.")
     } finally {
@@ -107,6 +123,24 @@ function ClassificationAssignment({ employeeId }: { employeeId: number }) {
 
   return (
     <section className={cn(moduleCardClass, "space-y-5")}>
+      <div>
+        <p className="text-[13px] text-[#52525B]">{current.length > 1 ? "Grupos atuais" : "Grupo atual"}</p>
+        {current.length > 0 ? (
+          <div className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
+            <ul className="space-y-1.5">
+              {[...current]
+                .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
+                .map((item) => (
+                  <li key={item.classification_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                    {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
+        )}
+      </div>
       <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar grupos</h2>
       {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -172,8 +206,8 @@ export function EmployeeFormPage() {
   const [faceFile, setFaceFile] = useState<File | null>(null)
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [hasFacePhoto, setHasFacePhoto] = useState(false)
-  const [usesBank, setUsesBank] = useState(false)
   const [error, setError] = useState("")
+  const [profile, setProfile] = useState<Employee | null>(null)
   const [linkChoices, setLinkChoices] = useState<{ value: string; label: string; kind?: string; length?: number }[]>([])
   const [referenceId, setReferenceId] = useState("")
   const [journeyDetail, setJourneyDetail] = useState<NamedRecord | null>(null)
@@ -183,24 +217,9 @@ export function EmployeeFormPage() {
   const [validFrom, setValidFrom] = useState("")
   const [vigencyNote, setVigencyNote] = useState("")
   const [savingLink, setSavingLink] = useState(false)
-  const [occurrenceKind, setOccurrenceKind] = useState("absence")
-  const [offDraft, setOffDraft] = useState<TimeOffDraft>(emptyTimeOff)
-  const [offFileKey, setOffFileKey] = useState(0)
-  const [startsOn, setStartsOn] = useState("")
-  const [endsOn, setEndsOn] = useState("")
-  const [reasonId, setReasonId] = useState("")
-  const [occurrenceNote, setOccurrenceNote] = useState("")
-  const [reasons, setReasons] = useState<NamedRecord[]>([])
-  const [savingEvent, setSavingEvent] = useState(false)
-  const role = useAuthStore((state) => state.user?.role)
-  const isAdmin = role === "admin"
+  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const [tab, setTab] = useState("data")
-  const canRecordEvent = isAdmin || role === "manager"
-  const canCorrect = isAdmin || role === "manager"
-  const locks = useDayLocks(id)
   const linkTarget = vigencyTargets.find((item) => item.kind === tab)
-  const manualEvent = manualTimeOffKinds.includes(occurrenceKind as (typeof manualTimeOffKinds)[number])
-  const asksReason = occurrenceKind !== "vacation" && occurrenceKind !== "leave" && occurrenceKind !== "punch_entry"
 
   useEffect(() => {
     if (id === null) return
@@ -214,11 +233,11 @@ export function EmployeeFormPage() {
         setAdmission(person.admission_date)
         setNote(person.note || "")
         setHourBank(Boolean(person.hour_bank))
-        setUsesBank(Boolean(person.hour_bank))
         setRegistration(person.registration_number || "")
         setClockMethod(person.clock_method || "simple")
         setFaceUrl(person.face_url)
         setHasFacePhoto(Boolean(person.face_key || person.face_url))
+        setProfile(person)
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -286,24 +305,6 @@ export function EmployeeFormPage() {
     setCycleDay(String(isoWeekday(validFrom)))
   }, [scheduledJourney, cycleTouched, sequenceLength, validFrom])
 
-  useEffect(() => {
-    if (id === null || !canRecordEvent || !asksReason) {
-      setReasons([])
-      return
-    }
-    let active = true
-    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: occurrenceKind, active: true })
-      .then((page) => {
-        if (active) setReasons(page.items)
-      })
-      .catch(() => {
-        if (active) setReasons([])
-      })
-    return () => {
-      active = false
-    }
-  }, [id, canRecordEvent, asksReason, occurrenceKind])
-
   async function saveLink() {
     if (id === null || !linkTarget) return
     setError("")
@@ -342,54 +343,12 @@ export function EmployeeFormPage() {
       setVigencyNote("")
       setCycleDay("")
       setCycleTouched(false)
+      const person = await getRecord<Employee>("/employees", id)
+      setProfile(person)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar o vínculo.")
     } finally {
       setSavingLink(false)
-    }
-  }
-
-  async function saveOccurrence() {
-    if (id === null) return
-    setError("")
-    if (asksReason && reasons.length > 0 && !reasonId) {
-      setError("Selecione o motivo.")
-      return
-    }
-    if (!manualEvent && !startsOn) {
-      setError("Informe a data de início.")
-      return
-    }
-    const spanStart = manualEvent ? offDraft.startsOn : startsOn
-    const spanEnd = manualEvent ? (offDraft.mode === "hours" ? offDraft.startsOn : offDraft.endsOn || spanStart) : endsOn || spanStart
-    const blocked = locks.lockRange(spanStart, spanEnd)
-    if (blocked) {
-      setError(blocked)
-      return
-    }
-    setSavingEvent(true)
-    try {
-      const span: Record<string, unknown> = manualEvent ? timeOffBody(offDraft, occurrenceKind) : { starts_on: startsOn, ends_on: endsOn || null }
-      if (manualEvent && occurrenceKind === "certificate" && offDraft.photo) {
-        span.photo_key = (await uploadCertificatePhoto(offDraft.photo)).key
-      }
-      await createRecord("/occurrences", {
-        employee_id: id,
-        kind: occurrenceKind,
-        ...span,
-        reason_id: reasonId ? Number(reasonId) : null,
-        note: occurrenceNote.trim() || null,
-      })
-      setOccurrenceNote("")
-      setReasonId("")
-      setStartsOn("")
-      setEndsOn("")
-      setOffDraft(emptyTimeOff())
-      setOffFileKey((current) => current + 1)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar a ocorrência.")
-    } finally {
-      setSavingEvent(false)
     }
   }
 
@@ -442,11 +401,9 @@ export function EmployeeFormPage() {
           {(
             [
               { id: "data", label: "Dados", icon: User, show: true },
-              ...vigencyTargets.map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
+              ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               { id: "classification", label: "Grupos", icon: Tags, show: isAdmin && id !== null },
-              { id: "bank", label: "Banco de horas", icon: Timer, show: isAdmin || role === "manager" },
-              { id: "correction", label: "Correção", icon: Clock, show: canCorrect },
-              { id: "events", label: "Ausências", icon: ClipboardList, show: canRecordEvent },
+              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
             ]
           )
             .filter((item) => item.show)
@@ -599,9 +556,13 @@ export function EmployeeFormPage() {
         </div>
       </ActionForm>
       ) : null}
-      {id !== null && tab === "classification" && isAdmin ? <ClassificationAssignment employeeId={id} /> : null}
+      {id !== null && tab === "classification" && isAdmin ? <ClassificationAssignment employeeId={id} current={profile?.classifications || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
       {id !== null && linkTarget && isAdmin ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
+          <div>
+            <p className="text-[13px] text-[#52525B]">{linkTarget.label} atual</p>
+            <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{tabValue(linkTarget.kind, profile) || "Não informado"}</p>
+          </div>
           <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterar {linkTarget.label.toLocaleLowerCase("pt-BR")}</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {linkTarget.kind === "status" ? (
@@ -668,64 +629,6 @@ export function EmployeeFormPage() {
           </Button>
         </section>
       ) : null}
-      {id !== null && tab === "events" && canRecordEvent ? (
-        <section className={cn(moduleCardClass, "space-y-5")}>
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">Registrar ausência</h2>
-          <div className="max-w-md space-y-2">
-            <Label className={moduleLabelClass} htmlFor="employee-occurrence-kind">Tipo</Label>
-            <SiteSelect
-              id="employee-occurrence-kind"
-              value={occurrenceKind}
-              className="h-12"
-              icon={ClipboardList}
-              options={absenceKinds
-                .filter((value) => isAdmin || manualTimeOffKinds.includes(value))
-                .map((value) => ({ value, label: occurrenceKindLabel[value] }))}
-              onChange={(value) => {
-                setOccurrenceKind(value)
-                setReasonId("")
-                setOffDraft(emptyTimeOff())
-                setOffFileKey((current) => current + 1)
-              }}
-            />
-          </div>
-          {manualEvent ? (
-            <TimeOffFields idPrefix="employee-off" kind={occurrenceKind} draft={offDraft} fileKey={offFileKey} onChange={setOffDraft} appearance="module" />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <DatePickerField id="employee-occurrence-start" label="De" value={startsOn} onChange={setStartsOn} />
-              <DatePickerField id="employee-occurrence-end" label="Até" value={endsOn} onChange={setEndsOn} />
-            </div>
-          )}
-          {asksReason ? (
-            <div className="max-w-md space-y-2">
-              <Label className={moduleLabelClass} htmlFor="employee-occurrence-reason">Motivo</Label>
-              <SiteSelect
-                id="employee-occurrence-reason"
-                value={reasonId}
-                searchable
-                searchPath="/reasons"
-                searchParams={{ kind: occurrenceKind, active: true }}
-                searchPlaceholder="Pesquisar motivo"
-                placeholder="Selecione"
-                className="h-12"
-                options={reasons.map((item) => ({ value: String(item.id), label: item.name }))}
-                onChange={setReasonId}
-              />
-            </div>
-          ) : null}
-          <div className="space-y-2">
-            <Label className={moduleLabelClass} htmlFor="employee-occurrence-note">Observação</Label>
-            <textarea id="employee-occurrence-note" className={cn(moduleTextClass, "min-h-24")} value={occurrenceNote} onChange={(event) => setOccurrenceNote(event.target.value)} />
-          </div>
-          <Button type="button" className={modulePrimaryClass} disabled={savingEvent} onClick={() => void saveOccurrence()}>
-            {savingEvent ? <Spinner className="h-4 w-4" /> : null}
-            Registrar ausência
-          </Button>
-        </section>
-      ) : null}
-      {id !== null && tab === "bank" && (isAdmin || role === "manager") ? <HourBankPanel employeeId={id} canLaunch usesBank={usesBank} appearance="module" /> : null}
-      {id !== null && tab === "correction" && canCorrect ? <PunchCorrectionForm employeeId={id} appearance="module" guard={locks.lockDay} onSaved={async () => undefined} /> : null}
     </div>
   )
 }
