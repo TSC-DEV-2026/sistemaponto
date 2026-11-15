@@ -130,14 +130,15 @@ O histórico deve permitir visualizar mudanças de:
 
 ---
 
-## 5. Jornada e Ponto
+## 5. Ponto
 
 A web deve permitir gestão de:
 
-- jornadas;
-- marcações;
-- apuração;
-- banco de horas, com quitação pelo gestor ou pelo administrador e lançamento manual de crédito ou débito.
+- apurações;
+- banco de horas, com crédito e débito pelo gestor ou pelo administrador. Quitação nova não é aceita. Quitação já gravada permanece no saldo;
+- fechamento, na aba Fechamento.
+
+As jornadas ficam em Quadro, entre Funções e Grupos. O administrador da conta não vê Registro. O funcionário e o gestor veem.
 
 A aplicação deve manter a separação conceitual:
 
@@ -225,9 +226,7 @@ Ao recusar:
 
 ## 8. Fechamento
 
-A sidebar deve possuir apenas:
-
-`Fechamento do Ponto`
+Fechamento é uma aba de Ponto, à direita de Banco de horas. O nome na aba é Fechamento.
 
 O gestor ou o administrador define o período, em geral o mês civil, e pode escolher outro intervalo. O fechamento é um passo. As regras de bloqueio, cancelamento e reabertura estão em `04-BUSINESS-RULES-AND-WORKFLOWS.md`.
 

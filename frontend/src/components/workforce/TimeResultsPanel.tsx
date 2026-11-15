@@ -265,7 +265,7 @@ export function TimeResultsPanel({
       <section className="space-y-4">
         <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={onSubmit}>
           <div>
-            <h2 className="text-lg font-semibold text-brand-ink">Apuração</h2>
+            <h2 className="text-lg font-semibold text-brand-ink">Apurações</h2>
             <p className="mt-1 text-sm text-brand-quiet">Consulte as horas apuradas.</p>
             <p className="mt-2 text-sm leading-6 text-[#52525B]">{note || resultNote()}</p>
           </div>
@@ -317,7 +317,7 @@ export function TimeResultsPanel({
 
   return (
     <section className="space-y-3">
-      {heading ? <h2 className="text-sm font-medium">Apuração</h2> : null}
+      {heading ? <h2 className="text-sm font-medium">Apurações</h2> : null}
       <p className="text-sm text-muted-foreground">{note || resultNote()}</p>
       <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
         {employees ? (

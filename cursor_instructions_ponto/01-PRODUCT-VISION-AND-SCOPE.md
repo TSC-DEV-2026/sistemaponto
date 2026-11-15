@@ -123,20 +123,22 @@ Relatórios
 - Setores
 - Equipes
 
-### Pessoas
+### Quadro
 
 - Funcionários
 - Cargos
+- Jornadas
 - Centros de Custo
 
-### Jornada e Ponto
+### Ponto
 
-- Jornadas
-- Marcações
-- Apuração
+- Apurações
 - Banco de Horas
+- Fechamento
 
-### Registro de Ponto
+### Registro
+
+O administrador da conta não vê este item. O funcionário e o gestor veem.
 
 - Registro Simples
 - QR Code + Selfie
@@ -162,7 +164,9 @@ Relatórios
 - Afastamento
 - Férias
 
-### Fechamento do Ponto
+### Fechamento
+
+Aba de Ponto. O nome na tela é Fechamento.
 
 - períodos;
 - conferência;

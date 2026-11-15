@@ -810,7 +810,7 @@ class ReportOut(BaseModel):
 
 class HourBankEntryCreate(BaseModel):
     employee_id: int
-    kind: Literal["settlement", "credit", "debit"]
+    kind: Literal["credit", "debit"]
     minutes: int = Field(gt=0, le=100000)
     entry_on: date | None = None
     note: str | None = Field(default=None, max_length=2000)

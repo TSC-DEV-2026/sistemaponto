@@ -16,7 +16,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova jornada",
     editTitle: "Editar jornada",
     empty: "Nenhuma jornada.",
-    backTo: "/schedules?aba=jornadas",
+    backTo: "/people?aba=jornadas",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },
       { name: "note", label: "Observação", type: "textarea" },

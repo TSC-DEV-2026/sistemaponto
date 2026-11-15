@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom"
+import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation, useParams } from "react-router-dom"
 
 import { AppShell } from "@/components/layouts/AppShell"
 import { Toaster } from "@/components/ui/toaster"
@@ -27,7 +27,6 @@ import { EmployeeFormPage } from "@/pages/workforce/EmployeeFormPage"
 import { EmployeePage } from "@/pages/workforce/EmployeePage"
 import { HourBankEntryPage, JourneyPage, PunchAdjustPage } from "@/pages/workforce/JourneyPage"
 import {
-  ClosingsPage,
   LaborPage,
   NotificationsPage,
   OrganizationPage,
@@ -42,6 +41,13 @@ import { OccurrenceEntryPage, OccurrencesPage } from "@/pages/workforce/Occurren
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
 import { ClosingFormPage } from "@/pages/workforce/ClosingFormPage"
 import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
+
+function LegacyJourneyRedirect() {
+  const { id } = useParams()
+  const { pathname } = useLocation()
+  const suffix = pathname.endsWith("/edit") ? "/edit" : ""
+  return <Navigate to={`/people/journeys/${id}${suffix}`} replace />
+}
 
 function RootLayout() {
   return <Outlet />
@@ -77,9 +83,9 @@ const router = createBrowserRouter([
                   { path: "/tenants/:id/edit", element: <TenantDetailPage mode="edit" /> },
                   { path: "/tenants/:id", element: <TenantDetailPage mode="view" /> },
                   { path: "/change-password", element: <ChangePasswordPage /> },
-                  { path: "/schedules/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
-                  { path: "/schedules/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },
-                  { path: "/schedules/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
+                  { path: "/schedules/journeys/new", element: <Navigate to="/people/journeys/new" replace /> },
+                  { path: "/schedules/journeys/:id/edit", element: <LegacyJourneyRedirect /> },
+                  { path: "/schedules/journeys/:id", element: <LegacyJourneyRedirect /> },
                   { path: "/schedules/adjustments", element: <PunchAdjustPage /> },
                   { path: "/schedules/hour-bank/new", element: <HourBankEntryPage /> },
                   { path: "/schedules/apuracao/:workDate", element: <ApuracaoDayPage /> },
@@ -90,9 +96,12 @@ const router = createBrowserRouter([
                   { path: "/requests", element: <RequestsPage /> },
                   { path: "/requests/new", element: <RequestFormPage /> },
                   { path: "/closings/new", element: <ClosingFormPage /> },
-                  { path: "/closings", element: <ClosingsPage /> },
+                  { path: "/closings", element: <Navigate to="/schedules?aba=fechamento" replace /> },
                   { path: "/people/new", element: <EmployeeFormPage /> },
                   { path: "/people/:id/edit", element: <EmployeeFormPage /> },
+                  { path: "/people/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
+                  { path: "/people/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },
+                  { path: "/people/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
                   { path: "/people/jobs/new", element: <EntityRecordPage catalog="jobs" mode="new" /> },
                   { path: "/people/jobs/:id/edit", element: <EntityRecordPage catalog="jobs" mode="edit" /> },
                   { path: "/people/jobs/:id", element: <EntityRecordPage catalog="jobs" mode="view" /> },

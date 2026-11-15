@@ -18,9 +18,9 @@ import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { createRecord, listRecords, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
-import { absenceKinds, certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
+import { absenceKinds, certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
 
-const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceKindLabel[id]] as const)
+const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceTabLabel[id] || occurrenceKindLabel[id]] as const)
 
 function tabPath(kind: string) {
   const first = occurrenceKinds[0]?.[0]
@@ -38,7 +38,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const asksReason = kind !== "vacation" && kind !== "leave" && kind !== "punch_entry"
   const events = usePagedList<Occurrence>("/occurrences", { kind, ...(listEmployee ? { employee_id: Number(listEmployee) } : {}) })
-  const label = occurrenceKindLabel[kind] || kind
+  const label = occurrenceTabLabel[kind] || occurrenceKindLabel[kind] || kind
   const actionLabel = occurrenceNewLabel[kind] || "Novo lançamento"
   const visible = events.items
 

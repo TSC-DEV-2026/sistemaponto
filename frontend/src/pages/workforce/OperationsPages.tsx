@@ -1,5 +1,5 @@
 import { ArrowLeftRight, Ban, Bell, Building2, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Mail, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, Upload, User, Users, X } from "lucide-react"
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
+import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
 
@@ -17,7 +17,7 @@ import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
-import { CatalogList, DomainTabs } from "@/pages/workforce/EntityScreens"
+import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { CertificatePhotoField, DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
@@ -84,8 +84,13 @@ const clockNote =
   "O próprio funcionário registra pelo tipo da ficha. O simples é o botão nesta tela. QR Code e reconhecimento facial são feitos no aplicativo."
 
 export function TimeClockPage() {
+  const role = useAuthStore((state) => state.user?.role)
   const personId = useAuthStore((state) => state.user?.person_id)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (role === "admin") navigate("/", { replace: true })
+  }, [role, navigate])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
@@ -123,6 +128,8 @@ export function TimeClockPage() {
       setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
     }
   }
+
+  if (role === "admin") return null
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -1060,6 +1067,7 @@ function closingStatusClass(status: string) {
 export function ClosingsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
+  const setTabAction = useContext(TabAction)
   const [filterYear, setFilterYear] = useState("")
   const [filterMonth, setFilterMonth] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
@@ -1073,6 +1081,22 @@ export function ClosingsPage() {
     ...(/^\d+$/.test(filterMonth) ? { month: Number(filterMonth) } : {}),
     ...(filterStatus ? { status: filterStatus } : {}),
   })
+
+  useEffect(() => {
+    if (!canManage) {
+      setTabAction(null)
+      return () => setTabAction(null)
+    }
+    setTabAction(
+      <Button asChild className={modulePrimaryClass}>
+        <Link to="/closings/new">
+          <Plus className="h-4 w-4" />
+          Novo fechamento
+        </Link>
+      </Button>,
+    )
+    return () => setTabAction(null)
+  }, [canManage, setTabAction])
 
   async function changePeriod(id: number, status: "closed" | "cancelled" | "open") {
     setError("")
@@ -1099,26 +1123,11 @@ export function ClosingsPage() {
     <div className="w-full min-w-0 space-y-[18px]">
       {error && !closingItem ? <p className="text-sm text-destructive">{error}</p> : null}
       <section className={moduleCardClass}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
-              <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold leading-5 text-[#0A0A0A]">Filtros de pesquisa</h2>
-              <p className="mt-0.5 text-[13px] leading-5 text-[#71717A]">Selecione o período e a situação que deseja visualizar</p>
-            </div>
-          </div>
-          {canManage ? (
-            <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
-              <Link to="/closings/new">
-                <Plus className="h-4 w-4" />
-                Novo fechamento
-              </Link>
-            </Button>
-          ) : null}
+        <div>
+          <h2 className="text-lg font-semibold text-brand-ink">Fechamento</h2>
+          <p className="mt-1 text-sm text-brand-quiet">Consulte os períodos de fechamento.</p>
         </div>
-        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="mt-[18px] grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="closing-filter-year">
               Ano

@@ -1532,34 +1532,43 @@ def test_adicional_noturno_nao_entra_no_saldo():
     assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 60
 
 
-def test_quitacao_parcial_paga_hora_extra_ou_desconta_falta():
-    workforce, _repo = service()
+def past_settlement(repo, employee_id: int, minutes: int, entry_on: date, effect: str) -> HourBankEntry:
+    return repo.add(
+        HourBankEntry(
+            tenant_id=1,
+            employee_id=employee_id,
+            kind="settlement",
+            minutes=minutes,
+            effect=effect,
+            note=None,
+            entry_on=entry_on,
+            created_by_person_id=7,
+            created_at=NOW,
+        )
+    )
+
+
+def test_quitacao_nova_nao_entra_e_a_antiga_permanece_no_saldo():
+    workforce, repo = service()
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
     workforce.update_employee(admin(), person["id"], {"hour_bank": True})
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
-    paid = workforce.create_hour_bank_entry(
-        admin(),
-        {"employee_id": person["id"], "kind": "settlement", "minutes": 10, "entry_on": None, "note": None},
-    )
-    assert paid.effect == "overtime"
-    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 20
-    assert workforce.hour_bank(admin(), person["id"])["paid_overtime_minutes"] == 10
-    with pytest.raises(AppError) as too_much:
+    with pytest.raises(AppError) as refused:
         workforce.create_hour_bank_entry(
             admin(),
-            {"employee_id": person["id"], "kind": "settlement", "minutes": 21, "entry_on": None, "note": None},
+            {"employee_id": person["id"], "kind": "settlement", "minutes": 10, "entry_on": None, "note": None},
         )
-    assert too_much.value.status_code == 400
+    assert refused.value.status_code == 400
+    assert refused.value.message == "A quitação não está disponível"
+    past_settlement(repo, person["id"], 10, date(2026, 10, 7), "overtime")
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 20
+    assert workforce.hour_bank(admin(), person["id"])["paid_overtime_minutes"] == 10
     negative = workforce.create_employee(admin(), admitted(date(2026, 10, 7), "10987654321", None))
     workforce.update_employee(admin(), negative["id"], {"hour_bank": True})
     work_journey(workforce, negative["id"], "Comercial 2")
     mark(workforce, negative["id"], 7, (8, 0), (12, 0), (13, 0), (17, 18))
-    discounted = workforce.create_hour_bank_entry(
-        admin(),
-        {"employee_id": negative["id"], "kind": "settlement", "minutes": 10, "entry_on": date(2026, 10, 7), "note": None},
-    )
-    assert discounted.effect == "absence"
+    past_settlement(repo, negative["id"], 10, date(2026, 10, 7), "absence")
     balance = workforce.hour_bank(admin(), negative["id"])
     assert balance["balance_minutes"] == -20
     assert balance["discounted_absence_minutes"] == 10
@@ -1567,7 +1576,7 @@ def test_quitacao_parcial_paga_hora_extra_ou_desconta_falta():
 
 
 def test_lancamento_manual_e_aviso_de_expiracao():
-    workforce, _repo = service()
+    workforce, repo = service()
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
     workforce.update_employee(admin(), person["id"], {"hour_bank": True})
     oldest = workforce.create_hour_bank_entry(
@@ -1581,10 +1590,7 @@ def test_lancamento_manual_e_aviso_de_expiracao():
     first = workforce.hour_bank(admin(), person["id"])
     assert first["balance_minutes"] == 55
     assert first["warning"] == "Saldo irá expirar em 1 dias"
-    workforce.create_hour_bank_entry(
-        admin(),
-        {"employee_id": person["id"], "kind": "settlement", "minutes": 40, "entry_on": date(2026, 10, 7), "note": None},
-    )
+    past_settlement(repo, person["id"], 40, date(2026, 10, 7), "overtime")
     left = (date(2027, 3, 1) - date(2026, 10, 7)).days
     second = workforce.hour_bank(admin(), person["id"])
     assert second["balance_minutes"] == 15
@@ -1698,9 +1704,9 @@ def test_gestor_lanca_na_equipe_e_periodo_fechado_bloqueia():
     assert closed.value.status_code == 409
     still_open = workforce.create_hour_bank_entry(
         admin(),
-        {"employee_id": outsider["id"], "kind": "settlement", "minutes": 1, "entry_on": date(2026, 9, 20), "note": None},
+        {"employee_id": outsider["id"], "kind": "credit", "minutes": 1, "entry_on": date(2026, 9, 20), "note": None},
     )
-    assert still_open.effect == "overtime"
+    assert still_open.kind == "credit"
 
 
 def test_pendencia_e_ponto_incompleto_impedem_o_fechamento():

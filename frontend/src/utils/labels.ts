@@ -45,6 +45,14 @@ export const occurrenceKindLabel: Record<string, string> = {
   leave: "Afastamento",
 }
 
+export const occurrenceTabLabel: Record<string, string> = {
+  absence: "Faltas",
+  certificate: "Atestados",
+  vacation: "Férias",
+  allowance: "Abonos",
+  leave: "Afastamentos",
+}
+
 export const occurrenceNewLabel: Record<string, string> = {
   adjustment: "Novo ajuste",
   punch_entry: "Novo lançamento",
@@ -214,6 +222,11 @@ export function showDate(value: string | null | undefined) {
 
 export const hourBankKindLabel: Record<string, string> = {
   settlement: "Quitação",
+  credit: "Crédito",
+  debit: "Débito",
+}
+
+export const hourBankLaunchLabel: Record<string, string> = {
   credit: "Crédito",
   debit: "Débito",
 }

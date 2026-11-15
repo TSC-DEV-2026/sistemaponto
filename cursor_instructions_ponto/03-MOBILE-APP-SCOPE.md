@@ -96,7 +96,7 @@ Exibir de forma simples:
 
 O saldo não tem limite. O prazo de expiração é configurável e o padrão é de 6 em 6 meses. Neste corte o efeito do prazo é o aviso, no formato "Saldo irá expirar em x dias".
 
-O adicional noturno não entra nos minutos desse saldo. Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app. A quitação e o lançamento manual de crédito ou débito ficam com o gestor ou com o administrador, na web.
+O adicional noturno não entra nos minutos desse saldo. Nenhuma gestão de banco de horas deve ser feita pelo funcionário via app. Crédito e débito ficam com o gestor ou com o administrador, na web.
 
 ---
 

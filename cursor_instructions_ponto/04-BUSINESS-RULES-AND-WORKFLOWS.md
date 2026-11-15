@@ -250,13 +250,13 @@ Exemplo de crédito: a escala determina 08:48 e o trabalho foi 09:18, então ent
 
 Exemplo de débito: a escala determina 08:48 e o trabalho foi 08:18, então saem 30 minutos do saldo.
 
-O saldo é contínuo. Ele acumula de um mês para o outro até o gestor ou o administrador quitar.
+O saldo é contínuo. Ele acumula de um mês para o outro. Quitação nova não é lançada. Quitação já gravada continua no saldo.
 
 Não há limite de saldo.
 
 O prazo para expirar é configurável. O padrão é de 6 em 6 meses. Neste corte o efeito é o aviso "Saldo irá expirar em x dias".
 
-Quem quita é o gestor ou o administrador. A quitação pode ser parcial e pode ocorrer a qualquer momento, também fora do fechamento. O padrão é pagar o valor quitado como hora extra. Se o saldo quitado está negativo, o padrão é descontar como falta.
+O gestor e o administrador lançam crédito ou débito. Uma quitação nova não é aceita. Quitação já gravada permanece no saldo: valor positivo pago como hora extra e valor negativo descontado como falta.
 
 O gestor e o administrador também podem lançar crédito ou débito manual no banco. Esse lançamento não depende do fechamento nem do aviso de expiração.
 
@@ -294,7 +294,6 @@ Depois de fechado, ficam bloqueados no período:
 - ajuste;
 - ocorrência;
 - vigência;
-- quitação do banco;
 - lançamento manual de crédito ou débito no banco.
 
 Correção de período fechado só ocorre depois de reabrir.
@@ -365,7 +364,7 @@ Quem aprova solicitação de ajuste, abono, atestado, afastamento e férias é o
 
 O administrador corrige marcação manualmente, com a mesma regra do ajuste aprovado. O gestor e o administrador lançam manualmente abono, atestado, afastamento e férias. A origem fica explícita: solicitação ou manual.
 
-O gestor e o administrador quitam o banco de horas e lançam crédito ou débito manual no saldo. O funcionário não faz essas ações. Dentro de período fechado, quitação e lançamento manual ficam bloqueados até a reabertura.
+O gestor e o administrador lançam crédito ou débito manual no saldo. O funcionário não faz essas ações. Dentro de período fechado, o lançamento manual fica bloqueado até a reabertura. Quitação nova não é aceita. Quitação já gravada permanece no saldo.
 
 O gestor e o administrador fecham, cancelam e reabrem o período. Cancelamento e reabertura exigem motivo.
 

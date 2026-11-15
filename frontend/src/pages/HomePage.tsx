@@ -210,7 +210,7 @@ export function HomePage() {
           </BoardCard>
           <BoardCard tone={tones.blue} icon={Clock} title="Ponto" href="/schedules">
             <MetricLine state={boardState} error={boardError}>
-              {board ? `${board.punches_today} marcações hoje. A apuração do período fica em Jornada e Ponto.` : null}
+              {board ? `${board.punches_today} marcações hoje. A apuração do período fica em Ponto.` : null}
             </MetricLine>
           </BoardCard>
           <BoardCard
@@ -229,7 +229,7 @@ export function HomePage() {
             tone={tones.lilac}
             icon={Calendar}
             title="Fechamento"
-            href="/closings"
+            href="/schedules?aba=fechamento"
           >
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.open_closings} período(s) em conferência.` : null}

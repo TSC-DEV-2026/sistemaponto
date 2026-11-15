@@ -82,7 +82,7 @@ export function MembershipsPage() {
             </span>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[#0A0A0A]">Acessos</h2>
-              <p className="text-sm text-[#64748B]">Quem entra neste sistema. O funcionário fica em Pessoas.</p>
+              <p className="text-sm text-[#64748B]">Quem entra neste sistema. O funcionário fica em Quadro.</p>
             </div>
           </div>
           {role === "admin" ? (

@@ -1,4 +1,4 @@
-import { Briefcase, Tags, Users } from "lucide-react"
+import { Briefcase, CalendarClock, Tags, Users } from "lucide-react"
 import { useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 
@@ -12,11 +12,12 @@ export function PeoplePage() {
 
   return (
     <DomainTabs
-      title="Pessoas"
+      title="Quadro"
       people
       tabs={[
         { id: "funcionarios", label: "Funcionários", icon: Users, panel: <EmployeeList /> },
         { id: "funcoes", label: "Funções", icon: Briefcase, panel: <CatalogList catalog="jobs" presentation="people" /> },
+        { id: "jornadas", label: "Jornadas", icon: CalendarClock, panel: <CatalogList catalog="journeys" presentation="people" /> },
         { id: "grupos", label: "Grupos", icon: Tags, panel: <CatalogList catalog="classifications" presentation="people" /> },
       ]}
     />
