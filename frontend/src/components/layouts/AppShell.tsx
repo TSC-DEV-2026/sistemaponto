@@ -12,7 +12,7 @@ function isActive(pathname: string, to: string) {
   if (to === "/") {
     return pathname === "/"
   }
-  if (to === "/schedules" && (pathname === "/closings" || pathname.startsWith("/closings/"))) return true
+  if (to === "/timekeeping" && (pathname === "/closings" || pathname.startsWith("/closings/"))) return true
   return pathname === to || pathname.startsWith(`${to}/`)
 }
 

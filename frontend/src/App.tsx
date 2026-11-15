@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation, useParams } from "react-router-dom"
 
+import { legacyPath } from "@/route-slugs"
+
 import { AppShell } from "@/components/layouts/AppShell"
 import { Toaster } from "@/components/ui/toaster"
 import { PrivateRoute } from "@/components/PrivateRoute"
@@ -47,7 +49,12 @@ function LegacyJourneyRedirect() {
   const { id } = useParams()
   const { pathname } = useLocation()
   const suffix = pathname.endsWith("/edit") ? "/edit" : ""
-  return <Navigate to={`/people/journeys/${id}${suffix}`} replace />
+  return <Navigate to={`/staff/journeys/${id}${suffix}`} replace />
+}
+
+function LegacyRouteRedirect() {
+  const location = useLocation()
+  return <Navigate to={legacyPath(location.pathname, location.search)} replace />
 }
 
 function RootLayout() {
@@ -84,13 +91,15 @@ const router = createBrowserRouter([
                   { path: "/tenants/:id/edit", element: <TenantDetailPage mode="edit" /> },
                   { path: "/tenants/:id", element: <TenantDetailPage mode="view" /> },
                   { path: "/change-password", element: <ChangePasswordPage /> },
-                  { path: "/schedules/journeys/new", element: <Navigate to="/people/journeys/new" replace /> },
+                  { path: "/schedules/journeys/new", element: <Navigate to="/staff/journeys/new" replace /> },
                   { path: "/schedules/journeys/:id/edit", element: <LegacyJourneyRedirect /> },
                   { path: "/schedules/journeys/:id", element: <LegacyJourneyRedirect /> },
-                  { path: "/schedules/adjustments", element: <PunchAdjustPage /> },
-                  { path: "/schedules/hour-bank/new", element: <HourBankEntryPage /> },
-                  { path: "/schedules/apuracao/:workDate", element: <ApuracaoDayPage /> },
-                  { path: "/schedules", element: <JourneyPage /> },
+                  { path: "/schedules/*", element: <LegacyRouteRedirect /> },
+                  { path: "/schedules", element: <LegacyRouteRedirect /> },
+                  { path: "/timekeeping/adjustments", element: <PunchAdjustPage /> },
+                  { path: "/timekeeping/hour-bank/new", element: <HourBankEntryPage /> },
+                  { path: "/timekeeping/calculation/:workDate", element: <ApuracaoDayPage /> },
+                  { path: "/timekeeping", element: <JourneyPage /> },
                   { path: "/time-clock", element: <TimeClockPage /> },
                   { path: "/occurrences/new", element: <OccurrenceEntryPage /> },
                   { path: "/occurrences", element: <OccurrencesPage /> },
@@ -98,27 +107,29 @@ const router = createBrowserRouter([
                   { path: "/requests/new", element: <RequestFormPage /> },
                   { path: "/closings/new", element: <ClosingFormPage /> },
                   { path: "/closings/:id", element: <ClosingResultPage /> },
-                  { path: "/closings", element: <Navigate to="/schedules?aba=fechamento" replace /> },
-                  { path: "/people/new", element: <EmployeeFormPage /> },
-                  { path: "/people/:id/edit", element: <EmployeeFormPage /> },
-                  { path: "/people/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
-                  { path: "/people/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },
-                  { path: "/people/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
-                  { path: "/people/jobs/new", element: <EntityRecordPage catalog="jobs" mode="new" /> },
-                  { path: "/people/jobs/:id/edit", element: <EntityRecordPage catalog="jobs" mode="edit" /> },
-                  { path: "/people/jobs/:id", element: <EntityRecordPage catalog="jobs" mode="view" /> },
-                  { path: "/people/classifications/new", element: <EntityRecordPage catalog="classifications" mode="new" /> },
-                  { path: "/people/classifications/:id/edit", element: <EntityRecordPage catalog="classifications" mode="edit" /> },
-                  { path: "/people/classifications/:id/values/new", element: <ClassificationValueFormPage mode="new" /> },
-                  { path: "/people/classifications/:id/values/:valueId/edit", element: <ClassificationValueFormPage mode="edit" /> },
-                  { path: "/people/classifications/:id/values/:valueId", element: <ClassificationValueFormPage mode="view" /> },
-                  { path: "/people/classifications/:id", element: <EntityRecordPage catalog="classifications" mode="view" /> },
-                  { path: "/people/cost-centers/new", element: <Navigate to="/people/classifications/new" replace /> },
-                  { path: "/people/cost-centers/:id/edit", element: <Navigate to="/people?aba=grupos" replace /> },
-                  { path: "/people/cost-centers/:id", element: <Navigate to="/people?aba=grupos" replace /> },
-                  { path: "/people/cost-centers", element: <Navigate to="/people?aba=grupos" replace /> },
-                  { path: "/people/:id", element: <EmployeePage /> },
-                  { path: "/people", element: <PeoplePage /> },
+                  { path: "/closings", element: <Navigate to="/timekeeping?tab=closing" replace /> },
+                  { path: "/people/*", element: <LegacyRouteRedirect /> },
+                  { path: "/people", element: <LegacyRouteRedirect /> },
+                  { path: "/staff/new", element: <EmployeeFormPage /> },
+                  { path: "/staff/:id/edit", element: <EmployeeFormPage /> },
+                  { path: "/staff/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
+                  { path: "/staff/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },
+                  { path: "/staff/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
+                  { path: "/staff/jobs/new", element: <EntityRecordPage catalog="jobs" mode="new" /> },
+                  { path: "/staff/jobs/:id/edit", element: <EntityRecordPage catalog="jobs" mode="edit" /> },
+                  { path: "/staff/jobs/:id", element: <EntityRecordPage catalog="jobs" mode="view" /> },
+                  { path: "/staff/classifications/new", element: <EntityRecordPage catalog="classifications" mode="new" /> },
+                  { path: "/staff/classifications/:id/edit", element: <EntityRecordPage catalog="classifications" mode="edit" /> },
+                  { path: "/staff/classifications/:id/values/new", element: <ClassificationValueFormPage mode="new" /> },
+                  { path: "/staff/classifications/:id/values/:valueId/edit", element: <ClassificationValueFormPage mode="edit" /> },
+                  { path: "/staff/classifications/:id/values/:valueId", element: <ClassificationValueFormPage mode="view" /> },
+                  { path: "/staff/classifications/:id", element: <EntityRecordPage catalog="classifications" mode="view" /> },
+                  { path: "/staff/cost-centers/new", element: <Navigate to="/staff/classifications/new" replace /> },
+                  { path: "/staff/cost-centers/:id/edit", element: <Navigate to="/staff?tab=groups" replace /> },
+                  { path: "/staff/cost-centers/:id", element: <Navigate to="/staff?tab=groups" replace /> },
+                  { path: "/staff/cost-centers", element: <Navigate to="/staff?tab=groups" replace /> },
+                  { path: "/staff/:id", element: <EmployeePage /> },
+                  { path: "/staff", element: <PeoplePage /> },
                   { path: "/clock-devices", element: <ClockDevicesPage /> },
                   { path: "/bulk-changes", element: <BulkChangesPage /> },
                   { path: "/organization/units/new", element: <EntityRecordPage catalog="units" mode="new" /> },

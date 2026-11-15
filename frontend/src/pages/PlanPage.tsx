@@ -67,8 +67,8 @@ export function PlanPage() {
       organization
       title="Plano e Assinatura"
       tabs={[
-        { id: "assinaturas", label: "Assinaturas e Cobranças", icon: conceptIcon.plan, panel: <BillingPanel /> },
-        { id: "contratacao", label: "Contratação", icon: Wallet, panel: <ContractPanel /> },
+        { id: "subscriptions", label: "Assinaturas e Cobranças", icon: conceptIcon.plan, panel: <BillingPanel /> },
+        { id: "contract", label: "Contratação", icon: Wallet, panel: <ContractPanel /> },
       ]}
     />
   )

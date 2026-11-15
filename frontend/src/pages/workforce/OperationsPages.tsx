@@ -1418,9 +1418,9 @@ export function OrganizationPage() {
       title="Estrutura Organizacional"
       organization
       tabs={[
-        { id: "empresas", label: "Empresas", icon: conceptIcon.unit, panel: <CatalogList catalog="units" presentation="organization" /> },
-        { id: "setores", label: "Setores", icon: conceptIcon.sector, panel: <CatalogList catalog="sectors" presentation="organization" /> },
-        { id: "equipes", label: "Equipes", icon: conceptIcon.team, panel: <CatalogList catalog="teams" presentation="organization" /> },
+        { id: "units", label: "Empresas", icon: conceptIcon.unit, panel: <CatalogList catalog="units" presentation="organization" /> },
+        { id: "sectors", label: "Setores", icon: conceptIcon.sector, panel: <CatalogList catalog="sectors" presentation="organization" /> },
+        { id: "teams", label: "Equipes", icon: conceptIcon.team, panel: <CatalogList catalog="teams" presentation="organization" /> },
       ]}
     />
   )
@@ -1432,10 +1432,10 @@ export function LaborPage() {
       title="Regras Trabalhistas"
       organization
       tabs={[
-        { id: "sindicatos", label: "Sindicatos", icon: conceptIcon.union, panel: <CatalogList catalog="unions" presentation="organization" /> },
-        { id: "convencoes", label: "Convenções e acordos", icon: ScrollText, panel: <CatalogList catalog="agreements" presentation="organization" /> },
-        { id: "feriados", label: "Feriados", icon: Calendar, panel: <CatalogList catalog="holidays" presentation="organization" /> },
-        { id: "regras", label: "Regras de ponto", icon: ClipboardList, panel: <CatalogList catalog="punch-rules" presentation="organization" /> },
+        { id: "unions", label: "Sindicatos", icon: conceptIcon.union, panel: <CatalogList catalog="unions" presentation="organization" /> },
+        { id: "agreements", label: "Convenções e acordos", icon: ScrollText, panel: <CatalogList catalog="agreements" presentation="organization" /> },
+        { id: "holidays", label: "Feriados", icon: Calendar, panel: <CatalogList catalog="holidays" presentation="organization" /> },
+        { id: "punch-rules", label: "Regras de ponto", icon: ClipboardList, panel: <CatalogList catalog="punch-rules" presentation="organization" /> },
       ]}
     />
   )
@@ -1447,10 +1447,10 @@ export function ReasonsPage() {
       title="Motivos"
       organization
       tabs={[
-        { id: "abonos", label: "Abonos", icon: conceptIcon.allowance, panel: <CatalogList catalog="reason-allowance" presentation="organization" /> },
-        { id: "atestados", label: "Atestados", icon: conceptIcon.certificate, panel: <CatalogList catalog="reason-certificate" presentation="organization" /> },
-        { id: "faltas", label: "Faltas", icon: conceptIcon.fault, panel: <CatalogList catalog="reason-absence" presentation="organization" /> },
-        { id: "ajustes", label: "Ajustes", icon: ClipboardList, panel: <CatalogList catalog="reason-adjustment" presentation="organization" /> },
+        { id: "allowances", label: "Abonos", icon: conceptIcon.allowance, panel: <CatalogList catalog="reason-allowance" presentation="organization" /> },
+        { id: "certificates", label: "Atestados", icon: conceptIcon.certificate, panel: <CatalogList catalog="reason-certificate" presentation="organization" /> },
+        { id: "absences", label: "Faltas", icon: conceptIcon.fault, panel: <CatalogList catalog="reason-absence" presentation="organization" /> },
+        { id: "adjustments", label: "Ajustes", icon: ClipboardList, panel: <CatalogList catalog="reason-adjustment" presentation="organization" /> },
       ]}
     />
   )
@@ -1599,7 +1599,7 @@ export function NotificationsPage() {
         module
         tabs={[
           {
-            id: "avisos",
+            id: "notices",
             label: "Avisos",
             icon: Bell,
             panel: (
@@ -1675,7 +1675,7 @@ export function NotificationsPage() {
             ),
           },
           {
-            id: "preferencias",
+            id: "preferences",
             label: "Preferências",
             icon: SlidersHorizontal,
             panel: (
@@ -2265,7 +2265,7 @@ export function PayrollPage() {
       title="Fiscal / Folha"
       tabs={[
         { id: "afd", label: "AFD", icon: FileText, panel: <AfdPanel /> },
-        { id: "folha", label: "Totais da folha", icon: List, panel: <PayrollTotalsPanel /> },
+        { id: "payroll", label: "Totais da folha", icon: List, panel: <PayrollTotalsPanel /> },
       ]}
     />
   )

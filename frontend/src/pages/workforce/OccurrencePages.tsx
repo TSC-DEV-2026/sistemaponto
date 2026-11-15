@@ -33,7 +33,7 @@ const occurrenceIcon = {
 
 function tabPath(kind: string) {
   const first = occurrenceKinds[0]?.[0]
-  return !kind || kind === first ? "/occurrences" : `/occurrences?aba=${kind}`
+  return !kind || kind === first ? "/occurrences" : `/occurrences?tab=${kind}`
 }
 
 function canLaunchKind(role: string | null | undefined, kind: string) {
@@ -217,7 +217,7 @@ export function OccurrencesPage() {
   const role = useAuthStore((state) => state.user?.role)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [params] = useSearchParams()
-  const requested = params.get("aba")
+  const requested = params.get("tab") || params.get("aba")
   const kind = occurrenceKinds.some(([id]) => id === requested) ? requested || occurrenceKinds[0][0] : occurrenceKinds[0][0]
   const canLaunch = canLaunchKind(role, kind)
   const actionLabel = occurrenceNewLabel[kind] || "Novo lançamento"
@@ -247,7 +247,7 @@ export function OccurrencesPage() {
         action={
           canLaunch ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
-              <Link to={`/occurrences/new?tipo=${kind}`}>
+              <Link to={`/occurrences/new?kind=${kind}`}>
                 <Plus className="h-4 w-4" />
                 {actionLabel}
               </Link>
@@ -269,8 +269,16 @@ export function OccurrenceEntryPage() {
   const role = useAuthStore((state) => state.user?.role)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const navigate = useNavigate()
-  const [search] = useSearchParams()
-  const kind = search.get("tipo") || ""
+  const [search, setSearch] = useSearchParams()
+  const kind = search.get("kind") || search.get("tipo") || ""
+
+  useEffect(() => {
+    if (search.get("kind") || !search.get("tipo")) return
+    const next = new URLSearchParams(search)
+    next.set("kind", next.get("tipo") || "")
+    next.delete("tipo")
+    setSearch(next, { replace: true })
+  }, [search, setSearch])
   const known = absenceKinds.includes(kind as (typeof absenceKinds)[number])
   const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
   const canLaunch = canLaunchKind(role, kind)

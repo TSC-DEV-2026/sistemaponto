@@ -440,7 +440,7 @@ export function EmployeePage() {
     setError("")
     try {
       await removeRecord("/employees", id)
-      navigate("/people")
+      navigate("/staff")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
     }
@@ -452,7 +452,7 @@ export function EmployeePage() {
   if (!employee) {
     return (
       <div className={fichaFrameClass}>
-        <BackLink to="/people" appearance="detail" />
+        <BackLink to="/staff" appearance="detail" />
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : (
@@ -477,7 +477,7 @@ export function EmployeePage() {
   return (
     <div className={fichaFrameClass}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <BackLink to="/people" appearance="detail" />
+        <BackLink to="/staff" appearance="detail" />
         {isAdmin ? (
           confirmDelete ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -492,7 +492,7 @@ export function EmployeePage() {
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-[#E2E8F0] bg-white px-3.5 text-sm font-semibold text-[#111827] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
-                <Link to={`/people/${id}/edit`}>
+                <Link to={`/staff/${id}/edit`}>
                   <Pencil className="h-4 w-4" strokeWidth={1.75} />
                   Editar
                 </Link>

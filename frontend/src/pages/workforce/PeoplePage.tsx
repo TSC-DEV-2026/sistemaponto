@@ -1,24 +1,17 @@
 import { conceptIcon } from "@/utils/concept-icons"
-import { useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
 
 import { CatalogList, DomainTabs, EmployeeList } from "@/pages/workforce/EntityScreens"
 
 export function PeoplePage() {
-  const [params, setParams] = useSearchParams()
-  useEffect(() => {
-    if (params.get("aba") === "centros") setParams({ aba: "grupos" }, { replace: true })
-  }, [params, setParams])
-
   return (
     <DomainTabs
       title="Quadro"
       people
       tabs={[
-        { id: "funcionarios", label: "Funcionários", icon: conceptIcon.employee, panel: <EmployeeList /> },
-        { id: "funcoes", label: "Funções", icon: conceptIcon.job, panel: <CatalogList catalog="jobs" presentation="people" /> },
-        { id: "jornadas", label: "Jornadas", icon: conceptIcon.journey, panel: <CatalogList catalog="journeys" presentation="people" /> },
-        { id: "grupos", label: "Grupos", icon: conceptIcon.group, panel: <CatalogList catalog="classifications" presentation="people" /> },
+        { id: "employees", label: "Funcionários", icon: conceptIcon.employee, panel: <EmployeeList /> },
+        { id: "jobs", label: "Funções", icon: conceptIcon.job, panel: <CatalogList catalog="jobs" presentation="people" /> },
+        { id: "journeys", label: "Jornadas", icon: conceptIcon.journey, panel: <CatalogList catalog="journeys" presentation="people" /> },
+        { id: "groups", label: "Grupos", icon: conceptIcon.group, panel: <CatalogList catalog="classifications" presentation="people" /> },
       ]}
     />
   )

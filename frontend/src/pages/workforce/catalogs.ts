@@ -16,7 +16,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova jornada",
     editTitle: "Editar jornada",
     empty: "Nenhuma jornada.",
-    backTo: "/people?aba=jornadas",
+    backTo: "/staff?tab=journeys",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },
       { name: "note", label: "Observação", type: "textarea" },
@@ -27,7 +27,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova função",
     editTitle: "Editar função",
     empty: "Nenhuma função.",
-    backTo: "/people?aba=funcoes",
+    backTo: "/staff?tab=jobs",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
   classifications: {
@@ -35,7 +35,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo grupo",
     editTitle: "Editar grupo",
     empty: "Nenhum grupo.",
-    backTo: "/people?aba=grupos",
+    backTo: "/staff?tab=groups",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
   units: {
@@ -43,7 +43,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova empresa",
     editTitle: "Editar empresa",
     empty: "Nenhuma empresa.",
-    backTo: "/organization?aba=empresas",
+    backTo: "/organization?tab=units",
     fields: [{ name: "name", label: "Nome da empresa", type: "text", required: true }],
   },
   sectors: {
@@ -51,7 +51,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo setor",
     editTitle: "Editar setor",
     empty: "Nenhum setor.",
-    backTo: "/organization?aba=setores",
+    backTo: "/organization?tab=sectors",
     fields: [
       { name: "name", label: "Nome do setor", type: "text", required: true },
       { name: "unit_id", label: "Empresa", type: "select", required: true, searchPath: "/units", loadOptions: () => optionsOf("/units") },
@@ -62,7 +62,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova equipe",
     editTitle: "Editar equipe",
     empty: "Nenhuma equipe.",
-    backTo: "/organization?aba=equipes",
+    backTo: "/organization?tab=teams",
     fields: [
       { name: "name", label: "Nome da equipe", type: "text", required: true },
       { name: "sector_id", label: "Setor", type: "select", required: true, searchPath: "/sectors", loadOptions: () => optionsOf("/sectors") },
@@ -73,7 +73,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo sindicato",
     editTitle: "Editar sindicato",
     empty: "Nenhum sindicato.",
-    backTo: "/labor-rules?aba=sindicatos",
+    backTo: "/labor-rules?tab=unions",
     fields: [{ name: "name", label: "Nome do sindicato", type: "text", required: true }],
   },
   agreements: {
@@ -81,7 +81,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova convenção",
     editTitle: "Editar convenção ou acordo",
     empty: "Nenhuma convenção.",
-    backTo: "/labor-rules?aba=convencoes",
+    backTo: "/labor-rules?tab=agreements",
     fields: [
       { name: "name", label: "Nome da convenção ou do acordo", type: "text", required: true },
       { name: "union_id", label: "Sindicato", type: "select", searchPath: "/unions", loadOptions: () => optionsOf("/unions") },
@@ -95,7 +95,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo feriado",
     editTitle: "Editar feriado",
     empty: "Nenhum feriado.",
-    backTo: "/labor-rules?aba=feriados",
+    backTo: "/labor-rules?tab=holidays",
     fields: [
       { name: "name", label: "Nome do feriado", type: "text", required: true },
       { name: "holiday_date", label: "Data", type: "date", required: true },
@@ -107,7 +107,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova regra de ponto",
     editTitle: "Editar regra de ponto",
     empty: "Nenhuma regra de ponto.",
-    backTo: "/labor-rules?aba=regras",
+    backTo: "/labor-rules?tab=punch-rules",
     fields: [
       { name: "name", label: "Nome da regra de ponto", type: "text", required: true },
       { name: "note", label: "Observação", type: "textarea" },
@@ -118,7 +118,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo ajuste",
     editTitle: "Editar ajuste",
     empty: "Nenhum ajuste.",
-    backTo: "/reasons?aba=ajustes",
+    backTo: "/reasons?tab=adjustments",
     kind: "adjustment",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },
@@ -130,7 +130,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Nova falta",
     editTitle: "Editar falta",
     empty: "Nenhuma falta.",
-    backTo: "/reasons?aba=faltas",
+    backTo: "/reasons?tab=absences",
     kind: "absence",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },
@@ -142,7 +142,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo abono",
     editTitle: "Editar abono",
     empty: "Nenhum abono.",
-    backTo: "/reasons?aba=abonos",
+    backTo: "/reasons?tab=allowances",
     kind: "allowance",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },
@@ -154,7 +154,7 @@ export const catalogs: Record<string, Catalog> = {
     newLabel: "Novo atestado",
     editTitle: "Editar atestado",
     empty: "Nenhum atestado.",
-    backTo: "/reasons?aba=atestados",
+    backTo: "/reasons?tab=certificates",
     kind: "certificate",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true },

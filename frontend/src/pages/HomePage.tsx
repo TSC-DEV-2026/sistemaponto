@@ -204,12 +204,12 @@ export function HomePage() {
     <div className="-mx-4 -my-6 bg-brand-paper px-6 py-7 md:-mx-8 md:px-8 md:py-8">
       <div className="mx-auto max-w-[1240px]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <BoardCard tone={tones.green} icon={conceptIcon.employee} title="Hoje" href="/people">
+          <BoardCard tone={tones.green} icon={conceptIcon.employee} title="Hoje" href="/staff">
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.active_employees} funcionários ativos.` : null}
             </MetricLine>
           </BoardCard>
-          <BoardCard tone={tones.blue} icon={conceptIcon.point} title="Ponto" href="/schedules">
+          <BoardCard tone={tones.blue} icon={conceptIcon.point} title="Ponto" href="/timekeeping">
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.punches_today} marcações hoje. A apuração do período fica em Ponto.` : null}
             </MetricLine>
@@ -230,7 +230,7 @@ export function HomePage() {
             tone={tones.lilac}
             icon={conceptIcon.closing}
             title="Fechamento"
-            href="/schedules?aba=fechamento"
+            href="/timekeeping?tab=closing"
           >
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.open_closings} período(s) em conferência.` : null}

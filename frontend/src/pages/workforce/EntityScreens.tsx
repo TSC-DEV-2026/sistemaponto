@@ -2,6 +2,7 @@ import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, 
 import { Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
+import { canonicalTab } from "@/route-slugs"
 import { conceptIcon } from "@/utils/concept-icons"
 
 import { authInputClass } from "@/components/auth-screen"
@@ -225,9 +226,22 @@ export function DomainTabs({
 }) {
   const [params, setParams] = useSearchParams()
   const [action, setAction] = useState<ReactNode>(null)
-  const requested = params.get("aba")
+  const requested = canonicalTab(params.get("tab") || params.get("aba"))
   const current = tabs.some((tab) => tab.id === requested) ? requested : tabs[0].id
   const selected = tabs.find((tab) => tab.id === current) ?? tabs[0]
+  const tabIds = tabs.map((tab) => tab.id).join("\0")
+
+  useEffect(() => {
+    const first = tabIds.split("\0")[0]
+    const wanted = current === first ? null : current
+    const aligned = !params.has("aba") && (wanted ? params.get("tab") === wanted : !params.has("tab"))
+    if (aligned) return
+    const next = new URLSearchParams(params)
+    next.delete("aba")
+    if (wanted) next.set("tab", wanted)
+    else next.delete("tab")
+    setParams(next, { replace: true })
+  }, [current, params, setParams, tabIds])
 
   return (
     <TabAction.Provider value={setAction}>
@@ -247,13 +261,13 @@ export function DomainTabs({
                     "relative z-10 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none",
                     tab.id === current ? "text-brand-cta" : "text-zinc-600 hover:text-zinc-900",
                   )}
-                  onClick={() => setParams(tab.id === tabs[0].id ? {} : { aba: tab.id })}
+                  onClick={() => setParams(tab.id === tabs[0].id ? {} : { tab: tab.id })}
                 >
                   {tab.icon ? <tab.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : null}
                   {tab.label}
                 </button>
               ) : (
-                <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams(tab.id === tabs[0].id ? {} : { aba: tab.id })}>
+                <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams(tab.id === tabs[0].id ? {} : { tab: tab.id })}>
                   {tab.label}
                 </Button>
               ),
@@ -815,10 +829,10 @@ export function EmployeeList() {
           const text = query.trim()
           return text ? { q: text } : {}
         }}
-        newTo="/people/new"
+        newTo="/staff/new"
         newLabel="Novo funcionário"
-        viewTo={(id) => `/people/${id}`}
-        editTo={(id) => `/people/${id}/edit`}
+        viewTo={(id) => `/staff/${id}`}
+        editTo={(id) => `/staff/${id}/edit`}
         nameOf={(item) => item.full_name}
         detailOf={(item) =>
           [formatCpf(item.cpf), item.registration_number, situationLabel[item.situation || ""] || "Sem situação", clockMethodLabel[item.clock_method] || item.clock_method, showDate(item.admission_date)]
@@ -973,13 +987,13 @@ function ClassificationValues({ classificationId, canEdit }: { classificationId:
                     ) : (
                       <div className="inline-flex justify-center gap-1.5">
                         <Button asChild variant="outline" className={moduleIconClass}>
-                          <Link to={`/people/classifications/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`} title="Visualizar">
+                          <Link to={`/staff/classifications/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`} title="Visualizar">
                             <Eye className="h-4 w-4" strokeWidth={1.75} />
                           </Link>
                         </Button>
                         {canEdit ? (
                           <Button asChild variant="outline" className={moduleIconClass}>
-                            <Link to={`/people/classifications/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`} title="Editar">
+                            <Link to={`/staff/classifications/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`} title="Editar">
                               <Pencil className="h-4 w-4" strokeWidth={1.75} />
                             </Link>
                           </Button>
@@ -1018,14 +1032,14 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const classificationId = Number(params.id)
   const valueId = Number(params.valueId)
-  const backTo = `/people/classifications/${classificationId}`
+  const backTo = `/staff/classifications/${classificationId}`
   const [name, setName] = useState("")
   const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(mode === "new")
 
   useEffect(() => {
     if (!Number.isInteger(classificationId) || classificationId <= 0) {
-      navigate("/people?aba=grupos", { replace: true })
+      navigate("/staff?tab=groups", { replace: true })
       return
     }
     if (mode !== "view" && !isAdmin) navigate(backTo, { replace: true })
@@ -1247,7 +1261,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
           <BackLink to={entry.backTo} appearance="detail" />
           {valuesOnPage && isAdmin ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
-              <Link to={`/people/classifications/${id}/values/new`}>
+              <Link to={`/staff/classifications/${id}/values/new`}>
                 <Plus className="h-4 w-4" />
                 Novo valor
               </Link>

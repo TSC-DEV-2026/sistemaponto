@@ -8,7 +8,7 @@ import { apuracaoDay } from "@/components/workforce/apuracao-session"
 import { getTimeResults, type TimeResult } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
-const backTo = "/schedules?aba=apuracao"
+const backTo = "/timekeeping?tab=calculation"
 
 function isoDate(value: string | undefined) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return ""

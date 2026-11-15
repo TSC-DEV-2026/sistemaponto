@@ -44,7 +44,7 @@ export const navGroups: NavGroup[] = [
     label: "Operação",
     items: [
       {
-        to: "/schedules",
+        to: "/timekeeping",
         label: "Ponto",
         icon: conceptIcon.point,
         lead: "Apuração do período, banco de horas e fechamento.",
@@ -98,7 +98,7 @@ export const navGroups: NavGroup[] = [
     label: "Gestão",
     items: [
       {
-        to: "/people",
+        to: "/staff",
         label: "Quadro",
         icon: conceptIcon.quadro,
         lead: "Funcionários, funções, jornadas e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
