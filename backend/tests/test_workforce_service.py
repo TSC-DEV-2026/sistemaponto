@@ -18,6 +18,7 @@ from app.models.workforce import (
     ClassificationValue,
     Closing,
     ClosingEvent,
+    ClosingMember,
     ClosingJourneyPin,
     Employee,
     EmployeeVigency,
@@ -514,9 +515,21 @@ class Memory:
         return None
 
     def closing_overlapping(self, tenant_id: int, start: date, end: date):
+        found = self.overlapping_closings(tenant_id, start, end)
+        return found[0] if found else None
+
+    def overlapping_closings(self, tenant_id: int, start: date, end: date):
+        return [row for row in self._of(Closing, tenant_id) if row.starts_on <= end and row.ends_on >= start]
+
+    def member_ids(self, closing_id: int) -> list[int]:
+        return [row.employee_id for row in self.rows if isinstance(row, ClosingMember) and row.closing_id == closing_id]
+
+    def closed_for_employee(self, tenant_id: int, day: date, employee_id: int):
         for row in self._of(Closing, tenant_id):
-            if row.starts_on <= end and row.ends_on >= start:
-                return row
+            if row.status == "closed" and row.starts_on <= day <= row.ends_on:
+                members = self.member_ids(row.id)
+                if not members or employee_id in members:
+                    return row
         return None
 
     def closed_exact(self, tenant_id: int, start: date, end: date):
@@ -1910,6 +1923,28 @@ def test_ferias_e_fim_de_semana_nao_sao_ponto_incompleto():
         {"starts_on": date(2026, 10, 5), "ends_on": date(2026, 10, 5), "note": None},
     )
     assert workforce.update_closing(admin(), holiday["id"], {"status": "closed", "note": None})["status"] == "closed"
+
+
+def test_fechamento_escolhe_as_pessoas_e_deixa_as_outras_abertas():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), employee_payload())
+    second = workforce.create_employee(admin(), employee_payload("10987654321", None))
+    with pytest.raises(AppError) as empty:
+        workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": []})
+    assert empty.value.status_code == 400
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [first["id"]]})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    detail = workforce.get_closing(admin(), opened["id"])
+    assert [item["employee_id"] for item in detail["people"]] == [first["id"]]
+    with pytest.raises(AppError) as blocked:
+        workforce.create_punch(admin(), {"employee_id": first["id"], "occurred_at": at(9, 0), "note": None})
+    assert blocked.value.status_code == 409
+    workforce.create_punch(admin(), {"employee_id": second["id"], "occurred_at": at(9, 0), "note": None}, source="manual")
+    other = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [second["id"]]})
+    assert other["id"] != opened["id"]
+    with pytest.raises(AppError) as again:
+        workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [first["id"]]})
+    assert again.value.status_code == 409
 
 
 def test_fechamento_permite_quitar_o_banco_e_o_cancelamento_desfaz():

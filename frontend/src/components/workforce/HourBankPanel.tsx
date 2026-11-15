@@ -19,7 +19,7 @@ import {
   type HourBankEntry,
 } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, maskDuration, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
 
 export function BankBalance({ balance }: { balance: HourBank }) {
   const stats = [
@@ -113,11 +113,16 @@ export function HourBankPanel({
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
+    const amount = durationMinutes(minutes)
+    if (amount === null) {
+      setError("Informe as horas no formato 00:00.")
+      return
+    }
     try {
       await createRecord("/hour-bank-entries", {
         employee_id: chosenId,
         kind,
-        minutes: Number(minutes),
+        minutes: amount,
         entry_on: entryOn,
         note: note.trim() || null,
       })
@@ -227,8 +232,8 @@ export function HourBankPanel({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="bank-minutes">Minutos</Label>
-            <Input id="bank-minutes" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} required />
+            <Label htmlFor="bank-minutes">Horas</Label>
+            <Input id="bank-minutes" inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-day">Data</Label>

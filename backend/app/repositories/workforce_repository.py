@@ -11,6 +11,7 @@ from app.models.workforce import (
     Classification,
     Closing,
     ClosingEvent,
+    ClosingMember,
     ClosingJourneyPin,
     Employee,
     EmployeeVigency,
@@ -668,6 +669,34 @@ class WorkforceRepository:
             .filter(Closing.tenant_id == tenant_id, Closing.year == year, Closing.month == month)
             .one_or_none()
         )
+
+    def overlapping_closings(self, tenant_id: int, start: date, end: date) -> list[Closing]:
+        return (
+            self.db.query(Closing)
+            .filter(Closing.tenant_id == tenant_id, Closing.starts_on <= end, Closing.ends_on >= start)
+            .all()
+        )
+
+    def member_ids(self, closing_id: int) -> list[int]:
+        rows = self.db.query(ClosingMember.employee_id).filter(ClosingMember.closing_id == closing_id).all()
+        return [row[0] for row in rows]
+
+    def closed_for_employee(self, tenant_id: int, day: date, employee_id: int) -> Closing | None:
+        rows = (
+            self.db.query(Closing)
+            .filter(
+                Closing.tenant_id == tenant_id,
+                Closing.status == "closed",
+                Closing.starts_on <= day,
+                Closing.ends_on >= day,
+            )
+            .all()
+        )
+        for row in rows:
+            members = self.member_ids(row.id)
+            if not members or employee_id in members:
+                return row
+        return None
 
     def closing_overlapping(self, tenant_id: int, start: date, end: date) -> Closing | None:
         return (

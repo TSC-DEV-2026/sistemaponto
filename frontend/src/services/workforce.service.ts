@@ -445,6 +445,21 @@ export function getRecord<T>(path: string, id: number) {
   return read<T>(() => api.get<ApiResponse<T>>(`${path}/${id}`))
 }
 
+export type ClosingCandidate = {
+  id: number
+  full_name: string
+  registration_number: string | null
+  hour_bank: boolean
+}
+
+export function closingCandidates(params: Record<string, string | number | undefined>) {
+  const query: Record<string, string | number> = {}
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query[key] = value
+  }
+  return read<ClosingCandidate[]>(() => api.get<ApiResponse<ClosingCandidate[]>>("/closings/candidates", { params: query }))
+}
+
 export function launchClosingBank(id: number, body: { employee_id: number; kind: "credit" | "debit" | "settlement"; minutes?: number }) {
   return write<Closing>(() => api.post<ApiResponse<Closing>>(`/closings/${id}/bank`, body))
 }
