@@ -115,7 +115,7 @@ export function HourBankPanel({
     setError("")
     const amount = durationMinutes(minutes)
     if (amount === null) {
-      setError("Informe as horas no formato 000:00.")
+      setError("Informe as horas no formato 00:00.")
       return
     }
     try {
@@ -233,7 +233,7 @@ export function HourBankPanel({
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-minutes">Horas</Label>
-            <Input id="bank-minutes" inputMode="numeric" placeholder="000:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
+            <Input id="bank-minutes" inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-day">Data</Label>

@@ -294,7 +294,7 @@ export function HourBankEntryPage() {
     setError("")
     const amount = durationMinutes(minutes)
     if (amount === null) {
-      setError("Informe as horas no formato 000:00.")
+      setError("Informe as horas no formato 00:00.")
       return
     }
     try {
@@ -337,7 +337,7 @@ export function HourBankEntryPage() {
             <Label className={moduleLabelClass} htmlFor="entry-minutes">
               Horas
             </Label>
-            <Input id="entry-minutes" className={moduleFieldClass} inputMode="numeric" placeholder="000:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
+            <Input id="entry-minutes" className={moduleFieldClass} inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
           </div>
           <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required />
         </div>
