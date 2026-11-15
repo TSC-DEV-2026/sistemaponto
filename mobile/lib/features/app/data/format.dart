@@ -39,9 +39,9 @@ String showMinutes(Object? value) {
   final minutes = value is int ? value : int.tryParse('$value') ?? 0;
   final sign = minutes < 0 ? '-' : '';
   final absolute = minutes.abs();
-  final hours = absolute ~/ 60;
+  final hours = (absolute ~/ 60).toString().padLeft(3, '0');
   final rest = (absolute % 60).toString().padLeft(2, '0');
-  return '$sign${hours}h ${rest}min';
+  return '$sign$hours:$rest';
 }
 
 const requestKindLabel = {

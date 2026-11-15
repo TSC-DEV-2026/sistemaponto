@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from app.core.billing import MAX_CAPACITY, MIN_CAPACITY, PRICE_CENTS, monthly_amount, prorate
 from app.core.config import settings
 from app.core.cpf import normalize_cpf
+from app.core.duration import show_duration
 from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
 from app.core.hour_bank import add_months, project_balance
 from app.core.journey_plan import (
@@ -1634,10 +1635,10 @@ class WorkforceService:
                         "occurred_on": day["work_date"],
                         "title": "Ponto",
                         "detail": (
-                            f"trabalhadas {day['worked_minutes']} min; "
-                            f"hora extra {day['overtime_minutes']} min; "
-                            f"adicional noturno {day['night_additional_minutes']} min; "
-                            f"falta {day['shortage_minutes']} min"
+                            f"trabalhadas {show_duration(day['worked_minutes'])}; "
+                            f"hora extra {show_duration(day['overtime_minutes'])}; "
+                            f"adicional noturno {show_duration(day['night_additional_minutes'])}; "
+                            f"falta {show_duration(day['shortage_minutes'])}"
                         ),
                     }
                 )
@@ -1685,7 +1686,7 @@ class WorkforceService:
             if start <= finish:
                 movement = sum(day["bank_minutes"] for day in self._day_results(scope, employee, start, finish))
             projection = self._project_hour_bank(scope, employee, finish)
-            detail = f"saldo {projection['balance_minutes']} min; movimento {movement} min"
+            detail = f"saldo {show_duration(projection['balance_minutes'])}; movimento {show_duration(movement)}"
             if projection["warning"]:
                 detail = f"{detail}; {projection['warning']}"
             lines.append(
@@ -1699,7 +1700,7 @@ class WorkforceService:
             )
             for entry in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id):
                 if starts_on <= entry.entry_on <= ends_on:
-                    entry_detail = f"{entry.minutes} min"
+                    entry_detail = show_duration(entry.minutes)
                     if entry.effect:
                         entry_detail = f"{entry_detail}; {entry.effect}"
                     lines.append(

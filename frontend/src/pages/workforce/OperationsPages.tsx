@@ -59,6 +59,7 @@ import {
   showClock,
   showDate,
   showDateTime,
+  showDuration,
   showMinutes,
   showSignedMinutes,
 } from "@/utils/labels"
@@ -1764,8 +1765,12 @@ function reportExtra(query: ReportQuery) {
 }
 
 function punchMeasure(detail: string, label: string) {
-  const match = new RegExp(`${label} (\\d+) min`).exec(detail)
-  return match ? Number(match[1]) : null
+  const match = new RegExp(`${label} (-?\\d+:\\d{2})`).exec(detail)
+  if (!match) return null
+  const parts = /^(-?)(\d+):(\d{2})$/.exec(match[1])
+  if (!parts) return null
+  const total = Number(parts[2]) * 60 + Number(parts[3])
+  return parts[1] === "-" ? -total : total
 }
 
 function reportGroups(items: Report["items"]) {
@@ -2175,9 +2180,9 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
     const shortage = punchMeasure(item.detail, "falta")
     if (worked !== null && extra !== null && night !== null && shortage !== null) {
       const metrics = [
-        ["trabalhadas", `${worked} min`],
-        ["hora extra", `${extra} min`],
-        ["adicional noturno", `${night} min`],
+        ["trabalhadas", showDuration(worked)],
+        ["hora extra", showDuration(extra)],
+        ["adicional noturno", showDuration(night)],
       ] as const
       return (
         <li className="flex min-w-0 flex-col gap-2 px-4 py-3 transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none sm:flex-row sm:items-center sm:justify-between">
@@ -2199,7 +2204,7 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
             ))}
             <span aria-hidden>|</span>
             <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", shortage > 0 ? "bg-[rgba(239,83,80,0.14)] text-[#C62828]" : "bg-[#F4F4F5] text-[#52525B]")}>
-              falta {shortage} min
+              falta {showDuration(shortage)}
             </span>
           </span>
         </li>

@@ -16,7 +16,7 @@ import { moduleCardClass, moduleDangerIconClass, moduleFieldClass, moduleLabelCl
 import { createRecord, getRecord, listRecords, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
-import { punchDay, showDuration } from "@/utils/labels"
+import { maskDuration, punchDay, showDuration } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 import { journeyKinds, programadaError, standardWeek, weeklyError, type JourneyDay, type JourneyKind } from "@/pages/workforce/journey"
 
@@ -69,7 +69,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const [note, setNote] = useState("")
   const [kind, setKind] = useState<JourneyKind>("programada")
   const [days, setDays] = useState<DayDraft[]>(() => toDraft(standardWeek()))
-  const [weekly, setWeekly] = useState("44:00")
+  const [weekly, setWeekly] = useState("044:00")
   const [flexible, setFlexible] = useState(false)
   const [tolerance, setTolerance] = useState("10")
   const [validFrom, setValidFrom] = useState(() => punchDay(new Date().toISOString()))
@@ -103,7 +103,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         setDays(nextDays)
         setOpenedLength(nextDays.length)
         setOpenedKind(nextKind)
-        setWeekly(row.weekly_minutes ? showSafe(row.weekly_minutes) : "44:00")
+        setWeekly(row.weekly_minutes ? showSafe(row.weekly_minutes) : "044:00")
         setFlexible(Boolean(row.flexible))
         setTolerance(String(row.tolerance_minutes ?? 10))
         setLoaded(true)
@@ -325,7 +325,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         {kind === "carga" ? (
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor="journey-weekly">Total da semana</Label>
-            <Input id="journey-weekly" className={moduleFieldClass} inputMode="numeric" placeholder="44:00" value={weekly} onChange={(event) => setWeekly(maskWeekly(event.target.value))} required />
+            <Input id="journey-weekly" className={moduleFieldClass} inputMode="numeric" placeholder="000:00" value={weekly} onChange={(event) => setWeekly(maskDuration(event.target.value))} required />
             <p className="text-sm text-[#64748B]">A semana corre de segunda a domingo. Exemplo: 44:00.</p>
           </div>
         ) : null}
@@ -383,10 +383,3 @@ function weeklyToMinutes(value: string) {
   return Number(match[1]) * 60 + Number(match[2])
 }
 
-function maskWeekly(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 5)
-  if (digits.length <= 2) return digits
-  const minutes = digits.slice(-2)
-  const hours = digits.slice(0, -2)
-  return `${hours}:${minutes}`
-}

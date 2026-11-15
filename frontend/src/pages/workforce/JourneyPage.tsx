@@ -22,7 +22,7 @@ import { ClosingsPage } from "@/pages/workforce/OperationsPages"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { conceptIcon } from "@/utils/concept-icons"
-import { hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
+import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, maskDuration, punchDay, showDate, showMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
   const [params] = useSearchParams()
@@ -292,11 +292,16 @@ export function HourBankEntryPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
+    const amount = durationMinutes(minutes)
+    if (amount === null) {
+      setError("Informe as horas no formato 000:00.")
+      return
+    }
     try {
       await createRecord("/hour-bank-entries", {
         employee_id: Number(employeeId),
         kind,
-        minutes: Number(minutes),
+        minutes: amount,
         entry_on: entryOn,
         note: note.trim() || null,
       })
@@ -330,9 +335,9 @@ export function HourBankEntryPage() {
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="entry-minutes">
-              Minutos
+              Horas
             </Label>
-            <Input id="entry-minutes" className={moduleFieldClass} inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} required />
+            <Input id="entry-minutes" className={moduleFieldClass} inputMode="numeric" placeholder="000:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
           </div>
           <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required />
         </div>

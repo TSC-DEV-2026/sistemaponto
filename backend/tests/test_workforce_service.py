@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.config import settings
+from app.core.duration import show_duration
 from app.core.exceptions import AppError
 from app.repositories.workforce_repository import contains_pattern, employee_search_matches, filter_matches
 from app.core.workforce import previous_end
@@ -2404,11 +2405,11 @@ def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
     assert punch["name"] == "Ponto"
     assert punch["total"] == 2
     assert len(punch["items"]) == 1
-    assert "hora extra 0 min" in punch["items"][0]["detail"] or "hora extra 30 min" in punch["items"][0]["detail"]
+    assert "hora extra 000:00" in punch["items"][0]["detail"] or "hora extra 000:30" in punch["items"][0]["detail"]
     full = workforce.report(admin(), "punch", start, end, mate["id"], 1, 10)
     by_day = {row["occurred_on"]: row["detail"] for row in full["items"]}
-    assert "hora extra 0 min" in by_day[date(2026, 10, 6)]
-    assert "falta 0 min" in by_day[date(2026, 10, 7)]
+    assert "hora extra 000:00" in by_day[date(2026, 10, 6)]
+    assert "falta 000:00" in by_day[date(2026, 10, 7)]
     journey = workforce.report(admin(), "journey", date(2026, 10, 1), end, mate["id"], 1, 10)
     assert journey["items"][0]["title"] == "Comercial"
     assert "08:00-12:00; 13:00-17:48" in journey["items"][0]["detail"]
@@ -2416,8 +2417,8 @@ def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
     balance = workforce.hour_bank(admin(), mate["id"])
     bank = workforce.report(admin(), "hour_bank", start, end, mate["id"], 1, 10)
     saldo = next(row for row in bank["items"] if row["title"] == "Saldo")
-    assert f"saldo {balance['balance_minutes']} min" in saldo["detail"]
-    assert "movimento 20 min" in saldo["detail"]
+    assert f"saldo {show_duration(balance['balance_minutes'])}" in saldo["detail"]
+    assert "movimento 000:20" in saldo["detail"]
     occurrence = workforce.report(admin(), "occurrence", date(2026, 10, 5), date(2026, 10, 5), mate["id"], 1, 10)
     assert occurrence["items"][0]["title"] == "Abono"
     assert occurrence["items"][0]["detail"] == "manual"
