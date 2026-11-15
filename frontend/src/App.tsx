@@ -40,6 +40,7 @@ import { ClassificationValueFormPage, EntityRecordPage } from "@/pages/workforce
 import { OccurrenceEntryPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
 import { ClosingFormPage } from "@/pages/workforce/ClosingFormPage"
+import { ClosingResultPage } from "@/pages/workforce/ClosingResultPage"
 import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
 
 function LegacyJourneyRedirect() {
@@ -96,6 +97,7 @@ const router = createBrowserRouter([
                   { path: "/requests", element: <RequestsPage /> },
                   { path: "/requests/new", element: <RequestFormPage /> },
                   { path: "/closings/new", element: <ClosingFormPage /> },
+                  { path: "/closings/:id", element: <ClosingResultPage /> },
                   { path: "/closings", element: <Navigate to="/schedules?aba=fechamento" replace /> },
                   { path: "/people/new", element: <EmployeeFormPage /> },
                   { path: "/people/:id/edit", element: <EmployeeFormPage /> },

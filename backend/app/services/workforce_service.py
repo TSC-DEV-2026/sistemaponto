@@ -1176,7 +1176,12 @@ class WorkforceService:
         self._known(scope)
         row = self._row(Closing, scope, row_id)
         events = self.repo.closing_events_for([row.id]).get(row.id, [])
-        return self._closing_out(row, events)
+        payload = self._closing_out(row, events)
+        if row.status == "closed":
+            people, banks = self._closing_statement(scope, row)
+            payload["people"] = people
+            payload["banks"] = banks
+        return payload
 
     def create_closing(self, scope: Scope, data: dict) -> dict:
         self._can_manage_period(scope)
@@ -1232,6 +1237,7 @@ class WorkforceService:
             row.note = event_note
             row.status = "cancelled"
             self.repo.delete_pins_for_closing(row.id)
+            self.repo.delete_closing_entries(row.id)
         elif status == "open":
             if row.status not in {"closed", "cancelled"}:
                 raise AppError(409, "Só um período fechado ou cancelado pode ser reaberto")
@@ -1241,6 +1247,7 @@ class WorkforceService:
             row.closed_at = None
             row.closed_by_person_id = None
             self.repo.delete_pins_for_closing(row.id)
+            self.repo.delete_closing_entries(row.id)
         else:
             raise AppError(400, "Situação inválida")
         self.repo.add(row)
@@ -1779,7 +1786,7 @@ class WorkforceService:
             page += 1
         return lines
 
-    def _day_results(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date) -> list[dict]:
+    def _day_results(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date, *, with_punches: bool = False) -> list[dict]:
         vigencies = self.repo.vigencies_between(scope.tenant_id, employee.id, "journey", starts_on, ends_on)
         span_start, span_end = self._result_span(scope, vigencies, starts_on, ends_on)
         start, _ignored = day_bounds(span_start - timedelta(days=1))
@@ -1838,6 +1845,7 @@ class WorkforceService:
             item["excused"] = holiday or vacation or leave or full_allowance or full_certificate
             item["vigency_id"] = None if vigency is None else vigency.id
             item["weekly_minutes"] = None if spec is None else spec.weekly_minutes
+            item["punches"] = [moment.astimezone(BR).strftime("%H:%M") for moment in moments]
             items.append(item)
             current += timedelta(days=1)
         self._settle_carga(employee, items)
@@ -1860,7 +1868,13 @@ class WorkforceService:
             "first_entry_at",
             "last_exit_at",
         )
-        return [{key: item[key] for key in public} for item in visible]
+        rows = []
+        for item in visible:
+            payload = {key: item[key] for key in public}
+            if with_punches:
+                payload["punches"] = item["punches"]
+            rows.append(payload)
+        return rows
 
     def hour_bank(self, scope: Scope, employee_id: int) -> dict:
         self._known(scope)
@@ -1900,6 +1914,7 @@ class WorkforceService:
                 effect=effect,
                 note=self._note(data.get("note")),
                 entry_on=entry_on,
+                closing_id=None,
                 created_by_person_id=scope.person_id,
                 created_at=self.clock(),
             )
@@ -3393,7 +3408,176 @@ class WorkforceService:
                 }
                 for event in events
             ],
+            "people": [],
+            "banks": [],
         }
+
+    def launch_closing_bank(self, scope: Scope, row_id: int, data: dict) -> dict:
+        self._can_manage_period(scope)
+        row = self._row(Closing, scope, row_id)
+        if row.status != "closed":
+            raise AppError(409, "O banco do fechamento só abre com o período fechado")
+        employee = self._employee(scope, int(data["employee_id"]))
+        self._can_launch(scope, employee)
+        if not employee.hour_bank:
+            raise AppError(409, "Este funcionário não usa banco de horas")
+        when = row.ends_on if row.ends_on <= self.today() else self.today()
+        if when < row.starts_on:
+            raise AppError(400, "O período ainda não começou")
+        kind = data["kind"]
+        balance = self._project_hour_bank(scope, employee, when)["balance_minutes"]
+        if kind == "settlement":
+            if balance == 0:
+                raise AppError(409, "O saldo já está zerado")
+            effect = "debit" if balance > 0 else "credit"
+            minutes = abs(balance)
+        else:
+            minutes = data.get("minutes")
+            if minutes is None:
+                raise AppError(400, "Informe os minutos")
+            effect = None
+        self.repo.add(
+            HourBankEntry(
+                tenant_id=scope.tenant_id,
+                employee_id=employee.id,
+                kind=kind,
+                minutes=int(minutes),
+                effect=effect,
+                note=self._note(data.get("note")),
+                entry_on=when,
+                closing_id=row.id,
+                created_by_person_id=scope.person_id,
+                created_at=self.clock(),
+            )
+        )
+        self._audit(scope, employee.id, "hour_bank", row.id, None, kind, when)
+        return self.get_closing(scope, row.id)
+
+    def _closing_statement(self, scope: Scope, row: Closing) -> tuple[list[dict], list[dict]]:
+        finish = row.ends_on if row.ends_on <= self.today() else self.today()
+        people: list[dict] = []
+        banks: list[dict] = []
+        if finish < row.starts_on:
+            return people, banks
+        page = 1
+        while True:
+            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+            for employee in rows:
+                if employee.admission_date > finish:
+                    continue
+                day_start = employee.admission_date if employee.admission_date > row.starts_on else row.starts_on
+                if day_start > finish:
+                    continue
+                totals = {
+                    "expected_minutes": 0,
+                    "worked_minutes": 0,
+                    "overtime_minutes": 0,
+                    "night_additional_minutes": 0,
+                    "shortage_minutes": 0,
+                    "delay_minutes": 0,
+                    "early_leave_minutes": 0,
+                    "absence_days": 0,
+                    "bank_minutes": 0,
+                }
+                computed = {
+                    day["work_date"]: day
+                    for day in self._day_results(scope, employee, day_start, finish, with_punches=True)
+                }
+                days = []
+                cursor = row.starts_on
+                while cursor <= row.ends_on:
+                    day = computed.get(cursor)
+                    if day is None:
+                        days.append(
+                            {
+                                "work_date": cursor,
+                                "punches": [],
+                                "expected_minutes": 0,
+                                "worked_minutes": 0,
+                                "overtime_minutes": 0,
+                                "shortage_minutes": 0,
+                                "delay_minutes": 0,
+                                "early_leave_minutes": 0,
+                                "night_additional_minutes": 0,
+                                "bank_minutes": 0,
+                                "absence": False,
+                            }
+                        )
+                    else:
+                        for key in (
+                            "expected_minutes",
+                            "worked_minutes",
+                            "overtime_minutes",
+                            "night_additional_minutes",
+                            "shortage_minutes",
+                            "delay_minutes",
+                            "early_leave_minutes",
+                            "bank_minutes",
+                        ):
+                            totals[key] += day[key]
+                        if day["absence"]:
+                            totals["absence_days"] += 1
+                        days.append(
+                            {
+                                "work_date": cursor,
+                                "punches": day["punches"],
+                                "expected_minutes": day["expected_minutes"],
+                                "worked_minutes": day["worked_minutes"],
+                                "overtime_minutes": day["overtime_minutes"],
+                                "shortage_minutes": day["shortage_minutes"],
+                                "delay_minutes": day["delay_minutes"],
+                                "early_leave_minutes": day["early_leave_minutes"],
+                                "night_additional_minutes": day["night_additional_minutes"],
+                                "bank_minutes": day["bank_minutes"],
+                                "absence": day["absence"],
+                            }
+                        )
+                    cursor += timedelta(days=1)
+                balance = None
+                entries = []
+                if employee.hour_bank:
+                    balance = self._project_hour_bank(scope, employee, finish)["balance_minutes"]
+                    entries = [
+                        {
+                            "id": item.id,
+                            "kind": item.kind,
+                            "effect": item.effect,
+                            "minutes": item.minutes,
+                            "note": item.note,
+                            "entry_on": item.entry_on,
+                        }
+                        for item in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id)
+                        if item.closing_id == row.id
+                    ]
+                    banks.append(
+                        {
+                            "employee_id": employee.id,
+                            "full_name": employee.full_name,
+                            "registration_number": employee.registration_number,
+                            "balance_minutes": balance,
+                            "entries": entries,
+                        }
+                    )
+                unit = self.repo.applicable(employee.id, "unit", finish)
+                people.append(
+                    {
+                        "employee_id": employee.id,
+                        "full_name": employee.full_name,
+                        "cpf": employee.cpf,
+                        "registration_number": employee.registration_number,
+                        "unit_name": None if unit is None else unit.label,
+                        "hour_bank": bool(employee.hour_bank),
+                        "balance_minutes": balance,
+                        "days": days,
+                        **totals,
+                    }
+                )
+            if page * 100 >= total or not rows:
+                break
+            page += 1
+        people.sort(key=lambda item: item["full_name"].casefold())
+        banks.sort(key=lambda item: item["full_name"].casefold())
+        return people, banks
 
     def list_notification_preferences(self, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)

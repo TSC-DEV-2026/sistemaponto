@@ -554,6 +554,13 @@ class ClosingUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class ClosingBankCreate(BaseModel):
+    employee_id: int
+    kind: Literal["credit", "debit", "settlement"]
+    minutes: int | None = Field(default=None, gt=0, le=100000)
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class ClosingEventOut(BaseModel):
     id: int
     kind: str
@@ -562,6 +569,57 @@ class ClosingEventOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ClosingBankEntryOut(BaseModel):
+    id: int
+    kind: str
+    effect: str | None
+    minutes: int
+    note: str | None
+    entry_on: date
+
+
+class ClosingBankOut(BaseModel):
+    employee_id: int
+    full_name: str
+    registration_number: str | None
+    balance_minutes: int
+    entries: list[ClosingBankEntryOut]
+
+
+class ClosingDayOut(BaseModel):
+    work_date: date
+    punches: list[str]
+    expected_minutes: int
+    worked_minutes: int
+    overtime_minutes: int
+    shortage_minutes: int
+    delay_minutes: int
+    early_leave_minutes: int
+    night_additional_minutes: int
+    bank_minutes: int
+    absence: bool
+
+
+class ClosingPersonOut(BaseModel):
+    employee_id: int
+    full_name: str
+    cpf: str
+    registration_number: str | None
+    unit_name: str | None
+    hour_bank: bool
+    expected_minutes: int
+    worked_minutes: int
+    overtime_minutes: int
+    night_additional_minutes: int
+    shortage_minutes: int
+    delay_minutes: int
+    early_leave_minutes: int
+    absence_days: int
+    bank_minutes: int
+    balance_minutes: int | None
+    days: list[ClosingDayOut]
 
 
 class ClosingOut(BaseModel):
@@ -575,6 +633,8 @@ class ClosingOut(BaseModel):
     closed_at: datetime | None
     closed_by_person_id: int | None
     events: list[ClosingEventOut]
+    people: list[ClosingPersonOut] = Field(default_factory=list)
+    banks: list[ClosingBankOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

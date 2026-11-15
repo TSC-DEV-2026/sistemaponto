@@ -56,6 +56,7 @@ const patterns: Pattern[] = [
   { path: "/requests", title: "Solicitações", subtitle: "Acompanhe solicitações e pendências" },
   { path: "/requests/new", title: "Nova solicitação", subtitle: "Informe o pedido" },
   { path: "/closings/new", title: "Novo fechamento", subtitle: "Selecione o período que deseja fechar." },
+  { path: "/closings/:id", title: "Fechamento", subtitle: "Banco de horas e resultado do período" },
   { path: "/closings", title: "Ponto", subtitle: "Apure o período, consulte o banco de horas e feche o período" },
   { path: "/people/classifications/:id/values/new", title: "Novo valor", subtitle: "Gerencie os funcionários" },
   { path: "/people/classifications/:id/values/:valueId/edit", title: "Editar valor", subtitle: "Gerencie os funcionários" },

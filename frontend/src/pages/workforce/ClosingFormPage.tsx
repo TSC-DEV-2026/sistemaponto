@@ -44,7 +44,7 @@ export function ClosingFormPage() {
       const body = mode === "range" ? { starts_on: startsOn, ends_on: endsOn || null, note: null } : { year: Number(year), month: Number(month), note: null }
       const created = await createRecord<Closing>("/closings", body)
       await updateRecord("/closings", created.id, { status: "closed" })
-      navigate("/closings")
+      navigate(`/closings/${created.id}`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível fechar.")
     } finally {

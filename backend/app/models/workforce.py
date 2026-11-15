@@ -346,6 +346,7 @@ class HourBankEntry(Base):
     effect = Column(String(32), nullable=True)
     note = Column(Text, nullable=True)
     entry_on = Column(Date, nullable=False)
+    closing_id = Column(BigInteger, ForeignKey("closings.id"), nullable=True, index=True)
     created_by_person_id = Column(BigInteger, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
 

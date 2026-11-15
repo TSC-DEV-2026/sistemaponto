@@ -34,6 +34,7 @@ from app.schemas.workforce import (
     ClassificationValueCreate,
     ClassificationValueOut,
     ClassificationValueUpdate,
+    ClosingBankCreate,
     ClosingCreate,
     ClosingOut,
     ClosingUpdate,
@@ -830,6 +831,17 @@ def update_closing(
     service: WorkforceService = Depends(get_workforce_service),
 ):
     row = service.update_closing(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, ClosingOut, None))
+
+
+@closings.post("/{row_id}/bank", summary="Lançar no banco do fechamento")
+def launch_closing_bank(
+    row_id: int,
+    body: ClosingBankCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.launch_closing_bank(as_scope(actor), row_id, body.model_dump())
     return json_data(dump_one(row, ClosingOut, None))
 
 

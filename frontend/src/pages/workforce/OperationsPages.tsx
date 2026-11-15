@@ -1231,16 +1231,21 @@ export function ClosingsPage() {
                       ) : (
                         <>
                           {item.status === "closed" ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className={cn(moduleQuietClass, "h-11 px-4")}
-                              onClick={async () => {
-                                await changePeriod(item.id, "cancelled")
-                              }}
-                            >
-                              Cancelar
-                            </Button>
+                            <>
+                              <Button asChild variant="outline" className={cn(moduleQuietClass, "h-11 px-4")}>
+                                <Link to={`/closings/${item.id}`}>Ver resultado</Link>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn(moduleQuietClass, "h-11 px-4")}
+                                onClick={async () => {
+                                  await changePeriod(item.id, "cancelled")
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </>
                           ) : null}
                           <Button
                             type="button"
