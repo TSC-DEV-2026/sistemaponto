@@ -425,9 +425,10 @@ export function EmployeeFormPage() {
           {(
             [
               { id: "data", label: "Dados", icon: User, show: true },
+              ...vigencyTargets.filter((item) => item.kind === "team").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               { id: "classification", label: "Grupos", icon: Tags, show: isAdmin && id !== null },
-              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
+              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey" && item.kind !== "team").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
             ]
           )
             .filter((item) => item.show)

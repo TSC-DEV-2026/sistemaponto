@@ -1139,18 +1139,15 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe os grupos da linha. classification_value_id filtra como na lista de funcionários. unit_id, sector_id e team_id aceitam vários ids separados por vírgula e usam a vigência do dia de cada linha.",
+    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe os grupos da linha. classification_value_id filtra como na lista de funcionários. Empresa, setor, equipe, função, jornada e sindicato aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
 )
 @searchable(
     "full_name",
     "cpf",
     "person_id",
-    "job_id",
-    "journey_id",
     "cost_center_id",
     "classification_value_id",
     "classification_ids",
-    "union_id",
     "manager_id",
     "situation",
 )
@@ -1163,6 +1160,9 @@ def reports(
     unit_id: str | None = Query(default=None, max_length=500, description="Ids de empresa separados por vírgula"),
     sector_id: str | None = Query(default=None, max_length=500, description="Ids de setor separados por vírgula"),
     team_id: str | None = Query(default=None, max_length=500, description="Ids de equipe separados por vírgula"),
+    job_id: str | None = Query(default=None, max_length=500, description="Ids de função separados por vírgula"),
+    journey_id: str | None = Query(default=None, max_length=500, description="Ids de jornada separados por vírgula"),
+    union_id: str | None = Query(default=None, max_length=500, description="Ids de sindicato separados por vírgula"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     actor: Actor = Depends(require_tenant),
@@ -1174,16 +1174,20 @@ def reports(
             "full_name",
             "cpf",
             "person_id",
-            "job_id",
-            "journey_id",
             "cost_center_id",
             "classification_value_id",
-            "union_id",
             "manager_id",
             "situation",
         ),
     )
-    for name, value in (("unit_id", unit_id), ("sector_id", sector_id), ("team_id", team_id)):
+    for name, value in (
+        ("unit_id", unit_id),
+        ("sector_id", sector_id),
+        ("team_id", team_id),
+        ("job_id", job_id),
+        ("journey_id", journey_id),
+        ("union_id", union_id),
+    ):
         if value:
             filters[name] = value
     shown = read_filters(request, ("classification_ids",))

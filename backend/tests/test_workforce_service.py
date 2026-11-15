@@ -3719,6 +3719,55 @@ def test_relatorio_filtra_empresa_setor_e_equipe_pela_vigencia_do_dia():
     assert invalid.value.message == "Filtro inválido"
 
 
+def test_relatorio_filtra_funcao_e_situacao_pela_vigencia_do_dia():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    person = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "22222222222", 9))
+    first = workforce.create_named(Job, admin(), {"name": "Auxiliar"})
+    second = workforce.create_named(Job, admin(), {"name": "Analista"})
+    for job, day in ((first, date(2026, 10, 1)), (second, date(2026, 10, 7))):
+        workforce.create_vigency(
+            admin(),
+            {
+                "employee_id": person["id"],
+                "kind": "job",
+                "reference_id": job.id,
+                "label": None,
+                "valid_from": day,
+                "note": None,
+            },
+        )
+    mark(workforce, person["id"], 6, (8, 0))
+    mark(workforce, person["id"], 7, (8, 0))
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "status",
+            "reference_id": None,
+            "label": "dismissed",
+            "valid_from": date(2026, 10, 7),
+            "note": None,
+        },
+    )
+    start, end = date(2026, 10, 6), date(2026, 10, 7)
+    only_first = workforce.report(admin(), "marking", start, end, None, 1, 10, {"job_id": str(first.id)})
+    assert [item["occurred_on"] for item in only_first["items"]] == [date(2026, 10, 6)]
+    both = workforce.report(admin(), "marking", start, end, None, 1, 10, {"job_id": f"{first.id},{second.id}"})
+    assert [item["occurred_on"] for item in both["items"]] == [date(2026, 10, 6), date(2026, 10, 7)]
+    active = workforce.report(admin(), "marking", start, end, None, 1, 10, {"situation": "active"})
+    assert [item["occurred_on"] for item in active["items"]] == [date(2026, 10, 6)]
+    dismissed = workforce.report(admin(), "marking", start, end, None, 1, 10, {"situation": "dismissed"})
+    assert [item["occurred_on"] for item in dismissed["items"]] == [date(2026, 10, 7)]
+    crossed = workforce.report(
+        admin(), "marking", start, end, None, 1, 10, {"job_id": str(first.id), "situation": "dismissed"}
+    )
+    assert crossed["items"] == []
+    with pytest.raises(AppError) as invalid:
+        workforce.report(admin(), "marking", start, end, None, 1, 10, {"situation": "afastado"})
+    assert invalid.value.message == "Situação inválida"
+
+
 def test_relatorio_de_pessoas_usa_o_valor_do_dia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
