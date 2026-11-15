@@ -803,6 +803,39 @@ def list_closings(
     return json_data(dump_page(items, total, page, limit, ClosingOut, fields))
 
 
+@closings.get("/candidates", summary="Pessoas que podem entrar no fechamento")
+def closing_candidates(
+    year: int | None = Query(default=None, ge=2000, le=2100),
+    month: int | None = Query(default=None, ge=1, le=12),
+    starts_on: date | None = None,
+    ends_on: date | None = None,
+    unit_id: str | None = Query(default=None, max_length=500),
+    sector_id: str | None = Query(default=None, max_length=500),
+    team_id: str | None = Query(default=None, max_length=500),
+    job_id: str | None = Query(default=None, max_length=500),
+    journey_id: str | None = Query(default=None, max_length=500),
+    union_id: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    rows = service.closing_candidates(
+        as_scope(actor),
+        {
+            "year": year,
+            "month": month,
+            "starts_on": starts_on,
+            "ends_on": ends_on,
+            "unit_id": unit_id,
+            "sector_id": sector_id,
+            "team_id": team_id,
+            "job_id": job_id,
+            "journey_id": journey_id,
+            "union_id": union_id,
+        },
+    )
+    return json_data(rows)
+
+
 @closings.get("/{row_id}", summary="Detalhe do fechamento")
 def get_closing(
     row_id: int,

@@ -264,6 +264,20 @@ export function showDuration(value: number) {
   return negative ? `-${text}` : text
 }
 
+export function maskDuration(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 6)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, -2)}:${digits.slice(-2)}`
+}
+
+export function durationMinutes(value: string) {
+  const match = /^(\d+):([0-5]\d)$/.exec(value.trim())
+  if (!match) return null
+  const total = Number(match[1]) * 60 + Number(match[2])
+  if (total <= 0 || total > 100000) return null
+  return total
+}
+
 export function showDateTime(value: string | null | undefined) {
   if (!value) {
     return "Não informado"

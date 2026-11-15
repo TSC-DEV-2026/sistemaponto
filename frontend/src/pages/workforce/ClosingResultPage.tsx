@@ -6,13 +6,14 @@ import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
-import { getRecord, launchClosingBank, type Closing, type ClosingPerson } from "@/services/workforce.service"
+import { getRecord, launchClosingBank, type Closing, type ClosingBank, type ClosingPerson } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf } from "@/utils/digits"
-import { closingStatusLabel, hourBankKindLabel, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+import { closingStatusLabel, durationMinutes, hourBankKindLabel, maskDuration, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
 import { closingSheetsPdf, type ClosingSheet } from "@/utils/report-pdf"
 
 const columns: { key: keyof ClosingPerson; label: string; signed?: boolean; days?: boolean }[] = [
@@ -106,13 +107,72 @@ function sheetsOf(closing: Closing): ClosingSheet[] {
   })
 }
 
+function BankLaunch({
+  banks,
+  personId,
+  minutes,
+  pending,
+  onPerson,
+  onMinutes,
+  onLaunch,
+}: {
+  banks: ClosingBank[]
+  personId: string
+  minutes: string
+  pending: boolean
+  onPerson: (value: string) => void
+  onMinutes: (value: string) => void
+  onLaunch: (employeeId: number, kind: "credit" | "debit" | "settlement") => void
+}) {
+  const active = banks.find((item) => String(item.employee_id) === personId) || banks[0]
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="min-w-0 space-y-2">
+          <Label className={moduleLabelClass} htmlFor="closing-bank-person">Pessoa</Label>
+          <SiteSelect
+            id="closing-bank-person"
+            value={String(active.employee_id)}
+            options={banks.map((item) => ({ value: String(item.employee_id), label: item.full_name }))}
+            onChange={onPerson}
+            searchable
+            searchPlaceholder="Pesquisar pessoa"
+          />
+        </div>
+        <div className="min-w-0 space-y-2">
+          <Label className={moduleLabelClass} htmlFor="closing-bank-hours">Horas</Label>
+          <Input id="closing-bank-hours" className={moduleFieldClass} inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => onMinutes(maskDuration(event.target.value))} />
+        </div>
+      </div>
+      <p className="text-sm text-[#52525B]">
+        Matrícula {registration(active.registration_number)}. Saldo {showSignedMinutes(active.balance_minutes)}.
+      </p>
+      {active.entries.length > 0 ? (
+        <ul className="space-y-1 text-sm text-[#52525B]">
+          {active.entries.map((entry) => (
+            <li key={entry.id}>{hourBankKindLabel[entry.kind] || entry.kind} · {showMinutes(entry.minutes)}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-[#64748B]">Nenhum lançamento deste fechamento para esta pessoa.</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={pending} onClick={() => onLaunch(active.employee_id, "credit")}>Crédito</Button>
+        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={pending} onClick={() => onLaunch(active.employee_id, "debit")}>Débito</Button>
+        <Button type="button" className={modulePrimaryClass} disabled={pending} onClick={() => onLaunch(active.employee_id, "settlement")}>Quitar o saldo</Button>
+      </div>
+    </div>
+  )
+}
+
 export function ClosingResultPage() {
   const { id } = useParams()
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
   const closingId = Number(id)
   const [closing, setClosing] = useState<Closing | null>(null)
-  const [minutes, setMinutes] = useState<Record<number, string>>({})
+  const [bankId, setBankId] = useState("")
+  const [minutes, setMinutes] = useState("")
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
 
@@ -133,9 +193,9 @@ export function ClosingResultPage() {
 
   async function launch(employeeId: number, kind: "credit" | "debit" | "settlement") {
     setError("")
-    const amount = Number(minutes[employeeId] || "")
-    if (kind !== "settlement" && (!Number.isInteger(amount) || amount <= 0)) {
-      setError("Informe os minutos.")
+    const amount = durationMinutes(minutes)
+    if (kind !== "settlement" && amount === null) {
+      setError("Informe as horas no formato 00:00.")
       return
     }
     setPending(true)
@@ -143,10 +203,10 @@ export function ClosingResultPage() {
       const next = await launchClosingBank(closingId, {
         employee_id: employeeId,
         kind,
-        ...(kind === "settlement" ? {} : { minutes: amount }),
+        ...(amount === null ? {} : { minutes: amount }),
       })
       setClosing(next)
-      setMinutes((current) => ({ ...current, [employeeId]: "" }))
+      setMinutes("")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível lançar no banco.")
     } finally {
@@ -191,51 +251,25 @@ export function ClosingResultPage() {
           <section className={moduleCardClass}>
             <h2 className="text-lg font-semibold text-brand-ink">{period}</h2>
             <p className="mt-1 text-sm text-brand-quiet">
-              {closingStatusLabel[closing.status] || closing.status}. Enquanto estiver fechado, os dias não aceitam marcação, ajuste, ocorrência, vigência nem banco fora desta tela. Cancelar o fechamento devolve a edição.
+              {closingStatusLabel[closing.status] || closing.status}. Enquanto estiver fechado, os dias das pessoas deste fechamento não aceitam marcação, ajuste, ocorrência, vigência nem banco fora desta tela. Cancelar o fechamento devolve a edição.
             </p>
           </section>
           {closed ? (
             <section className={moduleCardClass}>
               <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
-              <p className="mt-1 text-sm text-brand-quiet">Quem usa banco pode quitar o saldo ou lançar crédito e débito neste fechamento.</p>
-              {(closing.banks || []).length === 0 ? <p className="mt-4 text-sm text-[#64748B]">Ninguém deste período usa banco de horas.</p> : null}
-              <div className="mt-4 space-y-4">
-                {(closing.banks || []).map((bank) => (
-                  <article key={bank.employee_id} className="rounded-xl border border-[#E4E4E7] p-4">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p className="font-semibold text-[#0A0A0A]">{bank.full_name}</p>
-                      <p className="text-sm text-[#52525B]">Saldo {showSignedMinutes(bank.balance_minutes)}</p>
-                    </div>
-                    <p className="mt-1 text-sm text-[#64748B]">Matrícula {registration(bank.registration_number)}</p>
-                    {bank.entries.length > 0 ? (
-                      <ul className="mt-3 space-y-1 text-sm text-[#52525B]">
-                        {bank.entries.map((entry) => (
-                          <li key={entry.id}>
-                            {hourBankKindLabel[entry.kind] || entry.kind} · {showMinutes(entry.minutes)}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                      <div className="min-w-0 space-y-2 sm:w-40">
-                        <Label className={moduleLabelClass} htmlFor={`minutes-${bank.employee_id}`}>Minutos</Label>
-                        <Input
-                          id={`minutes-${bank.employee_id}`}
-                          className={moduleFieldClass}
-                          inputMode="numeric"
-                          value={minutes[bank.employee_id] || ""}
-                          onChange={(event) => setMinutes((current) => ({ ...current, [bank.employee_id]: event.target.value }))}
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={pending} onClick={() => launch(bank.employee_id, "credit")}>Crédito</Button>
-                        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={pending} onClick={() => launch(bank.employee_id, "debit")}>Débito</Button>
-                        <Button type="button" className={modulePrimaryClass} disabled={pending} onClick={() => launch(bank.employee_id, "settlement")}>Quitar o saldo</Button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <p className="mt-1 text-sm text-brand-quiet">Escolha a pessoa e quite o saldo ou lance crédito e débito neste fechamento.</p>
+              {(closing.banks || []).length === 0 ? <p className="mt-4 text-sm text-[#64748B]">Ninguém deste fechamento usa banco de horas.</p> : null}
+              {(closing.banks || []).length > 0 ? (
+                <BankLaunch
+                  banks={closing.banks || []}
+                  personId={bankId}
+                  minutes={minutes}
+                  pending={pending}
+                  onPerson={setBankId}
+                  onMinutes={setMinutes}
+                  onLaunch={launch}
+                />
+              ) : null}
             </section>
           ) : (
             <section className={moduleCardClass}>

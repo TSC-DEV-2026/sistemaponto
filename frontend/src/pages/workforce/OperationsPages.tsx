@@ -1073,11 +1073,12 @@ export function ClosingsPage() {
   const [filterYear, setFilterYear] = useState("")
   const [filterMonth, setFilterMonth] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
-  const [reasons, setReasons] = useState<Record<number, string>>({})
-  const [reopenId, setReopenId] = useState<number | null>(null)
+  const [reasonAsk, setReasonAsk] = useState<null | { id: number; status: "cancelled" | "open"; period: string }>(null)
+  const [reason, setReason] = useState("")
   const [closingItem, setClosingItem] = useState<Closing | null>(null)
   const [error, setError] = useState("")
   const closeOpenerRef = useRef<HTMLButtonElement | null>(null)
+  const reasonOpenerRef = useRef<HTMLButtonElement | null>(null)
   const periods = usePagedList<Closing>("/closings", {
     ...(/^\d+$/.test(filterYear) ? { year: Number(filterYear) } : {}),
     ...(/^\d+$/.test(filterMonth) ? { month: Number(filterMonth) } : {}),
@@ -1100,17 +1101,15 @@ export function ClosingsPage() {
     return () => setTabAction(null)
   }, [canManage, setTabAction])
 
-  async function changePeriod(id: number, status: "closed" | "cancelled" | "open") {
+  async function changePeriod(id: number, status: "closed" | "cancelled" | "open", note = "") {
     setError("")
-    const note = (reasons[id] || "").trim()
-    if (status !== "closed" && !note) {
+    const motive = note.trim()
+    if (status !== "closed" && !motive) {
       setError("Informe o motivo.")
       return false
     }
     try {
-      await updateRecord("/closings", id, { status, note: note || null })
-      setReasons((current) => ({ ...current, [id]: "" }))
-      setReopenId(null)
+      await updateRecord("/closings", id, { status, note: motive || null })
       periods.reload()
       return true
     } catch (caught) {
@@ -1119,11 +1118,18 @@ export function ClosingsPage() {
     }
   }
 
+  function askReason(item: Closing, status: "cancelled" | "open", button: HTMLButtonElement) {
+    setError("")
+    setReason("")
+    reasonOpenerRef.current = button
+    setReasonAsk({ id: item.id, status, period: `${showDate(item.starts_on)} a ${showDate(item.ends_on)}` })
+  }
+
   const showEmpty = !periods.loading && !periods.error && periods.items.length === 0
 
   return (
     <div className="w-full min-w-0 space-y-[18px]">
-      {error && !closingItem ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error && !closingItem && !reasonAsk ? <p className="text-sm text-destructive">{error}</p> : null}
       <section className={moduleCardClass}>
         <div>
           <h2 className="text-lg font-semibold text-brand-ink">Fechamento</h2>
@@ -1204,63 +1210,30 @@ export function ClosingsPage() {
                   </div>
                 ) : null}
                 {canManage && item.status !== "open" ? (
-                  <div className="mt-3 space-y-3">
-                    {reopenId === item.id ? <p className="text-sm leading-6 text-[#52525B]">O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer.</p> : null}
-                    <div className="space-y-2">
-                      <Label className={moduleLabelClass} htmlFor={`reason-${item.id}`}>
-                        Motivo
-                      </Label>
-                      <Input id={`reason-${item.id}`} className={moduleFieldClass} value={reasons[item.id] || ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))} />
-                    </div>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {reopenId === item.id ? (
-                        <>
-                          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setReopenId(null)}>
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            className={modulePrimaryClass}
-                            onClick={async () => {
-                              await changePeriod(item.id, "open")
-                            }}
-                          >
-                            Confirmar
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          {item.status === "closed" ? (
-                            <>
-                              <Button asChild variant="outline" className={cn(moduleQuietClass, "h-11 px-4")}>
-                                <Link to={`/closings/${item.id}`}>Ver resultado</Link>
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className={cn(moduleQuietClass, "h-11 px-4")}
-                                onClick={async () => {
-                                  await changePeriod(item.id, "cancelled")
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                            </>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(moduleQuietClass, "h-11 px-4")}
-                            onClick={() => {
-                              setError("")
-                              setReopenId(item.id)
-                            }}
-                          >
-                            Reabrir
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    {item.status === "closed" ? (
+                      <>
+                        <Button asChild variant="outline" className={cn(moduleQuietClass, "h-11 px-4")}>
+                          <Link to={`/closings/${item.id}`}>Ver resultado</Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(moduleQuietClass, "h-11 px-4")}
+                          onClick={(event) => askReason(item, "cancelled", event.currentTarget)}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(moduleQuietClass, "h-11 px-4")}
+                      onClick={(event) => askReason(item, "open", event.currentTarget)}
+                    >
+                      Reabrir
+                    </Button>
                   </div>
                 ) : null}
               </li>
@@ -1285,7 +1258,156 @@ export function ClosingsPage() {
         }}
         onRest={() => closeOpenerRef.current?.focus()}
       />
+      <ClosingReasonDialog
+        ask={reasonAsk}
+        reason={reason}
+        error={reasonAsk ? error : ""}
+        onReason={setReason}
+        onClose={() => {
+          setReasonAsk(null)
+          setReason("")
+          setError("")
+        }}
+        onConfirm={async () => {
+          if (!reasonAsk) return
+          const done = await changePeriod(reasonAsk.id, reasonAsk.status, reason)
+          if (done) {
+            setReasonAsk(null)
+            setReason("")
+          }
+        }}
+        onRest={() => reasonOpenerRef.current?.focus()}
+      />
     </div>
+  )
+}
+
+function ClosingReasonDialog({
+  ask,
+  reason,
+  error,
+  onReason,
+  onClose,
+  onConfirm,
+  onRest,
+}: {
+  ask: { id: number; status: "cancelled" | "open"; period: string } | null
+  reason: string
+  error: string
+  onReason: (value: string) => void
+  onClose: () => void
+  onConfirm: () => Promise<void>
+  onRest: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const reasonRef = useRef<HTMLInputElement>(null)
+  const restRef = useRef(onRest)
+  const pendingRef = useRef(false)
+  const dismissRef = useRef(() => {})
+  const [pending, setPending] = useState(false)
+  const shown = useRef(false)
+  restRef.current = onRest
+  const open = ask !== null
+  const reopening = ask?.status === "open"
+
+  function dismiss() {
+    if (pendingRef.current) return
+    onClose()
+  }
+
+  async function confirm() {
+    if (pendingRef.current) return
+    pendingRef.current = true
+    setPending(true)
+    try {
+      await onConfirm()
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
+  }
+
+  dismissRef.current = dismiss
+
+  useEffect(() => {
+    if (!open) {
+      if (shown.current) {
+        shown.current = false
+        restRef.current()
+      }
+      return
+    }
+    shown.current = true
+    reasonRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        dismissRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) return
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])")
+      if (nodes.length === 0) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
+  if (!ask) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) dismiss()
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="closing-reason-title"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+      >
+        <h2 id="closing-reason-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+          {reopening ? "Reabrir este período?" : "Cancelar este fechamento?"}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[#71717A]">
+          {reopening
+            ? "O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer."
+            : "Os dias das pessoas voltam a aceitar lançamento. O arquivo fiscal deste período deixa de valer."}
+        </p>
+        <p className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{ask.period}</p>
+        <div className="mt-4 space-y-2">
+          <Label className={moduleLabelClass} htmlFor="closing-reason">Motivo</Label>
+          <Input ref={reasonRef} id="closing-reason" className={moduleFieldClass} value={reason} onChange={(event) => onReason(event.target.value)} />
+        </div>
+        {error ? <p className="mt-3 text-sm text-destructive" role="alert">{error}</p> : null}
+        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>Voltar</Button>
+          <Button type="button" className={modulePrimaryClass} onClick={() => confirm()} disabled={pending}>Confirmar</Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 

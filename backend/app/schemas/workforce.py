@@ -547,6 +547,7 @@ class ClosingCreate(BaseModel):
     starts_on: date | None = None
     ends_on: date | None = None
     note: str | None = Field(default=None, max_length=2000)
+    employee_ids: list[int] | None = None
 
 
 class ClosingUpdate(BaseModel):

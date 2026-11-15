@@ -8,11 +8,22 @@ import { Button } from "@/components/ui/button"
 import { DatePickerField, YearPickerField } from "@/components/ui/date-picker-field"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
+import { Spinner } from "@/components/ui/spinner"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
-import { createRecord, updateRecord, type Closing } from "@/services/workforce.service"
+import { PlaceCombobox } from "@/components/workforce/place-combobox"
+import { closingCandidates, createRecord, listRecords, updateRecord, type Closing, type ClosingCandidate, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
+import { conceptIcon } from "@/utils/concept-icons"
 import { monthOptions, showDate } from "@/utils/labels"
+
+function idList(ids: number[]) {
+  return ids.length ? ids.join(",") : undefined
+}
+
+function registration(value: string | null) {
+  return value?.trim() ? value : "Não informada"
+}
 
 function periodLabel(mode: string, year: string, month: string, startsOn: string, endsOn: string) {
   if (mode === "range") {
@@ -31,17 +42,104 @@ export function ClosingFormPage() {
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
+  const [filtersReady, setFiltersReady] = useState(false)
+  const [units, setUnits] = useState<NamedRecord[]>([])
+  const [sectors, setSectors] = useState<NamedRecord[]>([])
+  const [teams, setTeams] = useState<NamedRecord[]>([])
+  const [jobs, setJobs] = useState<NamedRecord[]>([])
+  const [journeys, setJourneys] = useState<NamedRecord[]>([])
+  const [unions, setUnions] = useState<NamedRecord[]>([])
+  const [unitIds, setUnitIds] = useState<number[]>([])
+  const [sectorIds, setSectorIds] = useState<number[]>([])
+  const [teamIds, setTeamIds] = useState<number[]>([])
+  const [jobIds, setJobIds] = useState<number[]>([])
+  const [journeyIds, setJourneyIds] = useState<number[]>([])
+  const [unionIds, setUnionIds] = useState<number[]>([])
+  const [candidates, setCandidates] = useState<ClosingCandidate[]>([])
+  const [peopleReady, setPeopleReady] = useState(false)
+  const [chosen, setChosen] = useState<number[]>([])
   const [error, setError] = useState("")
   const [confirming, setConfirming] = useState(false)
   const openerRef = useRef<HTMLButtonElement | null>(null)
   const busy = useRef(false)
+
+  const periodReady = mode === "month" || Boolean(startsOn)
+  const listed = candidates.map((item) => item.id).join(",")
+
+  useEffect(() => {
+    if (!canManage) return
+    let active = true
+    Promise.all([
+      listRecords<NamedRecord>("/units", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/sectors", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/teams", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/jobs", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/journeys", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/unions", { page: 1, limit: 100 }),
+    ])
+      .then(([unitPage, sectorPage, teamPage, jobPage, journeyPage, unionPage]) => {
+        if (!active) return
+        setUnits(unitPage.items)
+        setSectors(sectorPage.items)
+        setTeams(teamPage.items)
+        setJobs(jobPage.items)
+        setJourneys(journeyPage.items)
+        setUnions(unionPage.items)
+      })
+      .catch((caught: unknown) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar os filtros.")
+      })
+      .finally(() => {
+        if (active) setFiltersReady(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [canManage])
+
+  useEffect(() => {
+    if (!canManage || !periodReady) return
+    let active = true
+    setPeopleReady(false)
+    const params = mode === "range"
+      ? { starts_on: startsOn, ends_on: endsOn || undefined }
+      : { year: Number(year), month: Number(month) }
+    closingCandidates({
+      ...params,
+      unit_id: idList(unitIds),
+      sector_id: idList(sectorIds),
+      team_id: idList(teamIds),
+      job_id: idList(jobIds),
+      journey_id: idList(journeyIds),
+      union_id: idList(unionIds),
+    })
+      .then((rows) => {
+        if (active) setCandidates(rows)
+      })
+      .catch((caught: unknown) => {
+        if (!active) return
+        setCandidates([])
+        setError(caught instanceof Error ? caught.message : "Não foi possível listar as pessoas.")
+      })
+      .finally(() => {
+        if (active) setPeopleReady(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [canManage, periodReady, mode, year, month, startsOn, endsOn, unitIds, sectorIds, teamIds, jobIds, journeyIds, unionIds])
+
+  useEffect(() => {
+    setChosen(listed ? listed.split(",").map(Number) : [])
+  }, [listed])
 
   async function confirmClose() {
     if (busy.current) return
     busy.current = true
     setError("")
     try {
-      const body = mode === "range" ? { starts_on: startsOn, ends_on: endsOn || null, note: null } : { year: Number(year), month: Number(month), note: null }
+      const period = mode === "range" ? { starts_on: startsOn, ends_on: endsOn || null } : { year: Number(year), month: Number(month) }
+      const body = { ...period, note: null, employee_ids: chosen }
       const created = await createRecord<Closing>("/closings", body)
       await updateRecord("/closings", created.id, { status: "closed" })
       navigate(`/closings/${created.id}`)
@@ -52,8 +150,16 @@ export function ClosingFormPage() {
     }
   }
 
+  function togglePerson(id: number) {
+    setChosen((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  }
+
   function askClose(event: FormEvent) {
     event.preventDefault()
+    if (chosen.length === 0) {
+      setError("Selecione quem entra no fechamento.")
+      return
+    }
     openerRef.current = event.currentTarget.querySelector("button[type='submit']")
     setError("")
     setConfirming(true)
@@ -107,16 +213,72 @@ export function ClosingFormPage() {
             <DatePickerField id="closing-end" label="Até" value={endsOn} onChange={setEndsOn} />
           </div>
         )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-unit">Empresa</Label>
+            <PlaceCombobox id="closing-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-sector">Setor</Label>
+            <PlaceCombobox id="closing-sector" icon={conceptIcon.sector} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-team">Equipe</Label>
+            <PlaceCombobox id="closing-team" icon={conceptIcon.team} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-job">Função</Label>
+            <PlaceCombobox id="closing-job" icon={conceptIcon.job} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-journey">Jornada</Label>
+            <PlaceCombobox id="closing-journey" icon={conceptIcon.journey} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-union">Sindicato</Label>
+            <PlaceCombobox id="closing-union" icon={conceptIcon.union} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
+          </div>
+        </div>
+        <p className="text-sm text-[#64748B]">Sem marcação, a lista mostra todos. A vigência usada é a do período. Os filtros se somam.</p>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-[#0A0A0A]">Quem entra no fechamento</p>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-9 px-3")} onClick={() => setChosen(candidates.map((item) => item.id))} disabled={!peopleReady || candidates.length === 0}>Marcar todas</Button>
+              <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-9 px-3")} onClick={() => setChosen([])} disabled={!peopleReady || chosen.length === 0}>Limpar</Button>
+            </div>
+          </div>
+          {!peopleReady ? (
+            <div className="flex justify-center py-6"><Spinner /></div>
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-[#64748B]">Nenhuma pessoa neste filtro.</p>
+          ) : (
+            <ul className="max-h-80 space-y-1 overflow-y-auto rounded-xl border border-[#E4E4E7] p-2">
+              {candidates.map((person) => (
+                <li key={person.id}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-[#F8FAFC]">
+                    <input type="checkbox" className="h-4 w-4 accent-[#1E8A3A]" checked={chosen.includes(person.id)} onChange={() => togglePerson(person.id)} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-[#0A0A0A]">{person.full_name}</span>
+                      <span className="block text-xs text-[#64748B]">Matrícula {registration(person.registration_number)}</span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-sm text-[#64748B]">{chosen.length} pessoas selecionadas.</p>
+        </div>
         {error && !confirming ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex justify-end">
-          <Button type="submit" className={modulePrimaryClass} disabled={confirming}>
+          <Button type="submit" className={modulePrimaryClass} disabled={confirming || !peopleReady}>
             Fechar período
           </Button>
         </div>
       </ActionForm>
       <ClosingConfirmDialog
         open={confirming}
-        period={periodLabel(mode, year, month, startsOn, endsOn)}
+        period={`${periodLabel(mode, year, month, startsOn, endsOn)} · ${chosen.length} pessoas`}
         error={error}
         onClose={() => {
           if (busy.current) return
@@ -235,7 +397,7 @@ export function ClosingConfirmDialog({
           Fechar este período?
         </h2>
         <p id="closing-confirm-text" className="mt-2 text-sm leading-6 text-[#71717A]">
-          Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados até reabrir.
+          Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados para as pessoas deste fechamento até reabrir.
         </p>
         <p className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{period}</p>
         {error ? (

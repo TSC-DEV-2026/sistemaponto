@@ -66,6 +66,7 @@ from app.models.workforce import (
     ClassificationValue,
     Closing,
     ClosingEvent,
+    ClosingMember,
     ClosingJourneyPin,
     CostCenter,
     Employee,
@@ -318,7 +319,6 @@ class WorkforceService:
         self._admin(scope)
         payload = self._employee_payload(scope, data, current=None)
         vector, face_key = self._reference_photo(data, payload["clock_method"])
-        self._assert_open(scope.tenant_id, payload["admission_date"])
         self._assert_capacity(scope)
         row = self.repo.add(Employee(tenant_id=scope.tenant_id, face_key=face_key, **payload))
         self.repo.add(
@@ -345,7 +345,7 @@ class WorkforceService:
         next_method = payload.get("clock_method", row.clock_method or "simple")
         vector, face_key = self._reference_photo(data, next_method)
         if "admission_date" in payload:
-            self._assert_open(scope.tenant_id, payload["admission_date"])
+            self._assert_open(scope.tenant_id, payload["admission_date"], row.id)
         for key, value in payload.items():
             setattr(row, key, value)
         if face_key is not None:
@@ -408,7 +408,7 @@ class WorkforceService:
         if kind in {"unit", "sector"}:
             raise AppError(400, "Informe a equipe. Empresa e setor acompanham a equipe.")
         valid_from = data["valid_from"]
-        self._assert_open(scope.tenant_id, valid_from)
+        self._assert_open(scope.tenant_id, valid_from, employee.id)
         classification_id = None
         if kind in {"classification", "cost_center"}:
             classification_id, reference_id, label = self._classification_choice(scope, kind, data.get("reference_id"))
@@ -457,7 +457,7 @@ class WorkforceService:
             return current
         if current is not None:
             end = previous_end(current.valid_from, valid_from)
-            self._assert_open(scope.tenant_id, end)
+            self._assert_open(scope.tenant_id, end, employee_id)
             current.valid_to = end
             self.repo.add(current)
         row = self.repo.add(
@@ -545,10 +545,11 @@ class WorkforceService:
         valid_from = data.get("valid_from")
         if valid_from is None:
             raise AppError(400, "Informe a vigência")
-        try:
-            self._assert_open(scope.tenant_id, valid_from)
-        except AppError as error:
-            raise AppError(error.status_code, f"{people[0].full_name}: {error.message}") from None
+        for row in people:
+            try:
+                self._assert_open(scope.tenant_id, valid_from, row.id)
+            except AppError as error:
+                raise AppError(error.status_code, f"{row.full_name}: {error.message}") from None
         note = self._note(data.get("note"))
         extras: list[tuple[str, int, str]] = []
         classification_id = None
@@ -615,7 +616,7 @@ class WorkforceService:
             end = previous_end(current.valid_from, valid_from)
         except AppError as error:
             raise AppError(error.status_code, f"{employee.full_name}: {error.message}") from None
-        if self.repo.closed_covering(scope.tenant_id, end) is not None:
+        if self.repo.closed_for_employee(scope.tenant_id, end, employee.id) is not None:
             raise AppError(409, f"{employee.full_name}: período fechado")
 
     def update_vigency(self, scope: Scope, row_id: int, data: dict) -> EmployeeVigency:
@@ -623,7 +624,7 @@ class WorkforceService:
         row = self._row(EmployeeVigency, scope, row_id)
         if data.get("end"):
             return self._end_manager(scope, row)
-        self._assert_open(scope.tenant_id, row.valid_from)
+        self._assert_open(scope.tenant_id, row.valid_from, row.employee_id)
         if "note" in data:
             row.note = self._note(data.get("note"))
             self.repo.add(row)
@@ -637,7 +638,7 @@ class WorkforceService:
         if row.valid_from > self.today():
             end = row.valid_from - timedelta(days=1)
         else:
-            self._assert_open(scope.tenant_id, self.today())
+            self._assert_open(scope.tenant_id, self.today(), row.employee_id)
             end = self.today() - timedelta(days=1)
             if end < row.valid_from:
                 end = row.valid_from - timedelta(days=1)
@@ -694,7 +695,7 @@ class WorkforceService:
         occurred = assert_aware(data["occurred_at"])
         assert_not_future(occurred, self.today())
         self._assert_working(scope, employee)
-        self._assert_open(scope.tenant_id, self._punch_day(occurred))
+        self._assert_open(scope.tenant_id, self._punch_day(occurred), employee.id)
         day = occurred.astimezone(BR).date()
         row = self.repo.add(
             Punch(
@@ -1001,7 +1002,7 @@ class WorkforceService:
             origin = "admin"
         self._days_only(kind, data)
         start, end, starts_at, ends_at = self._span(data)
-        self._assert_span_open(scope.tenant_id, start, end)
+        self._assert_span_open(scope.tenant_id, start, end, employee.id)
         if source != "approved_request":
             self._assert_no_pending(scope, employee.id, start, end)
         cid, crm, doctor = self._medical(kind, data)
@@ -1046,7 +1047,7 @@ class WorkforceService:
     def update_occurrence(self, scope: Scope, row_id: int, data: dict) -> Occurrence:
         self._admin(scope)
         row = self.get_occurrence(scope, row_id)
-        self._assert_open(scope.tenant_id, row.starts_on)
+        self._assert_open(scope.tenant_id, row.starts_on, row.employee_id)
         self._assert_no_pending(scope, row.employee_id, row.starts_on, row.ends_on)
         if "note" in data:
             row.note = self._note(data.get("note"))
@@ -1060,7 +1061,7 @@ class WorkforceService:
             self._can_launch(scope, employee)
         else:
             self._admin(scope)
-        self._assert_span_open(scope.tenant_id, row.starts_on, row.ends_on)
+        self._assert_span_open(scope.tenant_id, row.starts_on, row.ends_on, row.employee_id)
         self._audit(scope, row.employee_id, "occurrence_delete", row.id, row.kind, None, row.starts_on)
         self.repo.delete(row)
 
@@ -1094,7 +1095,7 @@ class WorkforceService:
             start = day
             end = day
             occurred = moments[0] if len(moments) == 1 else None
-            self._assert_open(scope.tenant_id, day)
+            self._assert_open(scope.tenant_id, day, employee.id)
             self._medical(kind, data)
             self._photo_key(scope, kind, data.get("photo_key"))
         else:
@@ -1102,7 +1103,7 @@ class WorkforceService:
                 raise AppError(400, "Marcações do dia só entram no ajuste")
             self._days_only(kind, data)
             start, end, starts_at, ends_at = self._span(data)
-            self._assert_span_open(scope.tenant_id, start, end)
+            self._assert_span_open(scope.tenant_id, start, end, employee.id)
             cid, crm, doctor = self._medical(kind, data)
             photo_key = self._photo_key(scope, kind, data.get("photo_key"))
         reason_id = self._reason(scope, REASON_FOR_REQUEST[kind], data.get("reason_id"))
@@ -1188,8 +1189,10 @@ class WorkforceService:
         start, end = self._closing_bounds(data)
         if (end - start).days + 1 > 366:
             raise AppError(400, "O fechamento aceita no máximo 366 dias")
-        if self.repo.closing_overlapping(scope.tenant_id, start, end) is not None:
-            raise AppError(409, "Esse período já existe")
+        chosen = self._chosen_closing_people(scope, end, data.get("employee_ids"))
+        chosen_ids = {person.id for person in chosen}
+        if self._closing_conflict(scope.tenant_id, start, end, chosen_ids) is not None:
+            raise AppError(409, "Há pessoas que já estão em um fechamento deste período")
         row = self.repo.add(
             Closing(
                 tenant_id=scope.tenant_id,
@@ -1213,6 +1216,14 @@ class WorkforceService:
                 created_at=self.clock(),
             )
         )
+        for person in chosen:
+            self.repo.add(
+                ClosingMember(
+                    tenant_id=scope.tenant_id,
+                    closing_id=row.id,
+                    employee_id=person.id,
+                )
+            )
         return self.get_closing(scope, row.id)
 
     def update_closing(self, scope: Scope, row_id: int, data: dict) -> dict:
@@ -1903,7 +1914,7 @@ class WorkforceService:
         entry_on = data.get("entry_on") or self.today()
         if entry_on > self.today():
             raise AppError(400, "A data não pode ser futura")
-        self._assert_open(scope.tenant_id, entry_on)
+        self._assert_open(scope.tenant_id, entry_on, employee.id)
         effect = None
         row = self.repo.add(
             HourBankEntry(
@@ -3052,7 +3063,7 @@ class WorkforceService:
         origin_label: str,
     ) -> list[Punch]:
         self._assert_working(scope, employee)
-        self._assert_open(scope.tenant_id, day)
+        self._assert_open(scope.tenant_id, day, employee.id)
         start, end = day_bounds(day)
         current = self.repo.valid_punches_between(scope.tenant_id, employee.id, start, end)
         voided_at = self.clock()
@@ -3099,10 +3110,10 @@ class WorkforceService:
         if timed or data.get("punches"):
             raise AppError(400, "Férias aceitam só período de dias")
 
-    def _assert_span_open(self, tenant_id: int, start: date, end: date) -> None:
+    def _assert_span_open(self, tenant_id: int, start: date, end: date, employee_id: int | None = None) -> None:
         day = start
         while day <= end:
-            self._assert_open(tenant_id, day)
+            self._assert_open(tenant_id, day, employee_id)
             day += timedelta(days=1)
 
     def _medical(self, kind: str, data: dict) -> tuple[str | None, str | None, str | None]:
@@ -3419,6 +3430,9 @@ class WorkforceService:
             raise AppError(409, "O banco do fechamento só abre com o período fechado")
         employee = self._employee(scope, int(data["employee_id"]))
         self._can_launch(scope, employee)
+        members = self.repo.member_ids(row.id)
+        if members and employee.id not in members:
+            raise AppError(409, "Esta pessoa não está neste fechamento")
         if not employee.hour_bank:
             raise AppError(409, "Este funcionário não usa banco de horas")
         when = row.ends_on if row.ends_on <= self.today() else self.today()
@@ -3462,7 +3476,10 @@ class WorkforceService:
         page = 1
         while True:
             rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+            members = set(self.repo.member_ids(row.id))
             for employee in rows:
+                if members and employee.id not in members:
+                    continue
                 if employee.admission_date > finish:
                     continue
                 day_start = employee.admission_date if employee.admission_date > row.starts_on else row.starts_on
@@ -4075,14 +4092,84 @@ class WorkforceService:
             if request.employee_id == employee_id:
                 raise AppError(409, "Há solicitação pendente cobrindo este dia")
 
-    def _assert_open(self, tenant_id: int, day: date) -> None:
-        if self.repo.closed_covering(tenant_id, day) is not None:
+    def _assert_open(self, tenant_id: int, day: date, employee_id: int | None = None) -> None:
+        if employee_id is None:
+            found = self.repo.closed_covering(tenant_id, day)
+        else:
+            found = self.repo.closed_for_employee(tenant_id, day, employee_id)
+        if found is not None:
             raise AppError(409, "Período fechado")
 
     def _can_manage_period(self, scope: Scope) -> None:
         self._known(scope)
         if scope.role not in {"admin", "manager"}:
             raise AppError(403, "Sem permissão")
+
+    def closing_candidates(self, scope: Scope, data: dict) -> list[dict]:
+        self._can_manage_period(scope)
+        start, end = self._closing_bounds(data)
+        day = end if end <= self.today() else start if start > self.today() else self.today()
+        places, _situation = self._place_sets(
+            {
+                "unit_id": data.get("unit_id"),
+                "sector_id": data.get("sector_id"),
+                "team_id": data.get("team_id"),
+                "job_id": data.get("job_id"),
+                "journey_id": data.get("journey_id"),
+                "union_id": data.get("union_id"),
+            }
+        )
+        found = []
+        for employee in self._report_people(scope, None):
+            if employee.admission_date > end:
+                continue
+            if places and not self._on_places(employee.id, day, places):
+                continue
+            found.append(
+                {
+                    "id": employee.id,
+                    "full_name": employee.full_name,
+                    "registration_number": employee.registration_number,
+                    "hour_bank": bool(employee.hour_bank),
+                }
+            )
+        found.sort(key=lambda item: item["full_name"].casefold())
+        return found
+
+    def _chosen_closing_people(self, scope: Scope, end: date, raw) -> list[Employee]:
+        if raw is None:
+            people = []
+            page = 1
+            while True:
+                rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+                people.extend(person for person in rows if person.admission_date <= end)
+                if not rows or page * 100 >= total:
+                    break
+                page += 1
+        else:
+            if not raw:
+                raise AppError(400, "Selecione quem entra no fechamento")
+            people = []
+            seen: set[int] = set()
+            for item in raw:
+                employee = self._employee(scope, int(item))
+                self._visible(scope, employee.id)
+                if employee.admission_date > end:
+                    raise AppError(400, f"{employee.full_name} ainda não estava admitido neste período")
+                if employee.id in seen:
+                    continue
+                seen.add(employee.id)
+                people.append(employee)
+        if not people:
+            raise AppError(400, "Selecione quem entra no fechamento")
+        return people
+
+    def _closing_conflict(self, tenant_id: int, start: date, end: date, employee_ids: set[int]) -> Closing | None:
+        for row in self.repo.overlapping_closings(tenant_id, start, end):
+            members = set(self.repo.member_ids(row.id))
+            if not members or members & employee_ids:
+                return row
+        return None
 
     def _closing_bounds(self, data: dict) -> tuple[date, date]:
         start = data.get("starts_on")
