@@ -33,7 +33,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
-import { ClassificationFilter, classificationQuery } from "@/components/workforce/ClassificationFilter"
 import { ListPager, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
@@ -63,13 +62,12 @@ const steps = [
 ] as const
 
 const filterFields = [
+  ["unit_id", "Empresa", "/units"],
+  ["sector_id", "Setor", "/sectors"],
+  ["team_id", "Equipe", "/teams"],
   ["job_id", "Função", "/jobs"],
   ["journey_id", "Jornada", "/journeys"],
-  ["team_id", "Equipe", "/teams"],
-  ["sector_id", "Setor", "/sectors"],
-  ["unit_id", "Empresa", "/units"],
   ["union_id", "Sindicato", "/unions"],
-  ["manager_id", "Gestor", "/employees"],
 ] as const
 
 const situationOptions = [
@@ -212,7 +210,6 @@ export function BulkChangesPage() {
   const [cycleTouched, setCycleTouched] = useState(false)
   const [note, setNote] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({})
-  const [filterValues, setFilterValues] = useState<number[]>([])
   const [classificationId, setClassificationId] = useState("")
   const [classificationValues, setClassificationValues] = useState<Choice[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -283,16 +280,6 @@ export function BulkChangesPage() {
       active = false
     }
   }, [classificationId])
-
-  useEffect(() => {
-    const query = classificationQuery(filterValues)
-    setFilters((current) => {
-      const next = { ...current }
-      if (query) next.classification_value_id = query
-      else delete next.classification_value_id
-      return next
-    })
-  }, [filterValues])
 
   useEffect(() => {
     if (!list.loading) setListed(true)
@@ -627,8 +614,8 @@ export function BulkChangesPage() {
                         value={filters[key] || ""}
                         placeholder="Todos"
                         searchable
-                        searchPath={path === "/employees" ? undefined : path}
-                        searchKey={path === "/employees" ? "full_name" : "name"}
+                        searchPath={path}
+                        searchKey="name"
                         searchPlaceholder={`Pesquisar ${label.toLocaleLowerCase("pt-BR")}`}
                         className="h-12"
                         options={[{ value: "", label: "Todos" }, ...(choices[path] || [])]}
@@ -639,13 +626,6 @@ export function BulkChangesPage() {
                   <div className="space-y-2">
                     <Label className={moduleLabelClass} htmlFor="bulk-situation">Situação</Label>
                     <SiteSelect id="bulk-situation" value={filters.situation || ""} className="h-12" options={situationOptions} onChange={(next) => setFilters((current) => ({ ...current, situation: next }))} />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-[#0A0A0A]">Grupos</p>
-                  <p className="mt-1 text-sm text-[#64748B]">Valores do mesmo grupo se alternam. Grupos diferentes se somam.</p>
-                  <div className="mt-3">
-                    <ClassificationFilter selected={filterValues} onChange={setFilterValues} />
                   </div>
                 </div>
               </div>

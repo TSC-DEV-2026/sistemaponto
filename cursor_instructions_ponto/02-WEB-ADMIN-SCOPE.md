@@ -286,7 +286,9 @@ Macrogrupos:
 
 O catálogo inicial tem um relatório por grupo: Ponto, Jornada, Banco de Horas, Ocorrências e Gestão.
 
-Relatórios são analíticos e históricos. Além do funcionário, a consulta filtra por uma ou várias empresas, setores e equipes. Cada linha usa a vigência que vale na data dela. Empresa, setor e equipe se somam entre si: a pessoa precisa estar em todos os filtros marcados naquele dia.
+Relatórios são analíticos e históricos. Além do funcionário, a consulta filtra por empresa, setor, equipe, função, jornada, sindicato e situação. Empresa, setor, equipe, função, jornada e sindicato aceitam um ou vários. Cada linha usa a vigência que vale na data dela. Os filtros se somam: a pessoa precisa estar em todos os filtros marcados naquele dia.
+
+Na alteração em massa, a seleção de funcionários usa os mesmos filtros, nesta ordem: empresa, setor, equipe, função, jornada, sindicato e situação. Cada um aceita um registro. A lista usa a vigência de hoje.
 
 Dashboard é operacional.
 

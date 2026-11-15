@@ -1500,16 +1500,16 @@ class WorkforceService:
         filters: dict | None = None,
     ) -> list[dict]:
         chosen = dict(filters or {})
-        places = self._place_sets(chosen)
+        places, situation = self._place_sets(chosen)
         if kind == "people":
             lines = self._people_lines(scope, starts_on, employee_id, chosen)
         else:
             lines = self._kind_lines(scope, kind, starts_on, ends_on, employee_id)
-        if places:
+        if places or situation:
             lines = [
                 line
                 for line in lines
-                if self._on_places(line.get("employee_id"), line["occurred_on"], places)
+                if self._on_places(line.get("employee_id"), line["occurred_on"], places, situation)
             ]
         return sorted(lines, key=lambda item: (item["occurred_on"], item["full_name"] or "", item["title"], item["detail"]))
 
@@ -1536,22 +1536,35 @@ class WorkforceService:
             lines = self._management_lines(scope, people, starts_on, ends_on, employee_id is None)
         return lines
 
-    def _place_sets(self, filters: dict) -> dict[str, set[int]]:
+    def _place_sets(self, filters: dict) -> tuple[dict[str, set[int]], str | None]:
         found: dict[str, set[int]] = {}
-        for key, kind in (("unit_id", "unit"), ("sector_id", "sector"), ("team_id", "team")):
+        for key, kind in (
+            ("unit_id", "unit"),
+            ("sector_id", "sector"),
+            ("team_id", "team"),
+            ("job_id", "job"),
+            ("journey_id", "journey"),
+            ("union_id", "union"),
+        ):
             ids = self._id_list(filters.pop(key, None))
             if ids:
                 found[kind] = set(ids)
-        return found
+        situation = str(filters.pop("situation", "") or "").strip()
+        if situation and situation not in STATUS_LABELS:
+            raise AppError(400, "Situação inválida")
+        return found, situation or None
 
-    def _on_places(self, employee_id: int | None, day: date, places: dict[str, set[int]]) -> bool:
+    def _on_places(self, employee_id: int | None, day: date, places: dict[str, set[int]], situation: str | None = None) -> bool:
         if employee_id is None:
             return False
         for kind, ids in places.items():
             current = self.repo.applicable(employee_id, kind, day)
             if current is None or current.reference_id not in ids:
                 return False
-        return True
+        if situation is None:
+            return True
+        current = self.repo.applicable(employee_id, "status", day)
+        return current is not None and current.label == situation
 
     def _marking_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
         start_at, _ignored = day_bounds(starts_on)
