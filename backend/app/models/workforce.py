@@ -402,6 +402,7 @@ class NotificationPreference(Base):
     person_id = Column(BigInteger, nullable=False, index=True)
     kind = Column(String(64), nullable=False)
     enabled = Column(Boolean, nullable=False)
+    channel = Column(String(16), nullable=False, default="both")
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 

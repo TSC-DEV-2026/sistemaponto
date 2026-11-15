@@ -13,6 +13,19 @@ PHRASES = {
     "billing_overdue": "Há uma cobrança em atraso.",
 }
 
+CHANNELS = ("system", "email", "both")
+
+
+def notice_channels(enabled: bool, channel: str | None) -> set[str]:
+    if not enabled:
+        return set()
+    if channel == "system":
+        return {"system"}
+    if channel == "email":
+        return {"email"}
+    return {"system", "email"}
+
+
 DAILY_KINDS = (
     "incomplete_punch",
     "closing_pending",

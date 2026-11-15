@@ -58,6 +58,23 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
     return true;
   }
 
+  String _channel(String kind) {
+    for (final row in _preferences) {
+      if (row['kind'] == kind) {
+        final channel = row['channel'];
+        if (channel == 'system' || channel == 'email' || channel == 'both') return channel;
+      }
+    }
+    return 'both';
+  }
+
+  Map<String, dynamic>? _preference(String kind) {
+    for (final row in _preferences) {
+      if (row['kind'] == kind) return row;
+    }
+    return null;
+  }
+
   Future<void> _mark(int id) async {
     final client = ref.read(apiClientProvider);
     setState(() => _error = null);
@@ -82,7 +99,23 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
       if (row != null) {
         await client.put('/api/v1/notification-preferences/${row['id']}', {'enabled': next});
       } else if (!next) {
-        await client.post('/api/v1/notification-preferences', {'kind': kind, 'enabled': false});
+        await client.post('/api/v1/notification-preferences', {'kind': kind, 'enabled': false, 'channel': 'both'});
+      }
+      await _load();
+    } on ApiException catch (error) {
+      setState(() => _error = error.message);
+    }
+  }
+
+  Future<void> _setChannel(String kind, String channel) async {
+    final client = ref.read(apiClientProvider);
+    setState(() => _error = null);
+    try {
+      final row = _preference(kind);
+      if (row != null) {
+        await client.put('/api/v1/notification-preferences/${row['id']}', {'enabled': true, 'channel': channel});
+      } else {
+        await client.post('/api/v1/notification-preferences', {'kind': kind, 'enabled': true, 'channel': channel});
       }
       await _load();
     } on ApiException catch (error) {
@@ -98,7 +131,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
         children: [
           Text('Avisos', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          const Text('O texto no aplicativo é o mesmo do e-mail. Cada aviso seu pode ser desligado. Sem preferência gravada, ele fica ligado.'),
+          const Text('Cada aviso pode ir pelo sistema, pelo e-mail ou pelos dois. Sem escolha gravada, os dois ficam ligados.'),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _kind,
@@ -116,11 +149,29 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
             },
           ),
           ...employeeNoticeLabel.entries.where((item) => _kind.isEmpty || item.key == _kind).map(
-            (item) => SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(item.value),
-              value: _enabled(item.key),
-              onChanged: (value) => _setEnabled(item.key, value),
+            (item) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(item.value),
+                  value: _enabled(item.key),
+                  onChanged: (value) => _setEnabled(item.key, value),
+                ),
+                if (_enabled(item.key))
+                  DropdownButton<String>(
+                    value: _channel(item.key),
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'system', child: Text('Sistema')),
+                      DropdownMenuItem(value: 'email', child: Text('E-mail')),
+                      DropdownMenuItem(value: 'both', child: Text('Os dois')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) _setChannel(item.key, value);
+                    },
+                  ),
+              ],
             ),
           ),
           if (_error != null) ...[

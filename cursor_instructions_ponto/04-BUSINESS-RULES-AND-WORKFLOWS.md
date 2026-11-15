@@ -376,7 +376,7 @@ Não assumir que permissão é apenas um booleano global.
 
 ## 14. Notificações
 
-Os canais deste corte são o aviso dentro do sistema e o e-mail. O texto é o mesmo nos dois. A pessoa pode desligar cada aviso. O envio é diário. A frequência poderá ser customizada no futuro.
+Os canais deste corte são o aviso dentro do sistema e o e-mail. O texto é o mesmo nos dois. A pessoa escolhe, para cada aviso, o sistema, o e-mail ou os dois. Sem escolha gravada, os dois canais ficam ligados. O envio é diário. A frequência poderá ser customizada no futuro.
 
 Frases:
 

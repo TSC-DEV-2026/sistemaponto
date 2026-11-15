@@ -29,6 +29,7 @@ from app.models.workforce import (
     JourneyDay,
     JourneySpan,
     JourneyVersion,
+    NoticeEmail,
     Notification,
     NotificationPreference,
     Occurrence,
@@ -101,6 +102,18 @@ class Memory:
         for row in self.rows:
             if (
                 isinstance(row, Notification)
+                and row.tenant_id == tenant_id
+                and row.person_id == person_id
+                and row.kind == kind
+                and start <= row.created_at < end
+            ):
+                return row
+        return None
+
+    def email_between(self, tenant_id: int, person_id: int, kind: str, start: datetime, end: datetime):
+        for row in self.rows:
+            if (
+                isinstance(row, NoticeEmail)
                 and row.tenant_id == tenant_id
                 and row.person_id == person_id
                 and row.kind == kind
@@ -2029,6 +2042,35 @@ def test_solicitacao_usa_a_frase_no_sistema_e_no_email():
     mailed, _total = workforce.list_notice_emails(scope(9, "member"), 1, 10, {})
     assert mailed[0].body == "Sua solicitação foi aprovada."
     assert mailed[0].address == "ana@example.com"
+
+
+def test_canal_do_aviso_separa_sistema_e_email():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    person = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    workforce.update_employee(admin(), person["id"], {"email": "ana@example.com"})
+    saved = workforce.create_notification_preference(admin(), {"kind": "request_created", "enabled": True, "channel": "system"})
+    workforce.create_request(scope(9, "member"), period("allowance"))
+    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
+    assert [row.body for row in notices] == ["Há uma nova solicitação para analisar."]
+    assert emails == []
+    workforce.update_notification_preference(admin(), saved.id, {"channel": "email"})
+    workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 5)))
+    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
+    assert len(notices) == 1
+    assert [row.body for row in emails] == ["Há uma nova solicitação para analisar."]
+    workforce.update_notification_preference(admin(), saved.id, {"enabled": False})
+    workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 4)))
+    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
+    assert len(notices) == 1
+    assert len(emails) == 1
+    with pytest.raises(AppError) as invalid:
+        workforce.create_notification_preference(admin(), {"kind": "request_approved", "enabled": True, "channel": "sms"})
+    assert invalid.value.status_code == 400
+    assert invalid.value.message == "Canal inválido"
 
 
 def test_envio_diario_de_ponto_fechamento_trial_e_plano():

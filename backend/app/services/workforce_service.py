@@ -28,7 +28,7 @@ from app.core.time_result import settle_day
 from app.core.exceptions import AppError
 from app.core.face_match import COSINE_THRESHOLD, MODEL_NAME, MODEL_VERSION, best_match
 from app.core.images import decode_image
-from app.core.notices import PHRASES
+from app.core.notices import CHANNELS, PHRASES, notice_channels
 from app.core.punch_code import read_code, render_code
 from app.core.reports import (
     CLOSING_STATUS,
@@ -3288,6 +3288,9 @@ class WorkforceService:
         kind = str(data["kind"])
         if kind not in PHRASES:
             raise AppError(400, "Aviso inválido")
+        channel = str(data.get("channel") or "both")
+        if channel not in CHANNELS:
+            raise AppError(400, "Canal inválido")
         if self.repo.preference_for(scope.tenant_id, scope.person_id, kind) is not None:
             raise AppError(409, "Esse aviso já está configurado")
         return self.repo.add(
@@ -3296,6 +3299,7 @@ class WorkforceService:
                 person_id=scope.person_id,
                 kind=kind,
                 enabled=bool(data["enabled"]),
+                channel=channel,
                 created_at=self.clock(),
             )
         )
@@ -3304,7 +3308,12 @@ class WorkforceService:
         row = self.get_notification_preference(scope, row_id)
         if "enabled" in data and data["enabled"] is not None:
             row.enabled = bool(data["enabled"])
-            self.repo.add(row)
+        if "channel" in data and data["channel"] is not None:
+            channel = str(data["channel"])
+            if channel not in CHANNELS:
+                raise AppError(400, "Canal inválido")
+            row.channel = channel
+        self.repo.add(row)
         return row
 
     def delete_notification_preference(self, scope: Scope, row_id: int) -> None:
@@ -3565,31 +3574,38 @@ class WorkforceService:
 
     def _deliver(self, scope: Scope, person_id: int, employee_id: int | None, kind: str, *, daily: bool) -> None:
         phrase = PHRASES[kind]
-        if not self._notice_enabled(scope, person_id, kind):
+        channels = self._notice_channels(scope, person_id, kind)
+        if not channels:
             return
         if daily:
             start, end = day_bounds(self.today())
-            if self.repo.notice_between(scope.tenant_id, person_id, kind, start, end) is not None:
+            if "system" in channels and self.repo.notice_between(scope.tenant_id, person_id, kind, start, end) is not None:
+                channels.discard("system")
+            if "email" in channels and self.repo.email_between(scope.tenant_id, person_id, kind, start, end) is not None:
+                channels.discard("email")
+            if not channels:
                 return
-        self._notice(scope, person_id, employee_id, kind, phrase, phrase)
-        employee = self.repo.employee_by_person(scope.tenant_id, person_id)
-        self.repo.add(
-            NoticeEmail(
-                tenant_id=scope.tenant_id,
-                person_id=person_id,
-                employee_id=employee_id,
-                kind=kind,
-                body=phrase,
-                address=None if employee is None else employee.email,
-                created_at=self.clock(),
+        if "system" in channels:
+            self._notice(scope, person_id, employee_id, kind, phrase, phrase)
+        if "email" in channels:
+            employee = self.repo.employee_by_person(scope.tenant_id, person_id)
+            self.repo.add(
+                NoticeEmail(
+                    tenant_id=scope.tenant_id,
+                    person_id=person_id,
+                    employee_id=employee_id,
+                    kind=kind,
+                    body=phrase,
+                    address=None if employee is None else employee.email,
+                    created_at=self.clock(),
+                )
             )
-        )
 
-    def _notice_enabled(self, scope: Scope, person_id: int, kind: str) -> bool:
+    def _notice_channels(self, scope: Scope, person_id: int, kind: str) -> set[str]:
         row = self.repo.preference_for(scope.tenant_id, person_id, kind)
         if row is None:
-            return True
-        return bool(row.enabled)
+            return notice_channels(True, "both")
+        return notice_channels(bool(row.enabled), getattr(row, "channel", None))
 
     def _admin_ids(self, scope: Scope) -> list[int]:
         return [row.person_id for row in self.repo.role_memberships(scope.tenant_id, "admin")]

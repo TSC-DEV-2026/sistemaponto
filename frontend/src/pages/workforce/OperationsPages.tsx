@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Bell, Building2, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Mail, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, Upload, User, Users, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Bell, Building2, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, Landmark, List, Loader2, Network, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Upload, User, Users, X } from "lucide-react"
 import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
@@ -32,7 +32,6 @@ import {
   type FiscalFile,
   type FiscalImport,
   type Notice,
-  type NoticeEmail,
   type NoticePreference,
   type Payroll,
   type Report,
@@ -1326,6 +1325,30 @@ export function ReasonsPage() {
   )
 }
 
+const noticeChannels = [
+  ["system", "Sistema"],
+  ["email", "E-mail"],
+  ["both", "Os dois"],
+] as const
+
+function NoticeChannel({ value, onChange }: { value: (typeof noticeChannels)[number][0]; onChange: (next: (typeof noticeChannels)[number][0]) => void }) {
+  return (
+    <span className="inline-flex shrink-0 rounded-lg bg-[#E7E8EA] p-0.5" role="group" aria-label="Canal">
+      {noticeChannels.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={value === id}
+          className={cn("h-8 rounded-md px-2.5 text-xs font-medium", value === id ? "bg-white text-[#146C2E] shadow-[0_1px_2px_rgba(15,23,42,0.08)]" : "text-[#52525B]")}
+          onClick={() => onChange(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 export function NotificationsPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canSend = role === "admin" || role === "manager"
@@ -1334,13 +1357,11 @@ export function NotificationsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [preferenceKind, setPreferenceKind] = useState("")
   const [noticeEmployee, setNoticeEmployee] = useState("")
-  const [emailKind, setEmailKind] = useState("")
   const [sent, setSent] = useState<number | null>(null)
   const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(false)
   const noticeKinds = Object.entries(noticePhrase).map(([value, label]) => ({ value, label }))
   const notices = usePagedList<Notice>("/notifications", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
-  const emails = usePagedList<NoticeEmail>("/notice-emails", emailKind ? { kind: emailKind } : {})
 
   async function load() {
     const [prefs, people] = await Promise.all([
@@ -1369,9 +1390,18 @@ export function NotificationsPage() {
     }
   }, [tenantId])
 
+  function preferenceRow(kind: string) {
+    return preferences.find((item) => item.kind === kind)
+  }
+
   function enabled(kind: string) {
-    const row = preferences.find((item) => item.kind === kind)
+    const row = preferenceRow(kind)
     return row ? row.enabled : true
+  }
+
+  function channelOf(kind: string) {
+    const value = preferenceRow(kind)?.channel
+    return value === "system" || value === "email" || value === "both" ? value : "both"
   }
 
   async function mark(id: number) {
@@ -1392,7 +1422,22 @@ export function NotificationsPage() {
       if (row) {
         await updateRecord("/notification-preferences", row.id, { enabled: next })
       } else if (!next) {
-        await createRecord("/notification-preferences", { kind, enabled: false })
+        await createRecord("/notification-preferences", { kind, enabled: false, channel: "both" })
+      }
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o aviso.")
+    }
+  }
+
+  async function setChannel(kind: string, channel: (typeof noticeChannels)[number][0]) {
+    setError("")
+    try {
+      const row = preferenceRow(kind)
+      if (row) {
+        await updateRecord("/notification-preferences", row.id, { enabled: true, channel })
+      } else {
+        await createRecord("/notification-preferences", { kind, enabled: true, channel })
       }
       await load()
     } catch (caught) {
@@ -1406,7 +1451,6 @@ export function NotificationsPage() {
       const result = await createRecord<{ created: number }>("/notification-runs", {})
       setSent(result.created)
       notices.reload()
-      emails.reload()
       notifyNoticesChanged()
       await load()
     } catch (caught) {
@@ -1436,7 +1480,7 @@ export function NotificationsPage() {
             </span>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[#0A0A0A]">Avisos</h2>
-              <p className="text-sm text-[#64748B]">Avisos da conta e da organização.</p>
+              <p className="text-sm text-[#64748B]">Avisos recebidos nesta conta.</p>
             </div>
           </div>
           {canSend ? (
@@ -1446,56 +1490,7 @@ export function NotificationsPage() {
             </Button>
           ) : null}
         </div>
-        <div className="space-y-2">
-          <Label className={moduleLabelClass} htmlFor="preference-kind">Tipo</Label>
-          <SiteSelect id="preference-kind" value={preferenceKind} className="h-12" placeholder="Todos" options={[{ value: "", label: "Todos" }, ...noticeKinds]} onChange={setPreferenceKind} />
-        </div>
-        {!loaded ? (
-          <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando os avisos" className="h-8 w-8 text-[#1E8A3A]" />
-          </div>
-        ) : visibleNotices.length === 0 ? (
-          <div className="px-2 py-10 text-center">
-            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum aviso</p>
-            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {visibleNotices.map(([kind, phrase]) => (
-              <li key={kind}>
-                <label htmlFor={`notice-${kind}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-[border-color,background-color] duration-200 motion-reduce:transition-none", enabled(kind) ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white hover:border-[#AEBBC9]")}>
-                  <span className="relative h-[22px] w-[22px] shrink-0">
-                    <input id={`notice-${kind}`} type="checkbox" className="peer sr-only" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
-                    <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
-                      <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
-                    </span>
-                  </span>
-                  <span className="min-w-0 text-sm font-medium leading-5 text-[#0A0A0A]">{phrase}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
         {sent !== null ? <p className="text-sm font-medium text-[#1E8A3A]">{sent} avisos enviados.</p> : null}
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-      </section>
-            ),
-          },
-          {
-            id: "sistema",
-            label: "No sistema",
-            icon: List,
-            panel: (
-      <section className={cn(moduleCardClass, "space-y-5")}>
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <List className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">No sistema</h2>
-            <p className="text-sm text-[#64748B]">Avisos recebidos nesta conta.</p>
-          </div>
-        </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="notice-employee">Funcionário</Label>
           <SiteSelect
@@ -1544,59 +1539,57 @@ export function NotificationsPage() {
             <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} tone="module" />
           </div>
         ) : null}
+        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       </section>
             ),
           },
           {
-            id: "email",
-            label: "No e-mail",
-            icon: Mail,
+            id: "preferencias",
+            label: "Preferências",
+            icon: SlidersHorizontal,
             panel: (
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <Mail className="h-5 w-5" strokeWidth={1.75} />
+            <SlidersHorizontal className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">No e-mail</h2>
-            <p className="text-sm text-[#64748B]">Avisos enviados por e-mail.</p>
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Preferências</h2>
+            <p className="text-sm text-[#64748B]">Escolha os avisos e o canal: sistema, e-mail ou os dois.</p>
           </div>
         </div>
         <div className="space-y-2">
-          <Label className={moduleLabelClass} htmlFor="email-kind">Tipo</Label>
-          <SiteSelect id="email-kind" value={emailKind} className="h-12" placeholder="Todos" options={[{ value: "", label: "Todos" }, ...noticeKinds]} onChange={setEmailKind} />
+          <Label className={moduleLabelClass} htmlFor="preference-kind">Tipo</Label>
+          <SiteSelect id="preference-kind" value={preferenceKind} className="h-12" placeholder="Todos" options={[{ value: "", label: "Todos" }, ...noticeKinds]} onChange={setPreferenceKind} />
         </div>
-        {emails.error ? <p className="text-sm text-destructive" role="alert">{emails.error}</p> : null}
-        {emails.loading && emails.items.length === 0 && !emails.error ? (
+        {!loaded ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando os e-mails" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando os avisos" className="h-8 w-8 text-[#1E8A3A]" />
           </div>
-        ) : null}
-        {!emails.loading && !emails.error && emails.items.length === 0 ? (
+        ) : visibleNotices.length === 0 ? (
           <div className="px-2 py-10 text-center">
-            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum e-mail</p>
+            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum aviso</p>
             <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
           </div>
-        ) : null}
-        {emails.items.length > 0 ? (
+        ) : (
           <ul className="space-y-2">
-            {emails.items.map((item) => (
-              <li key={item.id} className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-3">
-                <p className="text-sm font-medium leading-5 text-[#0A0A0A]">{item.body || "Não informado"}</p>
-                <p className="mt-0.5 text-sm text-[#64748B]">
-                  {item.address ? item.address : <span className="font-medium text-[#94A3B8]">Não informado</span>}
-                  <span aria-hidden> · </span>
-                  {showDateTime(item.created_at)}
-                </p>
+            {visibleNotices.map(([kind, phrase]) => (
+              <li key={kind} className={cn("flex min-h-16 flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between", enabled(kind) ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
+                <label htmlFor={`notice-${kind}`} className="flex min-w-0 cursor-pointer items-center gap-3">
+                  <span className="relative h-[22px] w-[22px] shrink-0">
+                    <input id={`notice-${kind}`} type="checkbox" className="peer sr-only" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
+                    <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
+                      <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
+                    </span>
+                  </span>
+                  <span className="min-w-0 text-sm font-medium leading-5 text-[#0A0A0A]">{phrase}</span>
+                </label>
+                {enabled(kind) ? <NoticeChannel value={channelOf(kind)} onChange={(next) => void setChannel(kind, next)} /> : null}
               </li>
             ))}
           </ul>
-        ) : null}
-        {emails.total > 0 ? (
-          <div className="border-t border-[#F1F5F9] pt-4">
-            <ListPager page={emails.page} pageSize={emails.pageSize} total={emails.total} onPage={emails.setPage} onPageSize={emails.setPageSize} tone="module" />
-          </div>
-        ) : null}
+        )}
+        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       </section>
             ),
           },
