@@ -172,9 +172,10 @@ def _filter_parameter(name: str) -> inspect.Parameter:
     elif name in {"classification_value_id", "classification_ids"}:
         annotation = str | None
         default = Query(default=None, max_length=500, description="Ids separados por vírgula")
-    elif name in {"name", "full_name"}:
+    elif name in {"name", "full_name", "q"}:
         annotation = str | None
-        default = Query(default=None, max_length=255, description="Trecho do nome")
+        description = "Trecho do nome, do CPF ou da matrícula" if name == "q" else "Trecho do nome"
+        default = Query(default=None, max_length=255, description=description)
     elif name == "cpf":
         annotation = str | None
         default = Query(default=None, max_length=14)
@@ -367,9 +368,10 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: full_name, cpf, person_id, job_id, journey_id, cost_center_id, classification_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. classification_value_id aceita vários ids separados por vírgula: grupos diferentes se somam e valores do mesmo grupo se alternam.",
+    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, classification_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula. classification_value_id aceita vários ids separados por vírgula: grupos diferentes se somam e valores do mesmo grupo se alternam.",
 )
 @searchable(
+    "q",
     "full_name",
     "cpf",
     "person_id",
@@ -400,6 +402,7 @@ def list_employees(
         read_filters(
             request,
             (
+                "q",
                 "full_name",
                 "cpf",
                 "person_id",

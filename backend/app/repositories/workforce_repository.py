@@ -40,6 +40,38 @@ def contains_pattern(value: str) -> str:
     return f"%{escaped}%"
 
 
+def employee_search_matches(full_name: str, cpf: str, registration: str | None, term: str) -> bool:
+    text = term.strip()
+    if not text:
+        return True
+    digits = "".join(character for character in text if character.isdigit())
+    has_letter = any(character.isalpha() for character in text)
+    registration_text = registration or ""
+    if has_letter or not digits:
+        folded = text.casefold()
+        return folded in full_name.casefold() or folded in registration_text.casefold()
+    return digits in cpf or digits in registration_text or text.casefold() in registration_text.casefold()
+
+
+def _employee_search_clause(term: str):
+    text = term.strip()
+    digits = "".join(character for character in text if character.isdigit())
+    has_letter = any(character.isalpha() for character in text)
+    if has_letter or not digits:
+        pattern = contains_pattern(text)
+        return or_(
+            Employee.full_name.ilike(pattern, escape="\\"),
+            Employee.registration_number.ilike(pattern, escape="\\"),
+        )
+    clauses = [
+        Employee.cpf.ilike(contains_pattern(digits), escape="\\"),
+        Employee.registration_number.ilike(contains_pattern(digits), escape="\\"),
+    ]
+    if digits != text:
+        clauses.append(Employee.registration_number.ilike(contains_pattern(text), escape="\\"))
+    return or_(*clauses)
+
+
 def filter_matches(key: str, current, wanted) -> bool:
     if key in CONTAINS_KEYS and isinstance(current, str) and isinstance(wanted, str):
         return wanted.casefold() in current.casefold()
@@ -188,13 +220,15 @@ class WorkforceRepository:
             query = query.filter(getattr(model, key) == value)
         return query.count()
 
-    def list_employees(self, tenant_id: int, *, ids: list[int] | None, page: int, limit: int, equals: dict):
+    def list_employees(self, tenant_id: int, *, ids: list[int] | None, page: int, limit: int, equals: dict, search: str | None = None):
         if ids is not None and len(ids) == 0:
             return [], 0
         query = self.db.query(Employee).filter(Employee.tenant_id == tenant_id)
         if ids is not None:
             query = query.filter(Employee.id.in_(ids))
         query = _apply_filters(query, Employee, equals)
+        if search and search.strip():
+            query = query.filter(_employee_search_clause(search))
         total = query.count()
         items = query.order_by(Employee.id.asc()).offset((page - 1) * limit).limit(limit).all()
         return items, total

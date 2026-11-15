@@ -39,7 +39,6 @@ import { moduleCardClass, moduleFieldClass, moduleIconClass, moduleLabelClass, m
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
-import { onlyDigits } from "@/utils/digits"
 import { isoWeekday } from "@/pages/workforce/journey"
 import { clockMethodLabel, showDate } from "@/utils/labels"
 
@@ -144,11 +143,7 @@ async function loadManagerChoices(): Promise<Choice[]> {
 
 function personQuery(text: string): ListParams {
   const term = text.trim()
-  if (!term) return {}
-  if (/[A-Za-zÀ-ÿ]/.test(term)) return { full_name: term }
-  const digits = onlyDigits(term)
-  if (digits.length === 11) return { cpf: digits }
-  return {}
+  return term ? { q: term } : {}
 }
 
 function initials(name: string) {
@@ -608,7 +603,7 @@ export function BulkChangesPage() {
                 <Label className={moduleLabelClass} htmlFor="bulk-person">Pesquisar</Label>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-                  <Input id="bulk-person" value={personDraft} placeholder="Pesquisar por nome ou CPF" className={cn(moduleFieldClass, "pl-10 pr-12")} onChange={(event) => setPersonDraft(event.target.value)} />
+                  <Input id="bulk-person" value={personDraft} placeholder="Pesquisar por nome, CPF ou matrícula" className={cn(moduleFieldClass, "pl-10 pr-12")} onChange={(event) => setPersonDraft(event.target.value)} />
                   <button
                     type="button"
                     className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || Object.values(filters).some(Boolean) ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}

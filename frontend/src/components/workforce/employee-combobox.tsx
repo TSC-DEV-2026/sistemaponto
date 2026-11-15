@@ -14,6 +14,17 @@ function fold(value: string) {
     .trim()
 }
 
+function matchesEmployee(item: Employee, query: string) {
+  const term = query.trim()
+  if (!term) return true
+  const folded = fold(term)
+  if (fold(item.full_name).includes(folded)) return true
+  if (item.registration_number && fold(item.registration_number).includes(folded)) return true
+  const digits = term.replace(/\D/g, "")
+  if (!digits || /[A-Za-zÀ-ÿ]/.test(term)) return false
+  return item.cpf.includes(digits) || Boolean(item.registration_number && item.registration_number.includes(digits))
+}
+
 export function EmployeeCombobox({
   id,
   value,
@@ -90,7 +101,7 @@ export function EmployeeCombobox({
     const current = ++request.current
     setSearching(true)
     const timer = window.setTimeout(() => {
-      listRecords<Employee>("/employees", { page: 1, limit: 100, full_name: term })
+      listRecords<Employee>("/employees", { page: 1, limit: 100, q: term })
         .then((page) => {
           if (current !== request.current) return
           setRemote(page.items)
@@ -111,7 +122,7 @@ export function EmployeeCombobox({
     const pool = new Map<number, Employee>()
     for (const item of employees) pool.set(item.id, item)
     for (const item of remote) pool.set(item.id, item)
-    const people = [...pool.values()].filter((item) => !term || fold(item.full_name).includes(term))
+    const people = [...pool.values()].filter((item) => matchesEmployee(item, query))
     people.sort((left, right) => left.full_name.localeCompare(right.full_name, "pt-BR"))
     const rows = people.slice(0, 100).map((item) => ({ value: String(item.id), label: item.full_name }))
     if (!required && (!term || fold(emptyLabel).includes(term))) rows.unshift({ value: "", label: emptyLabel })

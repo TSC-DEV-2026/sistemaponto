@@ -19,7 +19,7 @@ import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } fr
 import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
-import { formatCpf, onlyDigits } from "@/utils/digits"
+import { formatCpf } from "@/utils/digits"
 import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 import { journeyDetail } from "@/pages/workforce/journey"
@@ -811,21 +811,22 @@ export function EmployeeList() {
         path="/employees"
         filters={(query) => {
           const text = query.trim()
-          if (!text) return {}
-          if (/[A-Za-zÀ-ÿ]/.test(text)) return { full_name: text }
-          const digits = onlyDigits(text)
-          return digits ? { cpf: digits } : { full_name: text }
+          return text ? { q: text } : {}
         }}
         newTo="/people/new"
         newLabel="Novo funcionário"
         viewTo={(id) => `/people/${id}`}
         editTo={(id) => `/people/${id}/edit`}
         nameOf={(item) => item.full_name}
-        detailOf={(item) => `${formatCpf(item.cpf)} · ${situationLabel[item.situation || ""] || "Sem situação"} · ${clockMethodLabel[item.clock_method] || item.clock_method} · ${showDate(item.admission_date)}`}
+        detailOf={(item) =>
+          [formatCpf(item.cpf), item.registration_number, situationLabel[item.situation || ""] || "Sem situação", clockMethodLabel[item.clock_method] || item.clock_method, showDate(item.admission_date)]
+            .filter((part) => part)
+            .join(" · ")
+        }
         empty="Nenhum funcionário."
         extra={extra}
         presentation="people"
-        searchPlaceholder="Pesquisar por nome ou CPF"
+        searchPlaceholder="Pesquisar por nome, CPF ou matrícula"
       />
     </div>
   )
