@@ -69,6 +69,12 @@ class EmployeeClassificationOut(BaseModel):
     value_name: str
 
 
+class EmployeeManagerOut(BaseModel):
+    vigency_id: int
+    reference_id: int | None
+    name: str
+
+
 class SectorCreate(NamedCreate):
     unit_id: int
 
@@ -273,6 +279,7 @@ class EmployeeOut(BaseModel):
     team_label: str | None
     union_label: str | None
     manager_label: str | None
+    managers: list[EmployeeManagerOut] = Field(default_factory=list)
     classifications: list[EmployeeClassificationOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
@@ -318,6 +325,7 @@ class VigencyCreate(BaseModel):
 
 class VigencyUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
+    end: bool = False
 
 
 class VigencyOut(BaseModel):

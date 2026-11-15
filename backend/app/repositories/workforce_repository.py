@@ -283,6 +283,57 @@ class WorkforceRepository:
             query = query.filter(EmployeeVigency.classification_id == classification_id)
         return query.one_or_none()
 
+    def open_manager(self, employee_id: int, reference_id: int) -> EmployeeVigency | None:
+        return (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.employee_id == employee_id,
+                EmployeeVigency.kind == "manager",
+                EmployeeVigency.reference_id == reference_id,
+                EmployeeVigency.valid_to.is_(None),
+            )
+            .order_by(EmployeeVigency.id.desc())
+            .first()
+        )
+
+    def managers_on(self, employee_ids: list[int], day: date) -> dict[int, list[EmployeeVigency]]:
+        if not employee_ids:
+            return {}
+        rows = (
+            self.db.query(EmployeeVigency)
+            .filter(
+                EmployeeVigency.employee_id.in_(employee_ids),
+                EmployeeVigency.kind == "manager",
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
+            .all()
+        )
+        chosen: dict[int, dict[int, EmployeeVigency]] = {}
+        for row in rows:
+            key = row.reference_id if row.reference_id is not None else -row.id
+            chosen.setdefault(row.employee_id, {})[key] = row
+        return {
+            employee_id: sorted(items.values(), key=lambda item: (item.label.casefold(), item.id))
+            for employee_id, items in chosen.items()
+        }
+
+    def employee_ids_managed_by(self, tenant_id: int, manager_id: int, day: date) -> list[int]:
+        rows = (
+            self.db.query(EmployeeVigency.employee_id)
+            .filter(
+                EmployeeVigency.tenant_id == tenant_id,
+                EmployeeVigency.kind == "manager",
+                EmployeeVigency.reference_id == manager_id,
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows]
+
     def classification_named(self, tenant_id: int, name: str):
         return (
             self.db.query(Classification)
@@ -370,6 +421,17 @@ class WorkforceRepository:
             .order_by(EmployeeVigency.valid_from.asc(), EmployeeVigency.id.asc())
             .all()
         )
+        if kind == "manager":
+            found = []
+            seen: set[int] = set()
+            for row in rows:
+                if reference_id is not None and row.reference_id != reference_id:
+                    continue
+                if row.employee_id in seen:
+                    continue
+                seen.add(row.employee_id)
+                found.append(row.employee_id)
+            return found
         chosen: dict[int, EmployeeVigency] = {}
         for row in rows:
             chosen[row.employee_id] = row

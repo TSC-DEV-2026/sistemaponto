@@ -299,17 +299,20 @@ class WorkforceService:
         return matched
 
     def employees_out(self, rows: list[Employee]) -> list[dict]:
-        labels = self.repo.labels_on([row.id for row in rows], self.today())
+        ids = [row.id for row in rows]
+        labels = self.repo.labels_on(ids, self.today())
         cards = self._cards_on(rows, self.today())
-        return [self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, [])) for row in rows]
+        managers = self.repo.managers_on(ids, self.today())
+        return [
+            self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, []), managers.get(row.id, []))
+            for row in rows
+        ]
 
     def get_employee(self, scope: Scope, employee_id: int) -> dict:
         self._known(scope)
         row = self._employee(scope, employee_id)
         self._visible(scope, row.id)
-        labels = self.repo.labels_on([row.id], self.today())
-        cards = self._cards_on([row], self.today())
-        return self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, []))
+        return self.employees_out([row])[0]
 
     def create_employee(self, scope: Scope, data: dict) -> dict:
         self._admin(scope)
@@ -333,9 +336,7 @@ class WorkforceService:
         self._plan_notice(scope)
         if vector is not None:
             self._write_embedding(scope, row.id, vector)
-        labels = self.repo.labels_on([row.id], self.today())
-        cards = self._cards_on([row], self.today())
-        return self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, []))
+        return self.employees_out([row])[0]
 
     def update_employee(self, scope: Scope, employee_id: int, data: dict) -> dict:
         self._admin(scope)
@@ -352,9 +353,7 @@ class WorkforceService:
         self.repo.add(row)
         if vector is not None:
             self._write_embedding(scope, row.id, vector)
-        labels = self.repo.labels_on([row.id], self.today())
-        cards = self._cards_on([row], self.today())
-        return self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, []))
+        return self.employees_out([row])[0]
 
     def delete_employee(self, scope: Scope, employee_id: int) -> None:
         self._admin(scope)
@@ -443,6 +442,8 @@ class WorkforceService:
         cycle_day: int | None = None,
         classification_id: int | None = None,
     ) -> EmployeeVigency:
+        if kind == "manager":
+            return self._add_manager(scope, employee_id, reference_id, label, valid_from, note)
         current = self.repo.open_vigency(employee_id, kind, classification_id)
         if current is not None and current.valid_from == valid_from:
             previous = current.label
@@ -474,6 +475,44 @@ class WorkforceService:
             )
         )
         self._audit(scope, employee_id, kind, row.id, current.label if current else None, label, valid_from)
+        return row
+
+    def _add_manager(
+        self,
+        scope: Scope,
+        employee_id: int,
+        reference_id: int | None,
+        label: str,
+        valid_from: date,
+        note: str | None,
+    ) -> EmployeeVigency:
+        if reference_id is None:
+            raise AppError(400, "Selecione o cadastro")
+        current = self.repo.open_manager(employee_id, reference_id)
+        if current is not None and current.valid_from == valid_from:
+            previous = current.label
+            current.label = label
+            current.note = note
+            self.repo.add(current)
+            self._audit(scope, employee_id, "manager", current.id, previous, label, valid_from)
+            return current
+        if current is not None:
+            raise AppError(409, "Esse gestor já está vigente")
+        row = self.repo.add(
+            EmployeeVigency(
+                tenant_id=scope.tenant_id,
+                employee_id=employee_id,
+                kind="manager",
+                reference_id=reference_id,
+                classification_id=None,
+                label=label,
+                valid_from=valid_from,
+                valid_to=None,
+                note=note,
+                cycle_day=None,
+            )
+        )
+        self._audit(scope, employee_id, "manager", row.id, None, label, valid_from)
         return row
 
     def change_employees(self, scope: Scope, data: dict) -> dict:
@@ -552,9 +591,14 @@ class WorkforceService:
             for extra_kind, _extra_id, _extra_label in extras:
                 self._assert_can_replace(scope, row, extra_kind, valid_from)
         for row in people:
-            self._replace_vigency(
-                scope, row.id, kind, reference_id, label, valid_from, note, cycle_day, classification_id
-            )
+            try:
+                self._replace_vigency(
+                    scope, row.id, kind, reference_id, label, valid_from, note, cycle_day, classification_id
+                )
+            except AppError as error:
+                if kind == "manager":
+                    raise AppError(error.status_code, f"{row.full_name}: {error.message}") from None
+                raise
             for extra_kind, extra_id, extra_label in extras:
                 self._replace_vigency(scope, row.id, extra_kind, extra_id, extra_label, valid_from, note)
         return {"changed": len(people)}
@@ -562,6 +606,8 @@ class WorkforceService:
     def _assert_can_replace(
         self, scope: Scope, employee: Employee, kind: str, valid_from: date, classification_id: int | None = None
     ) -> None:
+        if kind == "manager":
+            return
         current = self.repo.open_vigency(employee.id, kind, classification_id)
         if current is None or current.valid_from == valid_from:
             return
@@ -575,10 +621,30 @@ class WorkforceService:
     def update_vigency(self, scope: Scope, row_id: int, data: dict) -> EmployeeVigency:
         self._admin(scope)
         row = self._row(EmployeeVigency, scope, row_id)
+        if data.get("end"):
+            return self._end_manager(scope, row)
         self._assert_open(scope.tenant_id, row.valid_from)
         if "note" in data:
             row.note = self._note(data.get("note"))
             self.repo.add(row)
+        return row
+
+    def _end_manager(self, scope: Scope, row: EmployeeVigency) -> EmployeeVigency:
+        if row.kind != "manager":
+            raise AppError(400, "Só o gestor pode ser encerrado por aqui")
+        if row.valid_to is not None:
+            raise AppError(409, "Esse gestor já foi encerrado")
+        if row.valid_from > self.today():
+            end = row.valid_from - timedelta(days=1)
+        else:
+            self._assert_open(scope.tenant_id, self.today())
+            end = self.today() - timedelta(days=1)
+            if end < row.valid_from:
+                end = row.valid_from - timedelta(days=1)
+        previous = row.label
+        row.valid_to = end
+        self.repo.add(row)
+        self._audit(scope, row.employee_id, "manager", row.id, previous, None, self.today())
         return row
 
     def delete_vigency(self, scope: Scope, row_id: int) -> None:
@@ -2656,7 +2722,7 @@ class WorkforceService:
             payload["clock_method"] = method
         return payload
 
-    def _employee_out(self, row: Employee, labels: dict, cards: list | None = None) -> dict:
+    def _employee_out(self, row: Employee, labels: dict, cards: list | None = None, managers: list | None = None) -> dict:
         body = {
             "id": row.id,
             "full_name": row.full_name,
@@ -2672,8 +2738,16 @@ class WorkforceService:
             "face_url": self._photo_url(row.face_key),
         }
         for kind, field in KIND_FIELD.items():
+            if kind == "manager":
+                continue
             item = labels.get(kind)
             body[field] = item.label if item is not None else None
+        current_managers = list(managers or [])
+        body["managers"] = [
+            {"vigency_id": item.id, "reference_id": item.reference_id, "name": item.label}
+            for item in current_managers
+        ]
+        body["manager_label"] = ", ".join(item.label for item in current_managers) or None
         chosen = cards or []
         body["classifications"] = chosen
         cost = next((item for item in chosen if item["name"] == COST_CENTER_CLASSIFICATION), None)
@@ -3179,12 +3253,16 @@ class WorkforceService:
         )
         own = own_rows[0].id if own_rows else None
         if scope.role == "manager" and own is not None:
+            ids: list[int] = []
             team = self.repo.applicable(own, "team", self.today())
             if team is not None and team.reference_id is not None:
                 ids = self.repo.employee_ids_for_team(scope.tenant_id, team.reference_id, self.today())
-                if own not in ids:
-                    ids.append(own)
-                return ids
+            for employee_id in self.repo.employee_ids_managed_by(scope.tenant_id, own, self.today()):
+                if employee_id not in ids:
+                    ids.append(employee_id)
+            if own not in ids:
+                ids.append(own)
+            return ids
         return [own] if own is not None else []
 
     def _visible(self, scope: Scope, employee_id: int) -> None:
@@ -3657,12 +3735,19 @@ class WorkforceService:
     def _reviewer_ids(self, scope: Scope, employee: Employee) -> list[int]:
         found = self._admin_ids(scope)
         team = self.repo.applicable(employee.id, "team", self.today())
-        if team is None or team.reference_id is None:
-            return found
-        member_ids = set(self.repo.employee_ids_for_team(scope.tenant_id, team.reference_id, self.today()))
+        member_ids: set[int] = set()
+        if team is not None and team.reference_id is not None:
+            member_ids = set(self.repo.employee_ids_for_team(scope.tenant_id, team.reference_id, self.today()))
+        named = {
+            item.reference_id
+            for item in self.repo.managers_on([employee.id], self.today()).get(employee.id, [])
+            if item.reference_id is not None
+        }
         for manager in self.repo.role_memberships(scope.tenant_id, "manager"):
             row = self.repo.employee_by_person(scope.tenant_id, manager.person_id)
-            if row is not None and row.id in member_ids and manager.person_id not in found:
+            if row is None or manager.person_id in found:
+                continue
+            if row.id in member_ids or row.id in named:
                 found.append(manager.person_id)
         return found
 

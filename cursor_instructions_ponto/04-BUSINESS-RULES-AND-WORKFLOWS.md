@@ -94,7 +94,7 @@ A marcação que deixa de valer não é apagada.
 
 A correção manual feita pelo administrador segue a mesma regra. A origem fica explícita: solicitação ou manual.
 
-Uma aprovação basta. Quem aprova é o gestor da equipe ou o administrador. O pedido não sobe para outra pessoa. Se o gestor está ausente, ninguém substitui por enquanto.
+Uma aprovação basta. Quem aprova é o gestor da equipe, um gestor vigente daquele funcionário, ou o administrador. O pedido não sobe para outra pessoa. Se o gestor está ausente, ninguém substitui por enquanto.
 
 ---
 
@@ -146,11 +146,11 @@ com:
 Atestado validado/efetivado
 ```
 
-Somente após aprovação do gestor da equipe ou do administrador o atestado produz efeito.
+Somente após aprovação do gestor da equipe, de um gestor vigente daquele funcionário, ou do administrador o atestado produz efeito.
 
 Antes de aceitar, o sistema confere se já existem marcações no período. O atestado entra mesmo assim. Se houver conflito, o ponto mostra o aviso "período abonado conflita com registro de ponto".
 
-O documento fica visível para o solicitante, para o gestor da equipe e para o administrador.
+O documento fica visível para o solicitante, para o gestor da equipe, para um gestor vigente daquele funcionário e para o administrador.
 
 O gestor e o administrador também podem lançar o atestado manualmente no ponto. A origem fica explícita: solicitação ou manual.
 
@@ -158,7 +158,7 @@ O gestor e o administrador também podem lançar o atestado manualmente no ponto
 
 ## 5. Afastamento e férias
 
-Afastamento e férias podem ser solicitados pelo funcionário e aceitos pelo gestor da equipe ou pelo administrador.
+Afastamento e férias podem ser solicitados pelo funcionário e aceitos pelo gestor da equipe, por um gestor vigente daquele funcionário, ou pelo administrador.
 
 O gestor e o administrador também podem lançar os dois manualmente no ponto. A origem fica explícita: solicitação ou manual.
 
@@ -362,7 +362,7 @@ Permissão deve considerar:
 - domínio;
 - escopo.
 
-Quem aprova solicitação de ajuste, abono, atestado, afastamento e férias é o gestor da equipe ou o administrador. Uma aprovação basta. O pedido não sobe e, por enquanto, ninguém substitui o gestor ausente. O gestor decide a própria equipe e não decide a própria solicitação. O administrador pode decidir em qualquer equipe.
+Quem aprova solicitação de ajuste, abono, atestado, afastamento e férias é o gestor da equipe, um gestor vigente daquele funcionário, ou o administrador. Uma aprovação basta. O pedido não sobe e, por enquanto, ninguém substitui o gestor ausente. O gestor decide a própria equipe e os funcionários em que está vigente como gestor, e não decide a própria solicitação. O administrador pode decidir em qualquer equipe.
 
 O administrador corrige marcação manualmente, com a mesma regra do ajuste aprovado. O gestor e o administrador lançam manualmente abono, atestado, afastamento e férias. A origem fica explícita: solicitação ou manual.
 

@@ -43,6 +43,8 @@ Considerar histórico/vigência para:
 - situação do funcionário;
 - outras informações com efeito temporal.
 
+O gestor pode ter mais de uma vigência aberta ao mesmo tempo, uma para cada pessoa. Incluir outro gestor não encerra os que já valem. Encerrar um deixa os demais no histórico. Os outros vínculos continuam com uma vigência aberta por vez.
+
 ---
 
 ## 4. Jornada
