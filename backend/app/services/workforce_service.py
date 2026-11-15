@@ -262,6 +262,7 @@ class WorkforceService:
                 filters["full_name"] = name
             else:
                 filters.pop("full_name")
+        search = str(filters.pop("q", "") or "").strip() or None
         ids = self._visible_ids(scope)
         matched = self._vigency_matches(scope, filters)
         if matched is not None:
@@ -272,7 +273,7 @@ class WorkforceService:
             )[0]
             if not own or own[0].id not in ids:
                 return [], 0
-        return self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=limit, equals=filters)
+        return self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=limit, equals=filters, search=search)
 
     def _vigency_matches(self, scope: Scope, filters: dict, day: date | None = None) -> set[int] | None:
         day = day or self.today()

@@ -7,7 +7,7 @@ import pytest
 
 from app.core.config import settings
 from app.core.exceptions import AppError
-from app.repositories.workforce_repository import contains_pattern, filter_matches
+from app.repositories.workforce_repository import contains_pattern, employee_search_matches, filter_matches
 from app.core.workforce import previous_end
 from app.models.membership import Membership
 from app.models.workforce import (
@@ -165,15 +165,18 @@ class Memory:
                 total += 1
         return total
 
-    def list_employees(self, tenant_id: int, *, ids, page: int, limit: int, equals: dict):
+    def list_employees(self, tenant_id: int, *, ids, page: int, limit: int, equals: dict, search: str | None = None):
         if ids is not None and len(ids) == 0:
             return [], 0
         found = []
         for row in self._of(Employee, tenant_id):
             if ids is not None and row.id not in ids:
                 continue
-            if all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
-                found.append(row)
+            if not all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
+                continue
+            if search and not employee_search_matches(row.full_name, row.cpf, row.registration_number, search):
+                continue
+            found.append(row)
         found.sort(key=lambda item: item.id)
         total = len(found)
         start = (page - 1) * limit
@@ -2576,6 +2579,29 @@ def test_listagem_filtra_o_nome_pelo_trecho_e_o_cpf_em_paginas_de_vinte():
     with pytest.raises(AppError) as bad_cpf:
         workforce.list_employees(admin(), 1, 20, {"cpf": "222"})
     assert bad_cpf.value.message == "CPF inválido"
+
+
+def test_busca_de_funcionario_encontra_matricula_nome_e_cpf():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), {**employee_payload("22222222222", 7), "full_name": "Ana Lima"})
+    workforce.update_employee(admin(), first["id"], {"registration_number": "A1"})
+    second = workforce.create_employee(admin(), {**employee_payload("33333333333", None), "full_name": "Bruno Souza"})
+    workforce.update_employee(admin(), second["id"], {"registration_number": "1042"})
+    by_registration, registration_total = workforce.list_employees(admin(), 1, 20, {"q": "a1"})
+    assert registration_total == 1
+    assert by_registration[0].id == first["id"]
+    by_number, number_total = workforce.list_employees(admin(), 1, 20, {"q": "1042"})
+    assert number_total == 1
+    assert by_number[0].id == second["id"]
+    by_cpf, cpf_total = workforce.list_employees(admin(), 1, 20, {"q": "333"})
+    assert cpf_total == 1
+    assert by_cpf[0].id == second["id"]
+    formatted, formatted_total = workforce.list_employees(admin(), 1, 20, {"q": "222.222.222-22"})
+    assert formatted_total == 1
+    assert formatted[0].id == first["id"]
+    by_name, name_total = workforce.list_employees(admin(), 1, 20, {"q": "lima"})
+    assert name_total == 1
+    assert by_name[0].id == first["id"]
 
 
 def _ficha(cpf: str, email: str | None) -> dict:

@@ -73,11 +73,15 @@ export function SiteSelect({
     const pool = new Map<string, { value: string; label: string }>()
     for (const item of options) pool.set(item.value || "vazio", item)
     for (const item of remote) pool.set(item.value || "vazio", item)
-    const rows = [...pool.values()].filter((item) => !term || fold(item.label).includes(term))
+    const rows = [...pool.values()].filter((item) => {
+      if (!term) return true
+      if (fold(item.label).includes(term)) return true
+      return searchPath === "/employees" && remote.some((row) => row.value === item.value)
+    })
     const blank = rows.filter((item) => item.value === "")
     const named = rows.filter((item) => item.value !== "").sort((left, right) => left.label.localeCompare(right.label, "pt-BR"))
     return [...blank, ...named].slice(0, 100)
-  }, [searchable, options, remote, query])
+  }, [searchable, options, remote, query, searchPath])
   const selectedIndex = visible.findIndex((item) => item.value === value)
   const selected = options.find((item) => item.value === value) || remote.find((item) => item.value === value)
   const selectedLabel = selected?.label || (value ? labels.current.get(value) || resolved : "") || placeholder
@@ -120,7 +124,7 @@ export function SiteSelect({
     setSearching(true)
     const timer = window.setTimeout(() => {
       const parsed = JSON.parse(extra) as Record<string, string | number | boolean | undefined> | null
-      const params = { page: 1, limit: 100, [searchKey]: term, ...(parsed ?? {}) }
+      const params = searchPath === "/employees" ? { page: 1, limit: 100, q: term, ...(parsed ?? {}) } : { page: 1, limit: 100, [searchKey]: term, ...(parsed ?? {}) }
       listRecords<{ id: number; name?: string; full_name?: string }>(searchPath, params)
         .then((page) => {
           if (current !== request.current) return
