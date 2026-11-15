@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Ban, Briefcase, Building2, Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Tags, Trash2, Users, type LucideIcon } from "lucide-react"
+import { Ban, Briefcase, Building2, Calendar, CalendarClock, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Landmark, Network, Pencil, Plus, QrCode, Save, ScrollText, Search, Tags, Trash2, Users, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { authInputClass } from "@/components/auth-screen"
@@ -898,7 +898,7 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       searchTitle={organizationCopy[catalog]?.title}
       searchLead={organizationCopy[catalog]?.lead}
       searchPlaceholder={presentation === "organization" ? "Buscar por nome..." : "Pesquisar"}
-      mark={organizationCopy[catalog]?.mark ?? (catalog === "classifications" ? Tags : catalog === "jobs" ? Briefcase : undefined)}
+      mark={organizationCopy[catalog]?.mark ?? (catalog === "classifications" ? Tags : catalog === "jobs" ? Briefcase : catalog === "journeys" ? CalendarClock : undefined)}
     />
   )
 }

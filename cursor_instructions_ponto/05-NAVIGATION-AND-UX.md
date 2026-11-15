@@ -8,14 +8,13 @@ A sidebar aprovada conceitualmente é:
 📊 Dashboard
 
 OPERAÇÃO
-├── ⏰ Jornada e Ponto
-├── 📱 Registro de Ponto
+├── ⏰ Ponto
+├── 📱 Registro (oculto para o administrador da conta)
 ├── 📝 Ajustes e Ocorrências
-├── 📥 Solicitações
-└── 🔒 Fechamento do Ponto
+└── 📥 Solicitações
 
 GESTÃO
-├── 👥 Pessoas
+├── 👥 Quadro
 ├── 📊 Relatórios
 └── 🔔 Notificações
 
@@ -47,7 +46,7 @@ Princípio:
 Exemplo correto:
 
 ```text
-Pessoas
+Quadro
   ↓
 Funcionários
   ↓
@@ -71,7 +70,7 @@ Histórico
 
 ## 3. Fechamento
 
-`Fechamento do Ponto` deve abrir uma visão consolidada de períodos.
+Fechamento é uma aba de Ponto, à direita de Banco de horas, com o nome Fechamento. A aba abre a visão consolidada de períodos.
 
 Não criar necessariamente:
 

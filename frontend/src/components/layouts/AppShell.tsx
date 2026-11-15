@@ -12,6 +12,7 @@ function isActive(pathname: string, to: string) {
   if (to === "/") {
     return pathname === "/"
   }
+  if (to === "/schedules" && (pathname === "/closings" || pathname.startsWith("/closings/"))) return true
   return pathname === to || pathname.startsWith(`${to}/`)
 }
 
@@ -158,6 +159,7 @@ export function AppShell() {
             {navGroups.map((group) => {
               const items = group.items.filter((item) => {
                 if (item.adminOnly && user?.role !== "admin") return false
+                if (item.hideFromAdmin && user?.role === "admin") return false
                 if (item.staffOnly && user?.role !== "admin" && user?.role !== "manager") return false
                 return true
               })

@@ -19,7 +19,7 @@ import {
   type HourBankEntry,
 } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { hourBankEffectLabel, hourBankKindLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+import { hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
 
 export function BankBalance({ balance }: { balance: HourBank }) {
   const stats = [
@@ -74,7 +74,7 @@ export function HourBankPanel({
   const [balance, setBalance] = useState<HourBank | null>(null)
   const [entryKind, setEntryKind] = useState("")
   const [saved, setSaved] = useState(0)
-  const [kind, setKind] = useState("settlement")
+  const [kind, setKind] = useState("credit")
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
@@ -144,7 +144,7 @@ export function HourBankPanel({
             id="bank-entry-kind"
             value={entryKind}
             icon={Layers}
-            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))]}
+            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankLaunchLabel).map(([value, label]) => ({ value, label }))]}
             onChange={setEntryKind}
           />
         </div>
@@ -195,7 +195,7 @@ export function HourBankPanel({
     <section className="space-y-3">
       <h2 className="text-sm font-medium">Banco de horas</h2>
       <p className="text-sm text-muted-foreground">
-        O saldo é contínuo e não tem limite. O prazo é de 6 meses e, neste corte, só avisa quando vai expirar. Saldo positivo quitado sai como hora extra. Saldo negativo quitado desconta como falta.
+        O saldo é contínuo e não tem limite. O prazo é de 6 meses e, neste corte, só avisa quando vai expirar. O lançamento é crédito ou débito.
       </p>
       {employees ? (
         <div className="space-y-2">
@@ -219,7 +219,7 @@ export function HourBankPanel({
           <div className="space-y-2">
             <Label htmlFor="bank-kind">Lançamento</Label>
             <select id="bank-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
-              {Object.entries(hourBankKindLabel).map(([value, label]) => (
+              {Object.entries(hourBankLaunchLabel).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -230,11 +230,6 @@ export function HourBankPanel({
             <Label htmlFor="bank-minutes">Minutos</Label>
             <Input id="bank-minutes" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} required />
           </div>
-          {kind === "settlement" && balance && balance.balance_minutes !== 0 ? (
-            <Button type="button" variant="outline" onClick={() => setMinutes(String(Math.abs(balance.balance_minutes)))}>
-              Quitar o saldo inteiro
-            </Button>
-          ) : null}
           <div className="space-y-2">
             <Label htmlFor="bank-day">Data</Label>
             <input id="bank-day" className={fieldClass} type="date" value={entryOn} onChange={(event) => setEntryOn(event.target.value)} required />

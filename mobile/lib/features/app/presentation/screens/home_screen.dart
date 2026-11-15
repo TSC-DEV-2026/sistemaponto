@@ -498,7 +498,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         if ('${bank['warning'] ?? ''}'.isNotEmpty) Text('${bank['warning']}'),
         const Text(
-          'O adicional noturno fica separado do saldo. A quitação é feita na gestão.',
+          'O adicional noturno fica separado do saldo.',
         ),
       ],
     );

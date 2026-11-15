@@ -1760,19 +1760,14 @@ class WorkforceService:
         if not employee.hour_bank:
             raise AppError(409, "Este funcionário não usa banco de horas")
         kind = data["kind"]
+        if kind == "settlement":
+            raise AppError(400, "A quitação não está disponível")
         minutes = int(data["minutes"])
         entry_on = data.get("entry_on") or self.today()
         if entry_on > self.today():
             raise AppError(400, "A data não pode ser futura")
         self._assert_open(scope.tenant_id, entry_on)
         effect = None
-        if kind == "settlement":
-            balance = self._project_hour_bank(scope, employee)["balance_minutes"]
-            if balance == 0:
-                raise AppError(400, "Não há saldo para quitar")
-            if minutes > abs(balance):
-                raise AppError(400, "A quitação passa do saldo")
-            effect = "overtime" if balance > 0 else "absence"
         row = self.repo.add(
             HourBankEntry(
                 tenant_id=scope.tenant_id,

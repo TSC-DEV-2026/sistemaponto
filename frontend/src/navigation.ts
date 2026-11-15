@@ -8,7 +8,6 @@ import {
   FileSpreadsheet,
   Inbox,
   LayoutDashboard,
-  Lock,
   ScrollText,
   Shield,
   MonitorSmartphone,
@@ -31,6 +30,7 @@ export type NavItem = {
   sections: DomainSection[]
   adminOnly?: boolean
   staffOnly?: boolean
+  hideFromAdmin?: boolean
 }
 
 export type NavGroup = {
@@ -50,19 +50,20 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         to: "/schedules",
-        label: "Jornada e Ponto",
+        label: "Ponto",
         icon: Clock,
-        lead: "Jornada é o previsto. Apuração é o resultado do período.",
+        lead: "Apuração do período, banco de horas e fechamento.",
         sections: [
-          { title: "Jornadas", text: "Nenhuma jornada cadastrada." },
-          { title: "Apuração", text: "Resultado do período." },
+          { title: "Apurações", text: "Resultado do período." },
           { title: "Banco de horas", text: "Saldo contínuo." },
+          { title: "Fechamento", text: "Nenhum fechamento." },
         ],
       },
       {
         to: "/time-clock",
-        label: "Registro de Ponto",
+        label: "Registro",
         icon: Smartphone,
+        hideFromAdmin: true,
         lead: "Modalidades do registro feito pelo funcionário no app.",
         sections: [
           { title: "Registro Simples", text: "Botão do funcionário." },
@@ -96,13 +97,6 @@ export const navGroups: NavGroup[] = [
           { title: "Canceladas", text: "0" },
         ],
       },
-      {
-        to: "/closings",
-        label: "Fechamento do Ponto",
-        icon: Lock,
-        lead: "Períodos já abertos neste sistema.",
-        sections: [{ title: "Períodos", text: "Nenhum fechamento." }],
-      },
     ],
   },
   {
@@ -110,12 +104,13 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         to: "/people",
-        label: "Pessoas",
+        label: "Quadro",
         icon: Users,
-        lead: "Funcionários, funções e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
+        lead: "Funcionários, funções, jornadas e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
         sections: [
           { title: "Funcionários", text: "Nenhum funcionário." },
           { title: "Funções", text: "Nenhuma função." },
+          { title: "Jornadas", text: "Nenhuma jornada cadastrada." },
           { title: "Grupos", text: "Nenhum grupo." },
         ],
       },

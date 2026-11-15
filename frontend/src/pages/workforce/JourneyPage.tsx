@@ -1,6 +1,6 @@
 import { FormEvent, useContext, useEffect, useState } from "react"
 import { Clock, Layers, Plus } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { DatePickerField } from "@/components/ui/date-picker-field"
@@ -13,24 +13,27 @@ import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { cn } from "@/utils/cn"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
-import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { BankBalance } from "@/components/workforce/HourBankPanel"
 import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
-import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
+import { DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
+import { ClosingsPage } from "@/pages/workforce/OperationsPages"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
-import { hourBankEffectLabel, hourBankKindLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
+import { hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
+  const [params] = useSearchParams()
+  if (params.get("aba") === "jornadas") return <Navigate to="/people?aba=jornadas" replace />
   return (
     <DomainTabs
       module
-      title="Jornada e Ponto"
+      title="Ponto"
       tabs={[
-        { id: "jornadas", label: "Jornadas", panel: <CatalogList catalog="journeys" presentation="journey" /> },
-        { id: "apuracao", label: "Apuração", panel: <ResultsSchedule /> },
+        { id: "apuracao", label: "Apurações", panel: <ResultsSchedule /> },
         { id: "banco", label: "Banco de horas", panel: <BankScheduleList /> },
+        { id: "fechamento", label: "Fechamento", panel: <ClosingsPage /> },
       ]}
     />
   )
@@ -165,7 +168,7 @@ function BankScheduleList() {
             id="bank-schedule-kind"
             value={kind}
             icon={Layers}
-            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankKindLabel).map(([optionValue, label]) => ({ value: optionValue, label }))]}
+            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankLaunchLabel).map(([optionValue, label]) => ({ value: optionValue, label }))]}
             onChange={setKind}
           />
         </div>
@@ -260,8 +263,7 @@ export function HourBankEntryPage() {
   const canLaunch = role === "admin" || role === "manager"
   const [employees, setEmployees] = useState<Employee[]>([])
   const [employeeId, setEmployeeId] = useState("")
-  const [balance, setBalance] = useState<HourBank | null>(null)
-  const [kind, setKind] = useState("settlement")
+  const [kind, setKind] = useState("credit")
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
@@ -285,24 +287,6 @@ export function HourBankEntryPage() {
       active = false
     }
   }, [tenantId])
-
-  useEffect(() => {
-    if (!employeeId) {
-      setBalance(null)
-      return
-    }
-    let active = true
-    getHourBank(Number(employeeId))
-      .then((row) => {
-        if (active) setBalance(row)
-      })
-      .catch(() => {
-        if (active) setBalance(null)
-      })
-    return () => {
-      active = false
-    }
-  }, [employeeId])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -328,7 +312,7 @@ export function HourBankEntryPage() {
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Novo lançamento</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Registre uma quitação, um crédito ou um débito.</p>
+          <p className="mt-1 text-sm text-[#64748B]">Registre um crédito ou um débito.</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-employee">
@@ -340,7 +324,7 @@ export function HourBankEntryPage() {
           <Label className={moduleLabelClass} htmlFor="entry-kind">
             Lançamento
           </Label>
-          <SiteSelect id="entry-kind" value={kind} options={Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))} onChange={setKind} />
+          <SiteSelect id="entry-kind" value={kind} options={Object.entries(hourBankLaunchLabel).map(([value, label]) => ({ value, label }))} onChange={setKind} />
         </div>
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="min-w-0 space-y-2">
@@ -351,11 +335,6 @@ export function HourBankEntryPage() {
           </div>
           <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required />
         </div>
-        {kind === "settlement" && balance && balance.balance_minutes !== 0 ? (
-          <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setMinutes(String(Math.abs(balance.balance_minutes)))}>
-            Quitar o saldo inteiro
-          </Button>
-        ) : null}
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-note">
             Observação
