@@ -404,7 +404,7 @@ export function EmployeeFormPage() {
       } else {
         await updateRecord<Employee>("/employees", id, body)
       }
-      navigate("/staff")
+      navigate("/staff?tab=employees")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
     }
@@ -418,7 +418,7 @@ export function EmployeeFormPage() {
   return (
     <div className="w-full min-w-0 space-y-5">
       <div className="w-full">
-        <BackLink to={id === null ? "/staff" : `/staff/${id}`} appearance="detail" />
+        <BackLink to={id === null ? "/staff?tab=employees" : `/staff/${id}`} appearance="detail" />
       </div>
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       {id !== null ? (

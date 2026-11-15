@@ -440,7 +440,7 @@ export function EmployeePage() {
     setError("")
     try {
       await removeRecord("/employees", id)
-      navigate("/staff")
+      navigate("/staff?tab=employees")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
     }
@@ -452,7 +452,7 @@ export function EmployeePage() {
   if (!employee) {
     return (
       <div className={fichaFrameClass}>
-        <BackLink to="/staff" appearance="detail" />
+        <BackLink to="/staff?tab=employees" appearance="detail" />
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : (
@@ -477,7 +477,7 @@ export function EmployeePage() {
   return (
     <div className={fichaFrameClass}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <BackLink to="/staff" appearance="detail" />
+        <BackLink to="/staff?tab=employees" appearance="detail" />
         {isAdmin ? (
           confirmDelete ? (
             <div className="flex flex-wrap items-center justify-end gap-2">

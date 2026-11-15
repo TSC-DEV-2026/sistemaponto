@@ -229,19 +229,15 @@ export function DomainTabs({
   const requested = canonicalTab(params.get("tab") || params.get("aba"))
   const current = tabs.some((tab) => tab.id === requested) ? requested : tabs[0].id
   const selected = tabs.find((tab) => tab.id === current) ?? tabs[0]
-  const tabIds = tabs.map((tab) => tab.id).join("\0")
 
   useEffect(() => {
-    const first = tabIds.split("\0")[0]
-    const wanted = current === first ? null : current
-    const aligned = !params.has("aba") && (wanted ? params.get("tab") === wanted : !params.has("tab"))
+    const aligned = !params.has("aba") && params.get("tab") === current
     if (aligned) return
     const next = new URLSearchParams(params)
     next.delete("aba")
-    if (wanted) next.set("tab", wanted)
-    else next.delete("tab")
+    next.set("tab", current)
     setParams(next, { replace: true })
-  }, [current, params, setParams, tabIds])
+  }, [current, params, setParams])
 
   return (
     <TabAction.Provider value={setAction}>
@@ -261,13 +257,13 @@ export function DomainTabs({
                     "relative z-10 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none",
                     tab.id === current ? "text-brand-cta" : "text-zinc-600 hover:text-zinc-900",
                   )}
-                  onClick={() => setParams(tab.id === tabs[0].id ? {} : { tab: tab.id })}
+                  onClick={() => setParams({ tab: tab.id })}
                 >
                   {tab.icon ? <tab.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : null}
                   {tab.label}
                 </button>
               ) : (
-                <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams(tab.id === tabs[0].id ? {} : { tab: tab.id })}>
+                <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams({ tab: tab.id })}>
                   {tab.label}
                 </Button>
               ),

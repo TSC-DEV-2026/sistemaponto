@@ -32,8 +32,8 @@ const occurrenceIcon = {
 } as const
 
 function tabPath(kind: string) {
-  const first = occurrenceKinds[0]?.[0]
-  return !kind || kind === first ? "/occurrences" : `/occurrences?tab=${kind}`
+  const tab = kind || occurrenceKinds[0][0]
+  return `/occurrences?tab=${tab}`
 }
 
 function canLaunchKind(role: string | null | undefined, kind: string) {
@@ -301,7 +301,7 @@ export function OccurrenceEntryPage() {
 
   useEffect(() => {
     if (!role) return
-    if (!known || !canLaunch) navigate(known ? tabPath(kind) : "/occurrences", { replace: true })
+    if (!known || !canLaunch) navigate(tabPath(known ? kind : ""), { replace: true })
   }, [role, known, canLaunch, kind, navigate])
 
   useEffect(() => {

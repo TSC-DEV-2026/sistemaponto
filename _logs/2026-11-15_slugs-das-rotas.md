@@ -50,6 +50,7 @@
 
 - O texto visível permanece em português. Só o endereço muda.
 - `staff` nomeia o quadro. `timekeeping` nomeia o ponto.
+- A primeira aba também fica no endereço, como `/timekeeping?tab=calculation` e `/organization?tab=units`.
 - A API não foi renomeada: os caminhos já descrevem o recurso e o aplicativo depende deles.
 
 ## 🐛 Problemas encontrados e soluções

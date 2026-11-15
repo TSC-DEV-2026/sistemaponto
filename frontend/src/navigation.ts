@@ -44,7 +44,7 @@ export const navGroups: NavGroup[] = [
     label: "Operação",
     items: [
       {
-        to: "/timekeeping",
+        to: "/timekeeping?tab=calculation",
         label: "Ponto",
         icon: conceptIcon.point,
         lead: "Apuração do período, banco de horas e fechamento.",
@@ -67,7 +67,7 @@ export const navGroups: NavGroup[] = [
         ],
       },
       {
-        to: "/occurrences",
+        to: "/occurrences?tab=allowance",
         label: "Ocorrências",
         icon: conceptIcon.occurrence,
         lead: "Abono, atestado, falta, afastamento e férias. Motivo padronizado quando houver catálogo.",
@@ -98,7 +98,7 @@ export const navGroups: NavGroup[] = [
     label: "Gestão",
     items: [
       {
-        to: "/staff",
+        to: "/staff?tab=employees",
         label: "Quadro",
         icon: conceptIcon.quadro,
         lead: "Funcionários, funções, jornadas e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
@@ -152,7 +152,7 @@ export const navGroups: NavGroup[] = [
     label: "Organização",
     items: [
       {
-        to: "/organization",
+        to: "/organization?tab=units",
         label: "Estrutura Organizacional",
         icon: conceptIcon.structure,
         lead: "Empresas, setores e equipes. Mudança relevante preserva vigência.",
@@ -163,7 +163,7 @@ export const navGroups: NavGroup[] = [
         ],
       },
       {
-        to: "/labor-rules",
+        to: "/labor-rules?tab=unions",
         label: "Regras Trabalhistas",
         icon: ScrollText,
         lead: "Sindicatos, convenções, feriados e regras de ponto.",
@@ -180,7 +180,7 @@ export const navGroups: NavGroup[] = [
     label: "Integrações",
     items: [
       {
-        to: "/payroll",
+        to: "/payroll?tab=afd",
         label: "Fiscal / Folha",
         icon: FileSpreadsheet,
         staffOnly: true,
@@ -197,7 +197,7 @@ export const navGroups: NavGroup[] = [
     label: "Administração",
     items: [
       {
-        to: "/reasons",
+        to: "/reasons?tab=allowances",
         label: "Motivos",
         icon: StickyNote,
         lead: "Catálogo da organização. A observação complementar continua possível.",
@@ -217,7 +217,7 @@ export const navGroups: NavGroup[] = [
         sections: [],
       },
       {
-        to: "/plan",
+        to: "/plan?tab=subscriptions",
         label: "Plano e Assinatura",
         icon: conceptIcon.plan,
         adminOnly: true,
