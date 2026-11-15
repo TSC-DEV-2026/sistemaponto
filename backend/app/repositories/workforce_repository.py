@@ -733,6 +733,9 @@ class WorkforceRepository:
             is not None
         )
 
+    def delete_closing_entries(self, closing_id: int) -> None:
+        self.db.query(HourBankEntry).filter(HourBankEntry.closing_id == closing_id).delete(synchronize_session=False)
+
     def delete_pins_for_closing(self, closing_id: int) -> None:
         self.db.query(ClosingJourneyPin).filter(ClosingJourneyPin.closing_id == closing_id).delete(
             synchronize_session=False

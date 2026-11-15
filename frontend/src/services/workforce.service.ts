@@ -166,6 +166,57 @@ export type ClosingEvent = {
   created_at: string
 }
 
+export type ClosingBankEntry = {
+  id: number
+  kind: string
+  effect: string | null
+  minutes: number
+  note: string | null
+  entry_on: string
+}
+
+export type ClosingBank = {
+  employee_id: number
+  full_name: string
+  registration_number: string | null
+  balance_minutes: number
+  entries: ClosingBankEntry[]
+}
+
+export type ClosingDay = {
+  work_date: string
+  punches: string[]
+  expected_minutes: number
+  worked_minutes: number
+  overtime_minutes: number
+  shortage_minutes: number
+  delay_minutes: number
+  early_leave_minutes: number
+  night_additional_minutes: number
+  bank_minutes: number
+  absence: boolean
+}
+
+export type ClosingPerson = {
+  employee_id: number
+  full_name: string
+  cpf: string
+  registration_number: string | null
+  unit_name: string | null
+  hour_bank: boolean
+  expected_minutes: number
+  worked_minutes: number
+  overtime_minutes: number
+  night_additional_minutes: number
+  shortage_minutes: number
+  delay_minutes: number
+  early_leave_minutes: number
+  absence_days: number
+  bank_minutes: number
+  balance_minutes: number | null
+  days?: ClosingDay[]
+}
+
 export type Closing = {
   id: number
   year: number
@@ -177,6 +228,8 @@ export type Closing = {
   closed_at: string | null
   closed_by_person_id: number | null
   events: ClosingEvent[]
+  people?: ClosingPerson[]
+  banks?: ClosingBank[]
 }
 
 export type Notice = {
@@ -390,6 +443,10 @@ export function listRecords<T>(path: string, params?: Record<string, string | nu
 
 export function getRecord<T>(path: string, id: number) {
   return read<T>(() => api.get<ApiResponse<T>>(`${path}/${id}`))
+}
+
+export function launchClosingBank(id: number, body: { employee_id: number; kind: "credit" | "debit" | "settlement"; minutes?: number }) {
+  return write<Closing>(() => api.post<ApiResponse<Closing>>(`/closings/${id}/bank`, body))
 }
 
 export function uploadCertificatePhoto(file: File) {
