@@ -10,7 +10,7 @@
 - O novo fechamento ganhou os filtros de empresa, setor, equipe, função, jornada e sindicato, no mesmo formato dos relatórios.
 - A lista mostra quem combina com o período e os filtros. Dá para marcar ou tirar cada pessoa. Só as marcadas entram no fechamento e têm os dias bloqueados.
 - O banco do fechamento deixou de repetir um formulário por pessoa. A pessoa é escolhida uma vez, e crédito, débito e quitação ficam nesse mesmo bloco.
-- O lançamento de crédito e débito pede as horas no formato 00:00, também no banco comum.
+- O lançamento de crédito e débito pede as horas no formato 000:00, também no banco comum.
 - O motivo de cancelar ou reabrir só é pedido no diálogo, depois do clique.
 
 ## 📁 Arquivos criados

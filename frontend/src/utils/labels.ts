@@ -265,9 +265,10 @@ export function showDuration(value: number) {
 }
 
 export function maskDuration(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 6)
-  if (digits.length <= 2) return digits
-  return `${digits.slice(0, -2)}:${digits.slice(-2)}`
+  const digits = raw.replace(/\D/g, "").slice(0, 5)
+  if (!digits) return ""
+  const padded = digits.padStart(5, "0")
+  return `${padded.slice(0, 3)}:${padded.slice(3)}`
 }
 
 export function durationMinutes(value: string) {
