@@ -141,7 +141,7 @@ function BankLaunch({
         </div>
         <div className="min-w-0 space-y-2">
           <Label className={moduleLabelClass} htmlFor="closing-bank-hours">Horas</Label>
-          <Input id="closing-bank-hours" className={moduleFieldClass} inputMode="numeric" placeholder="000:00" value={minutes} onChange={(event) => onMinutes(maskDuration(event.target.value))} />
+          <Input id="closing-bank-hours" className={moduleFieldClass} inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => onMinutes(maskDuration(event.target.value))} />
         </div>
       </div>
       <p className="text-sm text-[#52525B]">
@@ -195,7 +195,7 @@ export function ClosingResultPage() {
     setError("")
     const amount = durationMinutes(minutes)
     if (kind !== "settlement" && amount === null) {
-      setError("Informe as horas no formato 000:00.")
+      setError("Informe as horas no formato 00:00.")
       return
     }
     setPending(true)
