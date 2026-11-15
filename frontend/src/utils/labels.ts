@@ -237,22 +237,11 @@ export const hourBankEffectLabel: Record<string, string> = {
 }
 
 export function showMinutes(value: number) {
-  const hours = Math.floor(value / 60)
-  const minutes = value % 60
-  if (hours === 0) {
-    return `${minutes} min`
-  }
-  if (minutes === 0) {
-    return `${hours} h`
-  }
-  return `${hours} h ${minutes} min`
+  return showDuration(value)
 }
 
 export function showSignedMinutes(value: number) {
-  if (value < 0) {
-    return `-${showMinutes(Math.abs(value))}`
-  }
-  return showMinutes(value)
+  return showDuration(value)
 }
 
 export function showDuration(value: number) {

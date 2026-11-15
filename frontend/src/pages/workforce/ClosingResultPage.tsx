@@ -45,19 +45,11 @@ function cell(person: ClosingPerson, column: (typeof columns)[number]) {
 
 function clockCell(value: number) {
   if (value === 0) return ""
-  const sign = value < 0 ? "-" : ""
-  const absolute = Math.abs(value)
-  const hours = Math.floor(absolute / 60)
-  const minutes = absolute % 60
-  return `${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+  return showMinutes(value)
 }
 
 function clockTotal(value: number) {
-  const sign = value < 0 ? "-" : ""
-  const absolute = Math.abs(value)
-  const hours = Math.floor(absolute / 60)
-  const minutes = absolute % 60
-  return `${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+  return showMinutes(value)
 }
 
 function dayLabel(value: string) {
