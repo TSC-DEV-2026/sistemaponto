@@ -21,6 +21,7 @@ import { DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { ClosingsPage } from "@/pages/workforce/OperationsPages"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { conceptIcon } from "@/utils/concept-icons"
 import { hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
@@ -31,9 +32,9 @@ export function JourneyPage() {
       module
       title="Ponto"
       tabs={[
-        { id: "apuracao", label: "Apurações", panel: <ResultsSchedule /> },
-        { id: "banco", label: "Banco de horas", panel: <BankScheduleList /> },
-        { id: "fechamento", label: "Fechamento", panel: <ClosingsPage /> },
+        { id: "apuracao", label: "Apurações", icon: conceptIcon.result, panel: <ResultsSchedule /> },
+        { id: "banco", label: "Banco de horas", icon: conceptIcon.hourBank, panel: <BankScheduleList /> },
+        { id: "fechamento", label: "Fechamento", icon: conceptIcon.closing, panel: <ClosingsPage /> },
       ]}
     />
   )

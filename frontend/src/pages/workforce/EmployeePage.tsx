@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Briefcase, Building2, Calendar, CalendarDays, ClipboardList, Clock, FileText, Hash, History, IdCard, Landmark, Layers, Mail, Pencil, QrCode, ScanFace, Settings, Tags, Timer, Trash2, User, UserRound, Users, X, type LucideIcon } from "lucide-react"
+import { ArrowLeftRight, Calendar, CalendarDays, FileText, Hash, History, IdCard, Layers, Mail, Pencil, QrCode, ScanFace, Settings, Trash2, User, X, type LucideIcon } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate, useParams } from "react-router-dom"
@@ -31,6 +31,7 @@ import {
 import { resultNote } from "@/pages/workforce/journey"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
+import { conceptIcon } from "@/utils/concept-icons"
 import { formatCpf } from "@/utils/digits"
 import {
   certificateText,
@@ -49,10 +50,10 @@ import {
 } from "@/utils/labels"
 
 const tabs = [
-  ["data", "Dados", User],
-  ["work", "Trabalho", Briefcase],
-  ["punch", "Ponto", Clock],
-  ["events", "Ocorrências", ClipboardList],
+  ["data", "Dados", conceptIcon.employee],
+  ["work", "Trabalho", conceptIcon.dossier],
+  ["punch", "Ponto", conceptIcon.point],
+  ["events", "Ocorrências", conceptIcon.occurrence],
   ["history", "Histórico", History],
 ] as const
 
@@ -90,7 +91,7 @@ function ClassificationTile({ items }: { items: { classification_id: number; nam
   const rows = [...items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
   return (
     <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none md:col-span-2">
-      <FieldMark icon={Tags} />
+              <FieldMark icon={conceptIcon.group} />
       <div className="min-w-0 flex-1">
         <dt className="text-xs leading-4 text-[#64748B]">Grupos</dt>
         {rows.length === 0 ? (
@@ -115,14 +116,14 @@ function ManagerTile({ managers }: { managers: { vigency_id: number; name: strin
   const rows = [...managers].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
   if (rows.length <= 1) {
     return (
-      <FieldTile icon={UserRound} label="Gestor">
+      <FieldTile icon={conceptIcon.manager} label="Gestor">
         {rows[0]?.name?.trim() ? rows[0].name : <EmptyMark />}
       </FieldTile>
     )
   }
   return (
     <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none">
-      <FieldMark icon={UserRound} />
+      <FieldMark icon={conceptIcon.manager} />
       <div className="min-w-0 flex-1">
         <dt className="text-xs leading-4 text-[#64748B]">Gestores</dt>
         <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
@@ -509,7 +510,7 @@ export function EmployeePage() {
           <span className="absolute left-1/2 top-1/2 h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#8ED4A8_0%,rgba(142,212,168,0.45)_38%,rgba(142,212,168,0)_72%)] blur-xl" />
           <span className="absolute left-1/2 top-1/2 h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#7DCAA0_0%,rgba(125,202,160,0.35)_55%,rgba(125,202,160,0)_78%)] blur-md" />
           <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#E7F6EC] text-[#1E8A3A] shadow-[0_0_28px_rgba(30,138,58,0.22)]">
-            <User className="h-8 w-8" strokeWidth={1.75} />
+            <conceptIcon.employee className="h-8 w-8" strokeWidth={1.75} />
           </span>
         </span>
         <div className="relative flex min-w-0 items-center gap-4 md:pr-36">
@@ -563,11 +564,11 @@ export function EmployeePage() {
         <div className="space-y-4">
           <section className={fichaCardClass}>
             <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
-              <FieldMark icon={User} />
+              <FieldMark icon={conceptIcon.employee} />
               <h2 className="text-[17px] font-bold text-[#111827]">Informações principais</h2>
             </div>
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
-              <FieldTile icon={User} label="Nome">{shown(fullName)}</FieldTile>
+              <FieldTile icon={conceptIcon.employee} label="Nome">{shown(fullName)}</FieldTile>
               <FieldTile icon={IdCard} label="CPF">{shown(cpf)}</FieldTile>
               <FieldTile icon={Mail} label="E-mail">{shown(email)}</FieldTile>
               <FieldTile icon={CalendarDays} label="Admissão">{admission ? showDate(admission) : <EmptyMark />}</FieldTile>
@@ -590,7 +591,7 @@ export function EmployeePage() {
               <h2 className="text-[17px] font-bold text-[#111827]">Informações complementares</h2>
             </div>
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
-              <FieldTile icon={Timer} label="Banco de horas">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</FieldTile>
+              <FieldTile icon={conceptIcon.hourBank} label="Banco de horas">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</FieldTile>
               <FieldTile icon={FileText} label="Observação">
                 <span className={cn("block whitespace-pre-wrap", noteLong && "line-clamp-3")}>{noteText ? noteText : <EmptyMark />}</span>
                 {noteLong ? (
@@ -607,18 +608,18 @@ export function EmployeePage() {
         <div className="space-y-4">
           <section className={fichaCardClass}>
             <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
-              <FieldMark icon={Briefcase} />
+              <FieldMark icon={conceptIcon.job} />
               <h2 className="text-[17px] font-bold text-[#111827]">Trabalho</h2>
             </div>
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
               {(
                 [
-                  [Briefcase, "Função", employee.job_label],
-                  [Clock, "Jornada", employee.journey_label],
-                  [Building2, "Empresa", employee.unit_label],
-                  [Layers, "Setor", employee.sector_label],
-                  [Users, "Equipe", employee.team_label],
-                  [Landmark, "Sindicato", employee.union_label],
+                  [conceptIcon.job, "Função", employee.job_label],
+                  [conceptIcon.journey, "Jornada", employee.journey_label],
+                  [conceptIcon.unit, "Empresa", employee.unit_label],
+                  [conceptIcon.sector, "Setor", employee.sector_label],
+                  [conceptIcon.team, "Equipe", employee.team_label],
+                  [conceptIcon.union, "Sindicato", employee.union_label],
                 ] as const
                 ).map(([icon, label, value]) => (
                 <FieldTile key={label} icon={icon} label={label}>
@@ -713,7 +714,7 @@ export function EmployeePage() {
               <Label className="font-semibold text-brand-ink" htmlFor="employee-event-kind">
                 Tipo
               </Label>
-              <SiteSelect id="employee-event-kind" value={eventKind} icon={ClipboardList} options={[{ value: "", label: "Todos" }, ...Object.entries(occurrenceKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setEventKind} />
+              <SiteSelect id="employee-event-kind" value={eventKind} icon={conceptIcon.occurrence} options={[{ value: "", label: "Todos" }, ...Object.entries(occurrenceKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setEventKind} />
             </div>
             {events.error ? <p className="mt-4 text-sm text-destructive">{events.error}</p> : null}
             {events.loading ? (

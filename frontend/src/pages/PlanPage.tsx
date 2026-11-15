@@ -1,4 +1,6 @@
-import { CalendarDays, CreditCard, Receipt, Users, Wallet, type LucideIcon } from "lucide-react"
+import { CalendarDays, Receipt, Wallet, type LucideIcon } from "lucide-react"
+
+import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -65,7 +67,7 @@ export function PlanPage() {
       organization
       title="Plano e Assinatura"
       tabs={[
-        { id: "assinaturas", label: "Assinaturas e Cobranças", icon: CreditCard, panel: <BillingPanel /> },
+        { id: "assinaturas", label: "Assinaturas e Cobranças", icon: conceptIcon.plan, panel: <BillingPanel /> },
         { id: "contratacao", label: "Contratação", icon: Wallet, panel: <ContractPanel /> },
       ]}
     />
@@ -170,7 +172,7 @@ function BillingPanel() {
   return (
     <div className="space-y-4">
       <section className={moduleCardClass}>
-        <CardHeading icon={CreditCard} title="Plano em vigor" subtitle={summarySubtitle(tenant, plan)} />
+        <CardHeading icon={conceptIcon.plan} title="Plano em vigor" subtitle={summarySubtitle(tenant, plan)} />
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {summaryFacts(tenant, plan, people).map((fact) => (
             <Fact key={fact.label} icon={fact.icon} label={fact.label} value={fact.value} wide={fact.wide} />
@@ -188,7 +190,7 @@ function BillingPanel() {
         <RecordList
           loading={plans.loading}
           emptyTitle="Nenhuma assinatura"
-          icon={CreditCard}
+          icon={conceptIcon.plan}
           items={plans.items.map((item) => ({
             id: item.id,
             title: subscriptionStatusLabel[item.status] || item.status,
@@ -323,7 +325,7 @@ function ContractPanel() {
         {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit" className={modulePrimaryClass} disabled={!loaded}>
-            <CreditCard className="h-4 w-4" />
+            <conceptIcon.plan className="h-4 w-4" />
             {plan ? "Alterar" : "Contratar"}
           </Button>
         </div>
@@ -424,21 +426,21 @@ function summaryFacts(
 ) {
   if (!plan) {
     return [
-      { icon: CreditCard, label: "Situação", value: trialEnded(tenant.trial_ends_at) ? "Trial encerrado" : "Trial" },
+      { icon: conceptIcon.plan, label: "Situação", value: trialEnded(tenant.trial_ends_at) ? "Trial encerrado" : "Trial" },
       { icon: CalendarDays, label: "Início", value: formatDate(tenant.trial_started_at) },
       { icon: CalendarDays, label: "Término", value: formatDate(tenant.trial_ends_at) },
       { icon: CalendarDays, label: "Dias restantes", value: String(trialDaysLeft(tenant.trial_ends_at)) },
-      { icon: Users, label: "Capacidade", value: String(tenant.employee_capacity) },
-      { icon: Users, label: "Funcionários contabilizados", value: people },
+      { icon: conceptIcon.employee, label: "Capacidade", value: String(tenant.employee_capacity) },
+      { icon: conceptIcon.employee, label: "Funcionários contabilizados", value: people },
     ]
   }
   return [
-    { icon: CreditCard, label: "Situação", value: subscriptionStatusLabel[plan.status] || plan.status },
-    { icon: Users, label: "Capacidade", value: String(plan.capacity) },
+    { icon: conceptIcon.plan, label: "Situação", value: subscriptionStatusLabel[plan.status] || plan.status },
+    { icon: conceptIcon.employee, label: "Capacidade", value: String(plan.capacity) },
     { icon: Wallet, label: "Preço", value: `${showMoney(plan.price_cents)} por pessoa` },
     { icon: Wallet, label: "Mensalidade", value: showMoney(plan.monthly_amount_cents) },
-    { icon: CreditCard, label: "Pagamento", value: paymentMethodLabel[plan.payment_method] || plan.payment_method || "Não informado" },
-    { icon: Users, label: "Funcionários contabilizados", value: people },
+    { icon: conceptIcon.plan, label: "Pagamento", value: paymentMethodLabel[plan.payment_method] || plan.payment_method || "Não informado" },
+    { icon: conceptIcon.employee, label: "Funcionários contabilizados", value: people },
     { icon: CalendarDays, label: "Período", value: `${showDate(plan.period_start)} a ${showDate(plan.period_end)}`, wide: true },
   ]
 }

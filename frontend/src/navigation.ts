@@ -1,21 +1,16 @@
 import {
-  BarChart3,
-  Building2,
-  ClipboardList,
-  Clock,
-  ListChecks,
-  CreditCard,
   FileSpreadsheet,
-  Inbox,
   LayoutDashboard,
+  ListChecks,
+  MonitorSmartphone,
   ScrollText,
   Shield,
-  MonitorSmartphone,
   Smartphone,
   StickyNote,
-  Users,
   type LucideIcon,
 } from "lucide-react"
+
+import { conceptIcon } from "@/utils/concept-icons"
 
 export type DomainSection = {
   title: string
@@ -51,7 +46,7 @@ export const navGroups: NavGroup[] = [
       {
         to: "/schedules",
         label: "Ponto",
-        icon: Clock,
+        icon: conceptIcon.point,
         lead: "Apuração do período, banco de horas e fechamento.",
         sections: [
           { title: "Apurações", text: "Resultado do período." },
@@ -73,21 +68,21 @@ export const navGroups: NavGroup[] = [
       },
       {
         to: "/occurrences",
-        label: "Ausências",
-        icon: ClipboardList,
-        lead: "Falta, atestado, férias, abono e afastamento. Motivo padronizado quando houver catálogo.",
+        label: "Ocorrências",
+        icon: conceptIcon.occurrence,
+        lead: "Abono, atestado, falta, afastamento e férias. Motivo padronizado quando houver catálogo.",
         sections: [
-          { title: "Faltas", text: "Nenhuma falta registrada." },
-          { title: "Atestados", text: "Nenhum atestado efetivado." },
-          { title: "Férias", text: "Nenhuma ocorrência de férias." },
           { title: "Abonos", text: "Nenhum abono." },
+          { title: "Atestados", text: "Nenhum atestado efetivado." },
+          { title: "Faltas", text: "Nenhuma falta registrada." },
           { title: "Afastamentos", text: "Nenhum afastamento." },
+          { title: "Férias", text: "Nenhuma ocorrência de férias." },
         ],
       },
       {
         to: "/requests",
         label: "Solicitações",
-        icon: Inbox,
+        icon: conceptIcon.request,
         lead: "Caixa de entrada. Uma solicitação pendente não altera o ponto.",
         sections: [
           { title: "Todas", text: "0" },
@@ -105,7 +100,7 @@ export const navGroups: NavGroup[] = [
       {
         to: "/people",
         label: "Quadro",
-        icon: Users,
+        icon: conceptIcon.quadro,
         lead: "Funcionários, funções, jornadas e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
         sections: [
           { title: "Funcionários", text: "Nenhum funcionário." },
@@ -139,7 +134,7 @@ export const navGroups: NavGroup[] = [
       {
         to: "/reports",
         label: "Relatórios",
-        icon: BarChart3,
+        icon: conceptIcon.report,
         staffOnly: true,
         lead: "Consulta analítica. O dashboard permanece a visão operacional.",
         sections: [
@@ -159,7 +154,7 @@ export const navGroups: NavGroup[] = [
       {
         to: "/organization",
         label: "Estrutura Organizacional",
-        icon: Building2,
+        icon: conceptIcon.structure,
         lead: "Empresas, setores e equipes. Mudança relevante preserva vigência.",
         sections: [
           { title: "Empresas", text: "Nenhuma empresa." },
@@ -224,7 +219,7 @@ export const navGroups: NavGroup[] = [
       {
         to: "/plan",
         label: "Plano e Assinatura",
-        icon: CreditCard,
+        icon: conceptIcon.plan,
         adminOnly: true,
         lead: "Mensalidade de R$ 5 por pessoa.",
         sections: [],

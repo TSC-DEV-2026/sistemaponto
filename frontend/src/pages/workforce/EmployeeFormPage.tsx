@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
-import { Briefcase, Building2, CalendarClock, Info, Save, Tags, User, UserRound, Users, type LucideIcon } from "lucide-react"
+import { Info, Save, type LucideIcon } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -20,15 +20,16 @@ import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { isoWeekday } from "@/pages/workforce/journey"
+import { conceptIcon } from "@/utils/concept-icons"
 import { clockMethodLabel, situationLabel } from "@/utils/labels"
 
 const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
-  { kind: "job", label: "Função", path: "/jobs", searchKey: "name", icon: Briefcase },
-  { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: CalendarClock },
-  { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: Users },
-  { kind: "manager", label: "Gestor", path: "/employees", searchKey: "full_name", icon: UserRound },
-  { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: Building2 },
-  { kind: "status", label: "Situação", path: "", searchKey: "name", icon: User },
+  { kind: "job", label: "Função", path: "/jobs", searchKey: "name", icon: conceptIcon.job },
+  { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: conceptIcon.journey },
+  { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: conceptIcon.team },
+  { kind: "manager", label: "Gestor", path: "/employees", searchKey: "full_name", icon: conceptIcon.manager },
+  { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: conceptIcon.union },
+  { kind: "status", label: "Situação", path: "", searchKey: "name", icon: conceptIcon.situation },
 ]
 
 const vigencyHeading: Record<string, string> = {
@@ -163,7 +164,7 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
             searchPlaceholder="Pesquisar grupo"
             placeholder="Selecione"
             className="h-12"
-            icon={Tags}
+            icon={conceptIcon.group}
             options={groups.map((item) => ({ value: String(item.id), label: item.name }))}
             onChange={(next) => {
               setClassificationId(next)
@@ -424,10 +425,10 @@ export function EmployeeFormPage() {
         <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
           {(
             [
-              { id: "data", label: "Dados", icon: User, show: true },
+              { id: "data", label: "Dados", icon: conceptIcon.employee, show: true },
               ...vigencyTargets.filter((item) => item.kind === "team").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
-              { id: "classification", label: "Grupos", icon: Tags, show: isAdmin && id !== null },
+              { id: "classification", label: "Grupos", icon: conceptIcon.group, show: isAdmin && id !== null },
               ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey" && item.kind !== "team").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
             ]
           )
@@ -461,7 +462,7 @@ export function EmployeeFormPage() {
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <User className="h-5 w-5" strokeWidth={1.75} />
+            <conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-[#0A0A0A]">{id === null ? "Novo funcionário" : "Editar funcionário"}</h2>
@@ -640,7 +641,7 @@ export function EmployeeFormPage() {
                   searchPlaceholder={`Pesquisar ${linkTarget.label.toLocaleLowerCase("pt-BR")}`}
                   placeholder="Selecione"
                   className="h-12"
-                  icon={Briefcase}
+                  icon={linkTarget.icon}
                   options={linkChoices}
                   onChange={(value) => {
                     setReferenceId(value)

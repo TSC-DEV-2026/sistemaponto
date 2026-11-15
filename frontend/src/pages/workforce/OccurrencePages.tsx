@@ -1,4 +1,4 @@
-import { ClipboardList, Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 
@@ -18,9 +18,18 @@ import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { createRecord, listRecords, removeRecord, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
+import { conceptIcon } from "@/utils/concept-icons"
 import { absenceKinds, certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
 
 const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceTabLabel[id] || occurrenceKindLabel[id]] as const)
+
+const occurrenceIcon = {
+  absence: conceptIcon.fault,
+  certificate: conceptIcon.certificate,
+  vacation: conceptIcon.vacation,
+  allowance: conceptIcon.allowance,
+  leave: conceptIcon.leave,
+} as const
 
 function tabPath(kind: string) {
   const first = occurrenceKinds[0]?.[0]
@@ -109,7 +118,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
         ) : (
           <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
-              <ClipboardList className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+              <conceptIcon.occurrence className="h-6 w-6" strokeWidth={1.75} aria-hidden />
             </span>
             <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">{`Nenhum registro de ${label.toLocaleLowerCase("pt-BR")}.`}</p>
             <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#52525B]">
@@ -234,7 +243,7 @@ export function OccurrencesPage() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <DomainTabs
         module
-        title="Ausências"
+        title="Ocorrências"
         action={
           canLaunch ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
@@ -248,6 +257,7 @@ export function OccurrencesPage() {
         tabs={occurrenceKinds.map(([id, label]) => ({
           id,
           label,
+          icon: occurrenceIcon[id],
           panel: <OccurrenceKindList kind={id} employees={employees} />,
         }))}
       />

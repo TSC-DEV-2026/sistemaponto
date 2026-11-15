@@ -192,7 +192,7 @@ export function RequestFormPage() {
                 selected={!adjustment}
                 icon={Calendar}
                 title="Abono, atestado, afastamento ou férias"
-                text="Para períodos de ausência."
+                text="Para um período fora do trabalho."
                 onSelect={() => setFlow("absence")}
               />
             </div>
