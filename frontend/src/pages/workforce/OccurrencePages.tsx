@@ -1,4 +1,4 @@
-import { ClipboardList, Plus } from "lucide-react"
+import { ClipboardList, Plus, Trash2 } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 
@@ -11,11 +11,11 @@ import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { SiteSelect } from "@/components/ui/site-select"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
-import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { DomainTabs } from "@/pages/workforce/EntityScreens"
-import { createRecord, listRecords, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
+import { createRecord, listRecords, removeRecord, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { absenceKinds, certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
@@ -38,6 +38,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const asksReason = kind !== "vacation" && kind !== "leave" && kind !== "punch_entry"
   const events = usePagedList<Occurrence>("/occurrences", { kind, ...(listEmployee ? { employee_id: Number(listEmployee) } : {}) })
+  const [pending, setPending] = useState<number | null>(null)
   const label = occurrenceTabLabel[kind] || occurrenceKindLabel[kind] || kind
   const actionLabel = occurrenceNewLabel[kind] || "Novo lançamento"
   const visible = events.items
@@ -67,6 +68,17 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   function reasonOf(id: number | null) {
     if (!id) return label
     return reasons.find((item) => item.id === id)?.name || label
+  }
+
+  async function remove(id: number) {
+    events.setError("")
+    try {
+      await removeRecord("/occurrences", id)
+      setPending(null)
+      events.reload()
+    } catch (caught) {
+      events.setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    }
   }
 
   return (
@@ -116,6 +128,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                 <th className="px-4 py-2.5 font-medium">Motivo</th>
                 <th className="px-4 py-2.5 font-medium">Observação</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
+                {canLaunch ? <th className="px-4 py-2.5 text-right font-medium"><span className="sr-only">Ações</span></th> : null}
               </tr>
             </thead>
             <tbody>
@@ -157,6 +170,24 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                         {approved ? "Solicitação aprovada" : punchOrigin(item.source)}
                       </span>
                     </td>
+                    {canLaunch ? (
+                      <td className="px-4 py-2.5 text-right align-middle">
+                        {pending === item.id ? (
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <Button type="button" className={moduleDangerClass} onClick={() => remove(item.id)}>
+                              Excluir
+                            </Button>
+                            <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${person}`} title="Excluir" onClick={() => setPending(item.id)}>
+                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                        )}
+                      </td>
+                    ) : null}
                   </tr>
                 )
               })}

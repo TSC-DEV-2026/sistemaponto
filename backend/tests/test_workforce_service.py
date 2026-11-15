@@ -1343,6 +1343,29 @@ def test_abono_aprovado_tira_a_falta_e_o_pendente_nao():
     assert day_result(result, date(2026, 10, 7))["absence"] is True
 
 
+def test_excluir_ausencia_reabre_a_falta_e_periodo_fechado_bloqueia():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    before = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert day_result(before, date(2026, 10, 6))["absence"] is True
+    created = workforce.create_occurrence(admin(), period("allowance", employee_id=person["id"]))
+    excused = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert day_result(excused, date(2026, 10, 6))["absence"] is False
+    workforce.delete_occurrence(admin(), created.id)
+    restored = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert day_result(restored, date(2026, 10, 6))["absence"] is True
+    again = workforce.create_occurrence(admin(), period("allowance", employee_id=person["id"]))
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as closed:
+        workforce.delete_occurrence(admin(), again.id)
+    assert closed.value.status_code == 409
+    assert closed.value.message == "Período fechado"
+    kept = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert day_result(kept, date(2026, 10, 6))["absence"] is False
+
+
 def test_ponto_incompleto_e_as_excecoes_do_dia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())

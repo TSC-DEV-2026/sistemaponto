@@ -230,6 +230,8 @@ Ocorrência representa
 Solicitação pode justificar/regularizar
 ```
 
+O gestor ou o administrador exclui a ocorrência enquanto o período está aberto. A apuração desse dia passa a ser calculada de novo. Período fechado recusa a exclusão.
+
 ---
 
 ## 9. Banco de horas
