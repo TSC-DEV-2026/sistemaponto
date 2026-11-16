@@ -244,7 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (tab == 'apuracao') {
         final today = DateTime.now();
         final page = await client.get(
-          '/api/v1/time-results',
+          '/api/v1/calculations',
           query: {
             'employee_id': id,
             'starts_on': dayStamp(monthStart(today)),

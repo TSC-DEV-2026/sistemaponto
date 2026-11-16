@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from app.core.journey_plan import ORIGIN, legacy_days
 from app.core.workforce import COST_CENTER_CLASSIFICATION, REASON_KINDS, today_in_brazil
 from app.models.workforce import (
-    Classification,
-    ClassificationValue,
+    Group,
+    GroupValue,
     Job,
     Journey,
     JourneyDay,
     JourneySpan,
     JourneyVersion,
-    LaborAgreement,
+    Agreement,
     LaborUnion,
     PunchRule,
     Reason,
@@ -31,7 +31,7 @@ REASON_NAMES = {
 
 def ensure_company_defaults(db: Session, tenant_id: int) -> None:
     _named(db, Job, tenant_id, "Função Padrão")
-    _default_classification(db, tenant_id)
+    _default_group(db, tenant_id)
     unit = _named(db, Unit, tenant_id, "Empresa Padrão")
     sector = _named(db, Sector, tenant_id, "Setor Padrão", unit_id=unit.id)
     _named(db, Team, tenant_id, "Equipe Padrão", sector_id=sector.id)
@@ -51,13 +51,13 @@ def ensure_company_defaults(db: Session, tenant_id: int) -> None:
     _ensure_journey_version(db, journey)
     union = _named(db, LaborUnion, tenant_id, "Sindicato Padrão")
     agreement = (
-        db.query(LaborAgreement)
-        .filter(LaborAgreement.tenant_id == tenant_id, LaborAgreement.name == "Convenção Padrão")
+        db.query(Agreement)
+        .filter(Agreement.tenant_id == tenant_id, Agreement.name == "Convenção Padrão")
         .one_or_none()
     )
     if agreement is None:
         db.add(
-            LaborAgreement(
+            Agreement(
                 tenant_id=tenant_id,
                 union_id=union.id,
                 name="Convenção Padrão",
@@ -111,29 +111,29 @@ def _ensure_journey_version(db: Session, journey: Journey) -> None:
     db.flush()
 
 
-def _default_classification(db: Session, tenant_id: int) -> None:
+def _default_group(db: Session, tenant_id: int) -> None:
     found = (
-        db.query(Classification)
-        .filter(Classification.tenant_id == tenant_id, Classification.name == COST_CENTER_CLASSIFICATION)
+        db.query(Group)
+        .filter(Group.tenant_id == tenant_id, Group.name == COST_CENTER_CLASSIFICATION)
         .one_or_none()
     )
     if found is None:
-        found = Classification(tenant_id=tenant_id, name=COST_CENTER_CLASSIFICATION)
+        found = Group(tenant_id=tenant_id, name=COST_CENTER_CLASSIFICATION)
         db.add(found)
         db.flush()
     value = (
-        db.query(ClassificationValue)
+        db.query(GroupValue)
         .filter(
-            ClassificationValue.classification_id == found.id,
-            ClassificationValue.name == "Centro de custo Padrão",
+            GroupValue.group_id == found.id,
+            GroupValue.name == "Centro de custo Padrão",
         )
         .one_or_none()
     )
     if value is None:
         db.add(
-            ClassificationValue(
+            GroupValue(
                 tenant_id=tenant_id,
-                classification_id=found.id,
+                group_id=found.id,
                 name="Centro de custo Padrão",
             )
         )

@@ -9,7 +9,7 @@ VIGENCY_KINDS = (
     "job",
     "journey",
     "cost_center",
-    "classification",
+    "group",
     "unit",
     "sector",
     "team",
@@ -24,12 +24,19 @@ DECISIONS = ("approved", "rejected", "cancelled")
 OCCURRENCE_KINDS = (
     "adjustment",
     "punch_entry",
-    "absence",
-    "certificate",
-    "vacation",
-    "allowance",
-    "leave",
+    "absences",
+    "certificates",
+    "vacations",
+    "allowances",
+    "leaves",
 )
+OCCURRENCE_KIND_ALIASES = {
+    "absence": "absences",
+    "certificate": "certificates",
+    "vacation": "vacations",
+    "allowance": "allowances",
+    "leave": "leaves",
+}
 REASON_KINDS = ("adjustment", "absence", "allowance", "certificate")
 PUNCH_SOURCES = ("employee", "admin", "approved_request", "manual", "afd")
 
@@ -42,18 +49,27 @@ REASON_FOR_REQUEST = {
 }
 OCCURRENCE_FOR_REQUEST = {
     "adjustment": "adjustment",
-    "allowance": "allowance",
-    "certificate": "certificate",
-    "leave": "leave",
-    "vacation": "vacation",
+    "allowance": "allowances",
+    "certificate": "certificates",
+    "leave": "leaves",
+    "vacation": "vacations",
 }
-MANUAL_OCCURRENCE_KINDS = ("absence", "allowance", "certificate", "leave", "vacation")
+REASON_FOR_OCCURRENCE = {
+    "absences": "absence",
+    "allowances": "allowance",
+    "certificates": "certificate",
+}
+MANUAL_OCCURRENCE_KINDS = ("absences", "allowances", "certificates", "leaves", "vacations")
+
+
+def occurrence_kind(value: str) -> str:
+    return OCCURRENCE_KIND_ALIASES.get(value, value)
 CERTIFICATE_CONFLICT = "período abonado conflita com registro de ponto"
 AUDIT_ACTION = {
     "job": "Alteração de função",
     "journey": "Alteração de jornada",
     "cost_center": "Alteração de centro de custo",
-    "classification": "Alteração de grupo",
+    "group": "Alteração de grupo",
     "unit": "Alteração de empresa",
     "sector": "Alteração de setor",
     "team": "Alteração de equipe",

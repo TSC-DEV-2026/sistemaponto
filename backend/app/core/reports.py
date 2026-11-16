@@ -14,10 +14,15 @@ OCCURRENCE_TITLES = {
     "adjustment": "Ajuste",
     "punch_entry": "Lançamento",
     "absence": "Falta",
+    "absences": "Falta",
     "certificate": "Atestado",
+    "certificates": "Atestado",
     "vacation": "Férias",
+    "vacations": "Férias",
     "allowance": "Abono",
+    "allowances": "Abono",
     "leave": "Afastamento",
+    "leaves": "Afastamento",
 }
 
 REQUEST_TITLES = {

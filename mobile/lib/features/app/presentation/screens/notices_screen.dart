@@ -35,8 +35,8 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
     ref.read(loaderProvider.notifier).state = true;
     setState(() => _error = null);
     try {
-      final notices = await client.get('/api/v1/notifications', query: {'page': _page, 'limit': _limit});
-      final preferences = await client.get('/api/v1/notification-preferences', query: {'page': 1, 'limit': 100, if (_kind.isNotEmpty) 'kind': _kind});
+      final notices = await client.get('/api/v1/notices', query: {'page': _page, 'limit': _limit});
+      final preferences = await client.get('/api/v1/notice-preferences', query: {'page': 1, 'limit': 100, if (_kind.isNotEmpty) 'kind': _kind});
       setState(() {
         _items = pageItems(notices);
         _total = notices['total'] is int ? notices['total'] as int : 0;
@@ -79,7 +79,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
     final client = ref.read(apiClientProvider);
     setState(() => _error = null);
     try {
-      await client.put('/api/v1/notifications/$id', {'read': true});
+      await client.put('/api/v1/notices/$id', {'read': true});
       await _load();
     } on ApiException catch (error) {
       setState(() => _error = error.message);
@@ -97,9 +97,9 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
         }
       }
       if (row != null) {
-        await client.put('/api/v1/notification-preferences/${row['id']}', {'enabled': next});
+        await client.put('/api/v1/notice-preferences/${row['id']}', {'enabled': next});
       } else if (!next) {
-        await client.post('/api/v1/notification-preferences', {'kind': kind, 'enabled': false, 'channel': 'both'});
+        await client.post('/api/v1/notice-preferences', {'kind': kind, 'enabled': false, 'channel': 'both'});
       }
       await _load();
     } on ApiException catch (error) {
@@ -113,9 +113,9 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
     try {
       final row = _preference(kind);
       if (row != null) {
-        await client.put('/api/v1/notification-preferences/${row['id']}', {'enabled': true, 'channel': channel});
+        await client.put('/api/v1/notice-preferences/${row['id']}', {'enabled': true, 'channel': channel});
       } else {
-        await client.post('/api/v1/notification-preferences', {'kind': kind, 'enabled': true, 'channel': channel});
+        await client.post('/api/v1/notice-preferences', {'kind': kind, 'enabled': true, 'channel': channel});
       }
       await _load();
     } on ApiException catch (error) {

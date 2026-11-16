@@ -14,7 +14,7 @@ import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleLabelClass } from "@/components/workforce/module-visual"
-import { getTimeResults, type Employee, type TimeResult, type TimeResults } from "@/services/workforce.service"
+import { getCalculations, type Employee, type TimeResult, type Calculations } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { resultNote } from "@/pages/workforce/journey"
 import { cn } from "@/utils/cn"
@@ -72,7 +72,7 @@ function ResultadoApuracao({
   lockDay,
   onOpen,
 }: {
-  result: TimeResults
+  result: Calculations
   visible: TimeResult[]
   canAct: boolean
   lockDay: (day: string) => string
@@ -157,7 +157,7 @@ function ResultadoApuracao({
   )
 }
 
-export function TimeResultsPanel({
+export function CalculationsPanel({
   employeeId,
   employees,
   heading = true,
@@ -176,7 +176,7 @@ export function TimeResultsPanel({
   const [selected, setSelected] = useState(returning && saved ? String(saved.employeeId) : "")
   const [startsOn, setStartsOn] = useState(returning && saved ? saved.startsOn : `${today().slice(0, 8)}01`)
   const [endsOn, setEndsOn] = useState(returning && saved ? saved.endsOn : today)
-  const [result, setResult] = useState<TimeResults | null>(returning && saved ? saved.result : null)
+  const [result, setResult] = useState<Calculations | null>(returning && saved ? saved.result : null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [open, setOpen] = useState<{ day: string; mode: ApuracaoMode } | null>(null)
@@ -214,7 +214,7 @@ export function TimeResultsPanel({
       setLoading(true)
     }
     try {
-      const data = await getTimeResults(employeeId ?? Number(selected), startsOn, endsOn)
+      const data = await getCalculations(employeeId ?? Number(selected), startsOn, endsOn)
       setResult(data)
       if (appearance === "module" && tenantId) {
         saveApuracaoQuery({
@@ -241,7 +241,7 @@ export function TimeResultsPanel({
   async function refresh() {
     if (!result) return
     try {
-      const data = await getTimeResults(result.employee_id, result.starts_on.slice(0, 10), result.ends_on.slice(0, 10))
+      const data = await getCalculations(result.employee_id, result.starts_on.slice(0, 10), result.ends_on.slice(0, 10))
       setResult(data)
       locks.reload()
       if (appearance === "module" && tenantId) {

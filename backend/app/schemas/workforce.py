@@ -11,16 +11,21 @@ OccurrenceKind = Literal[
     "adjustment",
     "punch_entry",
     "absence",
+    "absences",
     "certificate",
+    "certificates",
     "vacation",
+    "vacations",
     "allowance",
+    "allowances",
     "leave",
+    "leaves",
 ]
 VigencyKind = Literal[
     "job",
     "journey",
     "cost_center",
-    "classification",
+    "group",
     "unit",
     "sector",
     "team",
@@ -45,25 +50,25 @@ class NamedOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ClassificationValueCreate(BaseModel):
-    classification_id: int
+class GroupValueCreate(BaseModel):
+    group_id: int
     name: str = Field(min_length=1, max_length=255)
 
 
-class ClassificationValueUpdate(BaseModel):
+class GroupValueUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
-class ClassificationValueOut(BaseModel):
+class GroupValueOut(BaseModel):
     id: int
-    classification_id: int
+    group_id: int
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class EmployeeClassificationOut(BaseModel):
-    classification_id: int
+class EmployeeGroupOut(BaseModel):
+    group_id: int
     name: str
     value_id: int
     value_name: str
@@ -280,7 +285,7 @@ class EmployeeOut(BaseModel):
     union_label: str | None
     manager_label: str | None
     managers: list[EmployeeManagerOut] = Field(default_factory=list)
-    classifications: list[EmployeeClassificationOut] = Field(default_factory=list)
+    groups: list[EmployeeGroupOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -289,7 +294,7 @@ BulkKind = Literal[
     "job",
     "journey",
     "cost_center",
-    "classification",
+    "group",
     "team",
     "union",
     "manager",
@@ -333,7 +338,7 @@ class VigencyOut(BaseModel):
     employee_id: int
     kind: str
     reference_id: int | None
-    classification_id: int | None = None
+    group_id: int | None = None
     label: str
     valid_from: date
     valid_to: date | None
@@ -640,11 +645,11 @@ class ClosingOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class NotificationUpdate(BaseModel):
+class NoticeUpdate(BaseModel):
     read: bool | None = None
 
 
-class NotificationOut(BaseModel):
+class NoticeOut(BaseModel):
     id: int
     person_id: int
     employee_id: int | None
@@ -657,18 +662,18 @@ class NotificationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class NotificationPreferenceCreate(BaseModel):
+class NoticePreferenceCreate(BaseModel):
     kind: str = Field(min_length=1, max_length=64)
     enabled: bool
     channel: Literal["system", "email", "both"] = "both"
 
 
-class NotificationPreferenceUpdate(BaseModel):
+class NoticePreferenceUpdate(BaseModel):
     enabled: bool | None = None
     channel: Literal["system", "email", "both"] | None = None
 
 
-class NotificationPreferenceOut(BaseModel):
+class NoticePreferenceOut(BaseModel):
     id: int
     person_id: int
     kind: str
@@ -848,7 +853,7 @@ class TimeResultOut(BaseModel):
     balance_minutes: int | None = None
 
 
-class TimeResultsOut(BaseModel):
+class CalculationsOut(BaseModel):
     employee_id: int
     starts_on: date
     ends_on: date

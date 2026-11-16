@@ -5,10 +5,10 @@ import { BackLink } from "@/components/ui/back-link"
 import { Spinner } from "@/components/ui/spinner"
 import { ApuracaoDayDetails } from "@/components/workforce/apuracao-day"
 import { apuracaoDay } from "@/components/workforce/apuracao-session"
-import { getTimeResults, type TimeResult } from "@/services/workforce.service"
+import { getCalculations, type TimeResult } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 
-const backTo = "/timekeeping?tab=calculation"
+const backTo = "/timekeeping?tab=calculations"
 
 function isoDate(value: string | undefined) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return ""
@@ -49,7 +49,7 @@ export function ApuracaoDayPage() {
     setItem(null)
     setError("")
     setStatus("loading")
-    getTimeResults(employeeId, workDate, workDate)
+    getCalculations(employeeId, workDate, workDate)
       .then((data) => {
         if (!active) return
         const found = data.employee_id === employeeId ? data.items.find((row) => row.work_date.slice(0, 10) === workDate) : undefined

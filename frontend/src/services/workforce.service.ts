@@ -24,8 +24,8 @@ export type NamedRecord = {
   holiday_date?: string | null
 }
 
-export type EmployeeClassification = {
-  classification_id: number
+export type EmployeeGroup = {
+  group_id: number
   name: string
   value_id: number
   value_name: string
@@ -54,7 +54,7 @@ export type Employee = {
   union_label: string | null
   manager_label: string | null
   managers?: EmployeeManager[]
-  classifications?: EmployeeClassification[]
+  groups?: EmployeeGroup[]
 }
 
 export type EmployeeManager = {
@@ -68,7 +68,7 @@ export type Vigency = {
   employee_id: number
   kind: string
   reference_id: number | null
-  classification_id?: number | null
+  group_id?: number | null
   label: string
   valid_from: string
   valid_to: string | null
@@ -366,7 +366,7 @@ export type TimeResult = {
   balance_minutes?: number | null
 }
 
-export type TimeResults = {
+export type Calculations = {
   employee_id: number
   starts_on: string
   ends_on: string
@@ -549,9 +549,9 @@ export function getReport(
   )
 }
 
-export function getTimeResults(employeeId: number, startsOn: string, endsOn: string) {
-  return read<TimeResults>(() =>
-    api.get<ApiResponse<TimeResults>>("/time-results", {
+export function getCalculations(employeeId: number, startsOn: string, endsOn: string) {
+  return read<Calculations>(() =>
+    api.get<ApiResponse<Calculations>>("/calculations", {
       params: { employee_id: employeeId, starts_on: startsOn, ends_on: endsOn },
     }),
   )

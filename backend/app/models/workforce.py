@@ -38,22 +38,22 @@ class CostCenter(Base):
     name = Column(String(255), nullable=False)
 
 
-class Classification(Base):
-    __tablename__ = "classifications"
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_classification_tenant_name"),)
+class Group(Base):
+    __tablename__ = "groups"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_group_tenant_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
     name = Column(String(255), nullable=False)
 
 
-class ClassificationValue(Base):
-    __tablename__ = "classification_values"
-    __table_args__ = (UniqueConstraint("classification_id", "name", name="uq_classification_value_name"),)
+class GroupValue(Base):
+    __tablename__ = "group_values"
+    __table_args__ = (UniqueConstraint("group_id", "name", name="uq_group_value_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
-    classification_id = Column(BigInteger, ForeignKey("classifications.id"), nullable=False, index=True)
+    group_id = Column(BigInteger, ForeignKey("groups.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
 
 
@@ -147,8 +147,8 @@ class LaborUnion(Base):
     name = Column(String(255), nullable=False)
 
 
-class LaborAgreement(Base):
-    __tablename__ = "labor_agreements"
+class Agreement(Base):
+    __tablename__ = "agreements"
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_agreement_tenant_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -221,7 +221,7 @@ class EmployeeVigency(Base):
     employee_id = Column(BigInteger, ForeignKey("employees.id"), nullable=False, index=True)
     kind = Column(String(32), nullable=False)
     reference_id = Column(BigInteger, nullable=True)
-    classification_id = Column(BigInteger, ForeignKey("classifications.id"), nullable=True, index=True)
+    group_id = Column(BigInteger, ForeignKey("groups.id"), nullable=True, index=True)
     label = Column(String(255), nullable=False)
     valid_from = Column(Date, nullable=False)
     valid_to = Column(Date, nullable=True)
@@ -288,7 +288,7 @@ class Occurrence(Base):
 
 
 class TimeRequest(Base):
-    __tablename__ = "time_requests"
+    __tablename__ = "requests"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -318,7 +318,7 @@ class RequestPunch(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
-    request_id = Column(BigInteger, ForeignKey("time_requests.id"), nullable=False, index=True)
+    request_id = Column(BigInteger, ForeignKey("requests.id"), nullable=False, index=True)
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     position = Column(BigInteger, nullable=False)
 
@@ -328,7 +328,7 @@ class RequestEvent(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
-    request_id = Column(BigInteger, ForeignKey("time_requests.id"), nullable=False, index=True)
+    request_id = Column(BigInteger, ForeignKey("requests.id"), nullable=False, index=True)
     status = Column(String(32), nullable=False)
     note = Column(Text, nullable=True)
     person_id = Column(BigInteger, nullable=False)
@@ -402,10 +402,10 @@ class ClosingEvent(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
-class NotificationPreference(Base):
-    __tablename__ = "notification_preferences"
+class NoticePreference(Base):
+    __tablename__ = "notice_preferences"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "person_id", "kind", name="uq_notification_preference"),
+        UniqueConstraint("tenant_id", "person_id", "kind", name="uq_notice_preference"),
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -430,8 +430,8 @@ class NoticeEmail(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
-class Notification(Base):
-    __tablename__ = "notifications"
+class Notice(Base):
+    __tablename__ = "notices"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()

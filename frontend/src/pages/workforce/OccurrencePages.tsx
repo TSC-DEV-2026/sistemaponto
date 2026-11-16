@@ -19,16 +19,16 @@ import { createRecord, listRecords, removeRecord, uploadCertificatePhoto, type E
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
-import { absenceKinds, certificateText, manualTimeOffKinds, occurrenceKindLabel, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, requestStatusClass } from "@/utils/labels"
+import { absenceKinds, certificateText, isCertificateKind, isLeaveKind, isVacationKind, occurrenceKindOf, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, reasonKindForOccurrence, requestStatusClass } from "@/utils/labels"
 
-const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceTabLabel[id] || occurrenceKindLabel[id]] as const)
+const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceTabLabel[id]] as const)
 
 const occurrenceIcon = {
-  absence: conceptIcon.fault,
-  certificate: conceptIcon.certificate,
-  vacation: conceptIcon.vacation,
-  allowance: conceptIcon.allowance,
-  leave: conceptIcon.leave,
+  absences: conceptIcon.fault,
+  certificates: conceptIcon.certificate,
+  vacations: conceptIcon.vacation,
+  allowances: conceptIcon.allowance,
+  leaves: conceptIcon.leave,
 } as const
 
 function tabPath(kind: string) {
@@ -37,7 +37,7 @@ function tabPath(kind: string) {
 }
 
 function canLaunchKind(role: string | null | undefined, kind: string) {
-  const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
+  const manual = absenceKinds.includes(occurrenceKindOf(kind) as (typeof absenceKinds)[number])
   return role === "admin" || (role === "manager" && manual)
 }
 
@@ -45,10 +45,10 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   const canLaunch = canLaunchKind(useAuthStore((state) => state.user?.role), kind)
   const [listEmployee, setListEmployee] = useState("")
   const [reasons, setReasons] = useState<NamedRecord[]>([])
-  const asksReason = kind !== "vacation" && kind !== "leave" && kind !== "punch_entry"
+  const asksReason = !isVacationKind(kind) && !isLeaveKind(kind) && kind !== "punch_entry"
   const events = usePagedList<Occurrence>("/occurrences", { kind, ...(listEmployee ? { employee_id: Number(listEmployee) } : {}) })
   const [pending, setPending] = useState<number | null>(null)
-  const label = occurrenceTabLabel[kind] || occurrenceKindLabel[kind] || kind
+  const label = occurrenceTabLabel[kind] || kind
   const actionLabel = occurrenceNewLabel[kind] || "Novo lançamento"
   const visible = events.items
 
@@ -58,7 +58,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
       return
     }
     let active = true
-    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind })
+    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKindForOccurrence(kind) })
       .then((page) => {
         if (active) setReasons(page.items)
       })
@@ -270,19 +270,20 @@ export function OccurrenceEntryPage() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams()
-  const kind = search.get("kind") || search.get("tipo") || ""
+  const requested = search.get("kind") || search.get("tipo") || ""
+  const kind = occurrenceKindOf(requested)
 
   useEffect(() => {
-    if (search.get("kind") || !search.get("tipo")) return
+    if (search.get("kind") === kind && !search.get("tipo")) return
     const next = new URLSearchParams(search)
-    next.set("kind", next.get("tipo") || "")
+    next.set("kind", kind)
     next.delete("tipo")
     setSearch(next, { replace: true })
-  }, [search, setSearch])
-  const known = absenceKinds.includes(kind as (typeof absenceKinds)[number])
-  const manual = manualTimeOffKinds.includes(kind as (typeof manualTimeOffKinds)[number])
+  }, [kind, search, setSearch])
+  const known = absenceKinds.includes(occurrenceKindOf(kind) as (typeof absenceKinds)[number])
+  const manual = known
   const canLaunch = canLaunchKind(role, kind)
-  const asksReason = known && kind !== "vacation" && kind !== "leave" && kind !== "punch_entry"
+  const asksReason = Boolean(reasonKindForOccurrence(kind))
   const [employees, setEmployees] = useState<Employee[]>([])
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [reasonsReady, setReasonsReady] = useState(false)
@@ -320,7 +321,7 @@ export function OccurrenceEntryPage() {
     let active = true
     setReasons([])
     setReasonsReady(false)
-    const reasonKind = kind === "vacation" || kind === "leave" || kind === "punch_entry" ? undefined : kind
+    const reasonKind = reasonKindForOccurrence(kind)
     Promise.all([
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
       reasonKind ? listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true }) : Promise.resolve({ items: [] as NamedRecord[] }),
@@ -350,7 +351,7 @@ export function OccurrenceEntryPage() {
     }
     try {
       const span: Record<string, unknown> = manual ? timeOffBody(draft, kind) : { starts_on: startsOn, ends_on: endsOn || null }
-      if (manual && kind === "certificate" && draft.photo) {
+      if (manual && isCertificateKind(kind) && draft.photo) {
         span.photo_key = (await uploadCertificatePhoto(draft.photo)).key
       }
       await createRecord("/occurrences", {
@@ -373,7 +374,7 @@ export function OccurrenceEntryPage() {
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
-          <p className="mt-1 text-sm text-[#64748B]">{kind === "absence" ? "Informe o funcionário e o dia." : manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
+          <p className="mt-1 text-sm text-[#64748B]">{occurrenceKindOf(kind) === "absences" ? "Informe o funcionário e o dia." : manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="occurrence-employee">

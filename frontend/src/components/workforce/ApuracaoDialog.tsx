@@ -189,7 +189,7 @@ export function ApuracaoDialog({
     try {
       await createRecord("/occurrences", {
         employee_id: employeeId,
-        kind: "absence",
+        kind: "absences",
         starts_on: day,
         ends_on: day,
         reason_id: reasonId ? Number(reasonId) : null,

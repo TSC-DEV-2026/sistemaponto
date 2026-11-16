@@ -17,7 +17,7 @@ async function countUnread() {
   let covered = 0
   let total = 0
   do {
-    const result = await listRecords<Notice>("/notifications", { page, limit: 100 })
+    const result = await listRecords<Notice>("/notices", { page, limit: 100 })
     total = result.total
     unread += result.items.filter((item) => !item.read_at).length
     covered += result.items.length
@@ -162,7 +162,7 @@ export function AppHeader() {
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <TenantSwitcher />
         <Link
-          to="/notifications?tab=notices"
+          to="/notices?tab=notices"
           aria-label={unread > 0 ? `Notificações, ${unread} não ${unread === 1 ? "lida" : "lidas"}` : "Notificações"}
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-[#3F3F46] hover:bg-brand-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
         >

@@ -49,7 +49,7 @@ function AccountFact({ icon: Icon, label, value, wrap = false }: { icon: LucideI
 
 const management = [
   { icon: Layers, title: "Organizações", text: "Gerenciar organizações.", to: "/tenants", admin: false },
-  { icon: Bell, title: "Notificações", text: "Configurações de notificações.", to: "/notifications?tab=notices", admin: false },
+  { icon: Bell, title: "Notificações", text: "Configurações de notificações.", to: "/notices?tab=notices", admin: false },
   { icon: Shield, title: "Permissões e acessos", text: "Gerenciar acessos.", to: "/memberships", admin: true },
 ] as const
 

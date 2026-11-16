@@ -11,7 +11,7 @@ export function PeoplePage() {
         { id: "employees", label: "Funcionários", icon: conceptIcon.employee, panel: <EmployeeList /> },
         { id: "jobs", label: "Funções", icon: conceptIcon.job, panel: <CatalogList catalog="jobs" presentation="people" /> },
         { id: "journeys", label: "Jornadas", icon: conceptIcon.journey, panel: <CatalogList catalog="journeys" presentation="people" /> },
-        { id: "groups", label: "Grupos", icon: conceptIcon.group, panel: <CatalogList catalog="classifications" presentation="people" /> },
+        { id: "groups", label: "Grupos", icon: conceptIcon.group, panel: <CatalogList catalog="groups" presentation="people" /> },
       ]}
     />
   )

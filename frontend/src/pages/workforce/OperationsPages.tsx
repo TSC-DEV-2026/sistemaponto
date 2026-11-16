@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
-import { ClassificationFilter, classificationQuery, loadClassificationGroups } from "@/components/workforce/ClassificationFilter"
+import { GroupFilter, classificationQuery, loadGroups } from "@/components/workforce/ClassificationFilter"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { PlaceCombobox } from "@/components/workforce/place-combobox"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
@@ -1492,11 +1492,11 @@ export function NotificationsPage() {
   const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(false)
   const noticeKinds = Object.entries(noticePhrase).map(([value, label]) => ({ value, label }))
-  const notices = usePagedList<Notice>("/notifications", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
+  const notices = usePagedList<Notice>("/notices", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
 
   async function load() {
     const [prefs, people] = await Promise.all([
-      listRecords<NoticePreference>("/notification-preferences", { page: 1, limit: 100 }),
+      listRecords<NoticePreference>("/notice-preferences", { page: 1, limit: 100 }),
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
     ])
     setPreferences(prefs.items)
@@ -1538,7 +1538,7 @@ export function NotificationsPage() {
   async function mark(id: number) {
     setError("")
     try {
-      await updateRecord("/notifications", id, { read: true })
+      await updateRecord("/notices", id, { read: true })
       notices.reload()
       notifyNoticesChanged()
     } catch (caught) {
@@ -1551,9 +1551,9 @@ export function NotificationsPage() {
     try {
       const row = preferences.find((item) => item.kind === kind)
       if (row) {
-        await updateRecord("/notification-preferences", row.id, { enabled: next })
+        await updateRecord("/notice-preferences", row.id, { enabled: next })
       } else if (!next) {
-        await createRecord("/notification-preferences", { kind, enabled: false, channel: "both" })
+        await createRecord("/notice-preferences", { kind, enabled: false, channel: "both" })
       }
       await load()
     } catch (caught) {
@@ -1566,9 +1566,9 @@ export function NotificationsPage() {
     try {
       const row = preferenceRow(kind)
       if (row) {
-        await updateRecord("/notification-preferences", row.id, { enabled: true, channel })
+        await updateRecord("/notice-preferences", row.id, { enabled: true, channel })
       } else {
-        await createRecord("/notification-preferences", { kind, enabled: true, channel })
+        await createRecord("/notice-preferences", { kind, enabled: true, channel })
       }
       await load()
     } catch (caught) {
@@ -1579,7 +1579,7 @@ export function NotificationsPage() {
   async function sendDaily() {
     setError("")
     try {
-      const result = await createRecord<{ created: number }>("/notification-runs", {})
+      const result = await createRecord<{ created: number }>("/notice-runs", {})
       setSent(result.created)
       notices.reload()
       notifyNoticesChanged()
@@ -1675,7 +1675,7 @@ export function NotificationsPage() {
             ),
           },
           {
-            id: "preferences",
+            id: "notice-preferences",
             label: "Preferências",
             icon: SlidersHorizontal,
             panel: (
@@ -1752,8 +1752,8 @@ type ReportQuery = {
 
 function reportExtra(query: ReportQuery) {
   const extra: Record<string, string> = {}
-  if (query.classificationValueId) extra.classification_value_id = query.classificationValueId
-  if (query.classificationIds) extra.classification_ids = query.classificationIds
+  if (query.classificationValueId) extra.group_value_id = query.classificationValueId
+  if (query.classificationIds) extra.group_ids = query.classificationIds
   if (query.unitIds) extra.unit_id = query.unitIds
   if (query.sectorIds) extra.sector_id = query.sectorIds
   if (query.teamIds) extra.team_id = query.teamIds
@@ -1819,7 +1819,7 @@ export function ReportsPage() {
   const [unions, setUnions] = useState<NamedRecord[]>([])
   const [valueIds, setValueIds] = useState<number[]>([])
   const [showIds, setShowIds] = useState<number[]>([])
-  const [classifications, setClassifications] = useState<NamedRecord[]>([])
+  const [groupOptions, setGroupOptions] = useState<NamedRecord[]>([])
   const [result, setResult] = useState<Report | null>(null)
   const [applied, setApplied] = useState<ReportQuery | null>(null)
   const [loading, setLoading] = useState(false)
@@ -1858,8 +1858,8 @@ export function ReportsPage() {
         setJobs(jobPage.items)
         setJourneys(journeyPage.items)
         setUnions(unionPage.items)
-        const groups = await loadClassificationGroups().catch(() => null)
-        if (active && groups) setClassifications(groups.map((item) => ({ id: item.id, name: item.name })))
+        const loaded = await loadGroups().catch(() => null)
+        if (active && loaded) setGroupOptions(loaded.map((item) => ({ id: item.id, name: item.name })))
         if (reports.items[0]) {
           setKind(reports.items[0].kind)
         }
@@ -2030,7 +2030,7 @@ export function ReportsPage() {
               <p className="text-sm font-semibold text-[#0A0A0A]">Grupos no relatório</p>
               <p className="mt-1 text-sm text-[#64748B]">Sem marcação, o relatório mostra todas.</p>
               <div className="mt-3 flex flex-wrap gap-3">
-                {classifications.map((item) => (
+                {groupOptions.map((item) => (
                   <label key={item.id} className="flex items-center gap-2 text-sm text-[#334155]">
                     <input
                       type="checkbox"
@@ -2047,7 +2047,7 @@ export function ReportsPage() {
               <p className="text-sm font-semibold text-[#0A0A0A]">Filtro de pessoas</p>
               <p className="mt-1 text-sm text-[#64748B]">Valores do mesmo grupo se alternam. Grupos diferentes se somam.</p>
               <div className="mt-3">
-                <ClassificationFilter selected={valueIds} onChange={setValueIds} />
+                <GroupFilter selected={valueIds} onChange={setValueIds} />
               </div>
             </div>
           </div>
@@ -2264,8 +2264,8 @@ export function PayrollPage() {
       organization
       title="Fiscal / Folha"
       tabs={[
-        { id: "afd", label: "AFD", icon: FileText, panel: <AfdPanel /> },
-        { id: "payroll", label: "Totais da folha", icon: List, panel: <PayrollTotalsPanel /> },
+        { id: "fiscal-files", label: "AFD", icon: FileText, panel: <AfdPanel /> },
+        { id: "payroll-totals", label: "Totais da folha", icon: List, panel: <PayrollTotalsPanel /> },
       ]}
     />
   )

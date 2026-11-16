@@ -14,9 +14,9 @@ from app.models.membership import Membership
 from app.models.workforce import (
     Audit,
     Charge,
-    Classification,
+    Group,
     CostCenter,
-    ClassificationValue,
+    GroupValue,
     Closing,
     ClosingEvent,
     ClosingMember,
@@ -32,8 +32,8 @@ from app.models.workforce import (
     JourneySpan,
     JourneyVersion,
     NoticeEmail,
-    Notification,
-    NotificationPreference,
+    Notice,
+    NoticePreference,
     Occurrence,
     Punch,
     RequestEvent,
@@ -92,7 +92,7 @@ class Memory:
     def preference_for(self, tenant_id: int, person_id: int, kind: str):
         for row in self.rows:
             if (
-                isinstance(row, NotificationPreference)
+                isinstance(row, NoticePreference)
                 and row.tenant_id == tenant_id
                 and row.person_id == person_id
                 and row.kind == kind
@@ -103,7 +103,7 @@ class Memory:
     def notice_between(self, tenant_id: int, person_id: int, kind: str, start: datetime, end: datetime):
         for row in self.rows:
             if (
-                isinstance(row, Notification)
+                isinstance(row, Notice)
                 and row.tenant_id == tenant_id
                 and row.person_id == person_id
                 and row.kind == kind
@@ -234,11 +234,11 @@ class Memory:
             if row.kind == kind and row.reference_id == reference_id
         ]
 
-    def open_vigency(self, employee_id: int, kind: str, classification_id: int | None = None):
+    def open_vigency(self, employee_id: int, kind: str, group_id: int | None = None):
         for row in self.rows:
             if not isinstance(row, EmployeeVigency) or row.employee_id != employee_id or row.kind != kind or row.valid_to is not None:
                 continue
-            if classification_id is not None and row.classification_id != classification_id:
+            if group_id is not None and row.group_id != group_id:
                 continue
             return row
         return None
@@ -290,8 +290,8 @@ class Memory:
                 found.append(row.employee_id)
         return found
 
-    def classification_named(self, tenant_id: int, name: str):
-        for row in self._of(Classification, tenant_id):
+    def group_named(self, tenant_id: int, name: str):
+        for row in self._of(Group, tenant_id):
             if row.name == name:
                 return row
         return None
@@ -301,12 +301,12 @@ class Memory:
         found.sort(key=lambda item: (getattr(item, "name", ""), item.id))
         return found
 
-    def employees_with_values(self, tenant_id: int, classification_id: int, day: date, reference_ids: set[int]) -> set[int]:
+    def employees_with_values(self, tenant_id: int, group_id: int, day: date, reference_ids: set[int]) -> set[int]:
         rows = [
             row
             for row in self._of(EmployeeVigency, tenant_id)
-            if row.kind == "classification"
-            and row.classification_id == classification_id
+            if row.kind == "group"
+            and row.group_id == group_id
             and row.valid_from <= day
             and (row.valid_to is None or row.valid_to >= day)
         ]
@@ -316,7 +316,7 @@ class Memory:
             chosen[row.employee_id] = row
         return {employee_id for employee_id, row in chosen.items() if row.reference_id in reference_ids}
 
-    def applicable_classifications(self, employee_ids: list[int], day: date):
+    def applicable_groups(self, employee_ids: list[int], day: date):
         if not employee_ids:
             return {}
         rows = [
@@ -324,15 +324,15 @@ class Memory:
             for row in self.rows
             if isinstance(row, EmployeeVigency)
             and row.employee_id in employee_ids
-            and row.kind == "classification"
-            and row.classification_id is not None
+            and row.kind == "group"
+            and row.group_id is not None
             and row.valid_from <= day
             and (row.valid_to is None or row.valid_to >= day)
         ]
         rows.sort(key=lambda item: (item.valid_from, item.id))
         found: dict[int, dict[int, EmployeeVigency]] = {}
         for row in rows:
-            found.setdefault(row.employee_id, {})[row.classification_id] = row
+            found.setdefault(row.employee_id, {})[row.group_id] = row
         return found
 
     def applicable(self, employee_id: int, kind: str, day: date):
@@ -595,7 +595,7 @@ class Memory:
         return [
             row
             for row in self._of(Occurrence, tenant_id)
-            if row.kind in {"allowance", "certificate"} and row.starts_on <= end and row.ends_on >= start
+            if row.kind in {"allowances", "certificates", "allowance", "certificate"} and row.starts_on <= end and row.ends_on >= start
         ]
 
     def events_for(self, request_ids: list[int]):
@@ -1058,7 +1058,7 @@ def test_aprovacao_de_afastamento_e_ferias_grava_origem_solicitacao():
     vacation = workforce.create_request(admin(), period("vacation"))
     workforce.decide_request(admin(), vacation["id"], {"status": "approved", "decision_note": None})
     rows = [row for row in repo.rows if isinstance(row, Occurrence)]
-    assert {row.kind for row in rows} == {"leave", "vacation"}
+    assert {row.kind for row in rows} == {"leaves", "vacations"}
     assert {row.source for row in rows} == {"approved_request"}
     assert all(row.warning is None for row in rows)
 
@@ -1089,7 +1089,7 @@ def test_horario_parcial_ignora_marcacao_invalida_e_fora_da_faixa():
         certificate(starts_at=at(8, 0), ends_at=at(9, 0)),
     )
     workforce.decide_request(admin(), hours["id"], {"status": "approved", "decision_note": None})
-    warned = [row for row in repo.rows if isinstance(row, Occurrence) and row.kind == "certificate"]
+    warned = [row for row in repo.rows if isinstance(row, Occurrence) and row.kind == "certificates"]
     assert warned[0].warning is None
     assert warned[0].starts_at == at(8, 0).astimezone(ZoneInfo("UTC"))
 
@@ -1319,7 +1319,7 @@ def test_apuracao_usa_so_marcacao_valida_e_ignora_pedido_pendente():
     extra = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(9, 0), "note": None})
     extra.valid = False
     workforce.create_request(admin(), adjustment([at(10, 0)]))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     row = result["items"][0]
     assert row["worked_minutes"] == 8 * 60 + 48
     assert row["expected_minutes"] == 8 * 60 + 48
@@ -1337,7 +1337,7 @@ def test_tolerancia_perdoa_dez_minutos_e_desconta_o_atraso_inteiro():
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 10), (12, 0), (13, 0), (17, 48))
     mark(workforce, person["id"], 7, (8, 11), (12, 0), (13, 0), (17, 48))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     forgiven = day_result(result, date(2026, 10, 6))
     late = day_result(result, date(2026, 10, 7))
     assert forgiven["delay_minutes"] == 0
@@ -1353,7 +1353,7 @@ def test_saida_antecipada_desconta_e_hora_extra_e_o_excedente():
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 18))
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     early = day_result(result, date(2026, 10, 6))
     extra = day_result(result, date(2026, 10, 7))
     assert early["early_leave_minutes"] == 30
@@ -1369,7 +1369,7 @@ def test_intervalo_menor_avisa_e_a_marcacao_permanece():
     person = workforce.create_employee(admin(), employee_payload())
     work_journey(workforce, person["id"])
     rows = mark(workforce, person["id"], 6, (8, 0), (12, 0), (12, 40), (17, 48))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert result["items"][0]["warnings"] == ["intervalo menor do que o previsto"]
     assert result["items"][0]["incomplete"] is False
     assert all(row.valid for row in rows)
@@ -1384,7 +1384,7 @@ def test_feriado_trabalhado_vira_hora_extra_e_noturno_fica_no_horario():
     mark(workforce, person["id"], 5, (22, 0), (23, 0))
     mark(workforce, person["id"], 6, (22, 0))
     mark(workforce, person["id"], 7, (5, 0), (12, 0))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
     same_day = day_result(result, date(2026, 10, 5))
     crossed = day_result(result, date(2026, 10, 6))
     assert same_day["holiday"] is True
@@ -1397,7 +1397,7 @@ def test_feriado_trabalhado_vira_hora_extra_e_noturno_fica_no_horario():
     assert crossed["night_minutes"] == 7 * 60
     assert crossed["night_additional_minutes"] == 84
     assert crossed["incomplete"] is False
-    morning = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
+    morning = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
     assert morning["items"][0]["worked_minutes"] == 0
 
 
@@ -1405,10 +1405,10 @@ def test_abono_aprovado_tira_a_falta_e_o_pendente_nao():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     work_journey(workforce, person["id"])
-    before = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
+    before = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
     assert day_result(before, date(2026, 10, 6))["absence"] is True
     pending = workforce.create_request(admin(), period("allowance"))
-    waiting = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    waiting = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert waiting["items"][0]["absence"] is True
     workforce.decide_request(admin(), pending["id"], {"status": "approved", "decision_note": None})
     workforce.create_occurrence(
@@ -1428,7 +1428,7 @@ def test_abono_aprovado_tira_a_falta_e_o_pendente_nao():
             "photo_key": None,
         },
     )
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 5))["absence"] is True
     assert day_result(result, date(2026, 10, 6))["absence"] is False
     assert day_result(result, date(2026, 10, 6))["incomplete"] is False
@@ -1439,13 +1439,13 @@ def test_excluir_ausencia_reabre_a_falta_e_periodo_fechado_bloqueia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     work_journey(workforce, person["id"])
-    before = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    before = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert day_result(before, date(2026, 10, 6))["absence"] is True
     created = workforce.create_occurrence(admin(), period("allowance", employee_id=person["id"]))
-    excused = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    excused = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert day_result(excused, date(2026, 10, 6))["absence"] is False
     workforce.delete_occurrence(admin(), created.id)
-    restored = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    restored = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert day_result(restored, date(2026, 10, 6))["absence"] is True
     again = workforce.create_occurrence(admin(), period("allowance", employee_id=person["id"]))
     opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
@@ -1454,7 +1454,7 @@ def test_excluir_ausencia_reabre_a_falta_e_periodo_fechado_bloqueia():
         workforce.delete_occurrence(admin(), again.id)
     assert closed.value.status_code == 409
     assert closed.value.message == "Período fechado"
-    kept = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    kept = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert day_result(kept, date(2026, 10, 6))["absence"] is False
 
 
@@ -1520,7 +1520,7 @@ def test_ponto_incompleto_e_as_excecoes_do_dia():
             "photo_key": None,
         },
     )
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 1), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 1), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 1))["incomplete"] is False
     assert day_result(result, date(2026, 10, 2))["incomplete"] is False
     assert day_result(result, date(2026, 10, 3))["incomplete"] is False
@@ -1565,7 +1565,7 @@ def test_jornada_vigente_muda_o_previsto_do_dia():
     )
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 48))
     mark(workforce, person["id"], 7, (8, 0), (12, 0))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 8 * 60 + 48
     assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 4 * 60
     assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 4 * 60
@@ -1581,9 +1581,9 @@ def test_apuracao_recusa_periodo_invertido_e_funcionario_de_outra_pessoa():
     own = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     other = workforce.create_employee(admin(), employee_payload())
     with pytest.raises(AppError) as inverted:
-        workforce.time_results(admin(), own["id"], date(2026, 10, 7), date(2026, 10, 6))
+        workforce.calculations(admin(), own["id"], date(2026, 10, 7), date(2026, 10, 6))
     with pytest.raises(AppError) as hidden:
-        workforce.time_results(scope(9, "member"), other["id"], date(2026, 10, 6), date(2026, 10, 6))
+        workforce.calculations(scope(9, "member"), other["id"], date(2026, 10, 6), date(2026, 10, 6))
     assert inverted.value.status_code == 400
     assert hidden.value.status_code == 404
 
@@ -1599,14 +1599,14 @@ def test_sem_banco_excedente_e_hora_extra_e_a_falta_de_tempo_desconta():
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
-    extra = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    extra = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
     assert extra["overtime_minutes"] == 30
     assert extra["shortage_minutes"] == 0
     assert extra["bank_minutes"] == 0
     short = workforce.create_employee(admin(), admitted(date(2026, 10, 6), "10987654321", None))
     work_journey(workforce, short["id"], "Comercial 2")
     mark(workforce, short["id"], 6, (8, 0), (12, 0), (13, 0), (17, 18))
-    missing = workforce.time_results(admin(), short["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    missing = workforce.calculations(admin(), short["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
     assert missing["overtime_minutes"] == 0
     assert missing["shortage_minutes"] == 30
     assert missing["absence"] is False
@@ -1625,7 +1625,7 @@ def test_com_banco_o_excedente_soma_e_o_que_falta_compensa():
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (18, 18))
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (17, 38))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 6))["overtime_minutes"] == 0
     assert day_result(result, date(2026, 10, 6))["bank_minutes"] == 30
     assert day_result(result, date(2026, 10, 7))["bank_minutes"] == -10
@@ -1642,7 +1642,7 @@ def test_adicional_noturno_nao_entra_no_saldo():
     workforce.update_employee(admin(), person["id"], {"hour_bank": True})
     workforce.create_named(Holiday, admin(), {"name": "Hoje", "holiday_date": date(2026, 10, 7), "note": None})
     mark(workforce, person["id"], 7, (22, 0), (23, 0))
-    day = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    day = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
     assert day["night_minutes"] == 60
     assert day["night_additional_minutes"] == 12
     assert day["overtime_minutes"] == 0
@@ -1753,7 +1753,7 @@ def test_abono_e_ponto_incompleto_nao_movimentam_o_banco():
     workforce.update_employee(admin(), opened["id"], {"hour_bank": True})
     work_journey(workforce, opened["id"], "Comercial 2")
     mark(workforce, opened["id"], 7, (8, 0))
-    day = workforce.time_results(admin(), opened["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    day = workforce.calculations(admin(), opened["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
     assert day["incomplete"] is True
     assert day["bank_minutes"] == 0
     assert workforce.hour_bank(admin(), opened["id"])["balance_minutes"] == 0
@@ -1853,7 +1853,7 @@ def test_conflito_impede_o_fechamento_e_intervalo_menor_nao():
     person = workforce.create_employee(admin(), employee_payload())
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (12, 40), (17, 48))
-    warned = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    warned = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
     assert warned["warnings"] == ["intervalo menor do que o previsto"]
     opened = workforce.create_closing(
         admin(),
@@ -2115,7 +2115,7 @@ def test_totais_da_folha_levam_hora_extra_adicional_falta_e_saldo():
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
     workforce.update_employee(admin(), person["id"], {"hour_bank": True})
-    day = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
+    day = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
     item = workforce.payroll(admin(), 2026, 10)["items"][0]
     assert item["worked_minutes"] == day["worked_minutes"]
     assert item["overtime_minutes"] == day["overtime_minutes"]
@@ -2149,27 +2149,27 @@ def test_solicitacao_usa_a_frase_no_sistema_e_no_email():
     person = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     workforce.update_employee(admin(), person["id"], {"email": "ana@example.com"})
     created = workforce.create_request(scope(9, "member"), period("allowance"))
-    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    notices, _total = workforce.list_notices(admin(), 1, 10, {})
     assert [row.body for row in notices] == ["Há uma nova solicitação para analisar."]
     assert notices[0].title == notices[0].body
-    own, _total = workforce.list_notifications(scope(9, "member"), 1, 10, {})
+    own, _total = workforce.list_notices(scope(9, "member"), 1, 10, {})
     assert own == []
     emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
     assert emails[0].body == notices[0].body
     assert emails[0].address is None
-    workforce.create_notification_preference(admin(), {"kind": "request_created", "enabled": False})
+    workforce.create_notice_preference(admin(), {"kind": "request_created", "enabled": False})
     workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 5)))
-    again, _total = workforce.list_notifications(admin(), 1, 10, {})
+    again, _total = workforce.list_notices(admin(), 1, 10, {})
     assert len(again) == 1
-    preference = workforce.list_notification_preferences(admin(), 1, 10, {})[0][0]
-    workforce.delete_notification_preference(admin(), preference.id)
+    preference = workforce.list_notice_preferences(admin(), 1, 10, {})[0][0]
+    workforce.delete_notice_preference(admin(), preference.id)
     workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 4)))
     workforce.create_request(scope(9, "member"), period("certificate", cid="A00", crm="1234", doctor_name="Dra. Ana"))
-    bodies = [row.body for row in workforce.list_notifications(admin(), 1, 10, {})[0]]
+    bodies = [row.body for row in workforce.list_notices(admin(), 1, 10, {})[0]]
     assert bodies.count("Há uma nova solicitação para analisar.") == 2
     assert "Há um atestado recebido para analisar." in bodies
     workforce.decide_request(admin(), created["id"], {"status": "approved", "decision_note": None})
-    decided, _total = workforce.list_notifications(scope(9, "member"), 1, 10, {})
+    decided, _total = workforce.list_notices(scope(9, "member"), 1, 10, {})
     assert decided[0].body == "Sua solicitação foi aprovada."
     mailed, _total = workforce.list_notice_emails(scope(9, "member"), 1, 10, {})
     assert mailed[0].body == "Sua solicitação foi aprovada."
@@ -2181,26 +2181,26 @@ def test_canal_do_aviso_separa_sistema_e_email():
     _access(repo, 9, "member")
     person = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     workforce.update_employee(admin(), person["id"], {"email": "ana@example.com"})
-    saved = workforce.create_notification_preference(admin(), {"kind": "request_created", "enabled": True, "channel": "system"})
+    saved = workforce.create_notice_preference(admin(), {"kind": "request_created", "enabled": True, "channel": "system"})
     workforce.create_request(scope(9, "member"), period("allowance"))
-    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    notices, _total = workforce.list_notices(admin(), 1, 10, {})
     emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
     assert [row.body for row in notices] == ["Há uma nova solicitação para analisar."]
     assert emails == []
-    workforce.update_notification_preference(admin(), saved.id, {"channel": "email"})
+    workforce.update_notice_preference(admin(), saved.id, {"channel": "email"})
     workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 5)))
-    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    notices, _total = workforce.list_notices(admin(), 1, 10, {})
     emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
     assert len(notices) == 1
     assert [row.body for row in emails] == ["Há uma nova solicitação para analisar."]
-    workforce.update_notification_preference(admin(), saved.id, {"enabled": False})
+    workforce.update_notice_preference(admin(), saved.id, {"enabled": False})
     workforce.create_request(scope(9, "member"), period("allowance", starts_on=date(2026, 10, 4)))
-    notices, _total = workforce.list_notifications(admin(), 1, 10, {})
+    notices, _total = workforce.list_notices(admin(), 1, 10, {})
     emails, _total = workforce.list_notice_emails(admin(), 1, 10, {})
     assert len(notices) == 1
     assert len(emails) == 1
     with pytest.raises(AppError) as invalid:
-        workforce.create_notification_preference(admin(), {"kind": "request_approved", "enabled": True, "channel": "sms"})
+        workforce.create_notice_preference(admin(), {"kind": "request_approved", "enabled": True, "channel": "sms"})
     assert invalid.value.status_code == 400
     assert invalid.value.message == "Canal inválido"
 
@@ -2215,7 +2215,7 @@ def test_envio_diario_de_ponto_fechamento_trial_e_plano():
     )
     repo.tenant.trial_ends_at = datetime(2026, 10, 10, 12, 0, tzinfo=BR)
     first = workforce.dispatch_notices(admin())
-    bodies = {row.kind: row.body for row in workforce.list_notifications(admin(), 1, 20, {})[0]}
+    bodies = {row.kind: row.body for row in workforce.list_notices(admin(), 1, 20, {})[0]}
     assert bodies["incomplete_punch"] == "Há um dia com quantidade ímpar de marcações."
     assert bodies["closing_pending"] == "Há pendência impedindo o fechamento."
     assert bodies["closing_soon"] == "O fechamento do período ocorre em 3 dias."
@@ -2238,11 +2238,11 @@ def test_limite_proximo_e_limite_atingido_usam_a_frase():
     workforce, _repo = service(capacity=7)
     for index in range(6):
         workforce.create_employee(admin(), employee_payload(str(10000000000 + index), None))
-    near = [row for row in workforce.list_notifications(admin(), 1, 10, {})[0] if row.kind == "plan_limit_near"]
+    near = [row for row in workforce.list_notices(admin(), 1, 10, {})[0] if row.kind == "plan_limit_near"]
     assert near[0].body == "A capacidade de funcionários está próxima do limite."
     assert near[0].title == near[0].body
     workforce.create_employee(admin(), employee_payload("10000000006", None))
-    reached = [row for row in workforce.list_notifications(admin(), 1, 10, {})[0] if row.kind == "plan_limit"]
+    reached = [row for row in workforce.list_notices(admin(), 1, 10, {})[0] if row.kind == "plan_limit"]
     assert reached[0].body == "A capacidade de funcionários foi atingida."
     emailed = [row for row in workforce.list_notice_emails(admin(), 1, 10, {})[0] if row.kind == "plan_limit"]
     assert emailed[0].body == reached[0].body
@@ -2309,7 +2309,7 @@ def test_inadimplencia_avisa_e_bloqueia_em_7_dias():
     warned = workforce.get_subscription(admin(), hired["id"])
     assert warned["status"] == "delinquent"
     workforce.assert_usable(admin())
-    notices = [row.body for row in workforce.list_notifications(admin(), 1, 10, {})[0]]
+    notices = [row.body for row in workforce.list_notices(admin(), 1, 10, {})[0]]
     assert "Há uma cobrança em atraso." in notices
     mailed = [row.body for row in workforce.list_notice_emails(admin(), 1, 10, {})[0]]
     assert "Há uma cobrança em atraso." in mailed
@@ -3191,7 +3191,7 @@ def test_folga_trabalhada_vira_hora_extra_e_dia_util_permanece():
     person = workforce.create_employee(admin(), employee_payload())
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 3, (8, 0), (12, 0), (13, 0), (17, 0))
-    saturday = workforce.time_results(admin(), person["id"], date(2026, 10, 3), date(2026, 10, 3))["items"][0]
+    saturday = workforce.calculations(admin(), person["id"], date(2026, 10, 3), date(2026, 10, 3))["items"][0]
     assert saturday["absence"] is False
     assert saturday["worked_minutes"] == 8 * 60
     assert saturday["overtime_minutes"] == 8 * 60
@@ -3218,7 +3218,7 @@ def test_programada_comeca_no_dia_escolhido():
             "note": None,
         },
     )
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 6))["absence"] is False
     assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["absence"] is True
@@ -3253,7 +3253,7 @@ def test_flexivel_compara_a_duracao_e_a_tolerancia():
     )
     mark(workforce, person["id"], 6, (13, 30), (17, 30))
     mark(workforce, person["id"], 7, (13, 30), (17, 50))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     inside = day_result(result, date(2026, 10, 6))
     outside = day_result(result, date(2026, 10, 7))
     assert inside["overtime_minutes"] == 0
@@ -3277,7 +3277,7 @@ def test_carga_fecha_no_ultimo_dia_e_o_feriado_sai_da_meta():
         },
     )
     vigency.valid_to = date(2026, 10, 9)
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 11))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 11))
     assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["absence"] is False
     closing = day_result(result, date(2026, 10, 9))
@@ -3297,7 +3297,7 @@ def test_carga_fecha_no_ultimo_dia_e_o_feriado_sai_da_meta():
         },
     )
     mark(workforce, holiday["id"], 5, (8, 0), (16, 0))
-    week = workforce.time_results(admin(), holiday["id"], date(2026, 10, 5), date(2026, 10, 11))
+    week = workforce.calculations(admin(), holiday["id"], date(2026, 10, 5), date(2026, 10, 11))
     assert day_result(week, date(2026, 10, 5))["overtime_minutes"] == 8 * 60
     assert day_result(week, date(2026, 10, 11))["expected_minutes"] == 37 * 60 + 43
 
@@ -3317,13 +3317,13 @@ def test_livre_nao_gera_falta_e_feriado_trabalhado_e_extra():
             "note": None,
         },
     )
-    empty = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    empty = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
     assert empty["absence"] is False
     assert empty["overtime_minutes"] == 0
     assert empty["worked_minutes"] == 0
     workforce.create_named(Holiday, admin(), {"name": "Terca", "holiday_date": date(2026, 10, 6), "note": None})
     mark(workforce, person["id"], 6, (8, 0), (12, 0))
-    worked = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    worked = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
     assert worked["worked_minutes"] == 4 * 60
     assert worked["overtime_minutes"] == 4 * 60
     assert worked["bank_minutes"] == 0
@@ -3335,7 +3335,7 @@ def test_alterar_horario_atualiza_os_dias_em_aberto():
     person = workforce.create_employee(admin(), employee_payload())
     journey = work_journey(workforce, person["id"])
     workforce.update_named(Journey, admin(), journey.id, {"afternoon_end": "18:00"})
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 9 * 60
     assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 9 * 60
 
@@ -3366,18 +3366,18 @@ def test_periodo_fechado_guarda_a_jornada_e_o_aberto_segue_a_nova():
     opened = workforce.create_closing(admin(), {"year": 2026, "month": 9, "note": None})
     workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     workforce.update_named(Journey, admin(), journey.id, {"days": _week({1, 7})})
-    kept = workforce.time_results(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
+    kept = workforce.calculations(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
     assert day_result(kept, date(2026, 9, 25))["expected_minutes"] == 0
     assert day_result(kept, date(2026, 9, 25))["absence"] is False
     assert day_result(kept, date(2026, 9, 27))["expected_minutes"] == 4 * 60
     assert day_result(kept, date(2026, 9, 27))["absence"] is True
-    opened_days = workforce.time_results(admin(), person["id"], date(2026, 10, 9), date(2026, 10, 11))
+    opened_days = workforce.calculations(admin(), person["id"], date(2026, 10, 9), date(2026, 10, 11))
     assert day_result(opened_days, date(2026, 10, 9))["expected_minutes"] == 4 * 60
     assert day_result(opened_days, date(2026, 10, 9))["absence"] is True
     assert day_result(opened_days, date(2026, 10, 11))["expected_minutes"] == 0
     assert day_result(opened_days, date(2026, 10, 11))["absence"] is False
     workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Corrigir a escala"})
-    released = workforce.time_results(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
+    released = workforce.calculations(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
     assert day_result(released, date(2026, 9, 25))["absence"] is True
     assert day_result(released, date(2026, 9, 27))["absence"] is False
 
@@ -3402,9 +3402,9 @@ def test_fechar_depois_da_edicao_grava_a_jornada_que_estava_valendo():
     opened = workforce.create_closing(admin(), {"year": 2026, "month": 9, "note": None})
     workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     workforce.update_named(Journey, admin(), journey.id, {"days": _week({6, 7})})
-    kept = workforce.time_results(admin(), person["id"], date(2026, 9, 27), date(2026, 9, 27))
+    kept = workforce.calculations(admin(), person["id"], date(2026, 9, 27), date(2026, 9, 27))
     assert day_result(kept, date(2026, 9, 27))["absence"] is False
-    later = workforce.time_results(admin(), person["id"], date(2026, 10, 11), date(2026, 10, 11))
+    later = workforce.calculations(admin(), person["id"], date(2026, 10, 11), date(2026, 10, 11))
     assert day_result(later, date(2026, 10, 11))["absence"] is True
 
 
@@ -3434,7 +3434,7 @@ def test_turno_que_passa_da_meia_noite_fica_no_dia_que_comecou():
     )
     mark(workforce, person["id"], 6, (19, 0))
     mark(workforce, person["id"], 7, (7, 0))
-    result = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 6))["worked_minutes"] == 12 * 60
     assert day_result(result, date(2026, 10, 6))["overtime_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 0
@@ -3552,7 +3552,7 @@ def test_gestor_corrige_o_dia_e_lanca_falta_na_equipe():
     )
     assert [row.source for row in corrected["punches"]] == ["manual", "manual"]
     launched = workforce.create_occurrence(scope(8, "manager"), _absence(mate["id"], date(2026, 10, 7)))
-    assert launched.kind == "absence"
+    assert launched.kind == "absences"
     assert launched.source == "manual"
     with pytest.raises(AppError) as other:
         workforce.correct_punches(
@@ -3586,7 +3586,7 @@ def test_pedido_pendente_bloqueia_correcao_e_falta():
 def test_dia_sem_jornada_leva_o_texto():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    day = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
+    day = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
     assert day["warnings"] == ["Sem jornada prevista"]
     assert day["absence"] is False
     assert day["expected_minutes"] == 0
@@ -3600,12 +3600,12 @@ def test_saldo_do_periodo_inclui_os_dias_anteriores():
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (18, 18))
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (17, 38))
-    later = workforce.time_results(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
+    later = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
     row = later["items"][0]
     assert row["bank_minutes"] == -10
     assert row["balance_minutes"] == 20
     assert later["balance_minutes"] == 20
-    both = workforce.time_results(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
+    both = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(both, date(2026, 10, 6))["balance_minutes"] == 30
     assert day_result(both, date(2026, 10, 7))["balance_minutes"] == 20
     assert both["balance_minutes"] == 20
@@ -3627,9 +3627,9 @@ def test_relatorio_de_marcacoes_lista_as_que_valem_e_as_que_deixaram():
     assert {row["title"] for row in listed["items"]} == {"08:00", "09:00", "12:00", "18:00"}
 
 
-def _value(workforce, classification_id: int, name: str):
+def _value(workforce, group_id: int, name: str):
     return workforce.create_named(
-        ClassificationValue, admin(), {"name": name, "classification_id": classification_id}
+        GroupValue, admin(), {"name": name, "group_id": group_id}
     )
 
 
@@ -3638,7 +3638,7 @@ def _classify(workforce, employee_id: int, value_id: int, day: date):
         admin(),
         {
             "employee_id": employee_id,
-            "kind": "classification",
+            "kind": "group",
             "reference_id": value_id,
             "valid_from": day,
             "note": None,
@@ -3649,10 +3649,10 @@ def _classify(workforce, employee_id: int, value_id: int, day: date):
 def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     green = _value(workforce, eyes.id, "Verde")
-    age = workforce.create_named(Classification, admin(), {"name": "Margem de idade"})
+    age = workforce.create_named(Group, admin(), {"name": "Margem de idade"})
     adult = _value(workforce, age.id, "18-59")
     with pytest.raises(AppError) as repeated:
         _value(workforce, eyes.id, "Castanho")
@@ -3661,42 +3661,42 @@ def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
     _classify(workforce, person["id"], adult.id, date(2026, 10, 1))
     _classify(workforce, person["id"], green.id, date(2026, 10, 6))
     current = workforce.get_employee(admin(), person["id"])
-    assert {(item["name"], item["value_name"]) for item in current["classifications"]} == {
+    assert {(item["name"], item["value_name"]) for item in current["groups"]} == {
         ("Cor dos olhos", "Verde"),
         ("Margem de idade", "18-59"),
     }
     with pytest.raises(AppError) as blocked_value:
-        workforce.delete_named(ClassificationValue, admin(), brown.id)
+        workforce.delete_named(GroupValue, admin(), brown.id)
     assert blocked_value.value.status_code == 409
     with pytest.raises(AppError) as blocked_kind:
-        workforce.delete_named(Classification, admin(), eyes.id)
+        workforce.delete_named(Group, admin(), eyes.id)
     assert blocked_kind.value.status_code == 409
-    assert repo.get_row(Classification, 1, eyes.id) is not None
+    assert repo.get_row(Group, 1, eyes.id) is not None
     center = workforce.create_named(CostCenter, admin(), {"name": "Obra A"})
     assert repo.get_row(CostCenter, 1, center.id) is None
-    assert repo.get_row(ClassificationValue, 1, center.id).name == "Obra A"
+    assert repo.get_row(GroupValue, 1, center.id).name == "Obra A"
 
 
 def test_filtro_de_classificacao_soma_e_alterna():
     workforce, _repo = service()
     first = workforce.create_employee(admin(), employee_payload("11111111111", 8))
     second = workforce.create_employee(admin(), employee_payload("22222222222", 9))
-    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     green = _value(workforce, eyes.id, "Verde")
-    age = workforce.create_named(Classification, admin(), {"name": "Margem de idade"})
+    age = workforce.create_named(Group, admin(), {"name": "Margem de idade"})
     adult = _value(workforce, age.id, "18-59")
     _classify(workforce, first["id"], brown.id, date(2026, 10, 1))
     _classify(workforce, first["id"], adult.id, date(2026, 10, 1))
     _classify(workforce, second["id"], green.id, date(2026, 10, 1))
     _classify(workforce, second["id"], adult.id, date(2026, 10, 1))
     both, both_total = workforce.list_employees(
-        admin(), 1, 20, {"classification_value_id": f"{brown.id},{adult.id}"}
+        admin(), 1, 20, {"group_value_id": f"{brown.id},{adult.id}"}
     )
     assert both_total == 1
     assert both[0].id == first["id"]
     either, either_total = workforce.list_employees(
-        admin(), 1, 20, {"classification_value_id": f"{brown.id},{green.id}"}
+        admin(), 1, 20, {"group_value_id": f"{brown.id},{green.id}"}
     )
     assert either_total == 2
     assert {row.id for row in either} == {first["id"], second["id"]}
@@ -3705,10 +3705,10 @@ def test_filtro_de_classificacao_soma_e_alterna():
 def test_lote_de_classificacao_nao_mexe_na_outra():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     blue = _value(workforce, eyes.id, "Azul")
-    age = workforce.create_named(Classification, admin(), {"name": "Margem de idade"})
+    age = workforce.create_named(Group, admin(), {"name": "Margem de idade"})
     adult = _value(workforce, age.id, "18-59")
     _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
     _classify(workforce, person["id"], adult.id, date(2026, 10, 1))
@@ -3718,7 +3718,7 @@ def test_lote_de_classificacao_nao_mexe_na_outra():
             admin(),
             {
                 "employee_ids": [person["id"], 999],
-                "kind": "classification",
+                "kind": "group",
                 "reference_id": blue.id,
                 "valid_from": date(2026, 10, 6),
                 "note": None,
@@ -3729,14 +3729,14 @@ def test_lote_de_classificacao_nao_mexe_na_outra():
         admin(),
         {
             "employee_ids": [person["id"]],
-            "kind": "classification",
+            "kind": "group",
             "reference_id": blue.id,
             "valid_from": date(2026, 10, 6),
             "note": None,
         },
     )
     current = workforce.get_employee(admin(), person["id"])
-    assert {(item["name"], item["value_name"]) for item in current["classifications"]} == {
+    assert {(item["name"], item["value_name"]) for item in current["groups"]} == {
         ("Cor dos olhos", "Azul"),
         ("Margem de idade", "18-59"),
     }
@@ -3845,7 +3845,7 @@ def test_relatorio_filtra_funcao_e_situacao_pela_vigencia_do_dia():
 def test_relatorio_de_pessoas_usa_o_valor_do_dia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Classification, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     green = _value(workforce, eyes.id, "Verde")
     _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
@@ -3863,7 +3863,7 @@ def test_relatorio_de_pessoas_usa_o_valor_do_dia():
         None,
         1,
         10,
-        {"classification_value_id": str(green.id), "classification_id": str(eyes.id)},
+        {"group_value_id": str(green.id), "group_id": str(eyes.id)},
     )
     assert [row["full_name"] for row in later["items"]] == [person["full_name"]]
     assert later["items"][0]["detail"] == "Cor dos olhos: Verde"

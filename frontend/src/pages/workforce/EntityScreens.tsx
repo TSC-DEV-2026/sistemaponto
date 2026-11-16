@@ -825,10 +825,10 @@ export function EmployeeList() {
           const text = query.trim()
           return text ? { q: text } : {}
         }}
-        newTo="/staff/new"
+        newTo="/employees/new"
         newLabel="Novo funcionário"
-        viewTo={(id) => `/staff/${id}`}
-        editTo={(id) => `/staff/${id}/edit`}
+        viewTo={(id) => `/employees/${id}`}
+        editTo={(id) => `/employees/${id}/edit`}
         nameOf={(item) => item.full_name}
         detailOf={(item) =>
           [formatCpf(item.cpf), item.registration_number, situationLabel[item.situation || ""] || "Sem situação", clockMethodLabel[item.clock_method] || item.clock_method, showDate(item.admission_date)]
@@ -894,10 +894,10 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
         ...(query.trim() ? { name: query.trim() } : {}),
       })}
       selects={selects}
-      newTo={`${entry.backTo.split("?")[0]}/${catalog}/new`}
+      newTo={entry.kind ? `${entry.path}/new?kind=${entry.kind}` : `${entry.path}/new`}
       newLabel={entry.newLabel}
-      viewTo={(id) => `${entry.backTo.split("?")[0]}/${catalog}/${id}`}
-      editTo={(id) => `${entry.backTo.split("?")[0]}/${catalog}/${id}/edit`}
+      viewTo={(id) => `${entry.path}/${id}`}
+      editTo={(id) => `${entry.path}/${id}/edit`}
       nameOf={(item) => item.name}
       detailOf={(item) => {
         const journey = journeyDetail(item)
@@ -911,17 +911,17 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       searchTitle={organizationCopy[catalog]?.title}
       searchLead={organizationCopy[catalog]?.lead}
       searchPlaceholder={presentation === "organization" ? "Buscar por nome..." : "Pesquisar"}
-      mark={organizationCopy[catalog]?.mark ?? (catalog === "classifications" ? conceptIcon.group : catalog === "jobs" ? conceptIcon.job : catalog === "journeys" ? conceptIcon.journey : undefined)}
+      mark={organizationCopy[catalog]?.mark ?? (catalog === "groups" ? conceptIcon.group : catalog === "jobs" ? conceptIcon.job : catalog === "journeys" ? conceptIcon.journey : undefined)}
     />
   )
 }
 
-function ClassificationValues({ classificationId, canEdit }: { classificationId: number; canEdit: boolean }) {
+function GroupValues({ classificationId, canEdit }: { classificationId: number; canEdit: boolean }) {
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<{ dir: "asc" | "desc" } | null>(null)
   const [pending, setPending] = useState<number | null>(null)
-  const list = usePagedList<NamedRecord>("/classification-values", {
-    classification_id: classificationId,
+  const list = usePagedList<NamedRecord>("/group-values", {
+    group_id: classificationId,
     ...(query.trim() ? { name: query.trim() } : {}),
   })
 
@@ -930,7 +930,7 @@ function ClassificationValues({ classificationId, canEdit }: { classificationId:
   async function remove(item: NamedRecord) {
     list.setError("")
     try {
-      await removeRecord("/classification-values", item.id)
+      await removeRecord("/group-values", item.id)
       setPending(null)
       list.reload()
     } catch (caught) {
@@ -983,13 +983,13 @@ function ClassificationValues({ classificationId, canEdit }: { classificationId:
                     ) : (
                       <div className="inline-flex justify-center gap-1.5">
                         <Button asChild variant="outline" className={moduleIconClass}>
-                          <Link to={`/staff/classifications/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`} title="Visualizar">
+                          <Link to={`/groups/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`} title="Visualizar">
                             <Eye className="h-4 w-4" strokeWidth={1.75} />
                           </Link>
                         </Button>
                         {canEdit ? (
                           <Button asChild variant="outline" className={moduleIconClass}>
-                            <Link to={`/staff/classifications/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`} title="Editar">
+                            <Link to={`/groups/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`} title="Editar">
                               <Pencil className="h-4 w-4" strokeWidth={1.75} />
                             </Link>
                           </Button>
@@ -1022,13 +1022,13 @@ function ClassificationValues({ classificationId, canEdit }: { classificationId:
   )
 }
 
-export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) {
+export function GroupValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const params = useParams()
   const navigate = useNavigate()
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const classificationId = Number(params.id)
   const valueId = Number(params.valueId)
-  const backTo = `/staff/classifications/${classificationId}`
+  const backTo = `/groups/${classificationId}`
   const [name, setName] = useState("")
   const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(mode === "new")
@@ -1046,10 +1046,10 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
     let active = true
     setLoaded(false)
     setError("")
-    getRecord<NamedRecord & { classification_id?: number }>("/classification-values", valueId)
+    getRecord<NamedRecord & { group_id?: number }>("/group-values", valueId)
       .then((row) => {
         if (!active) return
-        if (row.classification_id != null && row.classification_id !== classificationId) {
+        if (row.group_id != null && row.group_id !== classificationId) {
           navigate(backTo, { replace: true })
           return
         }
@@ -1072,8 +1072,8 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
     const next = name.trim()
     if (!next) return
     try {
-      if (mode === "new") await createRecord("/classification-values", { classification_id: classificationId, name: next })
-      else await updateRecord("/classification-values", valueId, { name: next })
+      if (mode === "new") await createRecord("/group-values", { group_id: classificationId, name: next })
+      else await updateRecord("/group-values", valueId, { name: next })
       navigate(backTo)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
@@ -1129,6 +1129,42 @@ export function ClassificationValueFormPage({ mode }: { mode: "new" | "edit" | "
   )
 }
 
+const reasonCatalogs: Record<string, string> = {
+  adjustment: "reason-adjustment",
+  absence: "reason-absence",
+  allowance: "reason-allowance",
+  certificate: "reason-certificate",
+}
+
+export function ReasonRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
+  const [search] = useSearchParams()
+  const params = useParams()
+  const requested = reasonCatalogs[search.get("kind") || ""] || ""
+  const [catalog, setCatalog] = useState(mode === "new" ? requested || "reason-adjustment" : "")
+
+  useEffect(() => {
+    if (mode === "new") {
+      setCatalog(requested || "reason-adjustment")
+      return
+    }
+    const id = Number(params.id)
+    let active = true
+    getRecord<NamedRecord & { kind?: string }>("/reasons", id)
+      .then((row) => {
+        if (active) setCatalog(reasonCatalogs[row.kind || ""] || "reason-adjustment")
+      })
+      .catch(() => {
+        if (active) setCatalog("reason-adjustment")
+      })
+    return () => {
+      active = false
+    }
+  }, [mode, params.id, requested])
+
+  if (!catalog) return null
+  return <EntityRecordPage catalog={catalog} mode={mode} />
+}
+
 export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "new" | "edit" | "view" }) {
   const entry = catalogs[catalog]
   const params = useParams()
@@ -1144,7 +1180,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
 
   useEffect(() => {
     if (mode !== "view" && !isAdmin) {
-      navigate(mode === "new" ? entry.backTo : `${entry.backTo.split("?")[0]}/${catalog}/${id}`, { replace: true })
+      navigate(mode === "new" ? entry.backTo : `${entry.path}/${id}`, { replace: true })
     }
   }, [mode, isAdmin, id])
 
@@ -1233,7 +1269,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     }
   }
 
-  if (catalog === "jobs" || catalog === "classifications") {
+  if (catalog === "jobs" || catalog === "groups") {
     const Icon = catalog === "jobs" ? conceptIcon.job : conceptIcon.group
     const noun = catalog === "jobs" ? "função" : "grupo"
     const article = catalog === "jobs" ? "a" : "o"
@@ -1250,14 +1286,14 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     }
     const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
     const subtitle = mode === "view" ? (catalog === "jobs" ? "Função" : "Grupo") : mode === "new" ? `Informe o nome d${article} ${noun}.` : `Atualize o nome d${article} ${noun}.`
-    const valuesOnPage = catalog === "classifications" && mode === "view"
+    const valuesOnPage = catalog === "groups" && mode === "view"
     return (
       <div className="w-full min-w-0 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <BackLink to={entry.backTo} appearance="detail" />
           {valuesOnPage && isAdmin ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
-              <Link to={`/staff/classifications/${id}/values/new`}>
+              <Link to={`/groups/${id}/values/new`}>
                 <Plus className="h-4 w-4" />
                 Novo valor
               </Link>
@@ -1296,7 +1332,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             </ActionForm>
           )}
         </section>
-        {valuesOnPage ? <ClassificationValues classificationId={id} canEdit={isAdmin} /> : null}
+        {valuesOnPage ? <GroupValues classificationId={id} canEdit={isAdmin} /> : null}
       </div>
     )
   }
