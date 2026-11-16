@@ -7,6 +7,7 @@ import { conceptIcon } from "@/utils/concept-icons"
 
 import { authInputClass } from "@/components/auth-screen"
 import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
@@ -173,7 +174,7 @@ function asEmployee(item: object): Employee | null {
   return null
 }
 
-function SortArrows({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+export function SortArrows({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return (
     <span className="inline-flex flex-col" aria-hidden>
       <ChevronUp className={cn("h-3.5 w-3.5", active && dir === "asc" ? "text-[#1E8A3A]" : "text-[#CBD5E1]")} strokeWidth={2.5} />
@@ -480,9 +481,11 @@ export function RecordList<T extends Row>({
                       <span className="block truncate font-semibold text-brand-ink">{nameOf(item)}</span>
                       {detailOf?.(item) ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detailOf(item)}</span> : null}
                     </span>
-                    <span title="Visualizar" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
-                      <Eye className="h-4 w-4" strokeWidth={1.75} />
-                    </span>
+                    <ActionTip label="Visualizar">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
+                        <Eye className="h-4 w-4" strokeWidth={1.75} />
+                      </span>
+                    </ActionTip>
                   </Link>
                   {pending === item.id ? (
                     <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
@@ -496,14 +499,18 @@ export function RecordList<T extends Row>({
                     </div>
                   ) : isAdmin ? (
                     <div className="flex shrink-0 gap-1.5">
-                      <Button asChild variant="outline" className={moduleIconClass}>
-                        <Link to={editTo(item.id)} aria-label={`Editar ${nameOf(item)}`} title="Editar">
-                          <Pencil className="h-4 w-4" strokeWidth={1.75} />
-                        </Link>
-                      </Button>
-                      <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${nameOf(item)}`} title="Excluir" onClick={() => setPending(item.id)}>
-                        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                      </Button>
+                      <ActionTip label="Editar">
+                        <Button asChild variant="outline" className={moduleIconClass}>
+                          <Link to={editTo(item.id)} aria-label={`Editar ${nameOf(item)}`}>
+                            <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                          </Link>
+                        </Button>
+                      </ActionTip>
+                      <ActionTip label="Excluir">
+                        <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${nameOf(item)}`} onClick={() => setPending(item.id)}>
+                          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                        </Button>
+                      </ActionTip>
                     </div>
                   ) : null}
                 </li>
@@ -612,22 +619,28 @@ export function RecordList<T extends Row>({
                     </div>
                   ) : (
                     <div className="inline-flex justify-center gap-1.5">
-                      <Button asChild variant="outline" className={moduleIconClass}>
-                        <Link to={viewTo(item.id)} aria-label={`Visualizar ${nameOf(item)}`} title="Visualizar">
-                          <Eye className="h-4 w-4" strokeWidth={1.75} />
-                        </Link>
-                      </Button>
-                      {isAdmin ? (
+                      <ActionTip label="Visualizar">
                         <Button asChild variant="outline" className={moduleIconClass}>
-                          <Link to={editTo(item.id)} aria-label={`Editar ${nameOf(item)}`} title="Editar">
-                            <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                          <Link to={viewTo(item.id)} aria-label={`Visualizar ${nameOf(item)}`}>
+                            <Eye className="h-4 w-4" strokeWidth={1.75} />
                           </Link>
                         </Button>
+                      </ActionTip>
+                      {isAdmin ? (
+                        <ActionTip label="Editar">
+                          <Button asChild variant="outline" className={moduleIconClass}>
+                            <Link to={editTo(item.id)} aria-label={`Editar ${nameOf(item)}`}>
+                              <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                            </Link>
+                          </Button>
+                        </ActionTip>
                       ) : null}
                       {isAdmin ? (
-                        <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${nameOf(item)}`} title="Excluir" onClick={() => setPending(item.id)}>
-                          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                        </Button>
+                        <ActionTip label="Excluir">
+                          <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${nameOf(item)}`} onClick={() => setPending(item.id)}>
+                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                        </ActionTip>
                       ) : null}
                     </div>
                   )
@@ -695,9 +708,11 @@ export function RecordList<T extends Row>({
                     <span className="block truncate font-semibold text-brand-ink">{nameOf(item)}</span>
                     {detail ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detail}</span> : null}
                   </span>
-                  <span title="Visualizar jornada" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
-                    <Eye className="h-4 w-4" strokeWidth={1.75} />
-                  </span>
+                  <ActionTip label="Visualizar">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
+                      <Eye className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                  </ActionTip>
                 </Link>
                 {pending === item.id ? (
                   <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
@@ -711,14 +726,18 @@ export function RecordList<T extends Row>({
                   </div>
                 ) : isAdmin ? (
                   <div className="flex shrink-0 gap-1.5">
-                    <Button asChild variant="outline" className={moduleIconClass}>
-                      <Link to={editTo(item.id)} aria-label="Editar jornada" title="Editar jornada">
-                        <Pencil className="h-4 w-4" strokeWidth={1.75} />
-                      </Link>
-                    </Button>
-                    <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label="Excluir jornada" title="Excluir jornada" onClick={() => setPending(item.id)}>
-                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                    </Button>
+                    <ActionTip label="Editar">
+                      <Button asChild variant="outline" className={moduleIconClass}>
+                        <Link to={editTo(item.id)} aria-label="Editar jornada">
+                          <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                        </Link>
+                      </Button>
+                    </ActionTip>
+                    <ActionTip label="Excluir">
+                      <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label="Excluir jornada" onClick={() => setPending(item.id)}>
+                        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                      </Button>
+                    </ActionTip>
                   </div>
                 ) : null}
               </li>
@@ -742,22 +761,28 @@ export function RecordList<T extends Row>({
                 </div>
               ) : (
                 <div className="flex gap-1">
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={viewTo(item.id)} aria-label="Visualizar" title="Visualizar">
-                      <Eye className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  {isAdmin ? (
+                  <ActionTip label="Visualizar">
                     <Button asChild size="sm" variant="outline">
-                      <Link to={editTo(item.id)} aria-label="Editar" title="Editar">
-                        <Pencil className="h-4 w-4" />
+                      <Link to={viewTo(item.id)} aria-label="Visualizar">
+                        <Eye className="h-4 w-4" />
                       </Link>
                     </Button>
+                  </ActionTip>
+                  {isAdmin ? (
+                    <ActionTip label="Editar">
+                      <Button asChild size="sm" variant="outline">
+                        <Link to={editTo(item.id)} aria-label="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </ActionTip>
                   ) : null}
                   {isAdmin ? (
-                    <Button type="button" size="sm" variant="outline" aria-label="Excluir" title="Excluir" onClick={() => setPending(item.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <ActionTip label="Excluir">
+                      <Button type="button" size="sm" variant="outline" aria-label="Excluir" onClick={() => setPending(item.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </ActionTip>
                   ) : null}
                 </div>
               )}
@@ -982,22 +1007,28 @@ function GroupValues({ classificationId, canEdit }: { classificationId: number; 
                       </div>
                     ) : (
                       <div className="inline-flex justify-center gap-1.5">
-                        <Button asChild variant="outline" className={moduleIconClass}>
-                          <Link to={`/groups/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`} title="Visualizar">
-                            <Eye className="h-4 w-4" strokeWidth={1.75} />
-                          </Link>
-                        </Button>
-                        {canEdit ? (
+                        <ActionTip label="Visualizar">
                           <Button asChild variant="outline" className={moduleIconClass}>
-                            <Link to={`/groups/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`} title="Editar">
-                              <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                            <Link to={`/groups/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`}>
+                              <Eye className="h-4 w-4" strokeWidth={1.75} />
                             </Link>
                           </Button>
+                        </ActionTip>
+                        {canEdit ? (
+                          <ActionTip label="Editar">
+                            <Button asChild variant="outline" className={moduleIconClass}>
+                              <Link to={`/groups/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`}>
+                                <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                              </Link>
+                            </Button>
+                          </ActionTip>
                         ) : null}
                         {canEdit ? (
-                          <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${item.name}`} title="Excluir" onClick={() => setPending(item.id)}>
-                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                          </Button>
+                          <ActionTip label="Excluir">
+                            <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${item.name}`} onClick={() => setPending(item.id)}>
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                            </Button>
+                          </ActionTip>
                         ) : null}
                       </div>
                     )}

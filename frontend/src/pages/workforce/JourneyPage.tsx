@@ -6,8 +6,8 @@ import { ActionForm } from "@/components/ui/action-form"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
+import { DurationField } from "@/components/ui/duration-field"
 import { SiteSelect } from "@/components/ui/site-select"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { cn } from "@/utils/cn"
@@ -23,7 +23,7 @@ import { createRecord, getHourBank, listRecords, type Employee, type HourBank, t
 import { useAuthStore } from "@/store/auth.store"
 import { canonicalTab } from "@/route-slugs"
 import { conceptIcon } from "@/utils/concept-icons"
-import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, maskDuration, punchDay, showDate, showMinutes } from "@/utils/labels"
+import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
   const [params] = useSearchParams()
@@ -75,6 +75,7 @@ function BankScheduleList() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const setTabAction = useContext(TabAction)
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [employeesReady, setEmployeesReady] = useState(false)
   const [employeeId, setEmployeeId] = useState("")
   const [kind, setKind] = useState("")
   const [balance, setBalance] = useState<HourBank | null>(null)
@@ -102,12 +103,17 @@ function BankScheduleList() {
 
   useEffect(() => {
     let active = true
+    setEmployeesReady(false)
     listRecords<Employee>("/employees", { page: 1, limit: 100 })
       .then((page) => {
-        if (active) setEmployees(page.items)
+        if (!active) return
+        setEmployees(page.items)
+        setEmployeesReady(true)
       })
       .catch(() => {
-        if (active) setEmployees([])
+        if (!active) return
+        setEmployees([])
+        setEmployeesReady(true)
       })
     return () => {
       active = false
@@ -140,7 +146,7 @@ function BankScheduleList() {
   }, [employeeId])
 
   function nameOf(id: number) {
-    return employees.find((item) => item.id === id)?.full_name || String(id)
+    return employees.find((item) => item.id === id)?.full_name || "Não informado"
   }
 
   return (
@@ -183,6 +189,11 @@ function BankScheduleList() {
       ) : null}
       {balanceError ? <p className="mt-4 text-sm text-destructive">{balanceError}</p> : null}
       {entries.error ? <p className="mt-4 text-sm text-destructive">{entries.error}</p> : null}
+      {entries.items.length > 0 && !employeesReady ? (
+        <ul className="mt-8">
+          <ListPlaceholder loading empty="Nenhum lançamento." />
+        </ul>
+      ) : null}
       {entries.items.length === 0 && !entries.error ? (
         entries.loading ? (
           <ul className="mt-8">
@@ -198,7 +209,7 @@ function BankScheduleList() {
           </div>
         )
       ) : null}
-      {entries.items.length > 0 ? (
+      {entries.items.length > 0 && employeesReady ? (
         <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
           {entries.items.map((item) => (
             <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
@@ -209,7 +220,7 @@ function BankScheduleList() {
           ))}
         </ul>
       ) : null}
-      {entries.total > 0 ? (
+      {entries.total > 0 && employeesReady ? (
         <div className="mt-4 border-t border-[#F0F0F2] pt-4">
           <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} tone="module" />
         </div>
@@ -320,7 +331,7 @@ export function HourBankEntryPage() {
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Novo lançamento</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Registre um crédito ou um débito.</p>
+          <p className="mt-1 text-sm text-[#64748B]">Some horas ao saldo ou diminua o saldo.</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-employee">
@@ -339,7 +350,7 @@ export function HourBankEntryPage() {
             <Label className={moduleLabelClass} htmlFor="entry-minutes">
               Horas
             </Label>
-            <Input id="entry-minutes" className={moduleFieldClass} inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
+            <DurationField id="entry-minutes" className={moduleFieldClass} value={minutes} onValueChange={setMinutes} required />
           </div>
           <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required />
         </div>

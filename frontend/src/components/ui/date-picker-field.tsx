@@ -1,5 +1,5 @@
 import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react"
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react"
 
 import { Label } from "@/components/ui/label"
 import { cn } from "@/utils/cn"
@@ -121,12 +121,28 @@ export function DatePickerField({
   const [alignRight, setAlignRight] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const typedCaret = useRef<number | null>(null)
   const listId = useId()
 
   useEffect(() => {
     if (document.activeElement === inputRef.current) return
     setDraft(selected ? formatBr(selected) : "")
   }, [value])
+
+  useLayoutEffect(() => {
+    const element = inputRef.current
+    const position = typedCaret.current
+    typedCaret.current = null
+    if (!element || position == null || document.activeElement !== element) return
+    const place = () => {
+      if (document.activeElement !== element) return
+      const next = Math.min(position, element.value.length)
+      element.setSelectionRange(next, next)
+    }
+    place()
+    const frame = requestAnimationFrame(place)
+    return () => cancelAnimationFrame(frame)
+  }, [draft])
 
   useEffect(() => {
     if (open) {
@@ -172,13 +188,13 @@ export function DatePickerField({
     const digitsBefore = input.value.slice(0, caret).replace(/\D/g, "").length
     const digits = input.value.replace(/\D/g, "").slice(0, 8)
     const next = mask(digits)
-    setDraft(next)
     const place = caretAfterDigits(next, Math.min(digitsBefore, digits.length))
-    requestAnimationFrame(() => {
-      const field = inputRef.current
-      if (!field || document.activeElement !== field) return
-      field.setSelectionRange(place, place)
-    })
+    if (next === draft) {
+      input.setSelectionRange(place, place)
+    } else {
+      typedCaret.current = place
+      setDraft(next)
+    }
     if (digits.length === 0) {
       onChange("")
       return
@@ -423,6 +439,7 @@ export function YearPickerField({
   const [alignRight, setAlignRight] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const typedCaret = useRef<number | null>(null)
   const listId = useId()
   const yearStart = cursor - (cursor % 12)
 
@@ -430,6 +447,21 @@ export function YearPickerField({
     if (document.activeElement === inputRef.current) return
     setDraft(selected ? String(selected) : "")
   }, [selected])
+
+  useLayoutEffect(() => {
+    const element = inputRef.current
+    const position = typedCaret.current
+    typedCaret.current = null
+    if (!element || position == null || document.activeElement !== element) return
+    const place = () => {
+      if (document.activeElement !== element) return
+      const next = Math.min(position, element.value.length)
+      element.setSelectionRange(next, next)
+    }
+    place()
+    const frame = requestAnimationFrame(place)
+    return () => cancelAnimationFrame(frame)
+  }, [draft])
 
   useEffect(() => {
     if (open) {
@@ -509,8 +541,18 @@ export function YearPickerField({
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
           onChange={(event) => {
-            const digits = event.target.value.replace(/\D/g, "").slice(0, 4)
-            setDraft(digits)
+            const input = event.target
+            const cursorAt = input.selectionStart ?? input.value.length
+            const digitsBefore = input.value.slice(0, cursorAt).replace(/\D/g, "").length
+            const digits = input.value.replace(/\D/g, "").slice(0, 4)
+            const place = Math.min(digitsBefore, digits.length)
+            if (digits === draft) {
+              input.value = digits
+              input.setSelectionRange(place, place)
+            } else {
+              typedCaret.current = place
+              setDraft(digits)
+            }
             if (digits.length === 4) {
               onChange(digits)
               setCursor(Number(digits))

@@ -1,11 +1,13 @@
-import { FormEvent, useEffect, useState } from "react"
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Clock, Plus, Save, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
+import { DurationField } from "@/components/ui/duration-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
@@ -16,7 +18,7 @@ import { moduleCardClass, moduleDangerIconClass, moduleFieldClass, moduleLabelCl
 import { createRecord, getRecord, listRecords, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
-import { maskDuration, punchDay, showDuration } from "@/utils/labels"
+import { punchDay, showDuration } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 import { journeyKinds, programadaError, standardWeek, weeklyError, type JourneyDay, type JourneyKind } from "@/pages/workforce/journey"
 
@@ -72,6 +74,23 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const [weekly, setWeekly] = useState("44:00")
   const [flexible, setFlexible] = useState(false)
   const [tolerance, setTolerance] = useState("10")
+  const toleranceRef = useRef<HTMLInputElement>(null)
+  const toleranceCaret = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    const element = toleranceRef.current
+    const position = toleranceCaret.current
+    toleranceCaret.current = null
+    if (!element || position == null || document.activeElement !== element) return
+    const place = () => {
+      if (document.activeElement !== element) return
+      const next = Math.min(position, element.value.length)
+      element.setSelectionRange(next, next)
+    }
+    place()
+    const frame = requestAnimationFrame(place)
+    return () => cancelAnimationFrame(frame)
+  }, [tolerance])
   const [validFrom, setValidFrom] = useState(() => punchDay(new Date().toISOString()))
   const [openedLength, setOpenedLength] = useState(7)
   const [openedKind, setOpenedKind] = useState<JourneyKind>("programada")
@@ -282,9 +301,11 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
                       options={[{ value: "work", label: "Trabalho" }, { value: "off", label: "Folga" }]}
                       onChange={(value) => updateDay(day.id, (current) => ({ ...current, off: value === "off", spans: value === "off" ? current.spans : current.spans.length > 0 ? current.spans : [emptySpan()] }))}
                     />
-                    <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir dia ${index + 1}`} title="Excluir dia" disabled={days.length === 1} onClick={() => setDays((current) => current.filter((item) => item.id !== day.id))}>
-                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                    </Button>
+                    <ActionTip label="Excluir dia">
+                      <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir dia ${index + 1}`} disabled={days.length === 1} onClick={() => setDays((current) => current.filter((item) => item.id !== day.id))}>
+                        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                      </Button>
+                    </ActionTip>
                   </div>
                 </div>
                 {day.off ? <p className="mt-3 text-sm text-[#64748B]">Folga não tem horário.</p> : (
@@ -293,9 +314,11 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
                       <div key={span.id} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                         <TimePickerField id={`journey-${day.id}-${span.id}-start`} label={spanIndex === 0 ? "Entrada" : `Entrada ${spanIndex + 1}`} value={span.starts_at} onChange={(value) => updateDay(day.id, (current) => ({ ...current, spans: current.spans.map((item) => item.id === span.id ? { ...item, starts_at: value } : item) }))} />
                         <TimePickerField id={`journey-${day.id}-${span.id}-end`} label={spanIndex === 0 ? "Saída" : `Saída ${spanIndex + 1}`} value={span.ends_at} onChange={(value) => updateDay(day.id, (current) => ({ ...current, spans: current.spans.map((item) => item.id === span.id ? { ...item, ends_at: value } : item) }))} />
-                        <Button type="button" variant="outline" className={cn(moduleDangerIconClass, "mb-0.5")} aria-label="Excluir horário" title="Excluir horário" disabled={day.spans.length === 1} onClick={() => updateDay(day.id, (current) => ({ ...current, spans: current.spans.filter((item) => item.id !== span.id) }))}>
-                          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                        </Button>
+                        <ActionTip label="Excluir horário">
+                          <Button type="button" variant="outline" className={cn(moduleDangerIconClass, "mb-0.5")} aria-label="Excluir horário" disabled={day.spans.length === 1} onClick={() => updateDay(day.id, (current) => ({ ...current, spans: current.spans.filter((item) => item.id !== span.id) }))}>
+                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                        </ActionTip>
                       </div>
                     ))}
                     <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => updateDay(day.id, (current) => ({ ...current, spans: [...current.spans, emptySpan()] }))}>
@@ -317,7 +340,27 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
               </div>
               <div className="space-y-2">
                 <Label className={moduleLabelClass} htmlFor="journey-tolerance">Tolerância (minutos)</Label>
-                <Input id="journey-tolerance" className={moduleFieldClass} inputMode="numeric" value={tolerance} onChange={(event) => setTolerance(event.target.value.replace(/\D/g, "").slice(0, 3))} />
+                <Input
+                  ref={toleranceRef}
+                  id="journey-tolerance"
+                  className={moduleFieldClass}
+                  inputMode="numeric"
+                  value={tolerance}
+                  onChange={(event) => {
+                    const input = event.target
+                    const cursorAt = input.selectionStart ?? input.value.length
+                    const digitsBefore = input.value.slice(0, cursorAt).replace(/\D/g, "").length
+                    const digits = input.value.replace(/\D/g, "").slice(0, 3)
+                    const place = Math.min(digitsBefore, digits.length)
+                    if (digits === tolerance) {
+                      input.value = digits
+                      input.setSelectionRange(place, place)
+                      return
+                    }
+                    toleranceCaret.current = place
+                    setTolerance(digits)
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -325,7 +368,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         {kind === "carga" ? (
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor="journey-weekly">Total da semana</Label>
-            <Input id="journey-weekly" className={moduleFieldClass} inputMode="numeric" placeholder="00:00" value={weekly} onChange={(event) => setWeekly(maskDuration(event.target.value))} required />
+            <DurationField id="journey-weekly" className={moduleFieldClass} value={weekly} onValueChange={setWeekly} required />
             <p className="text-sm text-[#64748B]">A semana corre de segunda a domingo. Exemplo: 44:00.</p>
           </div>
         ) : null}

@@ -39,7 +39,7 @@ import {
   TimeClockPage,
 } from "@/pages/workforce/OperationsPages"
 import { GroupValueFormPage, EntityRecordPage, ReasonRecordPage } from "@/pages/workforce/EntityScreens"
-import { OccurrenceEntryPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
+import { OccurrenceEntryPage, OccurrenceRecordPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
 import { PeoplePage } from "@/pages/workforce/PeoplePage"
 import { ClosingFormPage } from "@/pages/workforce/ClosingFormPage"
 import { ClosingResultPage } from "@/pages/workforce/ClosingResultPage"
@@ -106,6 +106,8 @@ const router = createBrowserRouter([
                   { path: "/time-clock", element: <LegacyRouteRedirect /> },
                   { path: "/punches", element: <TimeClockPage /> },
                   { path: "/occurrences/new", element: <OccurrenceEntryPage /> },
+                  { path: "/occurrences/:id/edit", element: <OccurrenceRecordPage mode="edit" /> },
+                  { path: "/occurrences/:id", element: <OccurrenceRecordPage mode="view" /> },
                   { path: "/occurrences", element: <OccurrencesPage /> },
                   { path: "/requests", element: <RequestsPage /> },
                   { path: "/requests/new", element: <RequestFormPage /> },

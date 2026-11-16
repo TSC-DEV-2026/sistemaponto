@@ -1,25 +1,27 @@
-import { Plus, Trash2 } from "lucide-react"
-import { FormEvent, useEffect, useState } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Calendar, Eye, FileText, MessageSquare, Pencil, Plus, Trash2, User, type LucideIcon } from "lucide-react"
+import { FormEvent, useEffect, useState, type ReactNode } from "react"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { SiteSelect } from "@/components/ui/site-select"
+import { Spinner } from "@/components/ui/spinner"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
-import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { DomainTabs } from "@/pages/workforce/EntityScreens"
-import { createRecord, listRecords, removeRecord, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
+import { createRecord, getRecord, listRecords, removeRecord, updateRecord, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
-import { absenceKinds, certificateText, isCertificateKind, isLeaveKind, isVacationKind, occurrenceKindOf, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, reasonKindForOccurrence, requestStatusClass } from "@/utils/labels"
+import { absenceKinds, certificateText, isCertificateKind, isLeaveKind, isVacationKind, occurrenceKindLabel, occurrenceKindOf, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, reasonKindForOccurrence, requestStatusClass } from "@/utils/labels"
 
 const occurrenceKinds = absenceKinds.map((id) => [id, occurrenceTabLabel[id]] as const)
 
@@ -42,7 +44,9 @@ function canLaunchKind(role: string | null | undefined, kind: string) {
 }
 
 function OccurrenceKindList({ kind, employees }: { kind: string; employees: Employee[] }) {
-  const canLaunch = canLaunchKind(useAuthStore((state) => state.user?.role), kind)
+  const role = useAuthStore((state) => state.user?.role)
+  const canLaunch = canLaunchKind(role, kind)
+  const canEdit = role === "admin"
   const [listEmployee, setListEmployee] = useState("")
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const asksReason = !isVacationKind(kind) && !isLeaveKind(kind) && kind !== "punch_entry"
@@ -128,8 +132,8 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
         )
       ) : null}
       {visible.length > 0 ? (
-        <div className="mt-5 min-w-0 overflow-x-auto rounded-xl border border-[#E2E8F0]">
-          <table className="w-full min-w-[820px] table-fixed text-left text-sm">
+        <div className="mt-5 min-w-0 overflow-hidden rounded-xl border border-[#E2E8F0]">
+          <table className="w-full table-fixed text-left text-sm">
             <thead className="bg-[#F7F7F8] text-xs text-[#71717A]">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Funcionário</th>
@@ -137,7 +141,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                 <th className="px-4 py-2.5 font-medium">Motivo</th>
                 <th className="px-4 py-2.5 font-medium">Observação</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
-                {canLaunch ? <th className="px-4 py-2.5 text-right font-medium"><span className="sr-only">Ações</span></th> : null}
+                <th className="w-[9.5rem] whitespace-nowrap px-2 py-2.5 text-center font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -179,24 +183,44 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                         {approved ? "Solicitação aprovada" : punchOrigin(item.source)}
                       </span>
                     </td>
-                    {canLaunch ? (
-                      <td className="px-4 py-2.5 text-right align-middle">
-                        {pending === item.id ? (
-                          <div className="flex flex-wrap items-center justify-end gap-2">
-                            <Button type="button" className={moduleDangerClass} onClick={() => remove(item.id)}>
-                              Excluir
-                            </Button>
-                            <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${person}`} title="Excluir" onClick={() => setPending(item.id)}>
-                            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                    <td className="w-[9.5rem] px-2 py-2.5 text-center align-middle">
+                      {pending === item.id ? (
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <Button type="button" className={moduleDangerClass} onClick={() => remove(item.id)}>
+                            Excluir
                           </Button>
-                        )}
-                      </td>
-                    ) : null}
+                          <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex justify-center gap-1.5">
+                          <ActionTip label="Visualizar">
+                            <Button asChild variant="outline" className={moduleIconClass}>
+                              <Link to={`/occurrences/${item.id}`} aria-label={`Ver ${person}`}>
+                                <Eye className="h-4 w-4" strokeWidth={1.75} />
+                              </Link>
+                            </Button>
+                          </ActionTip>
+                          {canEdit ? (
+                            <ActionTip label="Editar">
+                              <Button asChild variant="outline" className={moduleIconClass}>
+                                <Link to={`/occurrences/${item.id}/edit`} aria-label={`Editar ${person}`}>
+                                  <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                                </Link>
+                              </Button>
+                            </ActionTip>
+                          ) : null}
+                          {canLaunch ? (
+                            <ActionTip label="Excluir">
+                              <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${person}`} onClick={() => setPending(item.id)}>
+                                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                              </Button>
+                            </ActionTip>
+                          ) : null}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -420,6 +444,156 @@ export function OccurrenceEntryPage() {
           Salvar
         </Button>
       </ActionForm>
+    </div>
+  )
+}
+
+function missing() {
+  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+}
+
+function DetailTile({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]">
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
+        <div className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const role = useAuthStore((state) => state.user?.role)
+  const canEdit = role === "admin"
+  const [item, setItem] = useState<Occurrence | null>(null)
+  const [employeeName, setEmployeeName] = useState("")
+  const [reasonName, setReasonName] = useState("")
+  const [note, setNote] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const locks = useDayLocks(item?.employee_id ?? null)
+  const numeric = Number(id)
+  const blocked = item ? locks.lockRange(item.starts_on, item.ends_on || item.starts_on) : ""
+
+  useEffect(() => {
+    if (mode === "edit" && role && !canEdit && id) navigate(`/occurrences/${id}`, { replace: true })
+  }, [mode, role, canEdit, id, navigate])
+
+  useEffect(() => {
+    if (!id || Number.isNaN(numeric)) {
+      setLoading(false)
+      setError("Não foi possível abrir o lançamento.")
+      return
+    }
+    let active = true
+    setLoading(true)
+    setError("")
+    getRecord<Occurrence>("/occurrences", numeric)
+      .then(async (row) => {
+        if (!active) return
+        const reasonKind = reasonKindForOccurrence(row.kind)
+        const [person, motives] = await Promise.all([
+          getRecord<Employee>("/employees", row.employee_id).catch(() => null),
+          reasonKind ? listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind }).catch(() => ({ items: [] as NamedRecord[] })) : Promise.resolve({ items: [] as NamedRecord[] }),
+        ])
+        if (!active) return
+        setItem(row)
+        setEmployeeName(person?.full_name || "")
+        setReasonName(motives.items.find((reason) => reason.id === row.reason_id)?.name || "")
+        setNote(row.note || "")
+        setLoading(false)
+      })
+      .catch((caught: unknown) => {
+        if (!active) return
+        setLoading(false)
+        setError(caught instanceof Error ? caught.message : "Não foi possível abrir o lançamento.")
+      })
+    return () => {
+      active = false
+    }
+  }, [id, numeric])
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (!item) return
+    setError("")
+    if (blocked) {
+      setError(blocked)
+      return
+    }
+    try {
+      await updateRecord("/occurrences", item.id, { note: note.trim() || null })
+      navigate(`/occurrences/${item.id}`)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    }
+  }
+
+  const kind = item ? occurrenceKindOf(item.kind) : ""
+  const back = tabPath(kind)
+
+  return (
+    <div className="w-full min-w-0 space-y-5">
+      <BackLink to={back} appearance="detail" />
+      {loading ? (
+        <section className={cn(moduleCardClass, "flex min-h-[240px] items-center justify-center")} role="status" aria-live="polite">
+          <Spinner />
+        </section>
+      ) : null}
+      {!loading && error && !item ? <p className="text-sm text-destructive">{error}</p> : null}
+      {!loading && item && mode === "view" ? (
+        <section className={moduleCardClass}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceKindLabel[kind] || occurrenceTabLabel[kind] || "Ocorrência"}</h2>
+            {canEdit ? (
+              <Button asChild variant="outline" className={cn(moduleQuietClass, "h-11 px-4")}>
+                <Link to={`/occurrences/${item.id}/edit`}>
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+          <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+            <DetailTile icon={User} label="Funcionário">{employeeName ? employeeName : missing()}</DetailTile>
+            <DetailTile icon={Calendar} label="Período">{periodText(item) === "Sem período informado" ? <span className="font-medium text-[#94A3B8]">Sem período informado</span> : periodText(item)}</DetailTile>
+            <DetailTile icon={FileText} label="Motivo">{item.reason_id ? reasonName || missing() : missing()}</DetailTile>
+            <DetailTile icon={conceptIcon.situation} label="Origem">{item.source === "approved_request" ? "Solicitação aprovada" : punchOrigin(item.source)}</DetailTile>
+            <DetailTile icon={MessageSquare} label="Observação">{item.note?.trim() ? item.note : <span className="font-medium text-[#94A3B8]">Nenhuma observação informada.</span>}</DetailTile>
+            {isCertificateKind(kind) ? (
+              <>
+                <DetailTile icon={FileText} label="CID">{item.cid?.trim() ? item.cid : missing()}</DetailTile>
+                <DetailTile icon={FileText} label="CRM">{item.crm?.trim() ? item.crm : missing()}</DetailTile>
+                <DetailTile icon={User} label="Nome do médico">{item.doctor_name?.trim() ? item.doctor_name : missing()}</DetailTile>
+                <DetailTile icon={FileText} label="Foto do atestado">{item.photo_url ? <DocumentLink href={item.photo_url} className="font-semibold text-[#1E8A3A] underline-offset-2 hover:underline" /> : missing()}</DetailTile>
+              </>
+            ) : null}
+          </dl>
+          {item.warning ? <p className="mt-4 text-sm text-[#C2410C]">{item.warning}</p> : null}
+        </section>
+      ) : null}
+      {!loading && item && mode === "edit" ? (
+        <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Editar observação</h2>
+            <p className="mt-1 text-sm text-[#64748B]">{[employeeName, periodText(item)].filter(Boolean).join(" · ")}</p>
+          </div>
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="occurrence-edit-note">Observação</Label>
+            <textarea id="occurrence-edit-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
+          </div>
+          {blocked || error ? <p className={cn("text-sm", error && !blocked ? "text-destructive" : "text-[#64748B]")}>{blocked || error}</p> : null}
+          <div className="flex justify-end">
+            <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>Salvar</Button>
+          </div>
+        </ActionForm>
+      ) : null}
     </div>
   )
 }

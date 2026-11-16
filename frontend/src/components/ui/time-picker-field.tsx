@@ -1,9 +1,10 @@
 import { Clock } from "lucide-react"
-import { useEffect, useId, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent, type RefObject } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent, type RefObject } from "react"
 import { createPortal } from "react-dom"
 
 import { Label } from "@/components/ui/label"
 import { cn } from "@/utils/cn"
+import { caretAfterDigits, maskClockDigits } from "@/utils/clock-edit"
 
 type ClockValue = { hour: number; minute: number }
 
@@ -22,21 +23,6 @@ function parseClock(value: string): ClockValue | null {
 
 function formatClock(value: ClockValue) {
   return `${pad(value.hour)}:${pad(value.minute)}`
-}
-
-function maskClock(digits: string) {
-  const clean = digits.replace(/\D/g, "").slice(0, 4)
-  if (clean.length <= 2) return clean
-  return `${clean.slice(0, 2)}:${clean.slice(2)}`
-}
-
-function caretAfterDigits(masked: string, count: number) {
-  let seen = 0
-  for (let index = 0; index < masked.length; index += 1) {
-    if (/\d/.test(masked[index])) seen += 1
-    if (seen === count) return index + 1
-  }
-  return masked.length
 }
 
 function showValue(value: string) {
@@ -68,6 +54,7 @@ export function TimePickerField({
   const rootRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const typedCaret = useRef<number | null>(null)
   const hourListRef = useRef<HTMLDivElement>(null)
   const minuteListRef = useRef<HTMLDivElement>(null)
   const listId = useId()
@@ -84,6 +71,21 @@ export function TimePickerField({
     if (document.activeElement === inputRef.current) return
     setDraft(showValue(value))
   }, [value])
+
+  useLayoutEffect(() => {
+    const element = inputRef.current
+    const position = typedCaret.current
+    typedCaret.current = null
+    if (!element || position == null || document.activeElement !== element) return
+    const place = () => {
+      if (document.activeElement !== element) return
+      const next = Math.min(position, element.value.length)
+      element.setSelectionRange(next, next)
+    }
+    place()
+    const frame = requestAnimationFrame(place)
+    return () => cancelAnimationFrame(frame)
+  }, [draft])
 
   useEffect(() => {
     if (open) {
@@ -170,14 +172,14 @@ export function TimePickerField({
     const caret = input.selectionStart ?? input.value.length
     const digitsBefore = input.value.slice(0, caret).replace(/\D/g, "").length
     const digits = input.value.replace(/\D/g, "").slice(0, 4)
-    const next = maskClock(digits)
-    setDraft(next)
+    const next = maskClockDigits(digits)
     const place = caretAfterDigits(next, Math.min(digitsBefore, digits.length))
-    requestAnimationFrame(() => {
-      const field = inputRef.current
-      if (!field || document.activeElement !== field) return
-      field.setSelectionRange(place, place)
-    })
+    if (next === draft) {
+      input.setSelectionRange(place, place)
+    } else {
+      typedCaret.current = place
+      setDraft(next)
+    }
     const parsed = parseClock(next)
     if (parsed) {
       setHour(parsed.hour)

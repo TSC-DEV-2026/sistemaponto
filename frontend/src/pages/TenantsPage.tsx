@@ -2,6 +2,7 @@ import { Layers, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -186,22 +187,28 @@ export function TenantsPage() {
                           </div>
                         ) : (
                           <div className="inline-flex justify-center gap-1.5">
-                            <Button asChild variant="outline" className={moduleIconClass}>
-                              <Link to={`/tenants/${item.id}`} aria-label={`Visualizar ${item.name || "organização"}`} title="Visualizar">
-                                <Eye className="h-4 w-4" strokeWidth={1.75} />
-                              </Link>
-                            </Button>
-                            {canEdit ? (
+                            <ActionTip label="Visualizar">
                               <Button asChild variant="outline" className={moduleIconClass}>
-                                <Link to={`/tenants/${item.id}/edit`} aria-label={`Editar ${item.name || "organização"}`} title="Editar">
-                                  <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                                <Link to={`/tenants/${item.id}`} aria-label={`Visualizar ${item.name || "organização"}`}>
+                                  <Eye className="h-4 w-4" strokeWidth={1.75} />
                                 </Link>
                               </Button>
+                            </ActionTip>
+                            {canEdit ? (
+                              <ActionTip label="Editar">
+                                <Button asChild variant="outline" className={moduleIconClass}>
+                                  <Link to={`/tenants/${item.id}/edit`} aria-label={`Editar ${item.name || "organização"}`}>
+                                    <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                                  </Link>
+                                </Button>
+                              </ActionTip>
                             ) : null}
                             {canEdit ? (
-                              <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${item.name || "organização"}`} title="Excluir" onClick={() => setPending(item.id)}>
-                                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                              </Button>
+                              <ActionTip label="Excluir">
+                                <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${item.name || "organização"}`} onClick={() => setPending(item.id)}>
+                                  <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                                </Button>
+                              </ActionTip>
                             ) : null}
                           </div>
                         )}

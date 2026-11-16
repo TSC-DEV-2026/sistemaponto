@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Plus, Printer, QrCode, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Upload, X } from "lucide-react"
+import { ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Upload, X } from "lucide-react"
 
 import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
@@ -6,6 +6,7 @@ import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField, YearPickerField } from "@/components/ui/date-picker-field"
@@ -17,10 +18,10 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { GroupFilter, classificationQuery, loadGroups } from "@/components/workforce/ClassificationFilter"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { PlaceCombobox } from "@/components/workforce/place-combobox"
-import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
-import { CatalogList, DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
+import { CatalogList, DomainTabs, SortArrows, TabAction } from "@/pages/workforce/EntityScreens"
 import { CertificatePhotoField, DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
@@ -1061,10 +1062,59 @@ export function RequestsPage() {
   )
 }
 
+const ClosingIcon = conceptIcon.closing
+
 function closingStatusClass(status: string) {
   if (status === "closed") return "bg-[rgba(30,138,58,0.14)] text-[#146C2E]"
   if (status === "open") return "bg-[#FFF1E0] text-[#C2410C]"
   return "bg-[#F1F5F9] text-[#475569]"
+}
+
+function ClosingActions({
+  item,
+  onClose,
+  onAsk,
+}: {
+  item: Closing
+  onClose: (item: Closing, button: HTMLButtonElement) => void
+  onAsk: (item: Closing, status: "cancelled" | "open", button: HTMLButtonElement) => void
+}) {
+  if (item.status === "open") {
+    return (
+      <div className="inline-flex justify-center gap-1.5">
+        <ActionTip label="Fechar">
+          <Button type="button" variant="outline" className={moduleIconClass} aria-label="Fechar período" onClick={(event) => onClose(item, event.currentTarget)}>
+            <Lock className="h-4 w-4" strokeWidth={1.75} />
+          </Button>
+        </ActionTip>
+      </div>
+    )
+  }
+  return (
+    <div className="inline-flex justify-center gap-1.5">
+      {item.status === "closed" ? (
+        <ActionTip label="Ver resultado">
+          <Button asChild variant="outline" className={moduleIconClass}>
+            <Link to={`/closings/${item.id}`} aria-label="Ver resultado">
+              <Eye className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
+          </Button>
+        </ActionTip>
+      ) : null}
+      <ActionTip label="Reabrir">
+        <Button type="button" variant="outline" className={moduleIconClass} aria-label="Reabrir período" onClick={(event) => onAsk(item, "open", event.currentTarget)}>
+          <RotateCcw className="h-4 w-4" strokeWidth={1.75} />
+        </Button>
+      </ActionTip>
+      {item.status === "closed" ? (
+        <ActionTip label="Cancelar">
+          <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label="Cancelar fechamento" onClick={(event) => onAsk(item, "cancelled", event.currentTarget)}>
+            <Ban className="h-4 w-4" strokeWidth={1.75} />
+          </Button>
+        </ActionTip>
+      ) : null}
+    </div>
+  )
 }
 
 export function ClosingsPage() {
@@ -1078,6 +1128,7 @@ export function ClosingsPage() {
   const [reason, setReason] = useState("")
   const [closingItem, setClosingItem] = useState<Closing | null>(null)
   const [error, setError] = useState("")
+  const [sort, setSort] = useState<{ key: "period" | "status" | "history"; dir: "asc" | "desc" } | null>(null)
   const closeOpenerRef = useRef<HTMLButtonElement | null>(null)
   const reasonOpenerRef = useRef<HTMLButtonElement | null>(null)
   const periods = usePagedList<Closing>("/closings", {
@@ -1126,6 +1177,32 @@ export function ClosingsPage() {
     setReasonAsk({ id: item.id, status, period: `${showDate(item.starts_on)} a ${showDate(item.ends_on)}` })
   }
 
+  function toggleSort(key: "period" | "status" | "history") {
+    setSort((current) => {
+      if (current?.key !== key) return { key, dir: "asc" }
+      if (current.dir === "asc") return { key, dir: "desc" }
+      return null
+    })
+  }
+
+  function sortText(item: Closing, key: "period" | "status" | "history") {
+    if (key === "status") return closingStatusLabel[item.status] || item.status
+    if (key === "history") return item.events.map((event) => closingEventLabel[event.kind] || event.kind).join(" → ")
+    return item.starts_on
+  }
+
+  const rows = !sort ? periods.items : [...periods.items].sort((left, right) => sortText(left, sort.key).localeCompare(sortText(right, sort.key), "pt-BR") * (sort.dir === "asc" ? 1 : -1))
+
+  function sortButton(key: "period" | "status" | "history", label: string) {
+    const active = sort?.key === key
+    return (
+      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#64748B] transition-colors duration-200 hover:text-[#334155]" onClick={() => toggleSort(key)}>
+        {label}
+        <SortArrows active={active} dir={sort?.dir ?? "asc"} />
+      </button>
+    )
+  }
+
   const showEmpty = !periods.loading && !periods.error && periods.items.length === 0
 
   return (
@@ -1164,8 +1241,8 @@ export function ClosingsPage() {
           </div>
         </div>
       </section>
-      <section className={moduleCardClass}>
-        {periods.error ? <p className="mb-4 text-sm text-destructive">{periods.error}</p> : null}
+      <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+        {periods.error ? <p className="px-4 py-3 text-sm text-destructive">{periods.error}</p> : null}
         {periods.loading && periods.items.length === 0 ? (
           <div className="flex justify-center px-6 py-12">
             <Spinner />
@@ -1174,79 +1251,76 @@ export function ClosingsPage() {
         {showEmpty ? (
           <div className="px-6 py-12 text-center">
             <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#F1F5F9] text-[#64748B]">
-              <Calendar className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+              <ClosingIcon className="h-8 w-8" strokeWidth={1.75} aria-hidden />
             </span>
             <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhum fechamento encontrado</p>
             <p className="mt-1 text-sm text-[#71717A]">Não há períodos de fechamento com os filtros selecionados.</p>
           </div>
         ) : null}
         {periods.items.length > 0 ? (
-          <ul className="flex flex-col gap-3">
-            {periods.items.map((item) => (
-              <li key={item.id} className="rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="min-w-0 text-sm font-semibold text-[#0A0A0A]">
-                    {showDate(item.starts_on)} a {showDate(item.ends_on)}
-                  </p>
-                  <span className={cn("inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold", closingStatusClass(item.status))}>
-                    {closingStatusLabel[item.status] || item.status}
-                  </span>
-                </div>
-                <p className="mt-2 break-words text-sm leading-5 text-[#52525B]">
-                  {item.events.map((event) => `${closingEventLabel[event.kind] || event.kind}${event.note ? ` (${event.note})` : ""}`).join(" → ") || "Sem histórico informado"}
-                </p>
-                {canManage && item.status === "open" ? (
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      type="button"
-                      className={modulePrimaryClass}
-                      onClick={(event) => {
-                        setError("")
-                        closeOpenerRef.current = event.currentTarget
-                        setClosingItem(item)
-                      }}
-                    >
-                      Fechar
-                    </Button>
-                  </div>
-                ) : null}
-                {canManage && item.status !== "open" ? (
-                  <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    {item.status === "closed" ? (
-                      <>
-                        <Button asChild variant="outline" className={cn(moduleQuietClass, "h-11 px-4")}>
-                          <Link to={`/closings/${item.id}`}>Ver resultado</Link>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={cn(moduleQuietClass, "h-11 px-4")}
-                          onClick={(event) => askReason(item, "cancelled", event.currentTarget)}
-                        >
-                          Cancelar
-                        </Button>
-                      </>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(moduleQuietClass, "h-11 px-4")}
-                      onClick={(event) => askReason(item, "open", event.currentTarget)}
-                    >
-                      Reabrir
-                    </Button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-[#F1F5F9]">
+                  <th className="px-4 py-3 text-left font-semibold">{sortButton("period", "Período")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{sortButton("status", "Situação")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{sortButton("history", "Histórico")}</th>
+                  {canManage ? <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-[#64748B]">Ações</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((item) => {
+                  const steps = item.events.map((event) => closingEventLabel[event.kind] || event.kind)
+                  const motive = [...item.events].reverse().find((event) => event.note?.trim())?.note?.trim() || ""
+                  return (
+                    <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                            <ClosingIcon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                          </span>
+                          <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">
+                            {showDate(item.starts_on)} a {showDate(item.ends_on)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <span className={cn("inline-flex h-7 items-center rounded-full px-3 text-[13px] font-semibold leading-none", closingStatusClass(item.status))}>
+                          {closingStatusLabel[item.status] || item.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <span className={cn("block text-sm leading-5", steps.length > 0 ? "text-[#334155]" : "text-[#94A3B8]")}>
+                          {steps.length > 0 ? steps.join(" → ") : "Sem histórico informado"}
+                        </span>
+                        {motive ? <span className="mt-0.5 block text-sm leading-5 text-[#64748B]">{motive}</span> : null}
+                      </td>
+                      {canManage ? (
+                        <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">
+                          <ClosingActions
+                            item={item}
+                            onClose={(period, button) => {
+                              setError("")
+                              closeOpenerRef.current = button
+                              setClosingItem(period)
+                            }}
+                            onAsk={(period, status, button) => askReason(period, status, button)}
+                          />
+                        </td>
+                      ) : null}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : null}
         {!periods.loading && !periods.error && periods.total > 0 ? (
-          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+          <div className="border-t border-[#F1F5F9] px-4 py-3">
             <ListPager page={periods.page} pageSize={periods.pageSize} total={periods.total} onPage={periods.setPage} onPageSize={periods.setPageSize} tone="module" />
           </div>
         ) : null}
-      </section>
+      </div>
       <ClosingConfirmDialog
         open={closingItem !== null}
         period={closingItem ? `${showDate(closingItem.starts_on)} a ${showDate(closingItem.ends_on)}` : ""}
@@ -1811,6 +1885,7 @@ export function ReportsPage() {
   const [journeyIds, setJourneyIds] = useState<number[]>([])
   const [unionIds, setUnionIds] = useState<number[]>([])
   const [situation, setSituation] = useState("")
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [units, setUnits] = useState<NamedRecord[]>([])
   const [sectors, setSectors] = useState<NamedRecord[]>([])
   const [teams, setTeams] = useState<NamedRecord[]>([])
@@ -1993,7 +2068,21 @@ export function ReportsPage() {
             Consultar
           </Button>
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-[#0A0A0A]">Filtros</p>
+          <button
+            type="button"
+            className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || unitIds.length + sectorIds.length + teamIds.length + jobIds.length + journeyIds.length + unionIds.length > 0 || situation !== "" ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+            aria-expanded={filtersOpen}
+            aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
+            onClick={() => setFiltersOpen((current) => !current)}
+          >
+            <Filter className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </div>
+        {filtersOpen ? (
+        <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-unit">Empresa</Label>
             <PlaceCombobox id="report-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
@@ -2023,7 +2112,8 @@ export function ReportsPage() {
             <SiteSelect id="report-situation" value={situation} className="h-[50px]" icon={conceptIcon.situation} options={[{ value: "", label: "Todas" }, { value: "active", label: "Ativo" }, { value: "dismissed", label: "Desligado" }]} onChange={setSituation} />
           </div>
         </div>
-        <p className="text-sm text-[#64748B]">Sem marcação, entram todos. Cada linha usa a vigência do dia dela. Os filtros se somam.</p>
+        </div>
+        ) : null}
         {kind === "people" ? (
           <div className="mt-5 space-y-4 border-t border-[#F1F5F9] pt-5">
             <div>
