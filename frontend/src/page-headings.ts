@@ -11,9 +11,9 @@ type Pattern = PageHeading & {
 }
 
 const catalogAreas: Record<string, { base: string; subtitle: string }> = {
-  journeys: { base: "/people/journeys", subtitle: "Cadastre as jornadas" },
-  jobs: { base: "/people/jobs", subtitle: "Gerencie os funcionários" },
-  classifications: { base: "/people/classifications", subtitle: "Gerencie os funcionários" },
+  journeys: { base: "/staff/journeys", subtitle: "Cadastre as jornadas" },
+  jobs: { base: "/staff/jobs", subtitle: "Gerencie os funcionários" },
+  classifications: { base: "/staff/classifications", subtitle: "Gerencie os funcionários" },
   units: { base: "/organization/units", subtitle: "Gerencie a estrutura da organização" },
   sectors: { base: "/organization/sectors", subtitle: "Gerencie a estrutura da organização" },
   teams: { base: "/organization/teams", subtitle: "Gerencie a estrutura da organização" },
@@ -46,10 +46,10 @@ function catalogPatterns(): Pattern[] {
 const patterns: Pattern[] = [
   ...catalogPatterns(),
   { path: "/", title: "Dashboard", subtitle: "Visão geral do sistema" },
-  { path: "/schedules", title: "Ponto", subtitle: "Apure o período, consulte o banco de horas e feche o período" },
-  { path: "/schedules/apuracao/:workDate", title: "Detalhes da apuração", subtitle: "Detalhamento das horas apuradas" },
-  { path: "/schedules/adjustments", title: "Ajustar marcações", subtitle: "Corrija as marcações do dia" },
-  { path: "/schedules/hour-bank/new", title: "Novo lançamento", subtitle: "Lance crédito ou débito" },
+  { path: "/timekeeping", title: "Ponto", subtitle: "Apure o período, consulte o banco de horas e feche o período" },
+  { path: "/timekeeping/calculation/:workDate", title: "Detalhes da apuração", subtitle: "Detalhamento das horas apuradas" },
+  { path: "/timekeeping/adjustments", title: "Ajustar marcações", subtitle: "Corrija as marcações do dia" },
+  { path: "/timekeeping/hour-bank/new", title: "Novo lançamento", subtitle: "Lance crédito ou débito" },
   { path: "/time-clock", title: "Registro", subtitle: "Registre e consulte suas marcações" },
   { path: "/occurrences/new", title: "Nova ocorrência", subtitle: "Lance abono, atestado, falta, afastamento ou férias" },
   { path: "/occurrences", title: "Ocorrências", subtitle: "Consulte e lance as ocorrências" },
@@ -58,13 +58,13 @@ const patterns: Pattern[] = [
   { path: "/closings/new", title: "Novo fechamento", subtitle: "Selecione o período e quem entra no fechamento." },
   { path: "/closings/:id", title: "Fechamento", subtitle: "Banco de horas e resultado do período" },
   { path: "/closings", title: "Ponto", subtitle: "Apure o período, consulte o banco de horas e feche o período" },
-  { path: "/people/classifications/:id/values/new", title: "Novo valor", subtitle: "Gerencie os funcionários" },
-  { path: "/people/classifications/:id/values/:valueId/edit", title: "Editar valor", subtitle: "Gerencie os funcionários" },
-  { path: "/people/classifications/:id/values/:valueId", title: "Valor", subtitle: "Gerencie os funcionários" },
-  { path: "/people", title: "Quadro", subtitle: "Funcionários, funções, jornadas e grupos" },
-  { path: "/people/new", title: "Novo funcionário", subtitle: "Cadastro da ficha" },
-  { path: "/people/:id/edit", title: "Editar funcionário", subtitle: "Atualize a ficha" },
-  { path: "/people/:id", title: "Funcionário", subtitle: "Ficha do funcionário" },
+  { path: "/staff/classifications/:id/values/new", title: "Novo valor", subtitle: "Gerencie os funcionários" },
+  { path: "/staff/classifications/:id/values/:valueId/edit", title: "Editar valor", subtitle: "Gerencie os funcionários" },
+  { path: "/staff/classifications/:id/values/:valueId", title: "Valor", subtitle: "Gerencie os funcionários" },
+  { path: "/staff", title: "Quadro", subtitle: "Funcionários, funções, jornadas e grupos" },
+  { path: "/staff/new", title: "Novo funcionário", subtitle: "Cadastro da ficha" },
+  { path: "/staff/:id/edit", title: "Editar funcionário", subtitle: "Atualize a ficha" },
+  { path: "/staff/:id", title: "Funcionário", subtitle: "Ficha do funcionário" },
   { path: "/clock-devices", title: "Aparelhos", subtitle: "Libere o aparelho compartilhado" },
   { path: "/bulk-changes", title: "Operações em massa", subtitle: "Altere várias pessoas de uma vez" },
   { path: "/reports", title: "Relatórios", subtitle: "Consulte informações e indicadores" },
@@ -122,7 +122,7 @@ export function headingFor(pathname: string, search = ""): PageHeading {
   }
   if (!best) return { title: "sistemaponto", subtitle: "" }
   if (best.path === "/occurrences/new") {
-    const kind = new URLSearchParams(search).get("tipo") || ""
+    const kind = new URLSearchParams(search).get("kind") || new URLSearchParams(search).get("tipo") || ""
     const title = occurrenceNewLabel[kind]
     if (title) return { ...best, title }
   }

@@ -21,20 +21,22 @@ import { DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { ClosingsPage } from "@/pages/workforce/OperationsPages"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { canonicalTab } from "@/route-slugs"
 import { conceptIcon } from "@/utils/concept-icons"
 import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, maskDuration, punchDay, showDate, showMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
   const [params] = useSearchParams()
-  if (params.get("aba") === "jornadas") return <Navigate to="/people?aba=jornadas" replace />
+  const tab = canonicalTab(params.get("tab") || params.get("aba"))
+  if (tab === "journeys") return <Navigate to="/staff?tab=journeys" replace />
   return (
     <DomainTabs
       module
       title="Ponto"
       tabs={[
-        { id: "apuracao", label: "Apurações", icon: conceptIcon.result, panel: <ResultsSchedule /> },
-        { id: "banco", label: "Banco de horas", icon: conceptIcon.hourBank, panel: <BankScheduleList /> },
-        { id: "fechamento", label: "Fechamento", icon: conceptIcon.closing, panel: <ClosingsPage /> },
+        { id: "calculation", label: "Apurações", icon: conceptIcon.result, panel: <ResultsSchedule /> },
+        { id: "hour-bank", label: "Banco de horas", icon: conceptIcon.hourBank, panel: <BankScheduleList /> },
+        { id: "closing", label: "Fechamento", icon: conceptIcon.closing, panel: <ClosingsPage /> },
       ]}
     />
   )
@@ -89,7 +91,7 @@ function BankScheduleList() {
     }
     setTabAction(
       <Button asChild className={modulePrimaryClass}>
-        <Link to="/schedules/hour-bank/new">
+        <Link to="/timekeeping/hour-bank/new">
           <Plus className="h-4 w-4" />
           Novo lançamento
         </Link>
@@ -225,7 +227,7 @@ export function PunchAdjustPage() {
 
   useEffect(() => {
     if (!role || role === "admin" || role === "manager") return
-    navigate("/schedules?aba=apuracao", { replace: true })
+    navigate("/timekeeping?tab=calculation", { replace: true })
   }, [role, navigate])
 
   useEffect(() => {
@@ -244,13 +246,13 @@ export function PunchAdjustPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <BackLink to="/schedules?aba=apuracao" appearance="detail" />
+      <BackLink to="/timekeeping?tab=calculation" appearance="detail" />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <PunchCorrectionForm
         appearance="module"
         employees={employees}
         onSaved={async () => {
-          navigate("/schedules?aba=apuracao")
+          navigate("/timekeeping?tab=calculation")
         }}
       />
     </div>
@@ -272,7 +274,7 @@ export function HourBankEntryPage() {
 
   useEffect(() => {
     if (!role || canLaunch) return
-    navigate("/schedules?aba=banco", { replace: true })
+    navigate("/timekeeping?tab=hour-bank", { replace: true })
   }, [role, canLaunch, navigate])
 
   useEffect(() => {
@@ -305,7 +307,7 @@ export function HourBankEntryPage() {
         entry_on: entryOn,
         note: note.trim() || null,
       })
-      navigate("/schedules?aba=banco")
+      navigate("/timekeeping?tab=hour-bank")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível lançar.")
     }
@@ -313,7 +315,7 @@ export function HourBankEntryPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <BackLink to="/schedules?aba=banco" appearance="detail" />
+      <BackLink to="/timekeeping?tab=hour-bank" appearance="detail" />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">

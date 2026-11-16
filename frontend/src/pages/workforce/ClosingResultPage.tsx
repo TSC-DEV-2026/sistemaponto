@@ -221,7 +221,7 @@ export function ClosingResultPage() {
   if (!canManage) {
     return (
       <div className="w-full min-w-0 space-y-5">
-        <BackLink to="/schedules?aba=fechamento" appearance="detail" />
+        <BackLink to="/timekeeping?tab=closing" appearance="detail" />
         <p className="text-sm text-[#52525B]">Só o gestor ou o administrador consulta o fechamento.</p>
       </div>
     )
@@ -232,7 +232,7 @@ export function ClosingResultPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <BackLink to="/schedules?aba=fechamento" appearance="detail" />
+      <BackLink to="/timekeeping?tab=closing" appearance="detail" />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {!closing ? (
         <section className={cn(moduleCardClass, "flex justify-center py-12")}>
@@ -266,7 +266,7 @@ export function ClosingResultPage() {
           ) : (
             <section className={moduleCardClass}>
               <p className="text-sm text-[#52525B]">O resultado fica disponível enquanto o período está fechado.</p>
-              <Link className="mt-3 inline-flex text-sm font-medium text-[#1E8A3A]" to="/schedules?aba=fechamento">Voltar aos fechamentos</Link>
+              <Link className="mt-3 inline-flex text-sm font-medium text-[#1E8A3A]" to="/timekeeping?tab=closing">Voltar aos fechamentos</Link>
             </section>
           )}
           {closed ? (

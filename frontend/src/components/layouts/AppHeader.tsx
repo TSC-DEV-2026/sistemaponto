@@ -162,7 +162,7 @@ export function AppHeader() {
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <TenantSwitcher />
         <Link
-          to="/notifications"
+          to="/notifications?tab=notices"
           aria-label={unread > 0 ? `Notificações, ${unread} não ${unread === 1 ? "lida" : "lidas"}` : "Notificações"}
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-[#3F3F46] hover:bg-brand-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
         >

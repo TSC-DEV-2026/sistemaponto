@@ -9,11 +9,12 @@ import { useAuthStore } from "@/store/auth.store"
 const STORAGE_KEY = "sistemaponto.sidebar"
 
 function isActive(pathname: string, to: string) {
-  if (to === "/") {
+  const path = to.split("?")[0]
+  if (path === "/") {
     return pathname === "/"
   }
-  if (to === "/schedules" && (pathname === "/closings" || pathname.startsWith("/closings/"))) return true
-  return pathname === to || pathname.startsWith(`${to}/`)
+  if (path === "/timekeeping" && (pathname === "/closings" || pathname.startsWith("/closings/"))) return true
+  return pathname === path || pathname.startsWith(`${path}/`)
 }
 
 function readCollapsed() {
