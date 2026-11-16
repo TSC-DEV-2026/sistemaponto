@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.cpf import normalize_cpf
 from app.core.duration import show_duration
 from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
-from app.core.hour_bank import add_months, project_balance
+from app.core.hour_bank import add_months, balance_minutes_by_day, project_balance
 from app.core.journey_plan import (
     ORIGIN,
     DaySpec,
@@ -169,6 +169,16 @@ class Scope:
     role: str
 
 
+class _CalcScratch:
+    def __init__(self) -> None:
+        self.versions: dict[tuple[int, int], list] = {}
+        self.version_rows: dict[tuple[int, int], object | None] = {}
+        self.specs: dict[int, object] = {}
+        self.pins: dict[tuple[int, int], list] = {}
+        self.closed: list | None = None
+        self.closed_tenant: int | None = None
+
+
 class WorkforceService:
     def __init__(
         self,
@@ -186,6 +196,7 @@ class WorkforceService:
         self.clock = clock
         self.embedder = embedder or embed_image
         self.files = files or StorageService()
+        self._scratch: _CalcScratch | None = None
 
     def list_named(self, model, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
@@ -1232,6 +1243,14 @@ class WorkforceService:
 
     def update_closing(self, scope: Scope, row_id: int, data: dict) -> dict:
         self._can_manage_period(scope)
+        outer = self._scratch
+        self._scratch = _CalcScratch()
+        try:
+            return self._update_closing(scope, row_id, data)
+        finally:
+            self._scratch = outer
+
+    def _update_closing(self, scope: Scope, row_id: int, data: dict) -> dict:
         row = self._row(Closing, scope, row_id)
         status = data["status"]
         previous = row.status
@@ -1268,6 +1287,7 @@ class WorkforceService:
         self.repo.add(row)
         if status == "closed":
             self._pin_journeys(scope, row)
+        self._forget_closing_cache()
         self.repo.add(
             ClosingEvent(
                 tenant_id=scope.tenant_id,
@@ -1454,16 +1474,25 @@ class WorkforceService:
             raise AppError(400, "A apuração aceita no máximo 62 dias")
         employee = self._employee(scope, employee_id)
         self._visible(scope, employee.id)
-        items = self._day_results(scope, employee, starts_on, ends_on)
-        balance = None
-        if employee.hour_bank:
-            balances = self._balances_on(scope, employee, [item["work_date"] for item in items])
-            for item in items:
-                item["balance_minutes"] = balances.get(item["work_date"], 0)
-            balance = balances.get(ends_on, 0)
-        else:
-            for item in items:
-                item["balance_minutes"] = None
+        outer = self._scratch
+        self._scratch = _CalcScratch()
+        try:
+            origin = starts_on
+            if employee.hour_bank and employee.admission_date < starts_on:
+                origin = employee.admission_date
+            covered = self._day_results(scope, employee, origin, ends_on)
+            items = [item for item in covered if starts_on <= item["work_date"] <= ends_on]
+            balance = None
+            if employee.hour_bank:
+                balances = self._balances_on(scope, employee, [item["work_date"] for item in items], covered)
+                for item in items:
+                    item["balance_minutes"] = balances.get(item["work_date"], 0)
+                balance = balances.get(ends_on, 0)
+            else:
+                for item in items:
+                    item["balance_minutes"] = None
+        finally:
+            self._scratch = outer
         return {
             "employee_id": employee.id,
             "starts_on": starts_on,
@@ -1802,6 +1831,15 @@ class WorkforceService:
         return lines
 
     def _day_results(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date, *, with_punches: bool = False) -> list[dict]:
+        if self._scratch is not None:
+            return self._day_results_loaded(scope, employee, starts_on, ends_on, with_punches=with_punches)
+        self._scratch = _CalcScratch()
+        try:
+            return self._day_results_loaded(scope, employee, starts_on, ends_on, with_punches=with_punches)
+        finally:
+            self._scratch = None
+
+    def _day_results_loaded(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date, *, with_punches: bool = False) -> list[dict]:
         vigencies = self.repo.vigencies_between(scope.tenant_id, employee.id, "journey", starts_on, ends_on)
         span_start, span_end = self._result_span(scope, vigencies, starts_on, ends_on)
         start, _ignored = day_bounds(span_start - timedelta(days=1))
@@ -2052,12 +2090,17 @@ class WorkforceService:
         limit = self.today() if until is None or until > self.today() else until
         return project_balance(self._bank_events(scope, employee, limit), limit)
 
-    def _bank_events(self, scope: Scope, employee: Employee, limit: date) -> list[tuple]:
-        items = []
-        if employee.admission_date <= limit:
-            items = self._day_results(scope, employee, employee.admission_date, limit)
+    def _bank_events(self, scope: Scope, employee: Employee, limit: date, computed: list[dict] | None = None) -> list[tuple]:
+        if computed is None:
+            items = []
+            if employee.admission_date <= limit:
+                items = self._day_results(scope, employee, employee.admission_date, limit)
+        else:
+            items = computed
         events = []
         for day in items:
+            if day["work_date"] < employee.admission_date or day["work_date"] > limit:
+                continue
             if day["bank_minutes"] > 0:
                 events.append((day["work_date"], 0, "credit", day["bank_minutes"]))
             elif day["bank_minutes"] < 0:
@@ -2071,11 +2114,19 @@ class WorkforceService:
                 events.append((entry.entry_on, entry.id, entry.kind, entry.minutes))
         return events
 
-    def _balances_on(self, scope: Scope, employee: Employee, days: list[date]) -> dict[date, int]:
+    def _balances_on(self, scope: Scope, employee: Employee, days: list[date], computed: list[dict] | None = None) -> dict[date, int]:
         if not days:
             return {}
-        events = self._bank_events(scope, employee, max(days))
-        return {day: project_balance([event for event in events if event[0] <= day], day)["balance_minutes"] for day in days}
+        events = self._bank_events(scope, employee, max(days), computed)
+        return balance_minutes_by_day(events, days)
+
+    def _forget_closing_cache(self) -> None:
+        scratch = self._scratch
+        if scratch is None:
+            return
+        scratch.closed = None
+        scratch.closed_tenant = None
+        scratch.pins.clear()
 
     def _night_limit(self, scope: Scope, vigencies: list, journeys: dict, day: date) -> time | None:
         vigency = self._vigency_on(vigencies, day)
@@ -2400,31 +2451,81 @@ class WorkforceService:
         )
 
     def _spec_on(self, tenant_id: int, journey: Journey, day: date) -> JourneySpec:
-        closing = self.repo.closed_covering(tenant_id, day)
+        closing = self._closed_on(tenant_id, day)
         if closing is not None:
-            pin = self.repo.pin_on(closing.id, journey.id, day)
+            pin = self._pin_on(closing.id, journey.id, day)
             if pin is not None:
-                pinned = self.repo.get_row(JourneyVersion, tenant_id, pin.version_id)
+                pinned = self._version_row(tenant_id, pin.version_id)
                 if pinned is not None:
-                    return self._spec_of(journey, pinned)
+                    return self._built_spec(journey, pinned)
             return self._spec_covering(tenant_id, journey, day)
         return self._spec_latest(tenant_id, journey)
+
+    def _closed_on(self, tenant_id: int, day: date):
+        scratch = self._scratch
+        if scratch is None:
+            return self.repo.closed_covering(tenant_id, day)
+        if scratch.closed_tenant != tenant_id:
+            scratch.closed_tenant = tenant_id
+            scratch.closed = self.repo.closed_periods(tenant_id)
+        for row in scratch.closed or []:
+            if row.starts_on <= day <= row.ends_on:
+                return row
+        return None
+
+    def _pin_on(self, closing_id: int, journey_id: int, day: date):
+        scratch = self._scratch
+        if scratch is None:
+            return self.repo.pin_on(closing_id, journey_id, day)
+        key = (closing_id, journey_id)
+        if key not in scratch.pins:
+            scratch.pins[key] = self.repo.pins_for(closing_id, journey_id)
+        found = [row for row in scratch.pins[key] if row.covers_from <= day]
+        return found[-1] if found else None
+
+    def _version_row(self, tenant_id: int, version_id: int):
+        scratch = self._scratch
+        if scratch is None:
+            return self.repo.get_row(JourneyVersion, tenant_id, version_id)
+        key = (tenant_id, version_id)
+        if key not in scratch.version_rows:
+            scratch.version_rows[key] = self.repo.get_row(JourneyVersion, tenant_id, version_id)
+        return scratch.version_rows[key]
+
+    def _versions(self, tenant_id: int, journey_id: int):
+        scratch = self._scratch
+        if scratch is None:
+            return self.repo.versions_for(tenant_id, journey_id)
+        key = (tenant_id, journey_id)
+        if key not in scratch.versions:
+            scratch.versions[key] = self.repo.versions_for(tenant_id, journey_id)
+        return scratch.versions[key]
+
+    def _built_spec(self, journey: Journey, chosen: JourneyVersion) -> JourneySpec:
+        scratch = self._scratch
+        if scratch is None or chosen.id is None:
+            return self._spec_of(journey, chosen)
+        found = scratch.specs.get(chosen.id)
+        if found is None:
+            found = self._spec_of(journey, chosen)
+            scratch.specs[chosen.id] = found
+        return found
 
     def _spec_latest(self, tenant_id: int, journey: Journey) -> JourneySpec:
         chosen = self._latest_version(tenant_id, journey.id)
         if chosen is None:
             return legacy_spec(journey.morning_start, journey.morning_end, journey.afternoon_start, journey.afternoon_end)
-        return self._spec_of(journey, chosen)
+        return self._built_spec(journey, chosen)
 
     def _spec_covering(self, tenant_id: int, journey: Journey, day: date) -> JourneySpec:
         chosen = self._version_covering(tenant_id, journey.id, day)
         if chosen is None:
             return legacy_spec(journey.morning_start, journey.morning_end, journey.afternoon_start, journey.afternoon_end)
-        return self._spec_of(journey, chosen)
+        return self._built_spec(journey, chosen)
 
     def _version_covering(self, tenant_id: int, journey_id: int, day: date) -> JourneyVersion | None:
         chosen = None
-        for version in self.repo.versions_for(tenant_id, journey_id):
+        for version in self._versions(tenant_id, journey_id):
             if version.valid_from <= day and (chosen is None or (version.valid_from, version.id) > (chosen.valid_from, chosen.id)):
                 chosen = version
         return chosen
@@ -2491,7 +2592,7 @@ class WorkforceService:
                 day += timedelta(days=1)
 
     def _latest_version(self, tenant_id: int, journey_id: int):
-        found = self.repo.versions_for(tenant_id, journey_id)
+        found = self._versions(tenant_id, journey_id)
         return found[-1] if found else None
 
     def _cycle_day(self, scope: Scope, journey_id: int, valid_from: date, raw) -> int | None:
