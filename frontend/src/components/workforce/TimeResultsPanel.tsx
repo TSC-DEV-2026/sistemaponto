@@ -60,9 +60,9 @@ function SummaryCard({ icon, label, value, tone }: { icon: ReactNode; label: str
 const dayFilters = [
   { id: "all", label: "Todos" },
   { id: "absence", label: "Não veio" },
-  { id: "unscheduled", label: "Sem jornada prevista" },
+  { id: "unscheduled", label: "Sem jornada" },
   { id: "alert", label: "Para conferir" },
-  { id: "clear", label: "Sem ocorrência" },
+  { id: "clear", label: "Jornada cumprida" },
 ] as const
 
 function ResultadoApuracao({
@@ -82,7 +82,7 @@ function ResultadoApuracao({
   const shown = filter === "all" ? visible : visible.filter((item) => dayFilter(item) === filter)
   const counts = visible.reduce((total, item) => {
     const kind = dayStatus(item).kind
-    total[kind] += 1
+    if (kind === "absence" || kind === "alert" || kind === "clear") total[kind] += 1
     return total
   }, { absence: 0, alert: 0, clear: 0 })
   return (
@@ -107,7 +107,7 @@ function ResultadoApuracao({
         <div className="flex flex-1 flex-wrap gap-3 xl:max-w-xl xl:justify-end">
           <SummaryCard icon={<AlertTriangle className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Total de faltas" value={counts.absence} tone="alert" />
           <SummaryCard icon={<Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Dias para conferir" value={counts.alert} tone="warn" />
-          <SummaryCard icon={<CheckCircle2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Dias sem ocorrência" value={counts.clear} tone="ok" />
+          <SummaryCard icon={<CheckCircle2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Jornadas cumpridas" value={counts.clear} tone="ok" />
         </div>
       </div>
       <div className="mt-5 border-t border-[#E6EEE8] pt-5">

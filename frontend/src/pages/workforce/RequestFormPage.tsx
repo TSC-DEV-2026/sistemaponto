@@ -3,6 +3,7 @@ import { Calendar, Clock, FileText, MessageSquare, Plus, Trash2, type LucideIcon
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
@@ -222,9 +223,11 @@ export function RequestFormPage() {
                                 <TimePickerField id={`request-time-${index}`} value={time} inputLabel={`Marcação ${index + 1}`} required={index === 0} onChange={(value) => changeTime(index, value)} />
                               </div>
                               {times.length > 1 ? (
-                                <Button type="button" variant="outline" className={cn(moduleDangerIconClass, "h-12 w-12")} aria-label="Remover" title="Remover" onClick={() => setTimes(times.filter((_, position) => position !== index))}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <ActionTip label="Remover">
+                                  <Button type="button" variant="outline" className={cn(moduleDangerIconClass, "h-12 w-12")} aria-label="Remover" onClick={() => setTimes(times.filter((_, position) => position !== index))}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </ActionTip>
                               ) : null}
                             </div>
                           ))}

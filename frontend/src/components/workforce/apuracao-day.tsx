@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Eye, Timer, type LucideIcon } from "lucide-react"
+import { AlertTriangle, CalendarOff, CheckCircle2, Eye, Timer, type LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import type { TimeResult } from "@/services/workforce.service"
@@ -15,7 +15,7 @@ function capital(value: string) {
 }
 
 function marks(item: TimeResult) {
-  return [item.holiday ? "Feriado" : "", item.absence ? "Falta" : "", item.incomplete ? "Ponto incompleto" : "", ...item.warnings].map(capital).filter(Boolean)
+  return [item.holiday ? "Feriado" : "", item.absence ? "Falta" : "", item.incomplete ? "Ponto incompleto" : "", ...item.warnings].map(capital).filter(Boolean).map((label) => (label.toLocaleLowerCase("pt-BR").includes("sem jornada prevista") ? "Sem jornada" : label))
 }
 
 export function dayMarks(item: TimeResult) {
@@ -46,41 +46,55 @@ export function DayIconButton({ label, disabled = false, onClick, children }: { 
   )
 }
 
-export function dayFilter(item: TimeResult) {
-  if (item.absence) return "absence" as const
-  if (item.warnings.some((warning) => warning.toLocaleLowerCase("pt-BR").includes("sem jornada prevista"))) return "unscheduled" as const
-  return dayStatus(item).kind === "clear" ? "clear" as const : "alert" as const
+function withoutJourney(item: TimeResult) {
+  return item.expected_minutes <= 0 && !item.first_entry_at && !item.last_exit_at && !item.holiday && !item.absence && !item.incomplete
 }
 
 export function dayStatus(item: TimeResult) {
   if (item.absence) return { kind: "absence" as const, label: "Falta" }
-  const notes = marks(item)
-  if (notes.length === 0 && item.shortage_minutes <= 0 && !item.incomplete) return { kind: "clear" as const, label: "Sem ocorrência" }
+  const labels = marks(item)
+  const notes = labels.filter((label) => label !== "Sem jornada")
+  if ((labels.includes("Sem jornada") || withoutJourney(item)) && notes.length === 0 && item.shortage_minutes <= 0 && !item.incomplete) return { kind: "idle" as const, label: "Sem jornada" }
+  if (notes.length === 0 && item.shortage_minutes <= 0 && !item.incomplete) return { kind: "clear" as const, label: "Jornada cumprida" }
   const label = notes[0] || (item.shortage_minutes > 0 ? "Falta de tempo" : "Ponto a conferir")
   return { kind: "alert" as const, label }
 }
 
+export function dayFilter(item: TimeResult) {
+  const status = dayStatus(item)
+  if (status.kind === "absence") return "absence" as const
+  if (status.kind === "idle") return "unscheduled" as const
+  if (status.kind === "clear") return "clear" as const
+  return "alert" as const
+}
+
 function situationIcon(label: string): LucideIcon {
   if (label === "Falta") return AlertTriangle
-  if (label === "Sem ocorrência") return CheckCircle2
+  if (label === "Jornada cumprida") return CheckCircle2
+  if (label === "Sem jornada") return CalendarOff
   return Timer
+}
+
+function situationTone(label: string) {
+  if (label === "Falta") return "bg-[#FDECEC] text-[#C62828]"
+  if (label === "Jornada cumprida") return "bg-[rgba(30,138,58,0.10)] text-[#187432]"
+  if (label === "Sem jornada") return "bg-[#E7E8EA] text-[#64748B]"
+  return "bg-[#FFF6D8] text-[#8A5A00]"
 }
 
 export function SituationBadge({ item }: { item: TimeResult }) {
   const labels = marks(item)
-  const shown = labels.length > 0 ? labels : ["Sem ocorrência"]
+  const shown = labels.length > 0 ? labels : [dayStatus(item).label]
   return (
     <span className="flex min-w-0 max-w-full flex-wrap gap-1.5">
       {shown.map((label) => {
         const Icon = situationIcon(label)
-        const absence = label === "Falta"
-        const clear = label === "Sem ocorrência"
         return (
           <span
             key={label}
             className={cn(
               "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left text-xs font-semibold leading-4",
-              absence ? "bg-[rgba(239,83,80,0.12)] text-[#C62828]" : clear ? "bg-[rgba(30,138,58,0.10)] text-[#187432]" : "bg-[#FFF6D8] text-[#8A5A00]",
+              situationTone(label),
             )}
           >
             <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
@@ -103,14 +117,9 @@ function Metric({ label, value, alert = false }: { label: string; value: string;
 
 function StatusPill({ item }: { item: TimeResult }) {
   const status = dayStatus(item)
-  const tone = status.kind === "absence"
-    ? "bg-[#FDECEC] text-[#C62828]"
-    : status.kind === "clear"
-      ? "bg-[rgba(30,138,58,0.10)] text-[#187432]"
-      : "bg-[#FFF6D8] text-[#8A5A00]"
   const Icon = situationIcon(status.label)
   return (
-    <span className={cn("inline-flex w-max max-w-full items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-center text-xs font-semibold leading-4", tone)}>
+    <span className={cn("inline-flex w-max max-w-full items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-center text-xs font-semibold leading-4", situationTone(status.label))}>
       <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
       <span className="min-w-0 break-words">{status.label}</span>
     </span>

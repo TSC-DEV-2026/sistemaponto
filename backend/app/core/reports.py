@@ -47,7 +47,7 @@ CLOSING_STATUS = {
 }
 
 ENTRY_TITLES = {
-    "credit": "Crédito",
-    "debit": "Débito",
+    "credit": "Somar ao saldo",
+    "debit": "Diminuir o saldo",
     "settlement": "Quitação",
 }

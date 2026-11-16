@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { DurationField } from "@/components/ui/duration-field"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { SiteSelect } from "@/components/ui/site-select"
@@ -19,12 +19,12 @@ import {
   type HourBankEntry,
 } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, maskDuration, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
 
 export function BankBalance({ balance }: { balance: HourBank }) {
   const stats = [
-    { label: "Crédito", value: showMinutes(balance.credit_minutes), dot: "bg-[#1E8A3A]" },
-    { label: "Débito", value: showMinutes(balance.debit_minutes), dot: "bg-[#EF5350]" },
+    { label: hourBankLaunchLabel.credit, value: showMinutes(balance.credit_minutes), dot: "bg-[#1E8A3A]" },
+    { label: hourBankLaunchLabel.debit, value: showMinutes(balance.debit_minutes), dot: "bg-[#EF5350]" },
     { label: "Pago em hora extra", value: showMinutes(balance.paid_overtime_minutes), dot: "bg-[#3B82F6]" },
     { label: "Descontado como falta", value: showMinutes(balance.discounted_absence_minutes), dot: "bg-[#F9A825]" },
   ]
@@ -200,7 +200,7 @@ export function HourBankPanel({
     <section className="space-y-3">
       <h2 className="text-sm font-medium">Banco de horas</h2>
       <p className="text-sm text-muted-foreground">
-        O saldo é contínuo e não tem limite. O prazo é de 6 meses e, neste corte, só avisa quando vai expirar. O lançamento é crédito ou débito.
+        O saldo é contínuo e não tem limite. O prazo é de 6 meses e, neste corte, só avisa quando vai expirar. O lançamento soma horas ao saldo ou diminui o saldo.
       </p>
       {employees ? (
         <div className="space-y-2">
@@ -213,7 +213,7 @@ export function HourBankPanel({
         <div className="rounded-md border border-border bg-card px-4 py-3 text-sm">
           <p>Saldo {showSignedMinutes(balance.balance_minutes)}</p>
           <p className="mt-1 text-muted-foreground">
-            Crédito {showMinutes(balance.credit_minutes)} · Débito {showMinutes(balance.debit_minutes)} · Pago em hora extra {showMinutes(balance.paid_overtime_minutes)} · Descontado como falta {showMinutes(balance.discounted_absence_minutes)}
+            {hourBankLaunchLabel.credit} {showMinutes(balance.credit_minutes)} · {hourBankLaunchLabel.debit} {showMinutes(balance.debit_minutes)} · Pago em hora extra {showMinutes(balance.paid_overtime_minutes)} · Descontado como falta {showMinutes(balance.discounted_absence_minutes)}
           </p>
           {balance.warning ? <p className="mt-2">{balance.warning}</p> : null}
         </div>
@@ -233,7 +233,7 @@ export function HourBankPanel({
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-minutes">Horas</Label>
-            <Input id="bank-minutes" inputMode="numeric" placeholder="00:00" value={minutes} onChange={(event) => setMinutes(maskDuration(event.target.value))} required />
+            <DurationField id="bank-minutes" value={minutes} onValueChange={setMinutes} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-day">Data</Label>

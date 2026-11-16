@@ -2,6 +2,7 @@ import { Eye, Search, Shield, UserPlus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
+import { ActionTip } from "@/components/ui/action-tip"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
@@ -134,9 +135,11 @@ export function MembershipsPage() {
                     <span className="block truncate font-semibold text-brand-ink">{item.full_name || "Não informado"}</span>
                     <span className="mt-[3px] block truncate text-sm text-brand-quiet">{membershipRoleLabel[item.role] || item.role || "Não informado"}</span>
                   </span>
-                  <span title="Visualizar" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
-                    <Eye className="h-4 w-4" strokeWidth={1.75} />
-                  </span>
+                  <ActionTip label="Visualizar">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
+                      <Eye className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                  </ActionTip>
                 </Link>
               </li>
             ))}

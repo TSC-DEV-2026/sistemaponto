@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { Check, CircleCheck, Filter, X } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -9,6 +10,7 @@ import { DatePickerField, YearPickerField } from "@/components/ui/date-picker-fi
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
+import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { PlaceCombobox } from "@/components/workforce/place-combobox"
 import { closingCandidates, createRecord, listRecords, updateRecord, type Closing, type ClosingCandidate, type NamedRecord } from "@/services/workforce.service"
@@ -23,6 +25,13 @@ function idList(ids: number[]) {
 
 function registration(value: string | null) {
   return value?.trim() ? value : "Não informada"
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
 function periodLabel(mode: string, year: string, month: string, startsOn: string, endsOn: string) {
@@ -55,7 +64,10 @@ export function ClosingFormPage() {
   const [jobIds, setJobIds] = useState<number[]>([])
   const [journeyIds, setJourneyIds] = useState<number[]>([])
   const [unionIds, setUnionIds] = useState<number[]>([])
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [candidates, setCandidates] = useState<ClosingCandidate[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [peopleReady, setPeopleReady] = useState(false)
   const [chosen, setChosen] = useState<number[]>([])
   const [error, setError] = useState("")
@@ -64,7 +76,9 @@ export function ClosingFormPage() {
   const busy = useRef(false)
 
   const periodReady = mode === "month" || Boolean(startsOn)
+  const allMarked = candidates.length > 0 && candidates.every((item) => chosen.includes(item.id))
   const listed = candidates.map((item) => item.id).join(",")
+  const visible = candidates.slice((page - 1) * pageSize, page * pageSize)
 
   useEffect(() => {
     if (!canManage) return
@@ -101,6 +115,7 @@ export function ClosingFormPage() {
     if (!canManage || !periodReady) return
     let active = true
     setPeopleReady(false)
+    setPage(1)
     const params = mode === "range"
       ? { starts_on: startsOn, ends_on: endsOn || undefined }
       : { year: Number(year), month: Number(month) }
@@ -213,61 +228,110 @@ export function ClosingFormPage() {
             <DatePickerField id="closing-end" label="Até" value={endsOn} onChange={setEndsOn} />
           </div>
         )}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="closing-unit">Empresa</Label>
-            <PlaceCombobox id="closing-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="closing-sector">Setor</Label>
-            <PlaceCombobox id="closing-sector" icon={conceptIcon.sector} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="closing-team">Equipe</Label>
-            <PlaceCombobox id="closing-team" icon={conceptIcon.team} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="closing-job">Função</Label>
-            <PlaceCombobox id="closing-job" icon={conceptIcon.job} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="closing-journey">Jornada</Label>
-            <PlaceCombobox id="closing-journey" icon={conceptIcon.journey} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="closing-union">Sindicato</Label>
-            <PlaceCombobox id="closing-union" icon={conceptIcon.union} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
-          </div>
-        </div>
-        <p className="text-sm text-[#64748B]">Sem marcação, a lista mostra todos. A vigência usada é a do período. Os filtros se somam.</p>
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-[#0A0A0A]">Quem entra no fechamento</p>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-9 px-3")} onClick={() => setChosen(candidates.map((item) => item.id))} disabled={!peopleReady || candidates.length === 0}>Marcar todas</Button>
-              <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-9 px-3")} onClick={() => setChosen([])} disabled={!peopleReady || chosen.length === 0}>Limpar</Button>
+            <button
+              type="button"
+              className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || unitIds.length + sectorIds.length + teamIds.length + jobIds.length + journeyIds.length + unionIds.length > 0 ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+              aria-expanded={filtersOpen}
+              aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
+              <Filter className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              className={cn("inline-flex h-10 items-center gap-2 rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allMarked ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
+              disabled={!peopleReady || candidates.length === 0}
+              aria-pressed={allMarked}
+              onClick={() => setChosen(candidates.map((item) => item.id))}
+            >
+              <span className={cn("flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border", allMarked ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
+                {allMarked ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
+              </span>
+              Selecionar todos do filtro ({candidates.length})
+            </button>
+            <div className="flex items-center gap-4">
+              <button type="button" className={cn(moduleQuietClass, "h-10 px-3 disabled:cursor-not-allowed disabled:opacity-50")} disabled={!peopleReady || chosen.length === 0} onClick={() => setChosen([])}>Limpar seleção</button>
+              <p className="text-sm font-medium text-[#1E8A3A]">{chosen.length} selecionados</p>
             </div>
           </div>
+          {filtersOpen ? (
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <h4 className="text-sm font-semibold text-[#0A0A0A]">Filtros</h4>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="closing-unit">Empresa</Label>
+                  <PlaceCombobox id="closing-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="closing-sector">Setor</Label>
+                  <PlaceCombobox id="closing-sector" icon={conceptIcon.sector} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="closing-team">Equipe</Label>
+                  <PlaceCombobox id="closing-team" icon={conceptIcon.team} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="closing-job">Função</Label>
+                  <PlaceCombobox id="closing-job" icon={conceptIcon.job} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="closing-journey">Jornada</Label>
+                  <PlaceCombobox id="closing-journey" icon={conceptIcon.journey} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="closing-union">Sindicato</Label>
+                  <PlaceCombobox id="closing-union" icon={conceptIcon.union} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
+                </div>
+              </div>
+            </div>
+          ) : null}
           {!peopleReady ? (
             <div className="flex justify-center py-6"><Spinner /></div>
           ) : candidates.length === 0 ? (
             <p className="text-sm text-[#64748B]">Nenhuma pessoa neste filtro.</p>
           ) : (
-            <ul className="max-h-80 space-y-1 overflow-y-auto rounded-xl border border-[#E4E4E7] p-2">
-              {candidates.map((person) => (
-                <li key={person.id}>
-                  <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-[#F8FAFC]">
-                    <input type="checkbox" className="h-4 w-4 accent-[#1E8A3A]" checked={chosen.includes(person.id)} onChange={() => togglePerson(person.id)} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-[#0A0A0A]">{person.full_name}</span>
-                      <span className="block text-xs text-[#64748B]">Matrícula {registration(person.registration_number)}</span>
-                    </span>
-                  </label>
-                </li>
-              ))}
+            <ul className="space-y-2">
+              {visible.map((person) => {
+                const marked = chosen.includes(person.id)
+                return (
+                  <li key={person.id}>
+                    <label htmlFor={`closing-person-${person.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", marked ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
+                      <span className="relative h-[22px] w-[22px] shrink-0">
+                        <input id={`closing-person-${person.id}`} type="checkbox" className="peer sr-only" checked={marked} onChange={() => togglePerson(person.id)} />
+                        <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
+                          <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
+                        </span>
+                      </span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#1E8A3A]">{initials(person.full_name || "")}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-[#0A0A0A]">{person.full_name || "Não informado"}</span>
+                        <span className="mt-0.5 block truncate text-sm text-[#64748B]">Matrícula {registration(person.registration_number)}</span>
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
             </ul>
           )}
-          <p className="text-sm text-[#64748B]">{chosen.length} pessoas selecionadas.</p>
+          {candidates.length > 0 ? (
+            <div className="border-t border-[#F1F5F9] pt-4">
+              <ListPager
+                page={page}
+                pageSize={pageSize}
+                total={candidates.length}
+                onPage={setPage}
+                onPageSize={(size) => {
+                  setPageSize(size)
+                  setPage(1)
+                }}
+              />
+            </div>
+          ) : null}
         </div>
         {error && !confirming ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex justify-end">
@@ -399,17 +463,19 @@ export function ClosingConfirmDialog({
         <p id="closing-confirm-text" className="mt-2 text-sm leading-6 text-[#71717A]">
           Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados para as pessoas deste fechamento até reabrir.
         </p>
-        <p className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{period}</p>
+        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{period}</p>
         {error ? (
           <p className="mt-3 text-sm text-destructive" role="alert">
             {error}
           </p>
         ) : null}
-        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
+            <X className="h-4 w-4" aria-hidden />
             Cancelar
           </Button>
           <Button ref={confirmRef} type="button" className={modulePrimaryClass} onClick={() => confirm()}>
+            <CircleCheck className="h-4 w-4" aria-hidden />
             Confirmar fechamento
           </Button>
         </div>

@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useBlocker, useNavigate } from "react-router-dom"
 
+import { ActionTip } from "@/components/ui/action-tip"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Input } from "@/components/ui/input"
@@ -987,15 +988,21 @@ function RulesHome({
                   </span>
                 </span>
                 <span className="flex shrink-0 gap-1">
-                  <Button type="button" className={moduleIconClass} aria-label={`Editar ${operation.title}`} onClick={() => onEdit(rule)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" className={moduleIconClass} aria-label={`Duplicar ${operation.title}`} onClick={() => onCopy(rule)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" className={moduleIconClass} aria-label={`Remover ${operation.title}`} onClick={() => onRemove(rule.clientRuleId)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <ActionTip label="Editar">
+                    <Button type="button" className={moduleIconClass} aria-label={`Editar ${operation.title}`} onClick={() => onEdit(rule)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </ActionTip>
+                  <ActionTip label="Duplicar">
+                    <Button type="button" className={moduleIconClass} aria-label={`Duplicar ${operation.title}`} onClick={() => onCopy(rule)}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </ActionTip>
+                  <ActionTip label="Remover">
+                    <Button type="button" className={moduleIconClass} aria-label={`Remover ${operation.title}`} onClick={() => onRemove(rule.clientRuleId)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </ActionTip>
                 </span>
               </li>
             )

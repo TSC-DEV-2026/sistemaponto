@@ -260,18 +260,20 @@ export function showDate(value: string | null | undefined) {
 
 export const hourBankKindLabel: Record<string, string> = {
   settlement: "Quitação",
-  credit: "Crédito",
-  debit: "Débito",
+  credit: "Somar ao saldo",
+  debit: "Diminuir o saldo",
 }
 
 export const hourBankLaunchLabel: Record<string, string> = {
-  credit: "Crédito",
-  debit: "Débito",
+  credit: "Somar ao saldo",
+  debit: "Diminuir o saldo",
 }
 
 export const hourBankEffectLabel: Record<string, string> = {
   overtime: "Hora extra",
   absence: "Falta",
+  credit: "Somar ao saldo",
+  debit: "Diminuir o saldo",
 }
 
 export function showMinutes(value: number) {
@@ -289,13 +291,6 @@ export function showDuration(value: number) {
   const minutes = total % 60
   const text = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
   return negative ? `-${text}` : text
-}
-
-export function maskDuration(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 6)
-  if (digits.length <= 2) return digits
-  const hours = digits.slice(0, -2).replace(/^0+(?=\d)/, "").padStart(2, "0")
-  return `${hours}:${digits.slice(-2)}`
 }
 
 export function durationMinutes(value: string) {
