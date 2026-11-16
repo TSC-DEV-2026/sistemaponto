@@ -209,7 +209,7 @@ export function HomePage() {
               {board ? `${board.active_employees} funcionários ativos.` : null}
             </MetricLine>
           </BoardCard>
-          <BoardCard tone={tones.blue} icon={conceptIcon.point} title="Ponto" href="/timekeeping?tab=calculation">
+          <BoardCard tone={tones.blue} icon={conceptIcon.point} title="Ponto" href="/timekeeping?tab=calculations">
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.punches_today} marcações hoje. A apuração do período fica em Ponto.` : null}
             </MetricLine>
@@ -230,7 +230,7 @@ export function HomePage() {
             tone={tones.lilac}
             icon={conceptIcon.closing}
             title="Fechamento"
-            href="/timekeeping?tab=closing"
+            href="/timekeeping?tab=closings"
           >
             <MetricLine state={boardState} error={boardError}>
               {board ? `${board.open_closings} período(s) em conferência.` : null}

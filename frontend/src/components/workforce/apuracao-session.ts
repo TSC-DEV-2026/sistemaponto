@@ -1,4 +1,4 @@
-import type { TimeResult, TimeResults } from "@/services/workforce.service"
+import type { TimeResult, Calculations } from "@/services/workforce.service"
 
 const STORAGE_KEY = "sistemaponto.apuracao"
 
@@ -7,7 +7,7 @@ export type ApuracaoQuery = {
   employeeId: number
   startsOn: string
   endsOn: string
-  result: TimeResults
+  result: Calculations
   scrollY: number
   scrollPending: boolean
 }

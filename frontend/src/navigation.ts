@@ -44,7 +44,7 @@ export const navGroups: NavGroup[] = [
     label: "Operação",
     items: [
       {
-        to: "/timekeeping?tab=calculation",
+        to: "/timekeeping?tab=calculations",
         label: "Ponto",
         icon: conceptIcon.point,
         lead: "Apuração do período, banco de horas e fechamento.",
@@ -55,7 +55,7 @@ export const navGroups: NavGroup[] = [
         ],
       },
       {
-        to: "/time-clock",
+        to: "/punches",
         label: "Registro",
         icon: Smartphone,
         hideFromAdmin: true,
@@ -67,7 +67,7 @@ export const navGroups: NavGroup[] = [
         ],
       },
       {
-        to: "/occurrences?tab=allowance",
+        to: "/occurrences?tab=allowances",
         label: "Ocorrências",
         icon: conceptIcon.occurrence,
         lead: "Abono, atestado, falta, afastamento e férias. Motivo padronizado quando houver catálogo.",
@@ -152,7 +152,7 @@ export const navGroups: NavGroup[] = [
     label: "Organização",
     items: [
       {
-        to: "/organization?tab=units",
+        to: "/structure?tab=units",
         label: "Estrutura Organizacional",
         icon: conceptIcon.structure,
         lead: "Empresas, setores e equipes. Mudança relevante preserva vigência.",
@@ -180,7 +180,7 @@ export const navGroups: NavGroup[] = [
     label: "Integrações",
     items: [
       {
-        to: "/payroll?tab=afd",
+        to: "/integrations?tab=fiscal-files",
         label: "Fiscal / Folha",
         icon: FileSpreadsheet,
         staffOnly: true,

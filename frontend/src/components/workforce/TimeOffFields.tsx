@@ -9,7 +9,7 @@ import { TimePickerField } from "@/components/ui/time-picker-field"
 import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleFieldClass, moduleLabelClass, modulePrimaryClass } from "@/components/workforce/module-visual"
 import { cn } from "@/utils/cn"
-import { brazilMoment } from "@/utils/labels"
+import { brazilMoment, isCertificateKind, isVacationKind } from "@/utils/labels"
 
 export type TimeOffDraft = {
   mode: "days" | "hours"
@@ -41,7 +41,7 @@ export function timeOffBody(draft: TimeOffDraft, kind: string) {
   if (!draft.startsOn) {
     throw new Error("Informe o período.")
   }
-  const hours = kind !== "vacation" && draft.mode === "hours"
+  const hours = !isVacationKind(kind) && draft.mode === "hours"
   const body: Record<string, unknown> = {
     starts_on: draft.startsOn,
     ends_on: hours ? draft.startsOn : draft.endsOn || null,
@@ -55,7 +55,7 @@ export function timeOffBody(draft: TimeOffDraft, kind: string) {
     body.starts_at = brazilMoment(draft.startsOn, draft.startTime)
     body.ends_at = brazilMoment(draft.startsOn, draft.endTime)
   }
-  if (kind === "certificate") {
+  if (isCertificateKind(kind)) {
     body.cid = draft.cid.trim()
     body.crm = draft.crm.trim()
     body.doctor_name = draft.doctorName.trim()
@@ -160,7 +160,7 @@ export function TimeOffFields({
     onChange({ ...draft, ...partial })
   }
 
-  const daysOnly = kind === "vacation"
+  const daysOnly = isVacationKind(kind)
   const mode = daysOnly ? "days" : draft.mode
 
   if (appearance === "module") {
@@ -202,7 +202,7 @@ export function TimeOffFields({
             <TimePickerField id={`${idPrefix}-to`} label="Até" value={draft.endTime} onChange={(endTime) => patch({ endTime })} required />
           </div>
         ) : null}
-        {kind === "certificate" ? (
+        {isCertificateKind(kind) ? (
           <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-[#F0F0F2] pt-5 lg:grid-cols-2">
             <p className="text-sm font-semibold text-[#1B2534] lg:col-span-2">Dados do atestado</p>
             <div className="space-y-2">
@@ -269,7 +269,7 @@ export function TimeOffFields({
           </div>
         </div>
       )}
-      {kind === "certificate" ? (
+      {isCertificateKind(kind) ? (
         <>
           <div className="space-y-2">
             <Label htmlFor={`${idPrefix}-cid`}>CID</Label>

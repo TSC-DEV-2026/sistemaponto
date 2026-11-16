@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
-import { loadClassificationGroups } from "@/components/workforce/ClassificationFilter"
+import { loadGroups } from "@/components/workforce/ClassificationFilter"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
-import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeClassification, type NamedRecord } from "@/services/workforce.service"
+import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeGroup, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
@@ -56,8 +56,8 @@ function readFaceImage(file: File) {
 
 function tabValue(id: string, person: Employee | null) {
   if (!person) return ""
-  if (id === "classification") {
-    const items = person.classifications || []
+  if (id === "group") {
+    const items = person.groups || []
     return items.length > 0 ? items.map((item) => `${item.name}: ${item.value_name}`).join(" · ") : "Não informado"
   }
   const current: Record<string, string | null | undefined> = {
@@ -72,9 +72,9 @@ function tabValue(id: string, person: Employee | null) {
   return current[id]?.trim() || "Não informado"
 }
 
-function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId: number; current: EmployeeClassification[]; onSaved: () => void }) {
+function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number; current: EmployeeGroup[]; onSaved: () => void }) {
   const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[] }[]>([])
-  const [classificationId, setClassificationId] = useState("")
+  const [classificationId, setGroupId] = useState("")
   const [valueId, setValueId] = useState("")
   const [validFrom, setValidFrom] = useState("")
   const [note, setNote] = useState("")
@@ -84,7 +84,7 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
 
   useEffect(() => {
     let active = true
-    loadClassificationGroups()
+    loadGroups()
       .then((page) => {
         if (active) setGroups(page)
       })
@@ -114,12 +114,12 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
     try {
       await createRecord("/employee-vigencies", {
         employee_id: employeeId,
-        kind: "classification",
+        kind: "group",
         reference_id: Number(valueId),
         valid_from: validFrom,
         note: note.trim() || null,
       })
-      setClassificationId("")
+      setGroupId("")
       setValueId("")
       setValidFrom("")
       setNote("")
@@ -141,7 +141,7 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
               {[...current]
                 .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
                 .map((item) => (
-                  <li key={item.classification_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                  <li key={item.group_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
                     {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
                   </li>
                 ))}
@@ -160,14 +160,14 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
             id="employee-classification"
             value={classificationId}
             searchable
-            searchPath="/classifications"
+            searchPath="/groups"
             searchPlaceholder="Pesquisar grupo"
             placeholder="Selecione"
             className="h-12"
             icon={conceptIcon.group}
             options={groups.map((item) => ({ value: String(item.id), label: item.name }))}
             onChange={(next) => {
-              setClassificationId(next)
+              setGroupId(next)
               setValueId("")
             }}
           />
@@ -178,8 +178,8 @@ function ClassificationAssignment({ employeeId, current, onSaved }: { employeeId
             id="employee-classification-value"
             value={valueId}
             searchable={Boolean(classificationId)}
-            searchPath={classificationId ? "/classification-values" : undefined}
-            searchParams={classificationId ? { classification_id: Number(classificationId) } : undefined}
+            searchPath={classificationId ? "/group-values" : undefined}
+            searchParams={classificationId ? { group_id: Number(classificationId) } : undefined}
             searchPlaceholder="Pesquisar valor"
             placeholder="Selecione"
             className="h-12"
@@ -418,7 +418,7 @@ export function EmployeeFormPage() {
   return (
     <div className="w-full min-w-0 space-y-5">
       <div className="w-full">
-        <BackLink to={id === null ? "/staff?tab=employees" : `/staff/${id}`} appearance="detail" />
+        <BackLink to={id === null ? "/staff?tab=employees" : `/employees/${id}`} appearance="detail" />
       </div>
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       {id !== null ? (
@@ -428,7 +428,7 @@ export function EmployeeFormPage() {
               { id: "data", label: "Dados", icon: conceptIcon.employee, show: true },
               ...vigencyTargets.filter((item) => item.kind === "team").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
-              { id: "classification", label: "Grupos", icon: conceptIcon.group, show: isAdmin && id !== null },
+              { id: "group", label: "Grupos", icon: conceptIcon.group, show: isAdmin && id !== null },
               ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey" && item.kind !== "team").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
             ]
           )
@@ -582,7 +582,7 @@ export function EmployeeFormPage() {
         </div>
       </ActionForm>
       ) : null}
-      {id !== null && tab === "classification" && isAdmin ? <ClassificationAssignment employeeId={id} current={profile?.classifications || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
+      {id !== null && tab === "group" && isAdmin ? <GroupAssignment employeeId={id} current={profile?.groups || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
       {id !== null && linkTarget && isAdmin ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
           {linkTarget.kind === "manager" ? (

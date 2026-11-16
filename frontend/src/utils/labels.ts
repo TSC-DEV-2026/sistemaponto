@@ -33,34 +33,71 @@ export const requestKindLabel: Record<string, string> = {
 
 export const manualTimeOffKinds = ["absence", "allowance", "certificate", "leave", "vacation"] as const
 
-export const absenceKinds = ["allowance", "certificate", "absence", "leave", "vacation"] as const
+export const absenceKinds = ["allowances", "certificates", "absences", "leaves", "vacations"] as const
+
+const occurrenceKindAlias: Record<string, string> = {
+  absence: "absences",
+  allowance: "allowances",
+  certificate: "certificates",
+  leave: "leaves",
+  vacation: "vacations",
+}
+
+export function occurrenceKindOf(kind: string) {
+  return occurrenceKindAlias[kind] || kind
+}
+
+export function reasonKindForOccurrence(kind: string) {
+  const reasons: Record<string, string> = {
+    absences: "absence",
+    allowances: "allowance",
+    certificates: "certificate",
+  }
+  return reasons[occurrenceKindOf(kind)] || ""
+}
+
+export function isCertificateKind(kind: string) {
+  return occurrenceKindOf(kind) === "certificates"
+}
+
+export function isVacationKind(kind: string) {
+  return occurrenceKindOf(kind) === "vacations"
+}
+
+export function isLeaveKind(kind: string) {
+  return occurrenceKindOf(kind) === "leaves"
+}
 
 export const occurrenceKindLabel: Record<string, string> = {
   adjustment: "Ajuste de ponto",
   punch_entry: "Lançamento de marcação",
-  absence: "Falta",
-  certificate: "Atestado",
-  vacation: "Férias",
-  allowance: "Abono",
-  leave: "Afastamento",
+  absences: "Falta",
+  certificates: "Atestado",
+  vacations: "Férias",
+  allowances: "Abono",
+  leaves: "Afastamento",
+}
+
+export function occurrenceKindText(kind: string) {
+  return occurrenceKindLabel[occurrenceKindOf(kind)] || kind
 }
 
 export const occurrenceTabLabel: Record<string, string> = {
-  absence: "Faltas",
-  certificate: "Atestados",
-  vacation: "Férias",
-  allowance: "Abonos",
-  leave: "Afastamentos",
+  absences: "Faltas",
+  certificates: "Atestados",
+  vacations: "Férias",
+  allowances: "Abonos",
+  leaves: "Afastamentos",
 }
 
 export const occurrenceNewLabel: Record<string, string> = {
   adjustment: "Novo ajuste",
   punch_entry: "Novo lançamento",
-  absence: "Nova falta",
-  certificate: "Novo atestado",
-  vacation: "Novas férias",
-  allowance: "Novo abono",
-  leave: "Novo afastamento",
+  absences: "Nova falta",
+  certificates: "Novo atestado",
+  vacations: "Novas férias",
+  allowances: "Novo abono",
+  leaves: "Novo afastamento",
 }
 
 export const vigencyKindLabel: Record<string, string> = {
@@ -68,6 +105,7 @@ export const vigencyKindLabel: Record<string, string> = {
   journey: "Jornada",
   cost_center: "Centro de custo",
   classification: "Grupo",
+  group: "Grupo",
   unit: "Empresa",
   sector: "Setor",
   team: "Equipe",

@@ -9,13 +9,13 @@ from app.api.responses import json_data
 from app.api.serialization import dump_one, dump_page
 from app.core.exceptions import AppError
 from app.models.workforce import (
-    Classification,
-    ClassificationValue,
+    Group,
+    GroupValue,
     CostCenter,
     Holiday,
     Job,
     Journey,
-    LaborAgreement,
+    Agreement,
     LaborUnion,
     PunchRule,
     Reason,
@@ -31,9 +31,9 @@ from app.schemas.workforce import (
     CertificatePhotoOut,
     ChargeOut,
     ChargeUpdate,
-    ClassificationValueCreate,
-    ClassificationValueOut,
-    ClassificationValueUpdate,
+    GroupValueCreate,
+    GroupValueOut,
+    GroupValueUpdate,
     ClosingBankCreate,
     ClosingCreate,
     ClosingOut,
@@ -65,18 +65,18 @@ from app.schemas.workforce import (
     NoticeEmailOut,
     NoticeEmailUpdate,
     NoticeRunOut,
-    NotificationOut,
-    NotificationPreferenceCreate,
-    NotificationPreferenceOut,
-    NotificationPreferenceUpdate,
-    NotificationUpdate,
+    NoticeOut,
+    NoticePreferenceCreate,
+    NoticePreferenceOut,
+    NoticePreferenceUpdate,
+    NoticeUpdate,
     OccurrenceCreate,
     OccurrenceOut,
     OccurrenceUpdate,
     PayrollOut,
     ReportCatalogOut,
     ReportOut,
-    TimeResultsOut,
+    CalculationsOut,
     PunchCodeOut,
     QrCardOut,
     PunchCorrectionCreate,
@@ -119,7 +119,7 @@ INT_FILTERS = {
     "job_id",
     "journey_id",
     "cost_center_id",
-    "classification_id",
+    "group_id",
     "team_id",
     "manager_id",
     "employee_id",
@@ -170,7 +170,7 @@ def _filter_parameter(name: str) -> inspect.Parameter:
     elif name in BOOL_FILTERS:
         annotation = bool | None
         default = Query(default=None)
-    elif name in {"classification_value_id", "classification_ids"}:
+    elif name in {"group_value_id", "group_ids"}:
         annotation = str | None
         default = Query(default=None, max_length=500, description="Ids separados por vírgula")
     elif name in {"name", "full_name", "q"}:
@@ -293,15 +293,15 @@ def mount_named(
 routers = [
     mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named("/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
-    mount_named("/classifications", "classifications", Classification, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named("/groups", "groups", Group, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named(
-        "/classification-values",
-        "classification-values",
-        ClassificationValue,
-        ClassificationValueCreate,
-        ClassificationValueUpdate,
-        ClassificationValueOut,
-        ("name", "classification_id"),
+        "/group-values",
+        "group-values",
+        GroupValue,
+        GroupValueCreate,
+        GroupValueUpdate,
+        GroupValueOut,
+        ("name", "group_id"),
         page_size=20,
     ),
     mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
@@ -310,9 +310,9 @@ routers = [
     mount_named("/journeys", "journeys", Journey, JourneyCreate, JourneyUpdate, JourneyOut, ("name",)),
     mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named(
-        "/labor-agreements",
-        "labor-agreements",
-        LaborAgreement,
+        "/agreements",
+        "agreements",
+        Agreement,
         AgreementCreate,
         AgreementUpdate,
         AgreementOut,
@@ -356,10 +356,10 @@ requests = APIRouter(prefix="/requests", tags=["requests"], dependencies=[Depend
 closings = APIRouter(prefix="/closings", tags=["closings"], dependencies=[Depends(require_use)])
 hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"], dependencies=[Depends(require_use)])
 fiscal_files = APIRouter(prefix="/fiscal-files", tags=["fiscal-files"], dependencies=[Depends(require_use)])
-notifications = APIRouter(prefix="/notifications", tags=["notifications"])
-notification_preferences = APIRouter(prefix="/notification-preferences", tags=["notification-preferences"])
+notices = APIRouter(prefix="/notices", tags=["notices"])
+notice_preferences = APIRouter(prefix="/notice-preferences", tags=["notice-preferences"])
 notice_emails = APIRouter(prefix="/notice-emails", tags=["notice-emails"])
-notification_runs = APIRouter(prefix="/notification-runs", tags=["notification-runs"], dependencies=[Depends(require_use)])
+notice_runs = APIRouter(prefix="/notice-runs", tags=["notice-runs"], dependencies=[Depends(require_use)])
 audits = APIRouter(prefix="/audits", tags=["audits"], dependencies=[Depends(require_use)])
 reads = APIRouter(tags=["reads"], dependencies=[Depends(require_use)])
 subscriptions = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
@@ -369,7 +369,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, classification_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula. classification_value_id aceita vários ids separados por vírgula: grupos diferentes se somam e valores do mesmo grupo se alternam.",
+    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, group_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula. group_value_id aceita vários ids separados por vírgula: grupos diferentes se somam e valores do mesmo grupo se alternam.",
 )
 @searchable(
     "q",
@@ -379,7 +379,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
     "job_id",
     "journey_id",
     "cost_center_id",
-    "classification_value_id",
+    "group_value_id",
     "unit_id",
     "sector_id",
     "team_id",
@@ -410,7 +410,7 @@ def list_employees(
                 "job_id",
                 "journey_id",
                 "cost_center_id",
-                "classification_value_id",
+                "group_value_id",
                 "unit_id",
                 "sector_id",
                 "team_id",
@@ -888,9 +888,9 @@ def delete_closing(
     return json_data(None)
 
 
-@notifications.get("", summary="Listar notificações", description="Filtros: employee_id.")
+@notices.get("", summary="Listar notificações", description="Filtros: employee_id.")
 @searchable("employee_id")
-def list_notifications(
+def list_notices(
     request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
@@ -898,43 +898,43 @@ def list_notifications(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    items, total = service.list_notifications(as_scope(actor), page, limit, read_filters(request, ("employee_id",)))
-    return json_data(dump_page(items, total, page, limit, NotificationOut, fields))
+    items, total = service.list_notices(as_scope(actor), page, limit, read_filters(request, ("employee_id",)))
+    return json_data(dump_page(items, total, page, limit, NoticeOut, fields))
 
 
-@notifications.get("/{row_id}", summary="Detalhe da notificação")
-def get_notification(
+@notices.get("/{row_id}", summary="Detalhe da notificação")
+def get_notice(
     row_id: int,
     fields: str | None = Query(default=None, max_length=500),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    return json_data(dump_one(service.get_notification(as_scope(actor), row_id), NotificationOut, fields))
+    return json_data(dump_one(service.get_notice(as_scope(actor), row_id), NoticeOut, fields))
 
 
-@notifications.post("", status_code=201, summary="Criar notificação")
-def create_notification(
+@notices.post("", status_code=201, summary="Criar notificação")
+def create_notice(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    service.refuse_notification_create(as_scope(actor))
+    service.refuse_notice_create(as_scope(actor))
     return json_data(None)
 
 
-@notifications.put("/{row_id}", summary="Marcar notificação")
-def update_notification(
+@notices.put("/{row_id}", summary="Marcar notificação")
+def update_notice(
     row_id: int,
-    body: NotificationUpdate,
+    body: NoticeUpdate,
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    row = service.update_notification(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
-    return json_data(dump_one(row, NotificationOut, None))
+    row = service.update_notice(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, NoticeOut, None))
 
 
-@notification_preferences.get("", summary="Listar preferências de aviso", description="Filtros: kind.")
+@notice_preferences.get("", summary="Listar preferências de aviso", description="Filtros: kind.")
 @searchable("kind")
-def list_notification_preferences(
+def list_notice_preferences(
     request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
@@ -942,52 +942,52 @@ def list_notification_preferences(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    items, total = service.list_notification_preferences(
+    items, total = service.list_notice_preferences(
         as_scope(actor), page, limit, read_filters(request, ("kind",))
     )
-    return json_data(dump_page(items, total, page, limit, NotificationPreferenceOut, fields))
+    return json_data(dump_page(items, total, page, limit, NoticePreferenceOut, fields))
 
 
-@notification_preferences.get("/{row_id}", summary="Detalhe da preferência de aviso")
-def get_notification_preference(
+@notice_preferences.get("/{row_id}", summary="Detalhe da preferência de aviso")
+def get_notice_preference(
     row_id: int,
     fields: str | None = Query(default=None, max_length=500),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
     return json_data(
-        dump_one(service.get_notification_preference(as_scope(actor), row_id), NotificationPreferenceOut, fields)
+        dump_one(service.get_notice_preference(as_scope(actor), row_id), NoticePreferenceOut, fields)
     )
 
 
-@notification_preferences.post("", status_code=201, summary="Configurar aviso")
-def create_notification_preference(
-    body: NotificationPreferenceCreate,
+@notice_preferences.post("", status_code=201, summary="Configurar aviso")
+def create_notice_preference(
+    body: NoticePreferenceCreate,
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    row = service.create_notification_preference(as_scope(actor), body.model_dump())
-    return json_data(dump_one(row, NotificationPreferenceOut, None), status_code=201)
+    row = service.create_notice_preference(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, NoticePreferenceOut, None), status_code=201)
 
 
-@notification_preferences.put("/{row_id}", summary="Atualizar aviso")
-def update_notification_preference(
+@notice_preferences.put("/{row_id}", summary="Atualizar aviso")
+def update_notice_preference(
     row_id: int,
-    body: NotificationPreferenceUpdate,
+    body: NoticePreferenceUpdate,
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    row = service.update_notification_preference(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
-    return json_data(dump_one(row, NotificationPreferenceOut, None))
+    row = service.update_notice_preference(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, NoticePreferenceOut, None))
 
 
-@notification_preferences.delete("/{row_id}", summary="Restaurar aviso")
-def delete_notification_preference(
+@notice_preferences.delete("/{row_id}", summary="Restaurar aviso")
+def delete_notice_preference(
     row_id: int,
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    service.delete_notification_preference(as_scope(actor), row_id)
+    service.delete_notice_preference(as_scope(actor), row_id)
     return json_data(None)
 
 
@@ -1045,7 +1045,7 @@ def delete_notice_email(
     return json_data(None)
 
 
-@notification_runs.post("", status_code=201, summary="Enviar os avisos do dia")
+@notice_runs.post("", status_code=201, summary="Enviar os avisos do dia")
 def dispatch_notices(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
@@ -1053,13 +1053,13 @@ def dispatch_notices(
     return json_data(dump_one(service.dispatch_notices(as_scope(actor)), NoticeRunOut, None), status_code=201)
 
 
-@notifications.delete("/{row_id}", summary="Excluir notificação")
-def delete_notification(
+@notices.delete("/{row_id}", summary="Excluir notificação")
+def delete_notice(
     row_id: int,
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    service.delete_notification(as_scope(actor), row_id)
+    service.delete_notice(as_scope(actor), row_id)
     return json_data(None)
 
 
@@ -1136,16 +1136,16 @@ def payroll_totals(
     return json_data(dump_one(service.payroll(as_scope(actor), year, month), PayrollOut, None))
 
 
-@reads.get("/time-results", summary="Apuração do período")
-def time_results(
+@reads.get("/calculations", summary="Apuração do período")
+def calculations(
     employee_id: int = Query(),
     starts_on: date = Query(),
     ends_on: date = Query(),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    result = service.time_results(as_scope(actor), employee_id, starts_on, ends_on)
-    return json_data(dump_one(result, TimeResultsOut, None))
+    result = service.calculations(as_scope(actor), employee_id, starts_on, ends_on)
+    return json_data(dump_one(result, CalculationsOut, None))
 
 
 @reads.get("/qr-cards", summary="QR Codes para imprimir")
@@ -1184,15 +1184,15 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. classification_ids escolhe os grupos da linha. classification_value_id filtra como na lista de funcionários. Empresa, setor, equipe, função, jornada e sindicato aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
+    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. group_ids escolhe os grupos da linha. group_value_id filtra como na lista de funcionários. Empresa, setor, equipe, função, jornada e sindicato aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
 )
 @searchable(
     "full_name",
     "cpf",
     "person_id",
     "cost_center_id",
-    "classification_value_id",
-    "classification_ids",
+    "group_value_id",
+    "group_ids",
     "manager_id",
     "situation",
 )
@@ -1220,7 +1220,7 @@ def reports(
             "cpf",
             "person_id",
             "cost_center_id",
-            "classification_value_id",
+            "group_value_id",
             "manager_id",
             "situation",
         ),
@@ -1235,9 +1235,9 @@ def reports(
     ):
         if value:
             filters[name] = value
-    shown = read_filters(request, ("classification_ids",))
-    if shown.get("classification_ids"):
-        filters["classification_id"] = shown["classification_ids"]
+    shown = read_filters(request, ("group_ids",))
+    if shown.get("group_ids"):
+        filters["group_id"] = shown["group_ids"]
     result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit, filters)
     return json_data(dump_one(result, ReportOut, None))
 
@@ -1495,10 +1495,10 @@ routers.extend(
         closings,
         hour_bank_entries,
         fiscal_files,
-        notifications,
-        notification_preferences,
+        notices,
+        notice_preferences,
         notice_emails,
-        notification_runs,
+        notice_runs,
         subscriptions,
         charges,
         audits,

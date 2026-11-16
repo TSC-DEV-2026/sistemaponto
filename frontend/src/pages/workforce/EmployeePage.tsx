@@ -15,7 +15,7 @@ import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { PunchLists } from "@/components/workforce/PunchDay"
 import { HourBankPanel } from "@/components/workforce/HourBankPanel"
 import { JourneySchedule } from "@/components/workforce/JourneySchedule"
-import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
+import { CalculationsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   getRecord,
@@ -37,6 +37,7 @@ import {
   certificateText,
   clockMethodLabel,
   occurrenceKindLabel,
+  occurrenceKindText,
   periodText,
   punchOrigin,
   requestKindLabel,
@@ -87,7 +88,7 @@ function FieldTile({ icon, label, children }: { icon: LucideIcon; label: string;
   )
 }
 
-function ClassificationTile({ items }: { items: { classification_id: number; name: string; value_name: string }[] }) {
+function GroupTile({ items }: { items: { group_id: number; name: string; value_name: string }[] }) {
   const rows = [...items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
   return (
     <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none md:col-span-2">
@@ -100,7 +101,7 @@ function ClassificationTile({ items }: { items: { classification_id: number; nam
           <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
             <ul className="space-y-1.5">
               {rows.map((item) => (
-                <li key={item.classification_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                <li key={item.group_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
                   {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
                 </li>
               ))}
@@ -374,7 +375,7 @@ export function EmployeePage() {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [vigencies, setVigencies] = useState<Vigency[]>([])
   const [journeys, setJourneys] = useState<NamedRecord[]>([])
-  const [classificationNames, setClassificationNames] = useState<Record<number, string>>({})
+  const [classificationNames, setGroupNames] = useState<Record<number, string>>({})
   const [saved, setSaved] = useState(0)
   const [historyKind, setHistoryKind] = useState("")
   const [eventKind, setEventKind] = useState("")
@@ -413,10 +414,10 @@ export function EmployeePage() {
     setVigencies(links.items)
     setJourneys(journeyPage.items)
     try {
-      const classificationPage = await listRecords<NamedRecord>("/classifications", { page: 1, limit: 100 })
-      setClassificationNames(Object.fromEntries(classificationPage.items.map((item) => [item.id, item.name])))
+      const classificationPage = await listRecords<NamedRecord>("/groups", { page: 1, limit: 100 })
+      setGroupNames(Object.fromEntries(classificationPage.items.map((item) => [item.id, item.name])))
     } catch {
-      setClassificationNames({})
+      setGroupNames({})
     }
     setSaved((current) => current + 1)
   }
@@ -492,7 +493,7 @@ export function EmployeePage() {
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-[#E2E8F0] bg-white px-3.5 text-sm font-semibold text-[#111827] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
-                <Link to={`/staff/${id}/edit`}>
+                <Link to={`/employees/${id}/edit`}>
                   <Pencil className="h-4 w-4" strokeWidth={1.75} />
                   Editar
                 </Link>
@@ -627,7 +628,7 @@ export function EmployeePage() {
                 </FieldTile>
               ))}
               <ManagerTile managers={employee.managers || []} />
-              <ClassificationTile items={employee.classifications || []} />
+              <GroupTile items={employee.groups || []} />
             </dl>
             <p className="mt-4 text-sm text-[#64748B]">Empresa e setor acompanham a equipe.</p>
           </section>
@@ -653,7 +654,7 @@ export function EmployeePage() {
               <p className="mt-5 rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center text-sm text-brand-quiet">Nenhuma jornada vigente.</p>
             )}
           </section>
-          <TimeResultsPanel employeeId={id} appearance="module" note={resultNote(schedule?.kind)} />
+          <CalculationsPanel employeeId={id} appearance="module" note={resultNote(schedule?.kind)} />
           <HourBankPanel employeeId={id} canLaunch={false} usesBank={employee.hour_bank} appearance="module" />
           <PunchLists employeeId={id} employees={[employee]} reloadKey={saved} appearance="module" />
           <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
@@ -731,7 +732,7 @@ export function EmployeePage() {
               <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
                 {events.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                    {occurrenceKindLabel[item.kind] || item.kind} · {periodText(item)} · {punchOrigin(item.source)}
+                    {occurrenceKindText(item.kind)} · {periodText(item)} · {punchOrigin(item.source)}
                     {certificateText(item) ? ` · ${certificateText(item)}` : ""}
                     {item.note ? ` · ${item.note}` : ""}
                     {item.warning ? ` · ${item.warning}` : ""}
@@ -781,7 +782,7 @@ export function EmployeePage() {
               <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
                 {history.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                    {item.kind === "classification" ? `${item.classification_id ? classificationNames[item.classification_id] || "Grupo" : "Grupo"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
+                    {item.kind === "group" ? `${item.group_id ? classificationNames[item.group_id] || "Grupo" : "Grupo"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
                   </li>
                 ))}
               </ul>

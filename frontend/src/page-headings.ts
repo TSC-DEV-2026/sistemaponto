@@ -1,5 +1,5 @@
 import { catalogs } from "@/pages/workforce/catalogs"
-import { occurrenceNewLabel } from "@/utils/labels"
+import { occurrenceKindOf, occurrenceNewLabel } from "@/utils/labels"
 
 export type PageHeading = {
   title: string
@@ -11,20 +11,16 @@ type Pattern = PageHeading & {
 }
 
 const catalogAreas: Record<string, { base: string; subtitle: string }> = {
-  journeys: { base: "/staff/journeys", subtitle: "Cadastre as jornadas" },
-  jobs: { base: "/staff/jobs", subtitle: "Gerencie os funcionários" },
-  classifications: { base: "/staff/classifications", subtitle: "Gerencie os funcionários" },
-  units: { base: "/organization/units", subtitle: "Gerencie a estrutura da organização" },
-  sectors: { base: "/organization/sectors", subtitle: "Gerencie a estrutura da organização" },
-  teams: { base: "/organization/teams", subtitle: "Gerencie a estrutura da organização" },
-  unions: { base: "/labor-rules/unions", subtitle: "Configure as regras trabalhistas" },
-  agreements: { base: "/labor-rules/agreements", subtitle: "Configure as regras trabalhistas" },
-  holidays: { base: "/labor-rules/holidays", subtitle: "Configure as regras trabalhistas" },
-  "punch-rules": { base: "/labor-rules/punch-rules", subtitle: "Configure as regras trabalhistas" },
-  "reason-adjustment": { base: "/reasons/reason-adjustment", subtitle: "Gerencie os motivos cadastrados" },
-  "reason-absence": { base: "/reasons/reason-absence", subtitle: "Gerencie os motivos cadastrados" },
-  "reason-allowance": { base: "/reasons/reason-allowance", subtitle: "Gerencie os motivos cadastrados" },
-  "reason-certificate": { base: "/reasons/reason-certificate", subtitle: "Gerencie os motivos cadastrados" },
+  journeys: { base: "/journeys", subtitle: "Cadastre as jornadas" },
+  jobs: { base: "/jobs", subtitle: "Gerencie os funcionários" },
+  groups: { base: "/groups", subtitle: "Gerencie os funcionários" },
+  units: { base: "/units", subtitle: "Gerencie a estrutura da organização" },
+  sectors: { base: "/sectors", subtitle: "Gerencie a estrutura da organização" },
+  teams: { base: "/teams", subtitle: "Gerencie a estrutura da organização" },
+  unions: { base: "/unions", subtitle: "Configure as regras trabalhistas" },
+  agreements: { base: "/agreements", subtitle: "Configure as regras trabalhistas" },
+  holidays: { base: "/holidays", subtitle: "Configure as regras trabalhistas" },
+  "punch-rules": { base: "/punch-rules", subtitle: "Configure as regras trabalhistas" },
 }
 
 function recordNoun(editTitle: string) {
@@ -47,10 +43,13 @@ const patterns: Pattern[] = [
   ...catalogPatterns(),
   { path: "/", title: "Dashboard", subtitle: "Visão geral do sistema" },
   { path: "/timekeeping", title: "Ponto", subtitle: "Apure o período, consulte o banco de horas e feche o período" },
-  { path: "/timekeeping/calculation/:workDate", title: "Detalhes da apuração", subtitle: "Detalhamento das horas apuradas" },
-  { path: "/timekeeping/adjustments", title: "Ajustar marcações", subtitle: "Corrija as marcações do dia" },
-  { path: "/timekeeping/hour-bank/new", title: "Novo lançamento", subtitle: "Lance crédito ou débito" },
-  { path: "/time-clock", title: "Registro", subtitle: "Registre e consulte suas marcações" },
+  { path: "/calculations/:workDate", title: "Detalhes da apuração", subtitle: "Detalhamento das horas apuradas" },
+  { path: "/punches/corrections", title: "Ajustar marcações", subtitle: "Corrija as marcações do dia" },
+  { path: "/hour-bank-entries/new", title: "Novo lançamento", subtitle: "Lance crédito ou débito" },
+  { path: "/punches", title: "Registro", subtitle: "Registre e consulte suas marcações" },
+  { path: "/reasons/new", title: "Novo motivo", subtitle: "Gerencie os motivos cadastrados" },
+  { path: "/reasons/:id/edit", title: "Editar motivo", subtitle: "Gerencie os motivos cadastrados" },
+  { path: "/reasons/:id", title: "Motivo", subtitle: "Gerencie os motivos cadastrados" },
   { path: "/occurrences/new", title: "Nova ocorrência", subtitle: "Lance abono, atestado, falta, afastamento ou férias" },
   { path: "/occurrences", title: "Ocorrências", subtitle: "Consulte e lance as ocorrências" },
   { path: "/requests", title: "Solicitações", subtitle: "Acompanhe solicitações e pendências" },
@@ -58,21 +57,21 @@ const patterns: Pattern[] = [
   { path: "/closings/new", title: "Novo fechamento", subtitle: "Selecione o período e quem entra no fechamento." },
   { path: "/closings/:id", title: "Fechamento", subtitle: "Banco de horas e resultado do período" },
   { path: "/closings", title: "Ponto", subtitle: "Apure o período, consulte o banco de horas e feche o período" },
-  { path: "/staff/classifications/:id/values/new", title: "Novo valor", subtitle: "Gerencie os funcionários" },
-  { path: "/staff/classifications/:id/values/:valueId/edit", title: "Editar valor", subtitle: "Gerencie os funcionários" },
-  { path: "/staff/classifications/:id/values/:valueId", title: "Valor", subtitle: "Gerencie os funcionários" },
+  { path: "/groups/:id/values/new", title: "Novo valor", subtitle: "Gerencie os funcionários" },
+  { path: "/groups/:id/values/:valueId/edit", title: "Editar valor", subtitle: "Gerencie os funcionários" },
+  { path: "/groups/:id/values/:valueId", title: "Valor", subtitle: "Gerencie os funcionários" },
   { path: "/staff", title: "Quadro", subtitle: "Funcionários, funções, jornadas e grupos" },
-  { path: "/staff/new", title: "Novo funcionário", subtitle: "Cadastro da ficha" },
-  { path: "/staff/:id/edit", title: "Editar funcionário", subtitle: "Atualize a ficha" },
-  { path: "/staff/:id", title: "Funcionário", subtitle: "Ficha do funcionário" },
+  { path: "/employees/new", title: "Novo funcionário", subtitle: "Cadastro da ficha" },
+  { path: "/employees/:id/edit", title: "Editar funcionário", subtitle: "Atualize a ficha" },
+  { path: "/employees/:id", title: "Funcionário", subtitle: "Ficha do funcionário" },
   { path: "/clock-devices", title: "Aparelhos", subtitle: "Libere o aparelho compartilhado" },
   { path: "/bulk-changes", title: "Operações em massa", subtitle: "Altere várias pessoas de uma vez" },
   { path: "/reports", title: "Relatórios", subtitle: "Consulte informações e indicadores" },
-  { path: "/organization", title: "Estrutura Organizacional", subtitle: "Gerencie a estrutura da organização" },
+  { path: "/structure", title: "Estrutura Organizacional", subtitle: "Gerencie a estrutura da organização" },
   { path: "/labor-rules", title: "Regras Trabalhistas", subtitle: "Configure as regras trabalhistas" },
-  { path: "/payroll", title: "Fiscal / Folha", subtitle: "Consulte integrações e informações" },
+  { path: "/integrations", title: "Fiscal / Folha", subtitle: "Consulte integrações e informações" },
   { path: "/reasons", title: "Motivos", subtitle: "Gerencie os motivos cadastrados" },
-  { path: "/notifications", title: "Notificações", subtitle: "Avisos da conta e da organização" },
+  { path: "/notices", title: "Notificações", subtitle: "Avisos da conta e da organização" },
   { path: "/memberships", title: "Permissões e Acessos", subtitle: "Gerencie permissões e usuários" },
   { path: "/memberships/new", title: "Vincular pessoa", subtitle: "Novo acesso ao sistema" },
   { path: "/memberships/:id", title: "Acesso", subtitle: "Papel desta pessoa" },
@@ -121,9 +120,14 @@ export function headingFor(pathname: string, search = ""): PageHeading {
     }
   }
   if (!best) return { title: "sistemaponto", subtitle: "" }
+  if (best.path === "/reasons/new") {
+    const kind = new URLSearchParams(search).get("kind") || ""
+    const entry = Object.values(catalogs).find((item) => item.kind === kind)
+    if (entry) return { ...best, title: entry.newLabel }
+  }
   if (best.path === "/occurrences/new") {
     const kind = new URLSearchParams(search).get("kind") || new URLSearchParams(search).get("tipo") || ""
-    const title = occurrenceNewLabel[kind]
+    const title = occurrenceNewLabel[occurrenceKindOf(kind)] || occurrenceNewLabel[kind]
     if (title) return { ...best, title }
   }
   return best

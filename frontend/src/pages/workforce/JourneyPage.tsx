@@ -16,7 +16,7 @@ import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { BankBalance } from "@/components/workforce/HourBankPanel"
 import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
-import { TimeResultsPanel } from "@/components/workforce/TimeResultsPanel"
+import { CalculationsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { ClosingsPage } from "@/pages/workforce/OperationsPages"
 import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
@@ -34,9 +34,9 @@ export function JourneyPage() {
       module
       title="Ponto"
       tabs={[
-        { id: "calculation", label: "Apurações", icon: conceptIcon.result, panel: <ResultsSchedule /> },
+        { id: "calculations", label: "Apurações", icon: conceptIcon.result, panel: <ResultsSchedule /> },
         { id: "hour-bank", label: "Banco de horas", icon: conceptIcon.hourBank, panel: <BankScheduleList /> },
-        { id: "closing", label: "Fechamento", icon: conceptIcon.closing, panel: <ClosingsPage /> },
+        { id: "closings", label: "Fechamento", icon: conceptIcon.closing, panel: <ClosingsPage /> },
       ]}
     />
   )
@@ -64,7 +64,7 @@ function ResultsSchedule() {
   return (
     <div className="space-y-3">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <TimeResultsPanel employees={employees} heading={false} appearance="module" />
+      <CalculationsPanel employees={employees} heading={false} appearance="module" />
     </div>
   )
 }
@@ -91,7 +91,7 @@ function BankScheduleList() {
     }
     setTabAction(
       <Button asChild className={modulePrimaryClass}>
-        <Link to="/timekeeping/hour-bank/new">
+        <Link to="/hour-bank-entries/new">
           <Plus className="h-4 w-4" />
           Novo lançamento
         </Link>
@@ -227,7 +227,7 @@ export function PunchAdjustPage() {
 
   useEffect(() => {
     if (!role || role === "admin" || role === "manager") return
-    navigate("/timekeeping?tab=calculation", { replace: true })
+    navigate("/timekeeping?tab=calculations", { replace: true })
   }, [role, navigate])
 
   useEffect(() => {
@@ -246,13 +246,13 @@ export function PunchAdjustPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <BackLink to="/timekeeping?tab=calculation" appearance="detail" />
+      <BackLink to="/timekeeping?tab=calculations" appearance="detail" />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <PunchCorrectionForm
         appearance="module"
         employees={employees}
         onSaved={async () => {
-          navigate("/timekeeping?tab=calculation")
+          navigate("/timekeeping?tab=calculations")
         }}
       />
     </div>

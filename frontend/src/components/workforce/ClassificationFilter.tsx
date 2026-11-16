@@ -2,51 +2,51 @@ import { useEffect, useState } from "react"
 
 import { listRecords, type NamedRecord } from "@/services/workforce.service"
 
-export type ClassificationGroup = { id: number; name: string; values: NamedRecord[] }
+export type GroupRecord = { id: number; name: string; values: NamedRecord[] }
 
-export async function loadClassificationGroups() {
-  const first = await listRecords<NamedRecord>("/classifications", { page: 1, limit: 100 })
-  const classifications = [...first.items]
+export async function loadGroups() {
+  const first = await listRecords<NamedRecord>("/groups", { page: 1, limit: 100 })
+  const rows = [...first.items]
   const pages = Math.ceil(first.total / 100)
   for (let page = 2; page <= pages; page += 1) {
-    const next = await listRecords<NamedRecord>("/classifications", { page, limit: 100 })
-    classifications.push(...next.items)
+    const next = await listRecords<NamedRecord>("/groups", { page, limit: 100 })
+    rows.push(...next.items)
   }
-  const groups: ClassificationGroup[] = []
-  for (const item of classifications) {
-    const valuesPage = await listRecords<NamedRecord>("/classification-values", {
+  const loaded: GroupRecord[] = []
+  for (const item of rows) {
+    const valuesPage = await listRecords<NamedRecord>("/group-values", {
       page: 1,
       limit: 100,
-      classification_id: item.id,
+      group_id: item.id,
     })
     const values = [...valuesPage.items]
     const valuePages = Math.ceil(valuesPage.total / 100)
     for (let page = 2; page <= valuePages; page += 1) {
-      const next = await listRecords<NamedRecord>("/classification-values", {
+      const next = await listRecords<NamedRecord>("/group-values", {
         page,
         limit: 100,
-        classification_id: item.id,
+        group_id: item.id,
       })
       values.push(...next.items)
     }
-    groups.push({ id: item.id, name: item.name, values })
+    loaded.push({ id: item.id, name: item.name, values })
   }
-  return groups
+  return loaded
 }
 
-export function ClassificationFilter({
+export function GroupFilter({
   selected,
   onChange,
 }: {
   selected: number[]
   onChange: (ids: number[]) => void
 }) {
-  const [groups, setGroups] = useState<ClassificationGroup[]>([])
+  const [groups, setGroups] = useState<GroupRecord[]>([])
   const [error, setError] = useState("")
 
   useEffect(() => {
     let active = true
-    loadClassificationGroups()
+    loadGroups()
       .then((loaded) => {
         if (active) setGroups(loaded)
       })

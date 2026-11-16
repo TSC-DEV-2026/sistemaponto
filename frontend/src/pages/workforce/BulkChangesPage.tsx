@@ -39,7 +39,7 @@ import { clockMethodLabel, showDate } from "@/utils/labels"
 const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
 
 const catalog = [
-  { id: "classification", kind: "classification", title: "Alterar grupo", description: "Define o valor de um grupo para os funcionários.", valueName: "Novo valor", icon: conceptIcon.group, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "group", kind: "group", title: "Alterar grupo", description: "Define o valor de um grupo para os funcionários.", valueName: "Novo valor", icon: conceptIcon.group, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "job", kind: "job", title: "Alterar função", description: "Define uma nova função.", valueName: "Nova função", icon: conceptIcon.job, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: conceptIcon.journey, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e empresa acompanham a equipe.", valueName: "Nova equipe", icon: conceptIcon.team, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
@@ -205,8 +205,8 @@ export function BulkChangesPage() {
   const [cycleTouched, setCycleTouched] = useState(false)
   const [note, setNote] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({})
-  const [classificationId, setClassificationId] = useState("")
-  const [classificationValues, setClassificationValues] = useState<Choice[]>([])
+  const [classificationId, setGroupId] = useState("")
+  const [classificationValues, setGroupValues] = useState<Choice[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [allFilterSelected, setAllFilterSelected] = useState(false)
   const [marking, setMarking] = useState(false)
@@ -247,8 +247,8 @@ export function BulkChangesPage() {
     const paths = [...new Set([...filterFields.map((item) => item[2]), ...catalog.map((item) => item.path).filter(Boolean)])]
     Promise.all(paths.map(async (path) => [path, path === "/employees" ? await loadManagerChoices() : await loadChoices(path)] as const))
       .then(async (loaded) => {
-        const groups = await loadChoices("/classifications").catch(() => [])
-        if (active) setChoices({ ...Object.fromEntries(loaded), "/classifications": groups })
+        const groups = await loadChoices("/groups").catch(() => [])
+        if (active) setChoices({ ...Object.fromEntries(loaded), "/groups": groups })
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -260,16 +260,16 @@ export function BulkChangesPage() {
 
   useEffect(() => {
     if (!classificationId) {
-      setClassificationValues([])
+      setGroupValues([])
       return
     }
     let active = true
-    loadAll<NamedRecord>("/classification-values", { classification_id: Number(classificationId) })
+    loadAll<NamedRecord>("/group-values", { group_id: Number(classificationId) })
       .then((items) => {
-        if (active) setClassificationValues(items.map((item) => ({ value: String(item.id), label: item.name || "Não informado" })))
+        if (active) setGroupValues(items.map((item) => ({ value: String(item.id), label: item.name || "Não informado" })))
       })
       .catch(() => {
-        if (active) setClassificationValues([])
+        if (active) setGroupValues([])
       })
     return () => {
       active = false
@@ -327,7 +327,7 @@ export function BulkChangesPage() {
   function chooseOperation(next: OperationId) {
     if (next !== operationId) {
       setValue("")
-      setClassificationId("")
+      setGroupId("")
       setValidFrom("")
       setCycleDay("")
       setCycleTouched(false)
@@ -390,7 +390,7 @@ export function BulkChangesPage() {
   function valueOptions() {
     if (!operation) return []
     if (operation.id === "clock_method") return clockOptions
-    if (operation.id === "classification") return classificationValues
+    if (operation.id === "group") return classificationValues
     return choices[operation.path] || []
   }
 
@@ -713,7 +713,7 @@ export function BulkChangesPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {operation.id === "classification" ? (
+                {operation.id === "group" ? (
                   <div className="space-y-2">
                     <Label className={moduleLabelClass} htmlFor="bulk-classification">Grupo</Label>
                     <SiteSelect
@@ -722,9 +722,9 @@ export function BulkChangesPage() {
                       placeholder="Selecione"
                       searchable
                       className="h-12"
-                      options={[{ value: "", label: "Selecione" }, ...(choices["/classifications"] || [])]}
+                      options={[{ value: "", label: "Selecione" }, ...(choices["/groups"] || [])]}
                       onChange={(next) => {
-                        setClassificationId(next)
+                        setGroupId(next)
                         setValue("")
                       }}
                     />
@@ -738,7 +738,7 @@ export function BulkChangesPage() {
                       value={value}
                       placeholder="Selecione"
                       searchable={operation.id !== "clock_method"}
-                      searchPath={operation.id === "clock_method" || operation.id === "classification" || operation.path === "/employees" ? undefined : operation.path}
+                      searchPath={operation.id === "clock_method" || operation.id === "group" || operation.path === "/employees" ? undefined : operation.path}
                       searchPlaceholder="Pesquisar"
                       className="h-12"
                       options={valueOptions()}

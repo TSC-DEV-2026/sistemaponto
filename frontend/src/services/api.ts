@@ -50,7 +50,7 @@ function actionSuccessMessage(method: string, url: string): string | null {
   if (url.includes("/auth/resend-verification")) return "E-mail de confirmação enviado."
   if (url.includes("/auth/verify-email")) return "E-mail confirmado."
   if (url.includes("/auth/me") && method === "put") return "Conta atualizada."
-  if (url.includes("/notification-runs")) return "Avisos enviados."
+  if (url.includes("/notice-runs")) return "Avisos enviados."
   if (url.includes("/punches") && method === "post") return "Marcação registrada."
   if (method === "delete") return "Registro excluído."
   if (method === "put" || method === "patch") return "Alteração salva."

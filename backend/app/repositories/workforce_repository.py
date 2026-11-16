@@ -8,7 +8,7 @@ from app.models.tenant import Tenant
 from app.models.workforce import (
     Audit,
     Charge,
-    Classification,
+    Group,
     Closing,
     ClosingEvent,
     ClosingMember,
@@ -22,8 +22,8 @@ from app.models.workforce import (
     JourneySpan,
     JourneyVersion,
     NoticeEmail,
-    Notification,
-    NotificationPreference,
+    Notice,
+    NoticePreference,
     Occurrence,
     Punch,
     RequestEvent,
@@ -122,13 +122,13 @@ class WorkforceRepository:
             .all()
         )
 
-    def preference_for(self, tenant_id: int, person_id: int, kind: str) -> NotificationPreference | None:
+    def preference_for(self, tenant_id: int, person_id: int, kind: str) -> NoticePreference | None:
         return (
-            self.db.query(NotificationPreference)
+            self.db.query(NoticePreference)
             .filter(
-                NotificationPreference.tenant_id == tenant_id,
-                NotificationPreference.person_id == person_id,
-                NotificationPreference.kind == kind,
+                NoticePreference.tenant_id == tenant_id,
+                NoticePreference.person_id == person_id,
+                NoticePreference.kind == kind,
             )
             .one_or_none()
         )
@@ -140,15 +140,15 @@ class WorkforceRepository:
         kind: str,
         start: datetime,
         end: datetime,
-    ) -> Notification | None:
+    ) -> Notice | None:
         return (
-            self.db.query(Notification)
+            self.db.query(Notice)
             .filter(
-                Notification.tenant_id == tenant_id,
-                Notification.person_id == person_id,
-                Notification.kind == kind,
-                Notification.created_at >= start,
-                Notification.created_at < end,
+                Notice.tenant_id == tenant_id,
+                Notice.person_id == person_id,
+                Notice.kind == kind,
+                Notice.created_at >= start,
+                Notice.created_at < end,
             )
             .first()
         )
@@ -273,15 +273,15 @@ class WorkforceRepository:
         return found
 
     def open_vigency(
-        self, employee_id: int, kind: str, classification_id: int | None = None
+        self, employee_id: int, kind: str, group_id: int | None = None
     ) -> EmployeeVigency | None:
         query = self.db.query(EmployeeVigency).filter(
             EmployeeVigency.employee_id == employee_id,
             EmployeeVigency.kind == kind,
             EmployeeVigency.valid_to.is_(None),
         )
-        if classification_id is not None:
-            query = query.filter(EmployeeVigency.classification_id == classification_id)
+        if group_id is not None:
+            query = query.filter(EmployeeVigency.group_id == group_id)
         return query.one_or_none()
 
     def open_manager(self, employee_id: int, reference_id: int) -> EmployeeVigency | None:
@@ -335,10 +335,10 @@ class WorkforceRepository:
         )
         return [row[0] for row in rows]
 
-    def classification_named(self, tenant_id: int, name: str):
+    def group_named(self, tenant_id: int, name: str):
         return (
-            self.db.query(Classification)
-            .filter(Classification.tenant_id == tenant_id, Classification.name == name)
+            self.db.query(Group)
+            .filter(Group.tenant_id == tenant_id, Group.name == name)
             .one_or_none()
         )
 
@@ -350,13 +350,13 @@ class WorkforceRepository:
             .all()
         )
 
-    def employees_with_values(self, tenant_id: int, classification_id: int, day: date, reference_ids: set[int]) -> set[int]:
+    def employees_with_values(self, tenant_id: int, group_id: int, day: date, reference_ids: set[int]) -> set[int]:
         rows = (
             self.db.query(EmployeeVigency)
             .filter(
                 EmployeeVigency.tenant_id == tenant_id,
-                EmployeeVigency.kind == "classification",
-                EmployeeVigency.classification_id == classification_id,
+                EmployeeVigency.kind == "group",
+                EmployeeVigency.group_id == group_id,
                 EmployeeVigency.valid_from <= day,
                 or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
             )
@@ -368,14 +368,14 @@ class WorkforceRepository:
             chosen[row.employee_id] = row
         return {employee_id for employee_id, row in chosen.items() if row.reference_id in reference_ids}
 
-    def applicable_classifications(self, employee_ids: list[int], day: date) -> dict[int, dict[int, EmployeeVigency]]:
+    def applicable_groups(self, employee_ids: list[int], day: date) -> dict[int, dict[int, EmployeeVigency]]:
         if not employee_ids:
             return {}
         rows = (
             self.db.query(EmployeeVigency)
             .filter(
                 EmployeeVigency.employee_id.in_(employee_ids),
-                EmployeeVigency.kind == "classification",
+                EmployeeVigency.kind == "group",
                 EmployeeVigency.valid_from <= day,
                 or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
             )
@@ -384,9 +384,9 @@ class WorkforceRepository:
         )
         found: dict[int, dict[int, EmployeeVigency]] = {}
         for row in rows:
-            if row.classification_id is None:
+            if row.group_id is None:
                 continue
-            found.setdefault(row.employee_id, {})[row.classification_id] = row
+            found.setdefault(row.employee_id, {})[row.group_id] = row
         return found
 
     def applicable(self, employee_id: int, kind: str, day: date) -> EmployeeVigency | None:
@@ -805,7 +805,7 @@ class WorkforceRepository:
             self.db.query(Occurrence)
             .filter(
                 Occurrence.tenant_id == tenant_id,
-                Occurrence.kind.in_(("allowance", "certificate")),
+                Occurrence.kind.in_(("allowances", "certificates", "allowance", "certificate")),
                 Occurrence.starts_on <= end,
                 Occurrence.ends_on >= start,
             )
