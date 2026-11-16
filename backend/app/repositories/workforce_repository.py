@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.models.membership import Membership
 from app.models.tenant import Tenant
@@ -510,6 +510,7 @@ class WorkforceRepository:
     def valid_punches_in(self, tenant_id: int, start: datetime, end: datetime) -> list[Punch]:
         return (
             self.db.query(Punch)
+            .options(load_only(Punch.id, Punch.tenant_id, Punch.employee_id, Punch.occurred_at, Punch.valid))
             .filter(
                 Punch.tenant_id == tenant_id,
                 Punch.valid.is_(True),
@@ -589,6 +590,16 @@ class WorkforceRepository:
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
         return (
             self.db.query(Punch)
+            .options(
+                load_only(
+                    Punch.id,
+                    Punch.tenant_id,
+                    Punch.employee_id,
+                    Punch.occurred_at,
+                    Punch.valid,
+                    Punch.voided_at,
+                )
+            )
             .filter(
                 Punch.tenant_id == tenant_id,
                 Punch.employee_id == employee_id,
