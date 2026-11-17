@@ -271,6 +271,8 @@ export const hourBankLaunchLabel: Record<string, string> = {
   debit: "Diminuir o saldo",
 }
 
+export const hourBankKindOrder = ["credit", "debit", "balance", "settlement"] as const
+
 export const hourBankEffectLabel: Record<string, string> = {
   overtime: "Hora extra",
   absence: "Falta",
@@ -315,6 +317,12 @@ export function showBalanceTarget(value: number) {
   if (value === 0) return "00:00"
   const text = showMinutes(Math.abs(value))
   return value < 0 ? `-${text}` : `+${text}`
+}
+
+export function hourBankEntryAmount(kind: string, minutes: number, effect: string | null) {
+  if (kind === "settlement") return "00:00"
+  if (kind === "balance") return showBalanceTarget(effect === "debit" ? -minutes : minutes)
+  return showMinutes(minutes)
 }
 
 export function showDateTime(value: string | null | undefined) {

@@ -553,6 +553,10 @@ class ClosingBankCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class ClosingBankSettlement(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class ClosingEventOut(BaseModel):
     id: int
     kind: str
@@ -876,13 +880,16 @@ class ReportOut(BaseModel):
 
 class HourBankEntryCreate(BaseModel):
     employee_id: int
-    kind: Literal["credit", "debit"]
-    minutes: int = Field(gt=0, le=100000)
+    kind: Literal["credit", "debit", "settlement", "balance"]
+    minutes: int | None = Field(default=None, ge=-100000, le=100000)
     entry_on: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
 class HourBankEntryUpdate(BaseModel):
+    kind: Literal["credit", "debit", "settlement", "balance"]
+    minutes: int | None = Field(default=None, ge=-100000, le=100000)
+    entry_on: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -894,6 +901,7 @@ class HourBankEntryOut(BaseModel):
     effect: str | None
     note: str | None
     entry_on: date
+    closing_id: int | None
     created_by_person_id: int
     created_at: datetime
 

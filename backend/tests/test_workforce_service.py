@@ -1672,22 +1672,30 @@ def past_settlement(repo, employee_id: int, minutes: int, entry_on: date, effect
     )
 
 
-def test_quitacao_nova_nao_entra_e_a_antiga_permanece_no_saldo():
+def test_quitacao_manual_zera_o_saldo_e_a_antiga_permanece():
     workforce, repo = service()
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
     workforce.update_employee(admin(), person["id"], {"hour_bank": True})
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
-    with pytest.raises(AppError) as refused:
-        workforce.create_hour_bank_entry(
-            admin(),
-            {"employee_id": person["id"], "kind": "settlement", "minutes": 10, "entry_on": None, "note": None},
-        )
-    assert refused.value.status_code == 400
-    assert refused.value.message == "A quitação não está disponível"
     past_settlement(repo, person["id"], 10, date(2026, 10, 7), "overtime")
     assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 20
     assert workforce.hour_bank(admin(), person["id"])["paid_overtime_minutes"] == 10
+    created = workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "settlement", "minutes": None, "entry_on": date(2026, 10, 7), "note": None},
+    )
+    assert created.kind == "settlement"
+    assert created.effect == "debit"
+    assert created.minutes == 20
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 0
+    with pytest.raises(AppError) as zero:
+        workforce.create_hour_bank_entry(
+            admin(),
+            {"employee_id": person["id"], "kind": "settlement", "minutes": None, "entry_on": date(2026, 10, 7), "note": None},
+        )
+    assert zero.value.status_code == 409
+    assert zero.value.message == "O saldo já está zerado"
     negative = workforce.create_employee(admin(), admitted(date(2026, 10, 7), "10987654321", None))
     workforce.update_employee(admin(), negative["id"], {"hour_bank": True})
     work_journey(workforce, negative["id"], "Comercial 2")
@@ -1727,9 +1735,15 @@ def test_lancamento_manual_e_aviso_de_expiracao():
     created = workforce.hour_bank(admin(), person["id"])
     assert created["credit_minutes"] == 55
     assert created["debit_minutes"] == 5
-    with pytest.raises(AppError) as kept:
-        workforce.refuse_hour_bank_change(admin(), oldest.id)
-    assert kept.value.status_code == 409
+    changed = workforce.update_hour_bank_entry(
+        admin(),
+        oldest.id,
+        {"kind": "credit", "minutes": 40, "entry_on": date(2026, 4, 8), "note": "Ajuste"},
+    )
+    assert changed.note == "Ajuste"
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 10
+    workforce.delete_hour_bank_entry(admin(), oldest.id)
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == -30
 
 
 def test_abono_e_ponto_incompleto_nao_movimentam_o_banco():
@@ -1830,6 +1844,22 @@ def test_gestor_lanca_na_equipe_e_periodo_fechado_bloqueia():
         {"employee_id": outsider["id"], "kind": "credit", "minutes": 1, "entry_on": date(2026, 9, 20), "note": None},
     )
     assert still_open.kind == "credit"
+    moved = workforce.update_hour_bank_entry(
+        admin(),
+        still_open.id,
+        {"kind": "balance", "minutes": -30, "entry_on": date(2026, 9, 20), "note": None},
+    )
+    assert moved.kind == "balance"
+    assert moved.effect == "debit"
+    assert workforce.hour_bank(admin(), outsider["id"])["balance_minutes"] == -30
+    with pytest.raises(AppError) as closed_edit:
+        workforce.update_hour_bank_entry(
+            admin(),
+            still_open.id,
+            {"kind": "credit", "minutes": 5, "entry_on": date(2026, 10, 7), "note": None},
+        )
+    assert closed_edit.value.status_code == 409
+    workforce.delete_hour_bank_entry(admin(), still_open.id)
 
 
 def test_pendencia_e_ponto_incompleto_impedem_o_fechamento():
@@ -2072,6 +2102,37 @@ def test_lancamento_de_saldo_deixa_o_valor_informado():
     zero = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "balance", "minutes": 0, "note": "Ajuste do período"})
     assert zero["banks"][0]["balance_minutes"] == 0
     assert len(zero["banks"][0]["entries"]) == 1
+
+
+def test_quitar_o_banco_de_todos_no_fechamento():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), employee_payload())
+    second = workforce.create_employee(admin(), {**employee_payload("10987654321", None), "full_name": "Bruno Dias"})
+    plain = workforce.create_employee(admin(), {**employee_payload("22233344455", None), "full_name": "Carla Nunes"})
+    workforce.update_employee(admin(), first["id"], {"hour_bank": True})
+    workforce.update_employee(admin(), second["id"], {"hour_bank": True})
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": first["id"], "kind": "credit", "minutes": 60, "entry_on": date(2026, 10, 1), "note": None},
+    )
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": second["id"], "kind": "debit", "minutes": 25, "entry_on": date(2026, 10, 2), "note": None},
+    )
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [first["id"], second["id"], plain["id"]]})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as missing:
+        workforce.settle_closing_banks(admin(), opened["id"], {"note": " "})
+    assert missing.value.message == "Informe a observação"
+    settled = workforce.settle_closing_banks(admin(), opened["id"], {"note": "Quitação do período"})
+    banks = {item["employee_id"]: item for item in settled["banks"]}
+    assert set(banks) == {first["id"], second["id"]}
+    assert banks[first["id"]]["balance_minutes"] == 0
+    assert banks[second["id"]]["balance_minutes"] == 0
+    assert banks[first["id"]]["entries"][0]["kind"] == "settlement"
+    assert banks[second["id"]]["entries"][0]["effect"] == "credit"
+    again = workforce.settle_closing_banks(admin(), opened["id"], {"note": "Quitação do período"})
+    assert {item["balance_minutes"] for item in again["banks"]} == {0}
 
 
 def test_cancelar_e_reabrir_exigem_motivo_e_liberam_o_periodo():

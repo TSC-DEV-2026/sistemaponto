@@ -34,6 +34,7 @@ from app.schemas.workforce import (
     CategoryValueOut,
     CategoryValueUpdate,
     ClosingBankCreate,
+    ClosingBankSettlement,
     ClosingCreate,
     ClosingOut,
     ClosingUpdate,
@@ -871,6 +872,17 @@ def launch_closing_bank(
     return json_data(dump_one(row, ClosingOut, None))
 
 
+@closings.post("/{row_id}/bank-settlement", summary="Quitar o banco de todos no fechamento")
+def settle_closing_banks(
+    row_id: int,
+    body: ClosingBankSettlement,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.settle_closing_banks(as_scope(actor), row_id, body.model_dump())
+    return json_data(dump_one(row, ClosingOut, None))
+
+
 @closings.delete("/{row_id}/bank/{employee_id}", summary="Excluir lançamento do banco do fechamento")
 def clear_closing_bank(
     row_id: int,
@@ -1361,8 +1373,8 @@ def update_hour_bank_entry(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    service.refuse_hour_bank_change(as_scope(actor), row_id)
-    return json_data(None)
+    row = service.update_hour_bank_entry(as_scope(actor), row_id, body.model_dump())
+    return json_data(dump_one(row, HourBankEntryOut, None))
 
 
 @hour_bank_entries.delete("/{row_id}", summary="Excluir lançamento do banco")
@@ -1371,7 +1383,7 @@ def delete_hour_bank_entry(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    service.refuse_hour_bank_change(as_scope(actor), row_id)
+    service.delete_hour_bank_entry(as_scope(actor), row_id)
     return json_data(None)
 
 

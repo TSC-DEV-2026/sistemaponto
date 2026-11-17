@@ -1966,14 +1966,11 @@ class WorkforceService:
         if not employee.hour_bank:
             raise AppError(409, "Este funcionário não usa banco de horas")
         kind = data["kind"]
-        if kind == "settlement":
-            raise AppError(400, "A quitação não está disponível")
-        minutes = int(data["minutes"])
         entry_on = data.get("entry_on") or self.today()
         if entry_on > self.today():
             raise AppError(400, "A data não pode ser futura")
         self._assert_open(scope.tenant_id, entry_on, employee.id)
-        effect = None
+        minutes, effect = self._hour_bank_amounts(scope, employee, kind, data.get("minutes"), entry_on, None)
         row = self.repo.add(
             HourBankEntry(
                 tenant_id=scope.tenant_id,
@@ -1990,9 +1987,64 @@ class WorkforceService:
         )
         return row
 
-    def refuse_hour_bank_change(self, scope: Scope, row_id: int) -> None:
-        self.get_hour_bank_entry(scope, row_id)
-        raise AppError(409, "Lançamento de banco permanece no histórico.")
+    def update_hour_bank_entry(self, scope: Scope, row_id: int, data: dict) -> HourBankEntry:
+        row = self.get_hour_bank_entry(scope, row_id)
+        employee = self._employee(scope, row.employee_id)
+        self._can_launch(scope, employee)
+        if not employee.hour_bank:
+            raise AppError(409, "Este funcionário não usa banco de horas")
+        if row.closing_id is not None:
+            raise AppError(409, "Altere este lançamento pelo fechamento")
+        entry_on = data.get("entry_on") or row.entry_on
+        if entry_on > self.today():
+            raise AppError(400, "A data não pode ser futura")
+        self._assert_open(scope.tenant_id, row.entry_on, employee.id)
+        self._assert_open(scope.tenant_id, entry_on, employee.id)
+        minutes, effect = self._hour_bank_amounts(scope, employee, data["kind"], data.get("minutes"), entry_on, {row.id})
+        row.kind = data["kind"]
+        row.minutes = minutes
+        row.effect = effect
+        row.note = self._note(data.get("note"))
+        row.entry_on = entry_on
+        return self.repo.add(row)
+
+    def delete_hour_bank_entry(self, scope: Scope, row_id: int) -> None:
+        row = self.get_hour_bank_entry(scope, row_id)
+        employee = self._employee(scope, row.employee_id)
+        self._can_launch(scope, employee)
+        if row.closing_id is not None:
+            raise AppError(409, "Altere este lançamento pelo fechamento")
+        self._assert_open(scope.tenant_id, row.entry_on, employee.id)
+        self.repo.delete(row)
+
+    def _hour_bank_amounts(
+        self,
+        scope: Scope,
+        employee: Employee,
+        kind: str,
+        raw,
+        entry_on: date,
+        exclude_ids: set[int] | None,
+    ) -> tuple[int, str | None]:
+        if kind == "settlement":
+            balance = self._signed_balance(scope, employee, entry_on, exclude_ids)
+            if balance == 0:
+                raise AppError(409, "O saldo já está zerado")
+            return abs(balance), "debit" if balance > 0 else "credit"
+        if kind == "balance":
+            if raw is None:
+                raise AppError(400, "Informe o saldo")
+            target = int(raw)
+            return abs(target), "debit" if target < 0 else "credit"
+        if raw is None or int(raw) <= 0:
+            raise AppError(400, "Informe os minutos")
+        return int(raw), None
+
+    def _signed_balance(self, scope: Scope, employee: Employee, day: date, exclude_ids: set[int] | None) -> int:
+        events = self._bank_events(scope, employee, day)
+        if exclude_ids:
+            events = [event for event in events if event[1] not in exclude_ids]
+        return project_balance(events, day)["balance_minutes"]
 
     def _payroll_items(self, scope: Scope, starts_on: date, ends_on: date) -> list[dict]:
         finish = ends_on if ends_on <= self.today() else self.today()
@@ -3557,6 +3609,35 @@ class WorkforceService:
         note = self._note(data.get("note"))
         if note is None:
             raise AppError(400, "Informe a observação")
+        wrote = self._apply_closing_launch(scope, row, employee, when, kind, note, data.get("minutes"))
+        if kind == "settlement" and not wrote:
+            raise AppError(409, "O saldo já está zerado")
+        return self.get_closing(scope, row.id, part="banks")
+
+    def settle_closing_banks(self, scope: Scope, row_id: int, data: dict) -> dict:
+        self._can_manage_period(scope)
+        row = self._row(Closing, scope, row_id)
+        if row.status != "closed":
+            raise AppError(409, "O banco do fechamento só abre com o período fechado")
+        note = self._note(data.get("note"))
+        if note is None:
+            raise AppError(400, "Informe a observação")
+        when = row.ends_on if row.ends_on <= self.today() else self.today()
+        if when < row.starts_on:
+            raise AppError(400, "O período ainda não começou")
+        targets = [employee for employee in self._closing_roster(scope, row, when) if employee.hour_bank]
+        if not targets:
+            raise AppError(409, "Ninguém neste fechamento usa banco de horas")
+        wrote = False
+        for employee in targets:
+            self._can_launch(scope, employee)
+            if self._apply_closing_launch(scope, row, employee, when, "settlement", note, None):
+                wrote = True
+        if not wrote:
+            raise AppError(409, "O saldo já está zerado")
+        return self.get_closing(scope, row.id, part="banks")
+
+    def _apply_closing_launch(self, scope: Scope, row: Closing, employee: Employee, when: date, kind: str, note: str, raw) -> bool:
         previous = [
             item
             for item in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id)
@@ -3568,7 +3649,6 @@ class WorkforceService:
             events = [event for event in events if event[1] not in previous_ids]
         balance = project_balance(events, when)["balance_minutes"]
         if kind == "balance":
-            raw = data.get("minutes")
             if raw is None:
                 raise AppError(400, "Informe o saldo")
             target = int(raw)
@@ -3576,19 +3656,19 @@ class WorkforceService:
             minutes = abs(target)
         elif kind == "settlement":
             if balance == 0 and not previous:
-                raise AppError(409, "O saldo já está zerado")
+                return False
             if balance == 0:
                 for item in previous:
                     self.repo.delete(item)
                 self._audit(scope, employee.id, "hour_bank", row.id, None, kind, when)
-                return self.get_closing(scope, row.id, part="banks")
+                return True
             effect = "debit" if balance > 0 else "credit"
             minutes = abs(balance)
         else:
-            minutes = data.get("minutes")
-            if minutes is None or int(minutes) <= 0:
+            if raw is None or int(raw) <= 0:
                 raise AppError(400, "Informe os minutos")
             effect = None
+            minutes = int(raw)
         for item in previous:
             self.repo.delete(item)
         self.repo.add(
@@ -3606,7 +3686,7 @@ class WorkforceService:
             )
         )
         self._audit(scope, employee.id, "hour_bank", row.id, None, kind, when)
-        return self.get_closing(scope, row.id, part="banks")
+        return True
 
     def clear_closing_bank(self, scope: Scope, row_id: int, employee_id: int) -> dict:
         self._can_manage_period(scope)

@@ -417,6 +417,7 @@ export type HourBankEntry = {
   effect: string | null
   note: string | null
   entry_on: string
+  closing_id?: number | null
   created_by_person_id: number
   created_at: string
 }
@@ -467,6 +468,10 @@ export function launchClosingBank(id: number, body: { employee_id: number; kind:
 
 export function clearClosingBank(id: number, employeeId: number) {
   return write<Closing>(() => api.delete<ApiResponse<Closing>>(`/closings/${id}/bank/${employeeId}`))
+}
+
+export function settleClosingBanks(id: number, note: string) {
+  return write<Closing>(() => api.post<ApiResponse<Closing>>(`/closings/${id}/bank-settlement`, { note }))
 }
 
 export function uploadCertificatePhoto(file: File) {

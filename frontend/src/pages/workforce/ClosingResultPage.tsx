@@ -12,7 +12,7 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
 import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
-import { clearClosingBank, getRecord, launchClosingBank, type Closing, type ClosingBank, type ClosingBankEntry, type ClosingPerson } from "@/services/workforce.service"
+import { clearClosingBank, getRecord, launchClosingBank, settleClosingBanks, type Closing, type ClosingBank, type ClosingBankEntry, type ClosingPerson } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
@@ -111,6 +111,7 @@ type BankDraft = {
   kind: "credit" | "debit" | "balance" | "settlement"
   minutes: number
   note: string
+  everyone?: boolean
 }
 
 function BankLaunchDialog({
@@ -184,10 +185,10 @@ function BankLaunchDialog({
           Tem certeza que deseja confirmar?
         </h2>
         <p id="bank-rule-text" className="mt-2 text-sm leading-6 text-[#71717A]">
-          {draft.kind === "balance" ? "O saldo deste fechamento ficará neste valor." : draft.kind === "settlement" ? "O saldo deste fechamento será quitado." : "Este lançamento será gravado no banco deste fechamento."}
+          {draft.everyone ? "O saldo de cada pessoa que usa banco de horas neste fechamento será quitado. O lançamento já feito neste fechamento é substituído." : draft.kind === "balance" ? "O saldo deste fechamento ficará neste valor." : draft.kind === "settlement" ? "O saldo deste fechamento será quitado." : "Este lançamento será gravado no banco deste fechamento."}
         </p>
         <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">
-          {draft.name} · {hourBankKindLabel[draft.kind]} · {draft.kind === "balance" ? showBalanceTarget(draft.minutes) : draft.kind === "settlement" ? "00:00" : showMinutes(draft.minutes)}
+          {draft.everyone ? "Todos que usam banco de horas · Quitação" : `${draft.name} · ${hourBankKindLabel[draft.kind]} · ${draft.kind === "balance" ? showBalanceTarget(draft.minutes) : draft.kind === "settlement" ? "00:00" : showMinutes(draft.minutes)}`}
         </p>
         <div className="mt-4 space-y-2">
           <Label className={moduleLabelClass} htmlFor="closing-bank-reason">Observação</Label>
@@ -463,6 +464,7 @@ function BankLaunch({
   onEdit,
   onCancelEdit,
   onRemove,
+  onSettleAll,
 }: {
   banks: ClosingBank[]
   personId: string
@@ -475,6 +477,7 @@ function BankLaunch({
   onEdit: () => void
   onCancelEdit: () => void
   onRemove: () => void
+  onSettleAll: () => void
 }) {
   const active = banks.find((item) => String(item.employee_id) === personId) || banks[0]
   const entry = currentEntry(active.entries || [])
@@ -482,7 +485,13 @@ function BankLaunch({
   const EntryIcon = (entry && launchKind[entry.kind]) || conceptIcon.hourBank
   return (
     <section className={moduleCardClass}>
-      <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
+        <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={pending} onClick={onSettleAll}>
+          <CircleCheck className="h-4 w-4" aria-hidden />
+          Quitar o banco de todos
+        </Button>
+      </div>
       <div className="mt-5 space-y-4">
         <div className="min-w-0 space-y-2">
           <Label className={moduleLabelClass} htmlFor="closing-bank-person">Pessoa</Label>
@@ -688,12 +697,14 @@ export function ClosingResultPage() {
     if (!draft) return
     setPending(true)
     try {
-      const next = await launchClosingBank(closingId, {
-        employee_id: draft.employeeId,
-        kind: draft.kind,
-        note,
-        ...(draft.kind === "settlement" ? {} : { minutes: draft.minutes }),
-      })
+      const next = draft.everyone
+        ? await settleClosingBanks(closingId, note)
+        : await launchClosingBank(closingId, {
+            employee_id: draft.employeeId,
+            kind: draft.kind,
+            note,
+            ...(draft.kind === "settlement" ? {} : { minutes: draft.minutes }),
+          })
       setClosing((current) => (current ? { ...current, banks: next.banks || [] } : next))
       setPeopleStamp((value) => value + 1)
       setEditing(false)
@@ -792,6 +803,7 @@ export function ClosingResultPage() {
                   setMinutes("")
                 }}
                 onRemove={askRemove}
+                onSettleAll={() => setDraft({ employeeId: 0, name: "", kind: "settlement", minutes: 0, note: "", everyone: true })}
               />
               {removal ? (
                 <BankRemoveDialog
