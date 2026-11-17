@@ -8,6 +8,7 @@ const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-passwor
 
 type RequestConfig = InternalAxiosRequestConfig & {
   skipAuthRefresh?: boolean
+  silent?: boolean
   _retried?: boolean
 }
 
@@ -60,7 +61,7 @@ function actionSuccessMessage(method: string, url: string): string | null {
 
 function reportActionError(error: AxiosError) {
   const config = error.config as RequestConfig | undefined
-  if (!config) return
+  if (!config || config.silent) return
   const method = (config.method || "get").toLowerCase()
   const url = config.url || ""
   if (url.includes("/auth/refresh")) return
@@ -78,6 +79,7 @@ api.interceptors.response.use(
     const config = response.config as RequestConfig
     const method = (config.method || "get").toLowerCase()
     const url = config.url || ""
+    if (config.silent) return response
     const message = actionSuccessMessage(method, url)
     if (message && (method === "post" || method === "put" || method === "patch" || method === "delete" || url.includes("/auth/verify-email"))) {
       toastSuccess(message)

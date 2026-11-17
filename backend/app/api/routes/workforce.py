@@ -840,10 +840,13 @@ def closing_candidates(
 def get_closing(
     row_id: int,
     fields: str | None = Query(default=None, max_length=500),
+    page: int | None = Query(default=None, ge=1),
+    limit: int | None = Query(default=None, ge=1, le=100),
+    part: str | None = Query(default=None, pattern="^(people|banks|sheets)$"),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    return json_data(dump_one(service.get_closing(as_scope(actor), row_id), ClosingOut, fields))
+    return json_data(dump_one(service.get_closing(as_scope(actor), row_id, page=page, limit=limit, part=part), ClosingOut, fields))
 
 
 @closings.post("", status_code=201, summary="Abrir período")
@@ -878,7 +881,18 @@ def launch_closing_bank(
     return json_data(dump_one(row, ClosingOut, None))
 
 
-@closings.delete("/{row_id}", summary="Excluir período em aberto")
+@closings.delete("/{row_id}/bank/{employee_id}", summary="Excluir lançamento do banco do fechamento")
+def clear_closing_bank(
+    row_id: int,
+    employee_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.clear_closing_bank(as_scope(actor), row_id, employee_id)
+    return json_data(dump_one(row, ClosingOut, None))
+
+
+@closings.delete("/{row_id}", summary="Excluir período aberto ou cancelado")
 def delete_closing(
     row_id: int,
     actor: Actor = Depends(require_tenant),

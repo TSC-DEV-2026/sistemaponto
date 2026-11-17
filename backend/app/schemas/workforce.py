@@ -562,8 +562,8 @@ class ClosingUpdate(BaseModel):
 
 class ClosingBankCreate(BaseModel):
     employee_id: int
-    kind: Literal["credit", "debit", "settlement"]
-    minutes: int | None = Field(default=None, gt=0, le=100000)
+    kind: Literal["credit", "debit", "settlement", "balance"]
+    minutes: int | None = Field(default=None, ge=-100000, le=100000)
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -584,6 +584,8 @@ class ClosingBankEntryOut(BaseModel):
     minutes: int
     note: str | None
     entry_on: date
+    balance_before_minutes: int
+    balance_after_minutes: int
 
 
 class ClosingBankOut(BaseModel):
@@ -640,6 +642,7 @@ class ClosingOut(BaseModel):
     closed_by_person_id: int | None
     events: list[ClosingEventOut]
     people: list[ClosingPersonOut] = Field(default_factory=list)
+    people_total: int = 0
     banks: list[ClosingBankOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)

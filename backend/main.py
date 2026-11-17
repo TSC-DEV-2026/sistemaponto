@@ -78,9 +78,12 @@ def create_app() -> FastAPI:
 
 
 def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    error: dict = {"message": exc.message}
+    if exc.people:
+        error["people"] = exc.people
     return JSONResponse(
         status_code=exc.status_code,
-        content={"data": None, "error": {"message": exc.message}},
+        content={"data": None, "error": error},
     )
 
 

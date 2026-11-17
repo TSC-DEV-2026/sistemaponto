@@ -1,14 +1,15 @@
 import { useLayoutEffect, useRef, type ComponentProps } from "react"
 
 import { Input } from "@/components/ui/input"
-import { caretAfterDigits, maskClockDigits } from "@/utils/clock-edit"
+import { caretAfterDigits, maskClockDigits, maskSignedClockDigits } from "@/utils/clock-edit"
 
 type DurationFieldProps = Omit<ComponentProps<typeof Input>, "type" | "inputMode" | "onChange" | "value"> & {
   value: string
   onValueChange: (value: string) => void
+  signed?: boolean
 }
 
-export function DurationField({ value, onValueChange, placeholder = "00:00", ...props }: DurationFieldProps) {
+export function DurationField({ value, onValueChange, placeholder = "00:00", signed = false, ...props }: DurationFieldProps) {
   const ref = useRef<HTMLInputElement>(null)
   const caret = useRef<number | null>(null)
 
@@ -40,8 +41,9 @@ export function DurationField({ value, onValueChange, placeholder = "00:00", ...
         const cursor = input.selectionStart ?? input.value.length
         const digitsBefore = input.value.slice(0, cursor).replace(/\D/g, "").length
         const digits = input.value.replace(/\D/g, "").slice(0, 4)
-        const next = maskClockDigits(digits)
-        const place = caretAfterDigits(next, Math.min(digitsBefore, digits.length))
+        const body = maskClockDigits(digits)
+        const next = signed ? maskSignedClockDigits(input.value) : body
+        const place = caretAfterDigits(body, Math.min(digitsBefore, digits.length)) + (next.startsWith("-") ? 1 : 0)
         if (next === value) {
           input.value = next
           input.setSelectionRange(place, place)

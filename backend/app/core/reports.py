@@ -50,4 +50,5 @@ ENTRY_TITLES = {
     "credit": "Somar ao saldo",
     "debit": "Diminuir o saldo",
     "settlement": "Quitação",
+    "balance": "Lançar saldo",
 }

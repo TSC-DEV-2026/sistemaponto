@@ -173,6 +173,8 @@ export type ClosingBankEntry = {
   minutes: number
   note: string | null
   entry_on: string
+  balance_before_minutes?: number | null
+  balance_after_minutes?: number | null
 }
 
 export type ClosingBank = {
@@ -229,6 +231,7 @@ export type Closing = {
   closed_by_person_id: number | null
   events: ClosingEvent[]
   people?: ClosingPerson[]
+  people_total?: number
   banks?: ClosingBank[]
 }
 
@@ -441,8 +444,8 @@ export function listRecords<T>(path: string, params?: Record<string, string | nu
   return read<Page<T>>(() => api.get<ApiResponse<Page<T>>>(path, { params }))
 }
 
-export function getRecord<T>(path: string, id: number) {
-  return read<T>(() => api.get<ApiResponse<T>>(`${path}/${id}`))
+export function getRecord<T>(path: string, id: number, params?: Record<string, string | number | undefined>) {
+  return read<T>(() => api.get<ApiResponse<T>>(`${path}/${id}`, params ? { params } : undefined))
 }
 
 export type ClosingCandidate = {
@@ -460,8 +463,12 @@ export function closingCandidates(params: Record<string, string | number | undef
   return read<ClosingCandidate[]>(() => api.get<ApiResponse<ClosingCandidate[]>>("/closings/candidates", { params: query }))
 }
 
-export function launchClosingBank(id: number, body: { employee_id: number; kind: "credit" | "debit" | "settlement"; minutes?: number }) {
+export function launchClosingBank(id: number, body: { employee_id: number; kind: "credit" | "debit" | "settlement" | "balance"; minutes?: number; note: string }) {
   return write<Closing>(() => api.post<ApiResponse<Closing>>(`/closings/${id}/bank`, body))
+}
+
+export function clearClosingBank(id: number, employeeId: number) {
+  return write<Closing>(() => api.delete<ApiResponse<Closing>>(`/closings/${id}/bank/${employeeId}`))
 }
 
 export function uploadCertificatePhoto(file: File) {

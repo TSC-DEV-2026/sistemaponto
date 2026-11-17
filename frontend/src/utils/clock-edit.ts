@@ -4,6 +4,13 @@ export function maskClockDigits(digits: string) {
   return `${clean.slice(0, 2)}:${clean.slice(2)}`
 }
 
+export function maskSignedClockDigits(value: string) {
+  const negative = value.includes("-")
+  const body = maskClockDigits(value)
+  if (!body) return negative ? "-" : ""
+  return negative ? `-${body}` : body
+}
+
 export function caretAfterDigits(masked: string, count: number) {
   if (count <= 0) return 0
   let seen = 0
