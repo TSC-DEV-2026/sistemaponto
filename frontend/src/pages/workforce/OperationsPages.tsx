@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Upload, X } from "lucide-react"
+import { ArrowLeft, ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Trash2, Upload, X } from "lucide-react"
 
 import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
@@ -29,6 +29,7 @@ import {
   getReport,
   listRecords,
   notifyNoticesChanged,
+  removeRecord,
   updateRecord,
   type Closing,
   type Employee,
@@ -43,6 +44,7 @@ import {
   type TimeRequest,
 } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { clockMethodLabel } from "@/utils/labels"
 import {
@@ -398,7 +400,7 @@ function RequestDecisionDialog({
                   : "A solicitação será recusada."}
           </p>
         </div>
-        <div id="request-decision-who" className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-3 text-left">
+        <div id="request-decision-who" className="mt-5 rounded-xl bg-[#E7E8EA] px-4 py-3 text-left">
           <p className="truncate text-sm font-semibold text-[#0A0A0A]" title={view.person}>
             {view.person}
           </p>
@@ -1074,11 +1076,20 @@ function ClosingActions({
   item,
   onClose,
   onAsk,
+  onDelete,
 }: {
   item: Closing
   onClose: (item: Closing, button: HTMLButtonElement) => void
   onAsk: (item: Closing, status: "cancelled" | "open", button: HTMLButtonElement) => void
+  onDelete: (item: Closing, button: HTMLButtonElement) => void
 }) {
+  const remove = (
+    <ActionTip label="Excluir">
+      <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label="Excluir fechamento" onClick={(event) => onDelete(item, event.currentTarget)}>
+        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+      </Button>
+    </ActionTip>
+  )
   if (item.status === "open") {
     return (
       <div className="inline-flex justify-center gap-1.5">
@@ -1087,6 +1098,7 @@ function ClosingActions({
             <Lock className="h-4 w-4" strokeWidth={1.75} />
           </Button>
         </ActionTip>
+        {remove}
       </div>
     )
   }
@@ -1112,7 +1124,7 @@ function ClosingActions({
             <Ban className="h-4 w-4" strokeWidth={1.75} />
           </Button>
         </ActionTip>
-      ) : null}
+      ) : remove}
     </div>
   )
 }
@@ -1127,10 +1139,11 @@ export function ClosingsPage() {
   const [reasonAsk, setReasonAsk] = useState<null | { id: number; status: "cancelled" | "open"; period: string }>(null)
   const [reason, setReason] = useState("")
   const [closingItem, setClosingItem] = useState<Closing | null>(null)
-  const [error, setError] = useState("")
+  const [removing, setRemoving] = useState<Closing | null>(null)
   const [sort, setSort] = useState<{ key: "period" | "status" | "history"; dir: "asc" | "desc" } | null>(null)
   const closeOpenerRef = useRef<HTMLButtonElement | null>(null)
   const reasonOpenerRef = useRef<HTMLButtonElement | null>(null)
+  const removeOpenerRef = useRef<HTMLButtonElement | null>(null)
   const periods = usePagedList<Closing>("/closings", {
     ...(/^\d+$/.test(filterYear) ? { year: Number(filterYear) } : {}),
     ...(/^\d+$/.test(filterMonth) ? { month: Number(filterMonth) } : {}),
@@ -1154,24 +1167,21 @@ export function ClosingsPage() {
   }, [canManage, setTabAction])
 
   async function changePeriod(id: number, status: "closed" | "cancelled" | "open", note = "") {
-    setError("")
     const motive = note.trim()
     if (status !== "closed" && !motive) {
-      setError("Informe o motivo.")
+      toastError("Informe a observação.")
       return false
     }
     try {
       await updateRecord("/closings", id, { status, note: motive || null })
       periods.reload()
       return true
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o período.")
+    } catch {
       return false
     }
   }
 
   function askReason(item: Closing, status: "cancelled" | "open", button: HTMLButtonElement) {
-    setError("")
     setReason("")
     reasonOpenerRef.current = button
     setReasonAsk({ id: item.id, status, period: `${showDate(item.starts_on)} a ${showDate(item.ends_on)}` })
@@ -1207,7 +1217,6 @@ export function ClosingsPage() {
 
   return (
     <div className="w-full min-w-0 space-y-[18px]">
-      {error && !closingItem && !reasonAsk ? <p className="text-sm text-destructive">{error}</p> : null}
       <section className={moduleCardClass}>
         <div>
           <h2 className="text-lg font-semibold text-brand-ink">Fechamento</h2>
@@ -1300,11 +1309,14 @@ export function ClosingsPage() {
                           <ClosingActions
                             item={item}
                             onClose={(period, button) => {
-                              setError("")
                               closeOpenerRef.current = button
                               setClosingItem(period)
                             }}
                             onAsk={(period, status, button) => askReason(period, status, button)}
+                            onDelete={(period, button) => {
+                              removeOpenerRef.current = button
+                              setRemoving(period)
+                            }}
                           />
                         </td>
                       ) : null}
@@ -1324,24 +1336,36 @@ export function ClosingsPage() {
       <ClosingConfirmDialog
         open={closingItem !== null}
         period={closingItem ? `${showDate(closingItem.starts_on)} a ${showDate(closingItem.ends_on)}` : ""}
-        error={closingItem ? error : ""}
         onClose={() => setClosingItem(null)}
         onConfirm={async () => {
           if (!closingItem) return
-          const closed = await changePeriod(closingItem.id, "closed")
-          if (closed) setClosingItem(null)
+          await changePeriod(closingItem.id, "closed")
+          setClosingItem(null)
         }}
         onRest={() => closeOpenerRef.current?.focus()}
+      />
+      <ClosingDeleteDialog
+        item={removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={async () => {
+          if (!removing) return
+          try {
+            await removeRecord("/closings", removing.id)
+            setRemoving(null)
+            periods.reload()
+          } catch {
+            return
+          }
+        }}
+        onRest={() => removeOpenerRef.current?.focus()}
       />
       <ClosingReasonDialog
         ask={reasonAsk}
         reason={reason}
-        error={reasonAsk ? error : ""}
         onReason={setReason}
         onClose={() => {
           setReasonAsk(null)
           setReason("")
-          setError("")
         }}
         onConfirm={async () => {
           if (!reasonAsk) return
@@ -1357,10 +1381,133 @@ export function ClosingsPage() {
   )
 }
 
+function ClosingDeleteDialog({
+  item,
+  onClose,
+  onConfirm,
+  onRest,
+}: {
+  item: Closing | null
+  onClose: () => void
+  onConfirm: () => Promise<void>
+  onRest: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const restRef = useRef(onRest)
+  const pendingRef = useRef(false)
+  const dismissRef = useRef(() => {})
+  const [pending, setPending] = useState(false)
+  const shown = useRef(false)
+  restRef.current = onRest
+  const open = item !== null
+
+  function dismiss() {
+    if (pendingRef.current) return
+    onClose()
+  }
+
+  async function confirm() {
+    if (pendingRef.current) return
+    pendingRef.current = true
+    setPending(true)
+    try {
+      await onConfirm()
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
+  }
+
+  dismissRef.current = dismiss
+
+  useEffect(() => {
+    if (!open) {
+      if (shown.current) {
+        shown.current = false
+        restRef.current()
+      }
+      return
+    }
+    shown.current = true
+    confirmRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        dismissRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) return
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled])")
+      if (nodes.length === 0) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
+  if (!item) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) dismiss()
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="closing-delete-title"
+        aria-describedby="closing-delete-text"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+      >
+        <h2 id="closing-delete-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+          Excluir este fechamento?
+        </h2>
+        <p id="closing-delete-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+          Este período sai da lista.
+        </p>
+        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">
+          {showDate(item.starts_on)} a {showDate(item.ends_on)}
+        </p>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Voltar
+          </Button>
+          <Button ref={confirmRef} type="button" className={cn(moduleDangerClass, "h-11 px-4")} pending={pending} onClick={() => confirm()}>
+            <Trash2 className="h-4 w-4" aria-hidden />
+            Excluir
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function ClosingReasonDialog({
   ask,
   reason,
-  error,
   onReason,
   onClose,
   onConfirm,
@@ -1368,14 +1515,13 @@ function ClosingReasonDialog({
 }: {
   ask: { id: number; status: "cancelled" | "open"; period: string } | null
   reason: string
-  error: string
   onReason: (value: string) => void
   onClose: () => void
   onConfirm: () => Promise<void>
   onRest: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const reasonRef = useRef<HTMLInputElement>(null)
+  const reasonRef = useRef<HTMLTextAreaElement>(null)
   const restRef = useRef(onRest)
   const pendingRef = useRef(false)
   const dismissRef = useRef(() => {})
@@ -1425,7 +1571,7 @@ function ClosingReasonDialog({
         return
       }
       if (event.key !== "Tab" || !panelRef.current) return
-      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])")
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("textarea:not([disabled]), button:not([disabled])")
       if (nodes.length === 0) return
       const first = nodes[0]
       const last = nodes[nodes.length - 1]
@@ -1470,13 +1616,12 @@ function ClosingReasonDialog({
             ? "O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer."
             : "Os dias das pessoas voltam a aceitar lançamento. O arquivo fiscal deste período deixa de valer."}
         </p>
-        <p className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{ask.period}</p>
+        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{ask.period}</p>
         <div className="mt-4 space-y-2">
-          <Label className={moduleLabelClass} htmlFor="closing-reason">Motivo</Label>
-          <Input ref={reasonRef} id="closing-reason" className={moduleFieldClass} value={reason} onChange={(event) => onReason(event.target.value)} />
+          <Label className={moduleLabelClass} htmlFor="closing-reason">Observação</Label>
+          <textarea ref={reasonRef} id="closing-reason" className={cn(moduleTextClass, "min-h-[92px]")} maxLength={2000} value={reason} onChange={(event) => onReason(event.target.value)} />
         </div>
-        {error ? <p className="mt-3 text-sm text-destructive" role="alert">{error}</p> : null}
-        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>Voltar</Button>
           <Button type="button" className={modulePrimaryClass} onClick={() => confirm()} disabled={pending}>Confirmar</Button>
         </div>

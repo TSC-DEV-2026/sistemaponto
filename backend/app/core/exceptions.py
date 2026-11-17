@@ -1,5 +1,6 @@
 class AppError(Exception):
-    def __init__(self, status_code: int, message: str) -> None:
+    def __init__(self, status_code: int, message: str, people: list[int] | None = None) -> None:
         self.status_code = status_code
         self.message = message
+        self.people = people or []
         super().__init__(message)

@@ -13,8 +13,12 @@ import { Spinner } from "@/components/ui/spinner"
 import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { PlaceCombobox } from "@/components/workforce/place-combobox"
-import { closingCandidates, createRecord, listRecords, updateRecord, type Closing, type ClosingCandidate, type NamedRecord } from "@/services/workforce.service"
+import { api, ensureCsrf } from "@/services/api"
+import { closingCandidates, listRecords, type Closing, type ClosingCandidate, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError, toastSuccess } from "@/store/toast.store"
+import { apiErrorMessage, apiErrorPeople } from "@/utils/api-error"
+import type { ApiResponse } from "@/types/api"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
 import { monthOptions, showDate } from "@/utils/labels"
@@ -32,6 +36,14 @@ function initials(name: string) {
   if (parts.length === 0) return "?"
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}
+
+function closingNotice(message: string) {
+  if (message === "Há ponto incompleto no período") return "Ponto incompleto"
+  if (message === "Há pessoas que já estão em um fechamento deste período") return "Já está em um fechamento"
+  if (message === "Há solicitação pendente no período") return "Solicitação pendente"
+  if (message === "Há conflito entre abono ou atestado e marcação no período") return "Conflito no período"
+  return ""
 }
 
 function periodLabel(mode: string, year: string, month: string, startsOn: string, endsOn: string) {
@@ -70,7 +82,7 @@ export function ClosingFormPage() {
   const [pageSize, setPageSize] = useState(20)
   const [peopleReady, setPeopleReady] = useState(false)
   const [chosen, setChosen] = useState<number[]>([])
-  const [error, setError] = useState("")
+  const [notices, setNotices] = useState<Record<number, string>>({})
   const [confirming, setConfirming] = useState(false)
   const openerRef = useRef<HTMLButtonElement | null>(null)
   const busy = useRef(false)
@@ -101,7 +113,7 @@ export function ClosingFormPage() {
         setUnions(unionPage.items)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar os filtros.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar os filtros.")
       })
       .finally(() => {
         if (active) setFiltersReady(true)
@@ -134,7 +146,7 @@ export function ClosingFormPage() {
       .catch((caught: unknown) => {
         if (!active) return
         setCandidates([])
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar as pessoas.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar as pessoas.")
       })
       .finally(() => {
         if (active) setPeopleReady(true)
@@ -148,18 +160,35 @@ export function ClosingFormPage() {
     setChosen(listed ? listed.split(",").map(Number) : [])
   }, [listed])
 
+  useEffect(() => {
+    setNotices({})
+  }, [mode, year, month, startsOn, endsOn])
+
   async function confirmClose() {
     if (busy.current) return
     busy.current = true
-    setError("")
+    let createdId: number | null = null
     try {
+      await ensureCsrf()
       const period = mode === "range" ? { starts_on: startsOn, ends_on: endsOn || null } : { year: Number(year), month: Number(month) }
       const body = { ...period, note: null, employee_ids: chosen }
-      const created = await createRecord<Closing>("/closings", body)
-      await updateRecord("/closings", created.id, { status: "closed" })
-      navigate(`/closings/${created.id}`)
+      const created = await api.post<ApiResponse<Closing>>("/closings", body, { silent: true })
+      const row = created.data.data
+      if (!row) throw new Error("Não foi possível concluir a ação.")
+      createdId = row.id
+      await api.put(`/closings/${createdId}`, { status: "closed" }, { silent: true })
+      toastSuccess("Registro salvo.")
+      navigate(`/closings/${createdId}`)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível fechar.")
+      const message = apiErrorMessage(caught)
+      const label = closingNotice(message)
+      const people = apiErrorPeople(caught)
+      setConfirming(false)
+      setNotices(label ? Object.fromEntries(people.map((id) => [id, label])) : {})
+      toastError(message)
+      if (createdId !== null) {
+        await api.delete(`/closings/${createdId}`, { silent: true }).catch(() => undefined)
+      }
     } finally {
       busy.current = false
     }
@@ -172,11 +201,10 @@ export function ClosingFormPage() {
   function askClose(event: FormEvent) {
     event.preventDefault()
     if (chosen.length === 0) {
-      setError("Selecione quem entra no fechamento.")
+      toastError("Selecione quem entra no fechamento.")
       return
     }
     openerRef.current = event.currentTarget.querySelector("button[type='submit']")
-    setError("")
     setConfirming(true)
   }
 
@@ -298,9 +326,10 @@ export function ClosingFormPage() {
             <ul className="space-y-2">
               {visible.map((person) => {
                 const marked = chosen.includes(person.id)
+                const notice = marked ? notices[person.id] : undefined
                 return (
                   <li key={person.id}>
-                    <label htmlFor={`closing-person-${person.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", marked ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
+                    <label htmlFor={`closing-person-${person.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", notice ? "border-[#F0C7A0] bg-[#FFF8F1]" : marked ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
                       <span className="relative h-[22px] w-[22px] shrink-0">
                         <input id={`closing-person-${person.id}`} type="checkbox" className="peer sr-only" checked={marked} onChange={() => togglePerson(person.id)} />
                         <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
@@ -311,6 +340,7 @@ export function ClosingFormPage() {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold text-[#0A0A0A]">{person.full_name || "Não informado"}</span>
                         <span className="mt-0.5 block truncate text-sm text-[#64748B]">Matrícula {registration(person.registration_number)}</span>
+                        {notice ? <span className="mt-0.5 block truncate text-sm font-medium text-[#C2410C]">{notice}</span> : null}
                       </span>
                     </label>
                   </li>
@@ -333,7 +363,6 @@ export function ClosingFormPage() {
             </div>
           ) : null}
         </div>
-        {error && !confirming ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit" className={modulePrimaryClass} disabled={confirming || !peopleReady}>
             Fechar período
@@ -343,7 +372,6 @@ export function ClosingFormPage() {
       <ClosingConfirmDialog
         open={confirming}
         period={`${periodLabel(mode, year, month, startsOn, endsOn)} · ${chosen.length} pessoas`}
-        error={error}
         onClose={() => {
           if (busy.current) return
           setConfirming(false)
@@ -358,14 +386,12 @@ export function ClosingFormPage() {
 export function ClosingConfirmDialog({
   open,
   period,
-  error,
   onClose,
   onConfirm,
   onRest,
 }: {
   open: boolean
   period: string
-  error: string
   onClose: () => void
   onConfirm: () => Promise<void>
   onRest: () => void
@@ -464,11 +490,6 @@ export function ClosingConfirmDialog({
           Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados para as pessoas deste fechamento até reabrir.
         </p>
         <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{period}</p>
-        {error ? (
-          <p className="mt-3 text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
             <X className="h-4 w-4" aria-hidden />

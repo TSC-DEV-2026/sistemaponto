@@ -50,6 +50,13 @@ def _fold(events: list[tuple[date, int, str, int]]) -> tuple[list[list], int, in
         elif kind == "absence":
             discounted_absence_minutes += minutes
             debt = max(0, debt - minutes)
+        elif kind == "balance":
+            lots.clear()
+            debt = 0
+            if minutes > 0:
+                lots.append([event_day, minutes])
+            elif minutes < 0:
+                debt = -minutes
         steps.append((event_day, sum(item[1] for item in lots) - debt))
     return lots, debt, credit_minutes, debit_minutes, paid_overtime_minutes, discounted_absence_minutes, steps
 

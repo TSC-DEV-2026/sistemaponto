@@ -1218,7 +1218,7 @@ function ConfirmDialog({
             {lines.map((line, index) => {
               const [title, detail] = line.split(" — ")
               return (
-                <li key={`${index}-${line}`} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+                <li key={`${index}-${line}`} className="rounded-xl border border-[#E2E8F0] bg-[#E7E8EA] px-4 py-3">
                   <span className="block text-sm font-semibold text-[#0A0A0A]">{title}</span>
                   {detail ? <span className="mt-0.5 block text-sm text-[#64748B]">{detail}</span> : null}
                 </li>

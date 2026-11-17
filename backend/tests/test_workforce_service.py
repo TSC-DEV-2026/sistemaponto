@@ -491,6 +491,11 @@ class Memory:
         found.sort(key=lambda item: (item.entry_on, item.id))
         return found
 
+    def delete_members_for_closing(self, closing_id: int) -> None:
+        self.rows = [
+            row for row in self.rows if not (isinstance(row, ClosingMember) and row.closing_id == closing_id)
+        ]
+
     def delete_closing_entries(self, closing_id: int) -> None:
         self.rows = [
             row
@@ -1836,11 +1841,15 @@ def test_pendencia_e_ponto_incompleto_impedem_o_fechamento():
         workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     assert waiting.value.status_code == 409
     assert waiting.value.message == "Há solicitação pendente no período"
+    assert waiting.value.people == [person["id"]]
     workforce.decide_request(admin(), pending["id"], {"status": "rejected", "decision_note": None})
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
     with pytest.raises(AppError) as odd:
         workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     assert odd.value.message == "Há ponto incompleto no período"
+    assert odd.value.people == [person["id"]]
+    outsider = workforce.create_employee(admin(), employee_payload("10987654321", None))
+    workforce.create_punch(admin(), {"employee_id": outsider["id"], "occurred_at": at(9, 0), "note": None}, source="manual")
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
     closed = workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     assert closed["status"] == "closed"
@@ -1890,6 +1899,7 @@ def test_conflito_impede_o_fechamento_e_intervalo_menor_nao():
     with pytest.raises(AppError) as conflict:
         workforce.update_closing(admin(), blocked["id"], {"status": "closed", "note": None})
     assert conflict.value.message == "Há conflito entre abono ou atestado e marcação no período"
+    assert conflict.value.people == [other["id"]]
 
 
 def test_ferias_e_fim_de_semana_nao_sao_ponto_incompleto():
@@ -1946,6 +1956,30 @@ def test_fechamento_escolhe_as_pessoas_e_deixa_as_outras_abertas():
     with pytest.raises(AppError) as again:
         workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [first["id"]]})
     assert again.value.status_code == 409
+    assert again.value.people == [first["id"]]
+
+
+def test_resultado_do_fechamento_apura_so_a_pagina():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), employee_payload())
+    second = workforce.create_employee(admin(), {**employee_payload("10987654321", None), "full_name": "Bruno Dias"})
+    workforce.update_employee(admin(), first["id"], {"hour_bank": True})
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [first["id"], second["id"]]})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    page = workforce.get_closing(admin(), opened["id"], page=1, limit=1, part="people")
+    assert page["people_total"] == 2
+    assert len(page["people"]) == 1
+    assert page["people"][0]["days"] == []
+    assert page["banks"] == []
+    other = workforce.get_closing(admin(), opened["id"], page=2, limit=1, part="people")
+    assert {page["people"][0]["employee_id"], other["people"][0]["employee_id"]} == {first["id"], second["id"]}
+    banks = workforce.get_closing(admin(), opened["id"], part="banks")
+    assert banks["people"] == []
+    assert [item["employee_id"] for item in banks["banks"]] == [first["id"]]
+    sheets = workforce.get_closing(admin(), opened["id"], part="sheets")
+    assert len(sheets["people"]) == 2
+    assert len(sheets["people"][0]["days"]) == 31
+    assert sheets["banks"] == []
 
 
 def test_fechamento_permite_quitar_o_banco_e_o_cancelamento_desfaz():
@@ -1968,15 +2002,76 @@ def test_fechamento_permite_quitar_o_banco_e_o_cancelamento_desfaz():
     assert detail["banks"][0]["balance_minutes"] == 60
     assert len(detail["people"][0]["days"]) == 31
     assert detail["people"][0]["cpf"]
-    settled = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "settlement", "minutes": None, "note": None})
+    settled = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "settlement", "minutes": None, "note": "Ajuste do período"})
     assert settled["banks"][0]["balance_minutes"] == 0
     assert settled["banks"][0]["entries"][0]["kind"] == "settlement"
-    workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "credit", "minutes": 30, "note": None})
+    assert settled["banks"][0]["entries"][0]["balance_before_minutes"] == 60
+    assert settled["banks"][0]["entries"][0]["balance_after_minutes"] == 0
+    workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "credit", "minutes": 30, "note": "Ajuste do período"})
     credited = workforce.get_closing(admin(), opened["id"])
-    assert credited["banks"][0]["balance_minutes"] == 30
+    assert credited["banks"][0]["balance_minutes"] == 90
+    assert [item["kind"] for item in credited["banks"][0]["entries"]] == ["credit"]
     workforce.update_closing(admin(), opened["id"], {"status": "cancelled", "note": "Refazer"})
     assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 60
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(9, 0), "note": None})
+
+
+def test_novo_lancamento_do_fechamento_substitui_o_anterior():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "credit", "minutes": 10, "note": "Ajuste do período"})
+    replaced = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "credit", "minutes": 15, "note": "Ajuste do período"})
+    assert replaced["banks"][0]["balance_minutes"] == 15
+    assert [(item["kind"], item["minutes"]) for item in replaced["banks"][0]["entries"]] == [("credit", 15)]
+    assert replaced["banks"][0]["entries"][0]["balance_before_minutes"] == 0
+    assert replaced["banks"][0]["entries"][0]["balance_after_minutes"] == 15
+    cleared = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "settlement", "minutes": None, "note": "Ajuste do período"})
+    assert cleared["banks"][0]["balance_minutes"] == 0
+    assert cleared["banks"][0]["entries"] == []
+
+
+def test_excluir_lancamento_do_fechamento_devolve_o_saldo_anterior():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "credit", "minutes": 60, "entry_on": date(2026, 10, 1), "note": None},
+    )
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as missing_note:
+        workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "credit", "minutes": 15, "note": " "})
+    assert missing_note.value.message == "Informe a observação"
+    workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "credit", "minutes": 15, "note": "Ajuste do período"})
+    cleared = workforce.clear_closing_bank(admin(), opened["id"], person["id"])
+    assert cleared["banks"][0]["balance_minutes"] == 60
+    assert cleared["banks"][0]["entries"] == []
+    with pytest.raises(AppError) as missing:
+        workforce.clear_closing_bank(admin(), opened["id"], person["id"])
+    assert missing.value.status_code == 404
+
+
+def test_lancamento_de_saldo_deixa_o_valor_informado():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None})
+    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    positive = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "balance", "minutes": 50 * 60, "note": "Ajuste do período"})
+    assert positive["banks"][0]["balance_minutes"] == 50 * 60
+    assert [(item["kind"], item["effect"], item["minutes"]) for item in positive["banks"][0]["entries"]] == [("balance", "credit", 50 * 60)]
+    assert positive["banks"][0]["entries"][0]["balance_before_minutes"] == 0
+    assert positive["banks"][0]["entries"][0]["balance_after_minutes"] == 50 * 60
+    negative = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "balance", "minutes": -50 * 60, "note": "Ajuste do período"})
+    assert negative["banks"][0]["balance_minutes"] == -50 * 60
+    assert [(item["kind"], item["effect"], item["minutes"]) for item in negative["banks"][0]["entries"]] == [("balance", "debit", 50 * 60)]
+    zero = workforce.launch_closing_bank(admin(), opened["id"], {"employee_id": person["id"], "kind": "balance", "minutes": 0, "note": "Ajuste do período"})
+    assert zero["banks"][0]["balance_minutes"] == 0
+    assert len(zero["banks"][0]["entries"]) == 1
 
 
 def test_cancelar_e_reabrir_exigem_motivo_e_liberam_o_periodo():
@@ -1989,6 +2084,12 @@ def test_cancelar_e_reabrir_exigem_motivo_e_liberam_o_periodo():
     assert missing.value.status_code == 400
     cancelled = workforce.update_closing(admin(), opened["id"], {"status": "cancelled", "note": "Erro de competência"})
     assert cancelled["status"] == "cancelled"
+    fresh = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [person["id"]]})
+    assert fresh["id"] != opened["id"]
+    assert fresh["status"] == "open"
+    with pytest.raises(AppError) as occupied:
+        workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [person["id"]]})
+    assert occupied.value.status_code == 409
     assert cancelled["events"][-1]["kind"] == "cancelled"
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
@@ -2006,6 +2107,26 @@ def test_cancelar_e_reabrir_exigem_motivo_e_liberam_o_periodo():
     assert locked.value.status_code == 409
     workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Segunda correção"})
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(12, 0), "note": None})
+
+
+def test_excluir_fechamento_aberto_ou_cancelado_tira_da_lista():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    opened = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [person["id"]]})
+    workforce.delete_closing(admin(), opened["id"])
+    _rows, total = workforce.list_closings(admin(), 1, 20, {})
+    assert total == 0
+    again = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [person["id"]]})
+    workforce.update_closing(admin(), again["id"], {"status": "closed", "note": None})
+    with pytest.raises(AppError) as kept:
+        workforce.delete_closing(admin(), again["id"])
+    assert kept.value.status_code == 409
+    workforce.update_closing(admin(), again["id"], {"status": "cancelled", "note": "Refazer"})
+    workforce.delete_closing(admin(), again["id"])
+    _rows, total = workforce.list_closings(admin(), 1, 20, {})
+    assert total == 0
+    fresh = workforce.create_closing(admin(), {"year": 2026, "month": 10, "note": None, "employee_ids": [person["id"]]})
+    assert fresh["status"] == "open"
 
 
 def test_gestor_fecha_intervalo_e_membro_nao():

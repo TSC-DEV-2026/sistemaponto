@@ -262,6 +262,7 @@ export const hourBankKindLabel: Record<string, string> = {
   settlement: "Quitação",
   credit: "Somar ao saldo",
   debit: "Diminuir o saldo",
+  balance: "Lançar saldo",
 }
 
 export const hourBankLaunchLabel: Record<string, string> = {
@@ -299,6 +300,20 @@ export function durationMinutes(value: string) {
   const total = Number(match[1]) * 60 + Number(match[2])
   if (total <= 0 || total > 100000) return null
   return total
+}
+
+export function signedDurationMinutes(value: string) {
+  const match = /^(-)?(\d+):([0-5]\d)$/.exec(value.trim())
+  if (!match) return null
+  const total = Number(match[2]) * 60 + Number(match[3])
+  if (total > 100000) return null
+  return match[1] ? -total : total
+}
+
+export function showBalanceTarget(value: number) {
+  if (value === 0) return "00:00"
+  const text = showMinutes(Math.abs(value))
+  return value < 0 ? `-${text}` : `+${text}`
 }
 
 export function showDateTime(value: string | null | undefined) {
