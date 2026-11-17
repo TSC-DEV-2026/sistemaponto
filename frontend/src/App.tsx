@@ -103,6 +103,7 @@ const router = createBrowserRouter([
                   { path: "/calculations/:workDate", element: <ApuracaoDayPage /> },
                   { path: "/punches/corrections", element: <PunchAdjustPage /> },
                   { path: "/hour-bank-entries/new", element: <HourBankEntryPage /> },
+                  { path: "/hour-bank-entries/:id/edit", element: <HourBankEntryPage /> },
                   { path: "/time-clock", element: <LegacyRouteRedirect /> },
                   { path: "/punches", element: <TimeClockPage /> },
                   { path: "/occurrences/new", element: <OccurrenceEntryPage /> },

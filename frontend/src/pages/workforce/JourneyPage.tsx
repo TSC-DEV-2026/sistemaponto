@@ -1,8 +1,8 @@
-import { FormEvent, useContext, useEffect, useState } from "react"
-import { Clock, Layers, Plus } from "lucide-react"
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom"
+import { useContext, useEffect, useState } from "react"
+import { CircleCheck, Clock, Layers, Minus, Pencil, Plus, Scale, Trash2 } from "lucide-react"
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
-import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
@@ -13,17 +13,18 @@ import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { cn } from "@/utils/cn"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
-import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { BankBalance } from "@/components/workforce/HourBankPanel"
 import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { CalculationsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { ClosingsPage } from "@/pages/workforce/OperationsPages"
-import { createRecord, getHourBank, listRecords, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
+import { createRecord, getHourBank, getRecord, listRecords, removeRecord, updateRecord, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { canonicalTab } from "@/route-slugs"
 import { conceptIcon } from "@/utils/concept-icons"
-import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes } from "@/utils/labels"
+import { durationMinutes, hourBankEffectLabel, hourBankEntryAmount, hourBankKindLabel, hourBankKindOrder, punchDay, showDate, showMinutes, signedDurationMinutes } from "@/utils/labels"
 
 export function JourneyPage() {
   const [params] = useSearchParams()
@@ -80,6 +81,8 @@ function BankScheduleList() {
   const [kind, setKind] = useState("")
   const [balance, setBalance] = useState<HourBank | null>(null)
   const [balanceError, setBalanceError] = useState("")
+  const [pendingId, setPendingId] = useState<number | null>(null)
+  const [removing, setRemoving] = useState(false)
   const entries = usePagedList<HourBankEntry>("/hour-bank-entries", {
     ...(employeeId ? { employee_id: Number(employeeId) } : {}),
     ...(kind ? { kind } : {}),
@@ -149,6 +152,23 @@ function BankScheduleList() {
     return employees.find((item) => item.id === id)?.full_name || "Não informado"
   }
 
+  async function removeEntry(id: number) {
+    setRemoving(true)
+    try {
+      await removeRecord("/hour-bank-entries", id)
+      setPendingId(null)
+      entries.reload()
+      if (employeeId) {
+        const row = await getHourBank(Number(employeeId))
+        setBalance(row)
+      }
+    } catch (caught: unknown) {
+      toastError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   return (
     <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
       <div>
@@ -177,7 +197,7 @@ function BankScheduleList() {
             id="bank-schedule-kind"
             value={kind}
             icon={Layers}
-            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankLaunchLabel).map(([optionValue, label]) => ({ value: optionValue, label }))]}
+            options={[{ value: "", label: "Todos" }, ...hourBankKindOrder.map((optionValue) => ({ value: optionValue, label: hourBankKindLabel[optionValue] }))]}
             onChange={setKind}
           />
         </div>
@@ -211,13 +231,51 @@ function BankScheduleList() {
       ) : null}
       {entries.items.length > 0 && employeesReady ? (
         <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
-          {entries.items.map((item) => (
-            <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-              {nameOf(item.employee_id)} · {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
-              {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
-              {item.note ? ` · ${item.note}` : ""}
-            </li>
-          ))}
+          {entries.items.map((item) => {
+            const person = nameOf(item.employee_id)
+            const summary = `${person} · ${showDate(item.entry_on)} · ${hourBankKindLabel[item.kind] || item.kind} · ${hourBankEntryAmount(item.kind, item.minutes, item.effect)}`
+            return (
+              <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-brand-ink">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{summary}</p>
+                  {item.effect || item.note ? (
+                    <p className="mt-0.5 truncate text-[#64748B]">
+                      {item.effect ? hourBankEffectLabel[item.effect] || item.effect : ""}
+                      {item.effect && item.note ? " · " : ""}
+                      {item.note || ""}
+                    </p>
+                  ) : null}
+                </div>
+                {canLaunch ? (
+                  pendingId === item.id ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button type="button" className={moduleDangerClass} disabled={removing} onClick={() => removeEntry(item.id)}>
+                        Excluir
+                      </Button>
+                      <Button type="button" variant="outline" className={moduleQuietClass} disabled={removing} onClick={() => setPendingId(null)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex shrink-0 gap-1.5">
+                      <ActionTip label="Editar">
+                        <Button asChild variant="outline" className={moduleIconClass}>
+                          <Link to={`/hour-bank-entries/${item.id}/edit`} aria-label={`Editar lançamento de ${person}`}>
+                            <Pencil className="h-4 w-4" strokeWidth={1.75} />
+                          </Link>
+                        </Button>
+                      </ActionTip>
+                      <ActionTip label="Excluir">
+                        <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir lançamento de ${person}`} onClick={() => setPendingId(item.id)}>
+                          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                        </Button>
+                      </ActionTip>
+                    </div>
+                  )
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       ) : null}
       {entries.total > 0 && employeesReady ? (
@@ -270,18 +328,35 @@ export function PunchAdjustPage() {
   )
 }
 
+const launchButtons: { kind: "credit" | "debit" | "balance" | "settlement"; label: string; icon: typeof Plus; primary?: boolean }[] = [
+  { kind: "credit", label: "Somar", icon: Plus },
+  { kind: "debit", label: "Diminuir", icon: Minus },
+  { kind: "balance", label: "Lançar saldo", icon: Scale },
+  { kind: "settlement", label: "Quitar o saldo", icon: CircleCheck, primary: true },
+]
+
+function entryMinutesInput(entry: HourBankEntry) {
+  if (entry.kind === "settlement" || entry.minutes === 0) return "00:00"
+  if (entry.kind === "balance" && entry.effect === "debit") return showMinutes(-entry.minutes)
+  return showMinutes(entry.minutes)
+}
+
 export function HourBankEntryPage() {
   const role = useAuthStore((state) => state.user?.role)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const navigate = useNavigate()
+  const params = useParams()
+  const entryId = params.id ? Number(params.id) : 0
+  const editing = Number.isInteger(entryId) && entryId > 0
   const canLaunch = role === "admin" || role === "manager"
   const [employees, setEmployees] = useState<Employee[]>([])
   const [employeeId, setEmployeeId] = useState("")
-  const [kind, setKind] = useState("credit")
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(editing)
+  const [pending, setPending] = useState(false)
 
   useEffect(() => {
     if (!role || canLaunch) return
@@ -302,68 +377,115 @@ export function HourBankEntryPage() {
     }
   }, [tenantId])
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
+  useEffect(() => {
+    if (!editing) return
+    let active = true
+    setLoading(true)
+    getRecord<HourBankEntry>("/hour-bank-entries", entryId)
+      .then((row) => {
+        if (!active) return
+        if (row.closing_id) {
+          setError("Altere este lançamento pelo fechamento.")
+          return
+        }
+        setEmployeeId(String(row.employee_id))
+        setEntryOn(row.entry_on)
+        setMinutes(entryMinutesInput(row))
+        setNote(row.note || "")
+      })
+      .catch((caught: unknown) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [editing, entryId])
+
+  async function launch(kind: "credit" | "debit" | "balance" | "settlement") {
     setError("")
-    const amount = durationMinutes(minutes)
-    if (amount === null) {
-      setError("Informe as horas no formato 00:00.")
+    if (!employeeId) {
+      setError("Selecione o funcionário.")
       return
     }
+    const body: Record<string, unknown> = {
+      kind,
+      entry_on: entryOn,
+      note: note.trim() || null,
+    }
+    if (kind !== "settlement") {
+      const amount = kind === "balance" ? signedDurationMinutes(minutes) : durationMinutes(minutes)
+      if (amount === null) {
+        setError(kind === "balance" ? "Informe o saldo no formato 00:00. Use o sinal de menos para saldo negativo." : minutes.trim().startsWith("-") ? "Somar e diminuir não usam sinal. Para deixar o saldo neste valor, use Lançar saldo." : "Informe as horas no formato 00:00.")
+        return
+      }
+      body.minutes = amount
+    }
+    setPending(true)
     try {
-      await createRecord("/hour-bank-entries", {
-        employee_id: Number(employeeId),
-        kind,
-        minutes: amount,
-        entry_on: entryOn,
-        note: note.trim() || null,
-      })
+      if (editing) {
+        await updateRecord("/hour-bank-entries", entryId, body)
+      } else {
+        await createRecord("/hour-bank-entries", { ...body, employee_id: Number(employeeId) })
+      }
       navigate("/timekeeping?tab=hour-bank")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível lançar.")
+    } finally {
+      setPending(false)
     }
   }
+
+  const locked = loading || Boolean(error && editing && !employeeId)
 
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/timekeeping?tab=hour-bank" appearance="detail" />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
+      <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Novo lançamento</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Some horas ao saldo ou diminua o saldo.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{editing ? "Editar lançamento" : "Novo lançamento"}</h2>
+          <p className="mt-1 text-sm text-[#64748B]">Some, diminua, lance o saldo ou quite o saldo.</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-employee">
             Funcionário
           </Label>
-          <EmployeeCombobox id="entry-employee" value={employeeId} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setEmployeeId} />
-        </div>
-        <div className="space-y-2">
-          <Label className={moduleLabelClass} htmlFor="entry-kind">
-            Lançamento
-          </Label>
-          <SiteSelect id="entry-kind" value={kind} options={Object.entries(hourBankLaunchLabel).map(([value, label]) => ({ value, label }))} onChange={setKind} />
+          {editing ? (
+            <input id="entry-employee" className={moduleFieldClass} value={employees.find((item) => String(item.id) === employeeId)?.full_name || "Não informado"} readOnly />
+          ) : (
+            <EmployeeCombobox id="entry-employee" value={employeeId} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setEmployeeId} />
+          )}
         </div>
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="entry-minutes">
               Horas
             </Label>
-            <DurationField id="entry-minutes" className={moduleFieldClass} value={minutes} onValueChange={setMinutes} required />
+            <DurationField id="entry-minutes" className={moduleFieldClass} value={minutes} onValueChange={setMinutes} signed disabled={pending || locked} />
           </div>
-          <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required />
+          <DatePickerField id="entry-day" label="Data" value={entryOn} onChange={setEntryOn} required disabled={pending || locked} />
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-note">
             Observação
           </Label>
-          <textarea id="entry-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
+          <textarea id="entry-note" className={moduleTextClass} value={note} disabled={pending || locked} onChange={(event) => setNote(event.target.value)} />
         </div>
-        <Button type="submit" className={modulePrimaryClass}>
-          Lançar
-        </Button>
-      </ActionForm>
+        <div className="flex flex-wrap gap-2">
+          {launchButtons.map((item) => {
+            const Icon = item.icon
+            return (
+              <Button key={item.kind} type="button" variant={item.primary ? "default" : "outline"} className={item.primary ? modulePrimaryClass : cn(moduleQuietClass, "h-11 px-4")} disabled={pending || locked} onClick={() => launch(item.kind)}>
+                <Icon className="h-4 w-4" aria-hidden />
+                {item.label}
+              </Button>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }

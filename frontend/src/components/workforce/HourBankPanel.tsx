@@ -19,7 +19,7 @@ import {
   type HourBankEntry,
 } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
-import { durationMinutes, hourBankEffectLabel, hourBankKindLabel, hourBankLaunchLabel, punchDay, showDate, showMinutes, showSignedMinutes } from "@/utils/labels"
+import { durationMinutes, hourBankEffectLabel, hourBankEntryAmount, hourBankKindLabel, hourBankKindOrder, hourBankLaunchLabel, punchDay, showDate, showMinutes, showSignedMinutes, signedDurationMinutes } from "@/utils/labels"
 
 export function BankBalance({ balance }: { balance: HourBank }) {
   const stats = [
@@ -113,19 +113,22 @@ export function HourBankPanel({
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
-    const amount = durationMinutes(minutes)
-    if (amount === null) {
-      setError("Informe as horas no formato 00:00.")
-      return
+    const body: Record<string, unknown> = {
+      employee_id: chosenId,
+      kind,
+      entry_on: entryOn,
+      note: note.trim() || null,
+    }
+    if (kind !== "settlement") {
+      const amount = kind === "balance" ? signedDurationMinutes(minutes) : durationMinutes(minutes)
+      if (amount === null) {
+        setError(kind === "balance" ? "Informe o saldo no formato 00:00. Use o sinal de menos para saldo negativo." : minutes.trim().startsWith("-") ? "Somar e diminuir não usam sinal. Para deixar o saldo neste valor, use Lançar saldo." : "Informe as horas no formato 00:00.")
+        return
+      }
+      body.minutes = amount
     }
     try {
-      await createRecord("/hour-bank-entries", {
-        employee_id: chosenId,
-        kind,
-        minutes: amount,
-        entry_on: entryOn,
-        note: note.trim() || null,
-      })
+      await createRecord("/hour-bank-entries", body)
       setMinutes("")
       setNote("")
       await load(chosenId)
@@ -149,7 +152,7 @@ export function HourBankPanel({
             id="bank-entry-kind"
             value={entryKind}
             icon={Layers}
-            options={[{ value: "", label: "Todos" }, ...Object.entries(hourBankLaunchLabel).map(([value, label]) => ({ value, label }))]}
+            options={[{ value: "", label: "Todos" }, ...hourBankKindOrder.map((value) => ({ value, label: hourBankKindLabel[value] }))]}
             onChange={setEntryKind}
           />
         </div>
@@ -180,7 +183,7 @@ export function HourBankPanel({
           <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
             {entries.items.map((item) => (
               <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
+                {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {hourBankEntryAmount(item.kind, item.minutes, item.effect)}
                 {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
                 {item.note ? ` · ${item.note}` : ""}
               </li>
@@ -224,16 +227,16 @@ export function HourBankPanel({
           <div className="space-y-2">
             <Label htmlFor="bank-kind">Lançamento</Label>
             <select id="bank-kind" className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
-              {Object.entries(hourBankLaunchLabel).map(([value, label]) => (
+              {hourBankKindOrder.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {hourBankKindLabel[value]}
                 </option>
               ))}
             </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-minutes">Horas</Label>
-            <DurationField id="bank-minutes" value={minutes} onValueChange={setMinutes} required />
+            <DurationField id="bank-minutes" value={minutes} onValueChange={setMinutes} signed={kind === "balance"} required={kind !== "settlement"} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bank-day">Data</Label>
@@ -252,14 +255,14 @@ export function HourBankPanel({
             id="bank-entry-kind"
             label="Tipo"
             value={entryKind}
-            options={Object.entries(hourBankKindLabel).map(([value, label]) => ({ value, label }))}
+            options={hourBankKindOrder.map((value) => ({ value, label: hourBankKindLabel[value] }))}
             onChange={setEntryKind}
           />
           {entries.error ? <p className="text-sm text-destructive">{entries.error}</p> : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {entries.items.map((item) => (
               <li key={item.id} className="px-4 py-3 text-sm">
-                {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {showMinutes(item.minutes)}
+                {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {hourBankEntryAmount(item.kind, item.minutes, item.effect)}
                 {item.effect ? ` · ${hourBankEffectLabel[item.effect] || item.effect}` : ""}
                 {item.note ? ` · ${item.note}` : ""}
               </li>
