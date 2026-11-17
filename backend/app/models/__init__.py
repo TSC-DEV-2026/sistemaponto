@@ -4,8 +4,8 @@ from app.models.tenant import Tenant
 from app.models.workforce import (  # noqa: F401
     Audit,
     Charge,
-    Group,
-    GroupValue,
+    Category,
+    CategoryValue,
     Closing,
     ClosingEvent,
     ClosingJourneyPin,
@@ -28,7 +28,6 @@ from app.models.workforce import (  # noqa: F401
     Reason,
     RequestEvent,
     RequestPunch,
-    Sector,
     Subscription,
     Team,
     TimeRequest,

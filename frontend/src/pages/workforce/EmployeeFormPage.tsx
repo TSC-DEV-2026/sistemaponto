@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
-import { loadGroups } from "@/components/workforce/ClassificationFilter"
+import { loadCategories } from "@/components/workforce/ClassificationFilter"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
-import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeGroup, type NamedRecord } from "@/services/workforce.service"
+import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeCategory, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
@@ -56,8 +56,8 @@ function readFaceImage(file: File) {
 
 function tabValue(id: string, person: Employee | null) {
   if (!person) return ""
-  if (id === "group") {
-    const items = person.groups || []
+  if (id === "category") {
+    const items = person.categories || []
     return items.length > 0 ? items.map((item) => `${item.name}: ${item.value_name}`).join(" · ") : "Não informado"
   }
   const current: Record<string, string | null | undefined> = {
@@ -72,7 +72,7 @@ function tabValue(id: string, person: Employee | null) {
   return current[id]?.trim() || "Não informado"
 }
 
-function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number; current: EmployeeGroup[]; onSaved: () => void }) {
+function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number; current: EmployeeCategory[]; onSaved: () => void }) {
   const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[] }[]>([])
   const [classificationId, setGroupId] = useState("")
   const [valueId, setValueId] = useState("")
@@ -84,12 +84,12 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
 
   useEffect(() => {
     let active = true
-    loadGroups()
+    loadCategories()
       .then((page) => {
         if (active) setGroups(page)
       })
       .catch(() => {
-        if (active) setMessage("Não foi possível carregar os grupos.")
+        if (active) setMessage("Não foi possível carregar as categorias.")
       })
     return () => {
       active = false
@@ -98,7 +98,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
 
   async function save() {
     if (!classificationId) {
-      setMessage("Selecione o grupo.")
+      setMessage("Selecione a categoria.")
       return
     }
     if (!valueId) {
@@ -114,7 +114,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
     try {
       await createRecord("/employee-vigencies", {
         employee_id: employeeId,
-        kind: "group",
+        kind: "category",
         reference_id: Number(valueId),
         valid_from: validFrom,
         note: note.trim() || null,
@@ -125,7 +125,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
       setNote("")
       onSaved()
     } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar o grupo.")
+      setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar a categoria.")
     } finally {
       setSaving(false)
     }
@@ -134,14 +134,14 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
   return (
     <section className={cn(moduleCardClass, "space-y-5")}>
       <div>
-        <p className="text-[13px] text-[#52525B]">{current.length > 1 ? "Grupos atuais" : "Grupo atual"}</p>
+        <p className="text-[13px] text-[#52525B]">{current.length > 1 ? "Categorias atuais" : "Categoria atual"}</p>
         {current.length > 0 ? (
           <div className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
             <ul className="space-y-1.5">
               {[...current]
                 .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
                 .map((item) => (
-                  <li key={item.group_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                  <li key={item.category_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
                     {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
                   </li>
                 ))}
@@ -151,20 +151,20 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
           <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
         )}
       </div>
-      <h2 className="text-lg font-semibold text-[#0A0A0A]">Novo grupo</h2>
+      <h2 className="text-lg font-semibold text-[#0A0A0A]">Nova categoria</h2>
       {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className={moduleLabelClass} htmlFor="employee-classification">Grupo</Label>
+          <Label className={moduleLabelClass} htmlFor="employee-classification">Categoria</Label>
           <SiteSelect
             id="employee-classification"
             value={classificationId}
             searchable
-            searchPath="/groups"
-            searchPlaceholder="Pesquisar grupo"
+            searchPath="/categories"
+            searchPlaceholder="Pesquisar categoria"
             placeholder="Selecione"
             className="h-12"
-            icon={conceptIcon.group}
+            icon={conceptIcon.category}
             options={groups.map((item) => ({ value: String(item.id), label: item.name }))}
             onChange={(next) => {
               setGroupId(next)
@@ -178,8 +178,8 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
             id="employee-classification-value"
             value={valueId}
             searchable={Boolean(classificationId)}
-            searchPath={classificationId ? "/group-values" : undefined}
-            searchParams={classificationId ? { group_id: Number(classificationId) } : undefined}
+            searchPath={classificationId ? "/category-values" : undefined}
+            searchParams={classificationId ? { category_id: Number(classificationId) } : undefined}
             searchPlaceholder="Pesquisar valor"
             placeholder="Selecione"
             className="h-12"
@@ -195,7 +195,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
       </div>
       <Button type="button" className={modulePrimaryClass} disabled={saving} onClick={() => void save()}>
         {saving ? <Spinner className="h-4 w-4" /> : null}
-        Salvar grupo
+        Salvar categoria
       </Button>
     </section>
   )
@@ -428,7 +428,7 @@ export function EmployeeFormPage() {
               { id: "data", label: "Dados", icon: conceptIcon.employee, show: true },
               ...vigencyTargets.filter((item) => item.kind === "team").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
               ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
-              { id: "group", label: "Grupos", icon: conceptIcon.group, show: isAdmin && id !== null },
+              { id: "category", label: "Categorias", icon: conceptIcon.category, show: isAdmin && id !== null },
               ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey" && item.kind !== "team").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
             ]
           )
@@ -582,7 +582,7 @@ export function EmployeeFormPage() {
         </div>
       </ActionForm>
       ) : null}
-      {id !== null && tab === "group" && isAdmin ? <GroupAssignment employeeId={id} current={profile?.groups || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
+      {id !== null && tab === "category" && isAdmin ? <GroupAssignment employeeId={id} current={profile?.categories || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
       {id !== null && linkTarget && isAdmin ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
           {linkTarget.kind === "manager" ? (

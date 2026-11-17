@@ -64,8 +64,8 @@ from app.models.membership import Membership
 from app.models.workforce import (
     Audit,
     Charge,
-    Group,
-    GroupValue,
+    Category,
+    CategoryValue,
     Closing,
     ClosingEvent,
     ClosingMember,
@@ -93,7 +93,6 @@ from app.models.workforce import (
     Reason,
     RequestEvent,
     RequestPunch,
-    Sector,
     Subscription,
     Team,
     TimeRequest,
@@ -109,10 +108,9 @@ logger = logging.getLogger("sistemaponto.workforce")
 UNIQUE_MODELS = {
     Job,
     CostCenter,
-    Group,
-    GroupValue,
+    Category,
+    CategoryValue,
     Unit,
-    Sector,
     Team,
     Journey,
     LaborUnion,
@@ -125,7 +123,6 @@ REF_MODELS = {
     "journey": Journey,
     "cost_center": CostCenter,
     "unit": Unit,
-    "sector": Sector,
     "team": Team,
     "union": LaborUnion,
     "manager": Employee,
@@ -134,7 +131,7 @@ BULK_KINDS = (
     "job",
     "journey",
     "cost_center",
-    "group",
+    "category",
     "team",
     "union",
     "manager",
@@ -145,7 +142,6 @@ VIGENCY_QUERY = {
     "job_id": "job",
     "journey_id": "journey",
     "unit_id": "unit",
-    "sector_id": "sector",
     "team_id": "team",
     "union_id": "union",
     "manager_id": "manager",
@@ -155,7 +151,6 @@ KIND_FIELD = {
     "job": "job_label",
     "journey": "journey_label",
     "unit": "unit_label",
-    "sector": "sector_label",
     "team": "team_label",
     "union": "union_label",
     "manager": "manager_label",
@@ -234,13 +229,12 @@ class WorkforceService:
             return self._update_journey(scope, row_id, data)
         row = self._row(model, scope, row_id)
         payload = self._prepare_named(model, scope, data, current=row)
-        if "name" in payload or any(key in payload for key in ("unit_id", "sector_id")):
+        if "name" in payload or "unit_id" in payload:
             merged = {
                 "name": payload.get("name", row.name),
                 "unit_id": payload.get("unit_id", getattr(row, "unit_id", None)),
-                "sector_id": payload.get("sector_id", getattr(row, "sector_id", None)),
                 "kind": getattr(row, "kind", None),
-                "group_id": payload.get("group_id", getattr(row, "group_id", None)),
+                "category_id": payload.get("category_id", getattr(row, "category_id", None)),
             }
             self._unique_name(model, scope.tenant_id, merged, exclude_id=row.id)
         for key, value in payload.items():
@@ -253,11 +247,11 @@ class WorkforceService:
             self._delete_cost_center_value(scope, row_id)
             return
         row = self._row(model, scope, row_id)
-        if model is Group:
-            self._delete_group(scope, row)
+        if model is Category:
+            self._delete_category(scope, row)
             return
-        if model is GroupValue:
-            self._guard_group_value(row)
+        if model is CategoryValue:
+            self._guard_category_value(row)
             self.repo.delete(row)
             return
         self._guard_catalog(model, row)
@@ -292,16 +286,19 @@ class WorkforceService:
     def _vigency_matches(self, scope: Scope, filters: dict, day: date | None = None) -> set[int] | None:
         day = day or self.today()
         matched: set[int] | None = None
-        value_ids = self._id_list(filters.pop("group_value_id", None))
+        value_ids = self._id_list(filters.pop("category_value_id", None))
         if "cost_center_id" in filters:
             value_ids.append(int(filters.pop("cost_center_id")))
         if value_ids:
-            found = self._group_value_ids(scope, value_ids, day)
+            found = self._category_value_ids(scope, value_ids, day)
             matched = found if matched is None else matched & found
         for key, kind in VIGENCY_QUERY.items():
             if key not in filters:
                 continue
-            found = set(self.repo.applicable_ids(scope.tenant_id, kind, day, reference_id=int(filters.pop(key))))
+            ids = self._id_list(filters.pop(key))
+            if not ids:
+                continue
+            found = set(self.repo.applicable_ids(scope.tenant_id, kind, day, reference_ids=set(ids)))
             matched = found if matched is None else matched & found
         if "situation" in filters:
             situation = str(filters.pop("situation") or "").strip()
@@ -418,14 +415,14 @@ class WorkforceService:
         self._admin(scope)
         employee = self._employee(scope, int(data["employee_id"]))
         kind = data["kind"]
-        if kind in {"unit", "sector"}:
-            raise AppError(400, "Informe a equipe. Empresa e setor acompanham a equipe.")
+        if kind == "unit":
+            raise AppError(400, "Informe a equipe. A empresa acompanha a equipe.")
         valid_from = data["valid_from"]
         self._assert_open(scope.tenant_id, valid_from, employee.id)
-        group_id = None
-        if kind in {"group", "cost_center"}:
-            group_id, reference_id, label = self._group_choice(scope, kind, data.get("reference_id"))
-            kind = "group"
+        category_id = None
+        if kind in {"category", "cost_center"}:
+            category_id, reference_id, label = self._category_choice(scope, kind, data.get("reference_id"))
+            kind = "category"
         else:
             reference_id, label = self._vigency_target(scope, employee, kind, data, valid_from)
         if kind == "status" and label == "active" and not self._occupies(employee.id, self.today()):
@@ -433,13 +430,11 @@ class WorkforceService:
         note = self._note(data.get("note"))
         cycle_day = self._cycle_day(scope, reference_id, valid_from, data.get("cycle_day")) if kind == "journey" else None
         row = self._replace_vigency(
-            scope, employee.id, kind, reference_id, label, valid_from, note, cycle_day, group_id
+            scope, employee.id, kind, reference_id, label, valid_from, note, cycle_day, category_id
         )
         if kind == "team":
             team = self._row(Team, scope, int(reference_id))
-            sector = self._row(Sector, scope, int(team.sector_id))
-            unit = self._row(Unit, scope, int(sector.unit_id))
-            self._replace_vigency(scope, employee.id, "sector", sector.id, sector.name, valid_from, note)
+            unit = self._row(Unit, scope, int(team.unit_id))
             self._replace_vigency(scope, employee.id, "unit", unit.id, unit.name, valid_from, note)
         return row
 
@@ -453,15 +448,15 @@ class WorkforceService:
         valid_from: date,
         note: str | None,
         cycle_day: int | None = None,
-        group_id: int | None = None,
+        category_id: int | None = None,
     ) -> EmployeeVigency:
         if kind == "manager":
             return self._add_manager(scope, employee_id, reference_id, label, valid_from, note)
-        current = self.repo.open_vigency(employee_id, kind, group_id)
+        current = self.repo.open_vigency(employee_id, kind, category_id)
         if current is not None and current.valid_from == valid_from:
             previous = current.label
             current.reference_id = reference_id
-            current.group_id = group_id
+            current.category_id = category_id
             current.label = label
             current.note = note
             current.cycle_day = cycle_day
@@ -479,7 +474,7 @@ class WorkforceService:
                 employee_id=employee_id,
                 kind=kind,
                 reference_id=reference_id,
-                group_id=group_id,
+                category_id=category_id,
                 label=label,
                 valid_from=valid_from,
                 valid_to=None,
@@ -517,7 +512,7 @@ class WorkforceService:
                 employee_id=employee_id,
                 kind="manager",
                 reference_id=reference_id,
-                group_id=None,
+                category_id=None,
                 label=label,
                 valid_from=valid_from,
                 valid_to=None,
@@ -565,12 +560,12 @@ class WorkforceService:
                 raise AppError(error.status_code, f"{row.full_name}: {error.message}") from None
         note = self._note(data.get("note"))
         extras: list[tuple[str, int, str]] = []
-        group_id = None
-        if kind in {"group", "cost_center"}:
+        category_id = None
+        if kind in {"category", "cost_center"}:
             if data.get("reference_id") is None:
                 raise AppError(400, "Selecione o cadastro")
-            group_id, reference_id, label = self._group_choice(scope, kind, data.get("reference_id"))
-            kind = "group"
+            category_id, reference_id, label = self._category_choice(scope, kind, data.get("reference_id"))
+            kind = "category"
         elif kind == "status":
             label = str(data.get("label") or "").strip()
             if label not in STATUS_LABELS:
@@ -587,9 +582,8 @@ class WorkforceService:
                     if row.id == target.id:
                         raise AppError(400, f"{row.full_name}: o gestor precisa ser outro funcionário.")
             if kind == "team":
-                sector = self._row(Sector, scope, int(target.sector_id))
-                unit = self._row(Unit, scope, int(sector.unit_id))
-                extras = [("sector", sector.id, sector.name), ("unit", unit.id, unit.name)]
+                unit = self._row(Unit, scope, int(target.unit_id))
+                extras = [("unit", unit.id, unit.name)]
         cycle_day = self._cycle_day(scope, reference_id, valid_from, data.get("cycle_day")) if kind == "journey" else None
         if kind == "status" and label == "active":
             entering = [row for row in people if not self._occupies(row.id, self.today())]
@@ -601,13 +595,13 @@ class WorkforceService:
                 if active + len(entering) > tenant.employee_capacity:
                     raise AppError(409, f"{entering[0].full_name}: limite de funcionários do plano atingido")
         for row in people:
-            self._assert_can_replace(scope, row, kind, valid_from, group_id)
+            self._assert_can_replace(scope, row, kind, valid_from, category_id)
             for extra_kind, _extra_id, _extra_label in extras:
                 self._assert_can_replace(scope, row, extra_kind, valid_from)
         for row in people:
             try:
                 self._replace_vigency(
-                    scope, row.id, kind, reference_id, label, valid_from, note, cycle_day, group_id
+                    scope, row.id, kind, reference_id, label, valid_from, note, cycle_day, category_id
                 )
             except AppError as error:
                 if kind == "manager":
@@ -618,11 +612,11 @@ class WorkforceService:
         return {"changed": len(people)}
 
     def _assert_can_replace(
-        self, scope: Scope, employee: Employee, kind: str, valid_from: date, group_id: int | None = None
+        self, scope: Scope, employee: Employee, kind: str, valid_from: date, category_id: int | None = None
     ) -> None:
         if kind == "manager":
             return
-        current = self.repo.open_vigency(employee.id, kind, group_id)
+        current = self.repo.open_vigency(employee.id, kind, category_id)
         if current is None or current.valid_from == valid_from:
             return
         try:
@@ -1614,7 +1608,6 @@ class WorkforceService:
         found: dict[str, set[int]] = {}
         for key, kind in (
             ("unit_id", "unit"),
-            ("sector_id", "sector"),
             ("team_id", "team"),
             ("job_id", "job"),
             ("journey_id", "journey"),
@@ -2198,14 +2191,14 @@ class WorkforceService:
         return starts_on, ends_on
 
     def _settle_carga(self, employee: Employee, items: list[dict]) -> None:
-        groups: dict[tuple, list] = {}
+        weeks: dict[tuple, list] = {}
         for item in items:
             if item["mode"] != "carga" or item["vigency_id"] is None:
                 continue
-            groups.setdefault((item["vigency_id"], week_monday(item["work_date"])), []).append(item)
-        for group in groups.values():
-            group.sort(key=lambda item: item["work_date"])
-            active = [item for item in group if item["work_date"] >= employee.admission_date]
+            weeks.setdefault((item["vigency_id"], week_monday(item["work_date"])), []).append(item)
+        for week in weeks.values():
+            week.sort(key=lambda item: item["work_date"])
+            active = [item for item in week if item["work_date"] >= employee.admission_date]
             if not active:
                 continue
             close = active[-1]
@@ -2640,16 +2633,11 @@ class WorkforceService:
             payload["name"] = name
         elif current is None:
             raise AppError(400, "Informe o nome")
-        if model is Sector:
+        if model is Team:
             unit_id = data.get("unit_id", getattr(current, "unit_id", None))
             if current is None or "unit_id" in data:
                 self._row(Unit, scope, int(unit_id))
                 payload["unit_id"] = int(unit_id)
-        if model is Team:
-            sector_id = data.get("sector_id", getattr(current, "sector_id", None))
-            if current is None or "sector_id" in data:
-                self._row(Sector, scope, int(sector_id))
-                payload["sector_id"] = int(sector_id)
         if model is Journey:
             for key in ("morning_start", "morning_end", "afternoon_start", "afternoon_end"):
                 if current is None or key in data:
@@ -2688,33 +2676,30 @@ class WorkforceService:
                 payload["active"] = bool(data.get("active", True))
             elif "active" in data and data["active"] is not None:
                 payload["active"] = bool(data["active"])
-        if model is GroupValue and current is None:
-            group_id = data.get("group_id")
-            if group_id is None:
-                raise AppError(400, "Selecione o grupo")
-            self._row(Group, scope, int(group_id))
-            payload["group_id"] = int(group_id)
+        if model is CategoryValue and current is None:
+            category_id = data.get("category_id")
+            if category_id is None:
+                raise AppError(400, "Selecione a categoria")
+            self._row(Category, scope, int(category_id))
+            payload["category_id"] = int(category_id)
         return payload
 
     def _unique_name(self, model, tenant_id: int, payload: dict, exclude_id: int | None) -> None:
         if model not in UNIQUE_MODELS or "name" not in payload:
             return
         scope = {}
-        if model is Sector:
+        if model is Team:
             scope["unit_id"] = payload["unit_id"]
-        elif model is Team:
-            scope["sector_id"] = payload["sector_id"]
         elif model is Reason:
             scope["kind"] = payload["kind"]
-        elif model is GroupValue:
-            scope["group_id"] = payload["group_id"]
+        elif model is CategoryValue:
+            scope["category_id"] = payload["category_id"]
         if self.repo.name_taken(model, tenant_id, payload["name"], exclude_id=exclude_id, scope=scope):
             raise AppError(409, "Já existe um cadastro com esse nome")
 
     def _guard_catalog(self, model, row) -> None:
         checks = {
-            Unit: (Sector, {"unit_id": row.id}, "Existem setores nesta empresa."),
-            Sector: (Team, {"sector_id": row.id}, "Existem equipes neste setor."),
+            Unit: (Team, {"unit_id": row.id}, "Existem equipes nesta empresa."),
             LaborUnion: (Agreement, {"union_id": row.id}, "Existem acordos neste sindicato."),
         }
         if model in checks:
@@ -2725,7 +2710,6 @@ class WorkforceService:
             Job: "job",
             CostCenter: "cost_center",
             Unit: "unit",
-            Sector: "sector",
             Team: "team",
             Journey: "journey",
             LaborUnion: "union",
@@ -2919,7 +2903,7 @@ class WorkforceService:
         ]
         body["manager_label"] = ", ".join(item.label for item in current_managers) or None
         chosen = cards or []
-        body["groups"] = chosen
+        body["categories"] = chosen
         cost = next((item for item in chosen if item["name"] == COST_CENTER_CLASSIFICATION), None)
         body["cost_center_label"] = cost["value_name"] if cost else None
         return body
@@ -2943,40 +2927,40 @@ class WorkforceService:
                 found.append(number)
         return found
 
-    def _group_value_ids(self, scope: Scope, value_ids: list[int], day: date) -> set[int]:
-        groups: dict[int, set[int]] = {}
+    def _category_value_ids(self, scope: Scope, value_ids: list[int], day: date) -> set[int]:
+        categories: dict[int, set[int]] = {}
         for value_id in value_ids:
-            value = self._row(GroupValue, scope, value_id)
-            groups.setdefault(int(value.group_id), set()).add(value.id)
+            value = self._row(CategoryValue, scope, value_id)
+            categories.setdefault(int(value.category_id), set()).add(value.id)
         matched: set[int] | None = None
-        for group_id, ids in groups.items():
-            found = self.repo.employees_with_values(scope.tenant_id, group_id, day, ids)
+        for category_id, ids in categories.items():
+            found = self.repo.employees_with_values(scope.tenant_id, category_id, day, ids)
             matched = found if matched is None else matched & found
         return matched or set()
 
-    def _group_choice(self, scope: Scope, kind: str, reference_id):
+    def _category_choice(self, scope: Scope, kind: str, reference_id):
         if reference_id is None:
             raise AppError(400, "Selecione o cadastro")
-        value = self._row(GroupValue, scope, int(reference_id))
-        group = self._row(Group, scope, int(value.group_id))
-        if kind == "cost_center" and group.name != COST_CENTER_CLASSIFICATION:
+        value = self._row(CategoryValue, scope, int(reference_id))
+        category = self._row(Category, scope, int(value.category_id))
+        if kind == "cost_center" and category.name != COST_CENTER_CLASSIFICATION:
             raise AppError(400, "Selecione um valor do centro de custo")
-        return group.id, value.id, value.name
+        return category.id, value.id, value.name
 
     def _cards_on(self, rows: list[Employee], day: date) -> dict[int, list[dict]]:
-        grouped = self.repo.applicable_groups([row.id for row in rows], day)
+        grouped = self.repo.applicable_categories([row.id for row in rows], day)
         names: dict[int, str] = {}
         cards: dict[int, list[dict]] = {}
         for employee_id, by_class in grouped.items():
             items = []
-            for group_id, vigency in by_class.items():
-                if group_id not in names:
-                    found = self.repo.get_row(Group, vigency.tenant_id, group_id)
-                    names[group_id] = found.name if found is not None else ""
+            for category_id, vigency in by_class.items():
+                if category_id not in names:
+                    found = self.repo.get_row(Category, vigency.tenant_id, category_id)
+                    names[category_id] = found.name if found is not None else ""
                 items.append(
                     {
-                        "group_id": group_id,
-                        "name": names[group_id],
+                        "category_id": category_id,
+                        "name": names[category_id],
                         "value_id": vigency.reference_id,
                         "value_name": vigency.label,
                     }
@@ -2987,7 +2971,7 @@ class WorkforceService:
 
     def _people_lines(self, scope: Scope, day: date, employee_id: int | None, filters: dict) -> list[dict]:
         chosen = dict(filters)
-        show_ids = self._id_list(chosen.pop("group_id", None))
+        show_ids = self._id_list(chosen.pop("category_id", None))
         matched = self._vigency_matches(scope, chosen, day)
         people = self._report_people(scope, employee_id)
         if matched is not None:
@@ -3002,84 +2986,84 @@ class WorkforceService:
             person_id = int(chosen["person_id"])
             people = [person for person in people if person.person_id == person_id]
         if show_ids:
-            groups = [self._row(Group, scope, item) for item in show_ids]
+            categories = [self._row(Category, scope, item) for item in show_ids]
         else:
-            groups = self.repo.rows_of(Group, scope.tenant_id)
-        groups.sort(key=lambda item: item.name.casefold())
-        assignments = self.repo.applicable_groups([person.id for person in people], day)
+            categories = self.repo.rows_of(Category, scope.tenant_id)
+        categories.sort(key=lambda item: item.name.casefold())
+        assignments = self.repo.applicable_categories([person.id for person in people], day)
         lines = []
         for person in people:
             by_class = assignments.get(person.id, {})
             parts = []
-            for group in groups:
-                current = by_class.get(group.id)
-                parts.append(f"{group.name}: {current.label if current is not None else 'sem valor'}")
+            for category in categories:
+                current = by_class.get(category.id)
+                parts.append(f"{category.name}: {current.label if current is not None else 'sem valor'}")
             lines.append(
                 {
                     "employee_id": person.id,
                     "full_name": person.full_name,
                     "occurred_on": day,
                     "title": "Pessoas",
-                    "detail": "; ".join(parts) if parts else "sem grupo",
+                    "detail": "; ".join(parts) if parts else "sem categoria",
                 }
             )
         return lines
 
-    def _cost_center_group(self, scope: Scope, *, create: bool) -> Group | None:
-        found = self.repo.group_named(scope.tenant_id, COST_CENTER_CLASSIFICATION)
+    def _cost_center_category(self, scope: Scope, *, create: bool) -> Category | None:
+        found = self.repo.category_named(scope.tenant_id, COST_CENTER_CLASSIFICATION)
         if found is None and create:
-            found = self.repo.add(Group(tenant_id=scope.tenant_id, name=COST_CENTER_CLASSIFICATION))
+            found = self.repo.add(Category(tenant_id=scope.tenant_id, name=COST_CENTER_CLASSIFICATION))
         return found
 
     def _list_cost_centers(self, scope: Scope, page: int, limit: int, equals: dict):
-        group = self._cost_center_group(scope, create=False)
-        if group is None:
+        category = self._cost_center_category(scope, create=False)
+        if category is None:
             return [], 0
-        filters = {"group_id": group.id}
+        filters = {"category_id": category.id}
         if "name" in equals:
             filters["name"] = equals["name"]
         return self.repo.list_rows(
-            GroupValue, scope.tenant_id, page=page, limit=limit, equals=filters, descending=False
+            CategoryValue, scope.tenant_id, page=page, limit=limit, equals=filters, descending=False
         )
 
-    def _cost_center_value(self, scope: Scope, row_id: int) -> GroupValue:
-        value = self._row(GroupValue, scope, row_id)
-        group = self._row(Group, scope, int(value.group_id))
-        if group.name != COST_CENTER_CLASSIFICATION:
+    def _cost_center_value(self, scope: Scope, row_id: int) -> CategoryValue:
+        value = self._row(CategoryValue, scope, row_id)
+        category = self._row(Category, scope, int(value.category_id))
+        if category.name != COST_CENTER_CLASSIFICATION:
             raise AppError(404, "Registro não encontrado")
         return value
 
-    def _create_cost_center_value(self, scope: Scope, data: dict) -> GroupValue:
-        group = self._cost_center_group(scope, create=True)
+    def _create_cost_center_value(self, scope: Scope, data: dict) -> CategoryValue:
+        category = self._cost_center_category(scope, create=True)
         return self.create_named(
-            GroupValue,
+            CategoryValue,
             scope,
-            {"name": data.get("name"), "group_id": group.id},
+            {"name": data.get("name"), "category_id": category.id},
         )
 
-    def _rename_cost_center_value(self, scope: Scope, row_id: int, data: dict) -> GroupValue:
+    def _rename_cost_center_value(self, scope: Scope, row_id: int, data: dict) -> CategoryValue:
         value = self._cost_center_value(scope, row_id)
-        return self.update_named(GroupValue, scope, value.id, data)
+        return self.update_named(CategoryValue, scope, value.id, data)
 
     def _delete_cost_center_value(self, scope: Scope, row_id: int) -> None:
         value = self._cost_center_value(scope, row_id)
-        self.delete_named(GroupValue, scope, value.id)
+        self.delete_named(CategoryValue, scope, value.id)
 
-    def _delete_group(self, scope: Scope, row: Group) -> None:
-        if self.repo.count_model(EmployeeVigency, group_id=row.id):
+    def _delete_category(self, scope: Scope, row: Category) -> None:
+        if self.repo.count_model(EmployeeVigency, category_id=row.id):
             raise AppError(409, "O cadastro está no histórico de um funcionário.")
         values = [
             item
-            for item in self.repo.rows_of(GroupValue, scope.tenant_id)
-            if item.group_id == row.id
+            for item in self.repo.rows_of(CategoryValue, scope.tenant_id)
+            if item.category_id == row.id
         ]
         for value in values:
-            self._guard_group_value(value)
+            self._guard_category_value(value)
             self.repo.delete(value)
         self.repo.delete(row)
 
-    def _guard_group_value(self, row: GroupValue) -> None:
-        if self.repo.count_model(EmployeeVigency, kind="group", reference_id=row.id):
+    def _guard_category_value(self, row: CategoryValue) -> None:
+        if self.repo.count_model(EmployeeVigency, kind="category", reference_id=row.id):
             raise AppError(409, "O cadastro está no histórico de um funcionário.")
 
     def _vigency_target(self, scope: Scope, employee: Employee, kind: str, data: dict, valid_from: date):
@@ -4338,21 +4322,20 @@ class WorkforceService:
         self._can_manage_period(scope)
         start, end = self._closing_bounds(data)
         day = end if end <= self.today() else start if start > self.today() else self.today()
-        places, _situation = self._place_sets(
+        places, situation = self._place_sets(
             {
                 "unit_id": data.get("unit_id"),
-                "sector_id": data.get("sector_id"),
                 "team_id": data.get("team_id"),
                 "job_id": data.get("job_id"),
                 "journey_id": data.get("journey_id"),
-                "union_id": data.get("union_id"),
+                "situation": data.get("situation"),
             }
         )
         found = []
         for employee in self._report_people(scope, None):
             if employee.admission_date > end:
                 continue
-            if places and not self._on_places(employee.id, day, places):
+            if (places or situation) and not self._on_places(employee.id, day, places, situation):
                 continue
             found.append(
                 {

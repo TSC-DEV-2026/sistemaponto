@@ -15,9 +15,9 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
-import { GroupFilter, classificationQuery, loadGroups } from "@/components/workforce/ClassificationFilter"
+import { CategoryFilter, classificationQuery, loadCategories } from "@/components/workforce/ClassificationFilter"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
-import { PlaceCombobox } from "@/components/workforce/place-combobox"
+import { OrganizationFilterFields, useOrganizationFilters } from "@/components/workforce/organization-filters"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { ClosingConfirmDialog } from "@/pages/workforce/ClosingFormPage"
@@ -1638,8 +1638,8 @@ export function OrganizationPage() {
       organization
       tabs={[
         { id: "units", label: "Empresas", icon: conceptIcon.unit, panel: <CatalogList catalog="units" presentation="organization" /> },
-        { id: "sectors", label: "Setores", icon: conceptIcon.sector, panel: <CatalogList catalog="sectors" presentation="organization" /> },
         { id: "teams", label: "Equipes", icon: conceptIcon.team, panel: <CatalogList catalog="teams" presentation="organization" /> },
+        { id: "categories", label: "Categorias", icon: conceptIcon.category, panel: <CatalogList catalog="categories" presentation="organization" /> },
       ]}
     />
   )
@@ -1961,24 +1961,20 @@ type ReportQuery = {
   classificationValueId: string
   classificationIds: string
   unitIds: string
-  sectorIds: string
   teamIds: string
   jobIds: string
   journeyIds: string
-  unionIds: string
   situation: string
 }
 
 function reportExtra(query: ReportQuery) {
   const extra: Record<string, string> = {}
-  if (query.classificationValueId) extra.group_value_id = query.classificationValueId
-  if (query.classificationIds) extra.group_ids = query.classificationIds
+  if (query.classificationValueId) extra.category_value_id = query.classificationValueId
+  if (query.classificationIds) extra.category_ids = query.classificationIds
   if (query.unitIds) extra.unit_id = query.unitIds
-  if (query.sectorIds) extra.sector_id = query.sectorIds
   if (query.teamIds) extra.team_id = query.teamIds
   if (query.jobIds) extra.job_id = query.jobIds
   if (query.journeyIds) extra.journey_id = query.journeyIds
-  if (query.unionIds) extra.union_id = query.unionIds
   if (query.situation) extra.situation = query.situation
   return extra
 }
@@ -2023,23 +2019,11 @@ export function ReportsPage() {
   const [startsOn, setStartsOn] = useState(monthStart)
   const [endsOn, setEndsOn] = useState(() => punchDay(new Date().toISOString()))
   const [employeeId, setEmployeeId] = useState("")
-  const [unitIds, setUnitIds] = useState<number[]>([])
-  const [sectorIds, setSectorIds] = useState<number[]>([])
-  const [teamIds, setTeamIds] = useState<number[]>([])
-  const [jobIds, setJobIds] = useState<number[]>([])
-  const [journeyIds, setJourneyIds] = useState<number[]>([])
-  const [unionIds, setUnionIds] = useState<number[]>([])
-  const [situation, setSituation] = useState("")
+  const places = useOrganizationFilters(canRead)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [units, setUnits] = useState<NamedRecord[]>([])
-  const [sectors, setSectors] = useState<NamedRecord[]>([])
-  const [teams, setTeams] = useState<NamedRecord[]>([])
-  const [jobs, setJobs] = useState<NamedRecord[]>([])
-  const [journeys, setJourneys] = useState<NamedRecord[]>([])
-  const [unions, setUnions] = useState<NamedRecord[]>([])
   const [valueIds, setValueIds] = useState<number[]>([])
   const [showIds, setShowIds] = useState<number[]>([])
-  const [groupOptions, setGroupOptions] = useState<NamedRecord[]>([])
+  const [categoryOptions, setGroupOptions] = useState<NamedRecord[]>([])
   const [result, setResult] = useState<Report | null>(null)
   const [applied, setApplied] = useState<ReportQuery | null>(null)
   const [loading, setLoading] = useState(false)
@@ -2059,26 +2043,14 @@ export function ReportsPage() {
     Promise.all([
       listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 }),
       listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/units", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/sectors", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/teams", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/jobs", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/journeys", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/unions", { page: 1, limit: 100 }),
     ])
-      .then(async ([reports, people, unitPage, sectorPage, teamPage, jobPage, journeyPage, unionPage]) => {
+      .then(async ([reports, people]) => {
         if (!active) {
           return
         }
         setCatalog(reports.items)
         setEmployees(people.items)
-        setUnits(unitPage.items)
-        setSectors(sectorPage.items)
-        setTeams(teamPage.items)
-        setJobs(jobPage.items)
-        setJourneys(journeyPage.items)
-        setUnions(unionPage.items)
-        const loaded = await loadGroups().catch(() => null)
+        const loaded = await loadCategories().catch(() => null)
         if (active && loaded) setGroupOptions(loaded.map((item) => ({ id: item.id, name: item.name })))
         if (reports.items[0]) {
           setKind(reports.items[0].kind)
@@ -2100,7 +2072,7 @@ export function ReportsPage() {
   async function openPage(page: number, next: ReportQuery) {
     const ticket = requestId.current + 1
     requestId.current = ticket
-    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.classificationValueId === next.classificationValueId && applied.classificationIds === next.classificationIds && applied.unitIds === next.unitIds && applied.sectorIds === next.sectorIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.unionIds === next.unionIds && applied.situation === next.situation
+    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.classificationValueId === next.classificationValueId && applied.classificationIds === next.classificationIds && applied.unitIds === next.unitIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.situation === next.situation
     setLoading(true)
     setError("")
     if (!sameQuery) {
@@ -2133,13 +2105,11 @@ export function ReportsPage() {
       employeeId,
       classificationValueId: people ? classificationQuery(valueIds) : "",
       classificationIds: people ? classificationQuery(showIds) : "",
-      unitIds: classificationQuery(unitIds),
-      sectorIds: classificationQuery(sectorIds),
-      teamIds: classificationQuery(teamIds),
-      jobIds: classificationQuery(jobIds),
-      journeyIds: classificationQuery(journeyIds),
-      unionIds: classificationQuery(unionIds),
-      situation,
+      unitIds: places.params.unit_id || "",
+      teamIds: places.params.team_id || "",
+      jobIds: places.params.job_id || "",
+      journeyIds: places.params.journey_id || "",
+      situation: places.params.situation || "",
     })
   }
 
@@ -2217,7 +2187,7 @@ export function ReportsPage() {
           <p className="text-sm font-medium text-[#0A0A0A]">Filtros</p>
           <button
             type="button"
-            className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || unitIds.length + sectorIds.length + teamIds.length + jobIds.length + journeyIds.length + unionIds.length > 0 || situation !== "" ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+            className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
             aria-expanded={filtersOpen}
             aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
             onClick={() => setFiltersOpen((current) => !current)}
@@ -2227,45 +2197,16 @@ export function ReportsPage() {
         </div>
         {filtersOpen ? (
         <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-unit">Empresa</Label>
-            <PlaceCombobox id="report-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-sector">Setor</Label>
-            <PlaceCombobox id="report-sector" icon={conceptIcon.sector} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-team">Equipe</Label>
-            <PlaceCombobox id="report-team" icon={conceptIcon.team} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-job">Função</Label>
-            <PlaceCombobox id="report-job" icon={conceptIcon.job} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-journey">Jornada</Label>
-            <PlaceCombobox id="report-journey" icon={conceptIcon.journey} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-union">Sindicato</Label>
-            <PlaceCombobox id="report-union" icon={conceptIcon.union} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="report-situation">Situação</Label>
-            <SiteSelect id="report-situation" value={situation} className="h-[50px]" icon={conceptIcon.situation} options={[{ value: "", label: "Todas" }, { value: "active", label: "Ativo" }, { value: "dismissed", label: "Desligado" }]} onChange={setSituation} />
-          </div>
-        </div>
+          <OrganizationFilterFields idPrefix="report" filters={places} />
         </div>
         ) : null}
         {kind === "people" ? (
           <div className="mt-5 space-y-4 border-t border-[#F1F5F9] pt-5">
             <div>
-              <p className="text-sm font-semibold text-[#0A0A0A]">Grupos no relatório</p>
+              <p className="text-sm font-semibold text-[#0A0A0A]">Categorias no relatório</p>
               <p className="mt-1 text-sm text-[#64748B]">Sem marcação, o relatório mostra todas.</p>
               <div className="mt-3 flex flex-wrap gap-3">
-                {groupOptions.map((item) => (
+                {categoryOptions.map((item) => (
                   <label key={item.id} className="flex items-center gap-2 text-sm text-[#334155]">
                     <input
                       type="checkbox"
@@ -2280,9 +2221,9 @@ export function ReportsPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-[#0A0A0A]">Filtro de pessoas</p>
-              <p className="mt-1 text-sm text-[#64748B]">Valores do mesmo grupo se alternam. Grupos diferentes se somam.</p>
+              <p className="mt-1 text-sm text-[#64748B]">Valores da mesma categoria se alternam. Categorias diferentes se somam.</p>
               <div className="mt-3">
-                <GroupFilter selected={valueIds} onChange={setValueIds} />
+                <CategoryFilter selected={valueIds} onChange={setValueIds} />
               </div>
             </div>
           </div>

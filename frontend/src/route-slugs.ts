@@ -2,15 +2,17 @@ const tabAliases: Record<string, string> = {
   funcionarios: "employees",
   funcoes: "jobs",
   jornadas: "journeys",
-  grupos: "groups",
-  centros: "groups",
+  grupos: "categories",
+  groups: "categories",
+  centros: "categories",
   apuracao: "calculations",
   calculation: "calculations",
   banco: "hour-bank",
   fechamento: "closings",
   closing: "closings",
   empresas: "units",
-  setores: "sectors",
+  setores: "teams",
+  sectors: "teams",
   equipes: "teams",
   sindicatos: "unions",
   convencoes: "agreements",
@@ -71,9 +73,9 @@ export function legacyPath(pathname: string, search: string) {
   path = swapPrefix(path, "/timekeeping/calculation", "/calculations")
   path = swapPrefix(path, "/staff/jobs", "/jobs")
   path = swapPrefix(path, "/staff/journeys", "/journeys")
-  path = swapPrefix(path, "/staff/classifications", "/groups")
+  path = swapPrefix(path, "/staff/classifications", "/categories")
+  path = swapPrefix(path, "/groups", "/categories")
   path = swapPrefix(path, "/organization/units", "/units")
-  path = swapPrefix(path, "/organization/sectors", "/sectors")
   path = swapPrefix(path, "/organization/teams", "/teams")
   path = swapPrefix(path, "/organization", "/structure")
   path = swapPrefix(path, "/payroll", "/integrations")
@@ -84,7 +86,10 @@ export function legacyPath(pathname: string, search: string) {
   path = swapPrefix(path, "/time-clock", "/punches")
   path = swapPrefix(path, "/notifications", "/notices")
   if (path.startsWith("/staff/cost-centers")) {
-    return path.endsWith("/new") ? "/groups/new" : `/staff${canonicalSearch("?tab=groups")}`
+    return "/structure?tab=categories"
+  }
+  if (path === "/sectors" || path.startsWith("/sectors/") || path === "/organization/sectors" || path.startsWith("/organization/sectors/")) {
+    return "/structure?tab=teams"
   }
   if (path === "/staff/new") path = "/employees/new"
   path = path.replace(/^\/staff\/(\d+)(\/edit)?$/, "/employees/$1$2")
@@ -100,6 +105,10 @@ export function legacyPath(pathname: string, search: string) {
     }
   }
   const query = canonicalSearch(search)
+  if (path === "/staff") {
+    const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query)
+    if (params.get("tab") === "categories") return "/structure?tab=categories"
+  }
   if (!kind) return `${path}${query}`
   return query ? `${path}${query}&kind=${kind}` : `${path}?kind=${kind}`
 }

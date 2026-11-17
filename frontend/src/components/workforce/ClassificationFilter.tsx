@@ -2,30 +2,30 @@ import { useEffect, useState } from "react"
 
 import { listRecords, type NamedRecord } from "@/services/workforce.service"
 
-export type GroupRecord = { id: number; name: string; values: NamedRecord[] }
+export type CategoryRecord = { id: number; name: string; values: NamedRecord[] }
 
-export async function loadGroups() {
-  const first = await listRecords<NamedRecord>("/groups", { page: 1, limit: 100 })
+export async function loadCategories() {
+  const first = await listRecords<NamedRecord>("/categories", { page: 1, limit: 100 })
   const rows = [...first.items]
   const pages = Math.ceil(first.total / 100)
   for (let page = 2; page <= pages; page += 1) {
-    const next = await listRecords<NamedRecord>("/groups", { page, limit: 100 })
+    const next = await listRecords<NamedRecord>("/categories", { page, limit: 100 })
     rows.push(...next.items)
   }
-  const loaded: GroupRecord[] = []
+  const loaded: CategoryRecord[] = []
   for (const item of rows) {
-    const valuesPage = await listRecords<NamedRecord>("/group-values", {
+    const valuesPage = await listRecords<NamedRecord>("/category-values", {
       page: 1,
       limit: 100,
-      group_id: item.id,
+      category_id: item.id,
     })
     const values = [...valuesPage.items]
     const valuePages = Math.ceil(valuesPage.total / 100)
     for (let page = 2; page <= valuePages; page += 1) {
-      const next = await listRecords<NamedRecord>("/group-values", {
+      const next = await listRecords<NamedRecord>("/category-values", {
         page,
         limit: 100,
-        group_id: item.id,
+        category_id: item.id,
       })
       values.push(...next.items)
     }
@@ -34,24 +34,24 @@ export async function loadGroups() {
   return loaded
 }
 
-export function GroupFilter({
+export function CategoryFilter({
   selected,
   onChange,
 }: {
   selected: number[]
   onChange: (ids: number[]) => void
 }) {
-  const [groups, setGroups] = useState<GroupRecord[]>([])
+  const [groups, setGroups] = useState<CategoryRecord[]>([])
   const [error, setError] = useState("")
 
   useEffect(() => {
     let active = true
-    loadGroups()
+    loadCategories()
       .then((loaded) => {
         if (active) setGroups(loaded)
       })
       .catch(() => {
-        if (active) setError("Não foi possível carregar os grupos.")
+        if (active) setError("Não foi possível carregar as categorias.")
       })
     return () => {
       active = false

@@ -12,20 +12,15 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
 import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
-import { PlaceCombobox } from "@/components/workforce/place-combobox"
+import { OrganizationFilterFields, useOrganizationFilters } from "@/components/workforce/organization-filters"
 import { api, ensureCsrf } from "@/services/api"
-import { closingCandidates, listRecords, type Closing, type ClosingCandidate, type NamedRecord } from "@/services/workforce.service"
+import { closingCandidates, type Closing, type ClosingCandidate } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { toastError, toastSuccess } from "@/store/toast.store"
 import { apiErrorMessage, apiErrorPeople } from "@/utils/api-error"
 import type { ApiResponse } from "@/types/api"
 import { cn } from "@/utils/cn"
-import { conceptIcon } from "@/utils/concept-icons"
 import { monthOptions, showDate } from "@/utils/labels"
-
-function idList(ids: number[]) {
-  return ids.length ? ids.join(",") : undefined
-}
 
 function registration(value: string | null) {
   return value?.trim() ? value : "Não informada"
@@ -63,19 +58,7 @@ export function ClosingFormPage() {
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
-  const [filtersReady, setFiltersReady] = useState(false)
-  const [units, setUnits] = useState<NamedRecord[]>([])
-  const [sectors, setSectors] = useState<NamedRecord[]>([])
-  const [teams, setTeams] = useState<NamedRecord[]>([])
-  const [jobs, setJobs] = useState<NamedRecord[]>([])
-  const [journeys, setJourneys] = useState<NamedRecord[]>([])
-  const [unions, setUnions] = useState<NamedRecord[]>([])
-  const [unitIds, setUnitIds] = useState<number[]>([])
-  const [sectorIds, setSectorIds] = useState<number[]>([])
-  const [teamIds, setTeamIds] = useState<number[]>([])
-  const [jobIds, setJobIds] = useState<number[]>([])
-  const [journeyIds, setJourneyIds] = useState<number[]>([])
-  const [unionIds, setUnionIds] = useState<number[]>([])
+  const places = useOrganizationFilters(canManage)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [candidates, setCandidates] = useState<ClosingCandidate[]>([])
   const [page, setPage] = useState(1)
@@ -93,37 +76,6 @@ export function ClosingFormPage() {
   const visible = candidates.slice((page - 1) * pageSize, page * pageSize)
 
   useEffect(() => {
-    if (!canManage) return
-    let active = true
-    Promise.all([
-      listRecords<NamedRecord>("/units", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/sectors", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/teams", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/jobs", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/journeys", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/unions", { page: 1, limit: 100 }),
-    ])
-      .then(([unitPage, sectorPage, teamPage, jobPage, journeyPage, unionPage]) => {
-        if (!active) return
-        setUnits(unitPage.items)
-        setSectors(sectorPage.items)
-        setTeams(teamPage.items)
-        setJobs(jobPage.items)
-        setJourneys(journeyPage.items)
-        setUnions(unionPage.items)
-      })
-      .catch((caught: unknown) => {
-        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar os filtros.")
-      })
-      .finally(() => {
-        if (active) setFiltersReady(true)
-      })
-    return () => {
-      active = false
-    }
-  }, [canManage])
-
-  useEffect(() => {
     if (!canManage || !periodReady) return
     let active = true
     setPeopleReady(false)
@@ -133,12 +85,7 @@ export function ClosingFormPage() {
       : { year: Number(year), month: Number(month) }
     closingCandidates({
       ...params,
-      unit_id: idList(unitIds),
-      sector_id: idList(sectorIds),
-      team_id: idList(teamIds),
-      job_id: idList(jobIds),
-      journey_id: idList(journeyIds),
-      union_id: idList(unionIds),
+      ...places.params,
     })
       .then((rows) => {
         if (active) setCandidates(rows)
@@ -154,7 +101,7 @@ export function ClosingFormPage() {
     return () => {
       active = false
     }
-  }, [canManage, periodReady, mode, year, month, startsOn, endsOn, unitIds, sectorIds, teamIds, jobIds, journeyIds, unionIds])
+  }, [canManage, periodReady, mode, year, month, startsOn, endsOn, places.key])
 
   useEffect(() => {
     setChosen(listed ? listed.split(",").map(Number) : [])
@@ -261,7 +208,7 @@ export function ClosingFormPage() {
             <p className="text-sm font-medium text-[#0A0A0A]">Quem entra no fechamento</p>
             <button
               type="button"
-              className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || unitIds.length + sectorIds.length + teamIds.length + jobIds.length + journeyIds.length + unionIds.length > 0 ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+              className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
               aria-expanded={filtersOpen}
               aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
               onClick={() => setFiltersOpen((current) => !current)}
@@ -290,31 +237,8 @@ export function ClosingFormPage() {
           {filtersOpen ? (
             <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
               <h4 className="text-sm font-semibold text-[#0A0A0A]">Filtros</h4>
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="min-w-0 space-y-2">
-                  <Label className={moduleLabelClass} htmlFor="closing-unit">Empresa</Label>
-                  <PlaceCombobox id="closing-unit" icon={conceptIcon.unit} options={units} selected={unitIds} emptyLabel="Todas" searchPlaceholder="Pesquisar empresa" emptyResult="Nenhuma empresa encontrada." searchPath="/units" extendSearch={units.length >= 100} loading={!filtersReady} onChange={setUnitIds} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label className={moduleLabelClass} htmlFor="closing-sector">Setor</Label>
-                  <PlaceCombobox id="closing-sector" icon={conceptIcon.sector} options={sectors} selected={sectorIds} emptyLabel="Todos" searchPlaceholder="Pesquisar setor" emptyResult="Nenhum setor encontrado." searchPath="/sectors" extendSearch={sectors.length >= 100} loading={!filtersReady} onChange={setSectorIds} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label className={moduleLabelClass} htmlFor="closing-team">Equipe</Label>
-                  <PlaceCombobox id="closing-team" icon={conceptIcon.team} options={teams} selected={teamIds} emptyLabel="Todas" searchPlaceholder="Pesquisar equipe" emptyResult="Nenhuma equipe encontrada." searchPath="/teams" extendSearch={teams.length >= 100} loading={!filtersReady} onChange={setTeamIds} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label className={moduleLabelClass} htmlFor="closing-job">Função</Label>
-                  <PlaceCombobox id="closing-job" icon={conceptIcon.job} options={jobs} selected={jobIds} emptyLabel="Todas" searchPlaceholder="Pesquisar função" emptyResult="Nenhuma função encontrada." searchPath="/jobs" extendSearch={jobs.length >= 100} loading={!filtersReady} onChange={setJobIds} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label className={moduleLabelClass} htmlFor="closing-journey">Jornada</Label>
-                  <PlaceCombobox id="closing-journey" icon={conceptIcon.journey} options={journeys} selected={journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={journeys.length >= 100} loading={!filtersReady} onChange={setJourneyIds} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label className={moduleLabelClass} htmlFor="closing-union">Sindicato</Label>
-                  <PlaceCombobox id="closing-union" icon={conceptIcon.union} options={unions} selected={unionIds} emptyLabel="Todos" searchPlaceholder="Pesquisar sindicato" emptyResult="Nenhum sindicato encontrado." searchPath="/unions" extendSearch={unions.length >= 100} loading={!filtersReady} onChange={setUnionIds} />
-                </div>
+              <div className="mt-4">
+                <OrganizationFilterFields idPrefix="closing" filters={places} />
               </div>
             </div>
           ) : null}

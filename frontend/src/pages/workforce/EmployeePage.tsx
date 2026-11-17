@@ -88,20 +88,20 @@ function FieldTile({ icon, label, children }: { icon: LucideIcon; label: string;
   )
 }
 
-function GroupTile({ items }: { items: { group_id: number; name: string; value_name: string }[] }) {
+function CategoryTile({ items }: { items: { category_id: number; name: string; value_name: string }[] }) {
   const rows = [...items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
   return (
     <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none md:col-span-2">
-              <FieldMark icon={conceptIcon.group} />
+              <FieldMark icon={conceptIcon.category} />
       <div className="min-w-0 flex-1">
-        <dt className="text-xs leading-4 text-[#64748B]">Grupos</dt>
+        <dt className="text-xs leading-4 text-[#64748B]">Categorias</dt>
         {rows.length === 0 ? (
           <dd className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]"><EmptyMark /></dd>
         ) : (
           <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
             <ul className="space-y-1.5">
               {rows.map((item) => (
-                <li key={item.group_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                <li key={item.category_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
                   {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
                 </li>
               ))}
@@ -414,7 +414,7 @@ export function EmployeePage() {
     setVigencies(links.items)
     setJourneys(journeyPage.items)
     try {
-      const classificationPage = await listRecords<NamedRecord>("/groups", { page: 1, limit: 100 })
+      const classificationPage = await listRecords<NamedRecord>("/categories", { page: 1, limit: 100 })
       setGroupNames(Object.fromEntries(classificationPage.items.map((item) => [item.id, item.name])))
     } catch {
       setGroupNames({})
@@ -618,7 +618,6 @@ export function EmployeePage() {
                   [conceptIcon.job, "Função", employee.job_label],
                   [conceptIcon.journey, "Jornada", employee.journey_label],
                   [conceptIcon.unit, "Empresa", employee.unit_label],
-                  [conceptIcon.sector, "Setor", employee.sector_label],
                   [conceptIcon.team, "Equipe", employee.team_label],
                   [conceptIcon.union, "Sindicato", employee.union_label],
                 ] as const
@@ -628,9 +627,9 @@ export function EmployeePage() {
                 </FieldTile>
               ))}
               <ManagerTile managers={employee.managers || []} />
-              <GroupTile items={employee.groups || []} />
+              <CategoryTile items={employee.categories || []} />
             </dl>
-            <p className="mt-4 text-sm text-[#64748B]">Empresa e setor acompanham a equipe.</p>
+            <p className="mt-4 text-sm text-[#64748B]">A empresa acompanha a equipe.</p>
           </section>
         </div>
       ) : null}
@@ -782,7 +781,7 @@ export function EmployeePage() {
               <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
                 {history.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
-                    {item.kind === "group" ? `${item.group_id ? classificationNames[item.group_id] || "Grupo" : "Grupo"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
+                    {item.kind === "category" ? `${item.category_id ? classificationNames[item.category_id] || "Categoria" : "Categoria"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
                   </li>
                 ))}
               </ul>

@@ -25,9 +25,8 @@ VigencyKind = Literal[
     "job",
     "journey",
     "cost_center",
-    "group",
+    "category",
     "unit",
-    "sector",
     "team",
     "union",
     "manager",
@@ -50,25 +49,25 @@ class NamedOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class GroupValueCreate(BaseModel):
-    group_id: int
+class CategoryValueCreate(BaseModel):
+    category_id: int
     name: str = Field(min_length=1, max_length=255)
 
 
-class GroupValueUpdate(BaseModel):
+class CategoryValueUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
-class GroupValueOut(BaseModel):
+class CategoryValueOut(BaseModel):
     id: int
-    group_id: int
+    category_id: int
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class EmployeeGroupOut(BaseModel):
-    group_id: int
+class EmployeeCategoryOut(BaseModel):
+    category_id: int
     name: str
     value_id: int
     value_name: str
@@ -80,28 +79,16 @@ class EmployeeManagerOut(BaseModel):
     name: str
 
 
-class SectorCreate(NamedCreate):
-    unit_id: int
-
-
-class SectorUpdate(NamedUpdate):
-    unit_id: int | None = None
-
-
-class SectorOut(NamedOut):
-    unit_id: int
-
-
 class TeamCreate(NamedCreate):
-    sector_id: int
+    unit_id: int
 
 
 class TeamUpdate(NamedUpdate):
-    sector_id: int | None = None
+    unit_id: int | None = None
 
 
 class TeamOut(NamedOut):
-    sector_id: int
+    unit_id: int
 
 
 class JourneySpanIn(BaseModel):
@@ -280,12 +267,11 @@ class EmployeeOut(BaseModel):
     journey_label: str | None
     cost_center_label: str | None
     unit_label: str | None
-    sector_label: str | None
     team_label: str | None
     union_label: str | None
     manager_label: str | None
     managers: list[EmployeeManagerOut] = Field(default_factory=list)
-    groups: list[EmployeeGroupOut] = Field(default_factory=list)
+    categories: list[EmployeeCategoryOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -294,7 +280,7 @@ BulkKind = Literal[
     "job",
     "journey",
     "cost_center",
-    "group",
+    "category",
     "team",
     "union",
     "manager",
@@ -338,7 +324,7 @@ class VigencyOut(BaseModel):
     employee_id: int
     kind: str
     reference_id: int | None
-    group_id: int | None = None
+    category_id: int | None = None
     label: str
     valid_from: date
     valid_to: date | None

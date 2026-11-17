@@ -8,7 +8,7 @@ from app.models.tenant import Tenant
 from app.models.workforce import (
     Audit,
     Charge,
-    Group,
+    Category,
     Closing,
     ClosingEvent,
     ClosingMember,
@@ -87,6 +87,14 @@ def _apply_filters(query, model, equals: dict):
         else:
             query = query.filter(column == value)
     return query
+
+
+def _same_reference(reference: int | None, reference_id: int | None, reference_ids: set[int] | None) -> bool:
+    if reference_ids is not None:
+        return reference in reference_ids
+    if reference_id is not None:
+        return reference == reference_id
+    return True
 
 
 class WorkforceRepository:
@@ -273,15 +281,15 @@ class WorkforceRepository:
         return found
 
     def open_vigency(
-        self, employee_id: int, kind: str, group_id: int | None = None
+        self, employee_id: int, kind: str, category_id: int | None = None
     ) -> EmployeeVigency | None:
         query = self.db.query(EmployeeVigency).filter(
             EmployeeVigency.employee_id == employee_id,
             EmployeeVigency.kind == kind,
             EmployeeVigency.valid_to.is_(None),
         )
-        if group_id is not None:
-            query = query.filter(EmployeeVigency.group_id == group_id)
+        if category_id is not None:
+            query = query.filter(EmployeeVigency.category_id == category_id)
         return query.one_or_none()
 
     def open_manager(self, employee_id: int, reference_id: int) -> EmployeeVigency | None:
@@ -335,10 +343,10 @@ class WorkforceRepository:
         )
         return [row[0] for row in rows]
 
-    def group_named(self, tenant_id: int, name: str):
+    def category_named(self, tenant_id: int, name: str):
         return (
-            self.db.query(Group)
-            .filter(Group.tenant_id == tenant_id, Group.name == name)
+            self.db.query(Category)
+            .filter(Category.tenant_id == tenant_id, Category.name == name)
             .one_or_none()
         )
 
@@ -350,13 +358,13 @@ class WorkforceRepository:
             .all()
         )
 
-    def employees_with_values(self, tenant_id: int, group_id: int, day: date, reference_ids: set[int]) -> set[int]:
+    def employees_with_values(self, tenant_id: int, category_id: int, day: date, reference_ids: set[int]) -> set[int]:
         rows = (
             self.db.query(EmployeeVigency)
             .filter(
                 EmployeeVigency.tenant_id == tenant_id,
-                EmployeeVigency.kind == "group",
-                EmployeeVigency.group_id == group_id,
+                EmployeeVigency.kind == "category",
+                EmployeeVigency.category_id == category_id,
                 EmployeeVigency.valid_from <= day,
                 or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
             )
@@ -368,14 +376,14 @@ class WorkforceRepository:
             chosen[row.employee_id] = row
         return {employee_id for employee_id, row in chosen.items() if row.reference_id in reference_ids}
 
-    def applicable_groups(self, employee_ids: list[int], day: date) -> dict[int, dict[int, EmployeeVigency]]:
+    def applicable_categories(self, employee_ids: list[int], day: date) -> dict[int, dict[int, EmployeeVigency]]:
         if not employee_ids:
             return {}
         rows = (
             self.db.query(EmployeeVigency)
             .filter(
                 EmployeeVigency.employee_id.in_(employee_ids),
-                EmployeeVigency.kind == "group",
+                EmployeeVigency.kind == "category",
                 EmployeeVigency.valid_from <= day,
                 or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
             )
@@ -384,9 +392,9 @@ class WorkforceRepository:
         )
         found: dict[int, dict[int, EmployeeVigency]] = {}
         for row in rows:
-            if row.group_id is None:
+            if row.category_id is None:
                 continue
-            found.setdefault(row.employee_id, {})[row.group_id] = row
+            found.setdefault(row.employee_id, {})[row.category_id] = row
         return found
 
     def applicable(self, employee_id: int, kind: str, day: date) -> EmployeeVigency | None:
@@ -409,6 +417,7 @@ class WorkforceRepository:
         day: date,
         *,
         reference_id: int | None = None,
+        reference_ids: set[int] | None = None,
         label: str | None = None,
     ) -> list[int]:
         rows = (
@@ -426,7 +435,7 @@ class WorkforceRepository:
             found = []
             seen: set[int] = set()
             for row in rows:
-                if reference_id is not None and row.reference_id != reference_id:
+                if not _same_reference(row.reference_id, reference_id, reference_ids):
                     continue
                 if row.employee_id in seen:
                     continue
@@ -438,7 +447,7 @@ class WorkforceRepository:
             chosen[row.employee_id] = row
         found = []
         for employee_id, row in chosen.items():
-            if reference_id is not None and row.reference_id != reference_id:
+            if not _same_reference(row.reference_id, reference_id, reference_ids):
                 continue
             if label is not None and row.label != label:
                 continue

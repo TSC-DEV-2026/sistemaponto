@@ -47,7 +47,6 @@ function catalogFieldIcon(field: CatalogField, fallback: LucideIcon) {
   if (field.type === "textarea") return FileText
   if (field.name === "union_id") return conceptIcon.union
   if (field.name === "unit_id") return conceptIcon.unit
-  if (field.name === "sector_id") return conceptIcon.sector
   if (field.name === "active" || field.type === "checkbox") return CircleCheck
   return fallback
 }
@@ -226,19 +225,24 @@ export function DomainTabs({
   action?: ReactNode
 }) {
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const [action, setAction] = useState<ReactNode>(null)
   const requested = canonicalTab(params.get("tab") || params.get("aba"))
   const current = tabs.some((tab) => tab.id === requested) ? requested : tabs[0].id
   const selected = tabs.find((tab) => tab.id === current) ?? tabs[0]
 
   useEffect(() => {
+    if (people && requested === "categories") {
+      navigate("/structure?tab=categories", { replace: true })
+      return
+    }
     const aligned = !params.has("aba") && params.get("tab") === current
     if (aligned) return
     const next = new URLSearchParams(params)
     next.delete("aba")
     next.set("tab", current)
     setParams(next, { replace: true })
-  }, [current, params, setParams])
+  }, [current, params, setParams, people, requested, navigate])
 
   return (
     <TabAction.Provider value={setAction}>
@@ -438,7 +442,7 @@ export function RecordList<T extends Row>({
                   id={`filter-${path}-${select.key}`}
                   value={chosen[select.key] ?? ""}
                   placeholder="Todos"
-                  icon={select.key === "unit_id" ? conceptIcon.unit : select.key === "union_id" ? conceptIcon.union : select.key === "sector_id" ? conceptIcon.sector : select.key === "active" ? CircleCheck : undefined}
+                  icon={select.key === "unit_id" ? conceptIcon.unit : select.key === "union_id" ? conceptIcon.union : select.key === "active" ? CircleCheck : undefined}
                   searchable={Boolean(select.source)}
                   searchPath={select.source}
                   searchPlaceholder={`Pesquisar ${select.label.toLocaleLowerCase("pt-BR")}`}
@@ -870,15 +874,14 @@ export function EmployeeList() {
 }
 
 const linkedSelects: Record<string, { key: string; label: string; source: string }> = {
-  sectors: { key: "unit_id", label: "Empresa", source: "/units" },
-  teams: { key: "sector_id", label: "Setor", source: "/sectors" },
+  teams: { key: "unit_id", label: "Empresa", source: "/units" },
   agreements: { key: "union_id", label: "Sindicato", source: "/unions" },
 }
 
 const organizationCopy: Record<string, { title: string; lead: string; mark: LucideIcon }> = {
   units: { title: "Pesquisar empresas", lead: "Consulte as empresas cadastradas.", mark: conceptIcon.unit },
-  sectors: { title: "Pesquisar setores", lead: "Consulte os setores cadastrados.", mark: conceptIcon.sector },
   teams: { title: "Pesquisar equipes", lead: "Consulte as equipes cadastradas.", mark: conceptIcon.team },
+  categories: { title: "Pesquisar categorias", lead: "Consulte as categorias cadastradas.", mark: conceptIcon.category },
   unions: { title: "Filtros de pesquisa", lead: "Consulte os sindicatos cadastrados.", mark: conceptIcon.union },
   agreements: { title: "Filtros de pesquisa", lead: "Consulte as convenções e acordos cadastrados.", mark: ScrollText },
   holidays: { title: "Filtros de pesquisa", lead: "Consulte os feriados cadastrados.", mark: Calendar },
@@ -936,17 +939,17 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       searchTitle={organizationCopy[catalog]?.title}
       searchLead={organizationCopy[catalog]?.lead}
       searchPlaceholder={presentation === "organization" ? "Buscar por nome..." : "Pesquisar"}
-      mark={organizationCopy[catalog]?.mark ?? (catalog === "groups" ? conceptIcon.group : catalog === "jobs" ? conceptIcon.job : catalog === "journeys" ? conceptIcon.journey : undefined)}
+      mark={organizationCopy[catalog]?.mark ?? (catalog === "categories" ? conceptIcon.category : catalog === "jobs" ? conceptIcon.job : catalog === "journeys" ? conceptIcon.journey : undefined)}
     />
   )
 }
 
-function GroupValues({ classificationId, canEdit }: { classificationId: number; canEdit: boolean }) {
+function CategoryValues({ classificationId, canEdit }: { classificationId: number; canEdit: boolean }) {
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<{ dir: "asc" | "desc" } | null>(null)
   const [pending, setPending] = useState<number | null>(null)
-  const list = usePagedList<NamedRecord>("/group-values", {
-    group_id: classificationId,
+  const list = usePagedList<NamedRecord>("/category-values", {
+    category_id: classificationId,
     ...(query.trim() ? { name: query.trim() } : {}),
   })
 
@@ -955,7 +958,7 @@ function GroupValues({ classificationId, canEdit }: { classificationId: number; 
   async function remove(item: NamedRecord) {
     list.setError("")
     try {
-      await removeRecord("/group-values", item.id)
+      await removeRecord("/category-values", item.id)
       setPending(null)
       list.reload()
     } catch (caught) {
@@ -989,7 +992,7 @@ function GroupValues({ classificationId, canEdit }: { classificationId: number; 
                   <td className="px-4 py-3 align-middle">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
-                        <conceptIcon.group className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                        <conceptIcon.category className="h-[18px] w-[18px]" strokeWidth={1.75} />
                       </span>
                       <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{item.name}</span>
                     </div>
@@ -1009,7 +1012,7 @@ function GroupValues({ classificationId, canEdit }: { classificationId: number; 
                       <div className="inline-flex justify-center gap-1.5">
                         <ActionTip label="Visualizar">
                           <Button asChild variant="outline" className={moduleIconClass}>
-                            <Link to={`/groups/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`}>
+                            <Link to={`/categories/${classificationId}/values/${item.id}`} aria-label={`Visualizar ${item.name}`}>
                               <Eye className="h-4 w-4" strokeWidth={1.75} />
                             </Link>
                           </Button>
@@ -1017,7 +1020,7 @@ function GroupValues({ classificationId, canEdit }: { classificationId: number; 
                         {canEdit ? (
                           <ActionTip label="Editar">
                             <Button asChild variant="outline" className={moduleIconClass}>
-                              <Link to={`/groups/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`}>
+                              <Link to={`/categories/${classificationId}/values/${item.id}/edit`} aria-label={`Editar ${item.name}`}>
                                 <Pencil className="h-4 w-4" strokeWidth={1.75} />
                               </Link>
                             </Button>
@@ -1053,20 +1056,20 @@ function GroupValues({ classificationId, canEdit }: { classificationId: number; 
   )
 }
 
-export function GroupValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) {
+export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const params = useParams()
   const navigate = useNavigate()
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const classificationId = Number(params.id)
   const valueId = Number(params.valueId)
-  const backTo = `/groups/${classificationId}`
+  const backTo = `/categories/${classificationId}`
   const [name, setName] = useState("")
   const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(mode === "new")
 
   useEffect(() => {
     if (!Number.isInteger(classificationId) || classificationId <= 0) {
-      navigate("/staff?tab=groups", { replace: true })
+      navigate("/structure?tab=categories", { replace: true })
       return
     }
     if (mode !== "view" && !isAdmin) navigate(backTo, { replace: true })
@@ -1077,10 +1080,10 @@ export function GroupValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) 
     let active = true
     setLoaded(false)
     setError("")
-    getRecord<NamedRecord & { group_id?: number }>("/group-values", valueId)
+    getRecord<NamedRecord & { category_id?: number }>("/category-values", valueId)
       .then((row) => {
         if (!active) return
-        if (row.group_id != null && row.group_id !== classificationId) {
+        if (row.category_id != null && row.category_id !== classificationId) {
           navigate(backTo, { replace: true })
           return
         }
@@ -1103,8 +1106,8 @@ export function GroupValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) 
     const next = name.trim()
     if (!next) return
     try {
-      if (mode === "new") await createRecord("/group-values", { group_id: classificationId, name: next })
-      else await updateRecord("/group-values", valueId, { name: next })
+      if (mode === "new") await createRecord("/category-values", { category_id: classificationId, name: next })
+      else await updateRecord("/category-values", valueId, { name: next })
       navigate(backTo)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
@@ -1129,7 +1132,7 @@ export function GroupValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) 
       <section className={cn(moduleCardClass, "mx-auto w-full max-w-[680px] space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <conceptIcon.group className="h-5 w-5" strokeWidth={1.75} />
+            <conceptIcon.category className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-[#0A0A0A]">{mode === "view" ? name || "Valor" : mode === "new" ? "Novo valor" : "Editar valor"}</h2>
@@ -1138,7 +1141,7 @@ export function GroupValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) 
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {mode === "view" ? (
-          <RecordField icon={conceptIcon.group} label="Nome" wide>
+          <RecordField icon={conceptIcon.category} label="Nome" wide>
             {name.trim() ? name : <EmptyMark />}
           </RecordField>
         ) : (
@@ -1300,10 +1303,10 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     }
   }
 
-  if (catalog === "jobs" || catalog === "groups") {
-    const Icon = catalog === "jobs" ? conceptIcon.job : conceptIcon.group
-    const noun = catalog === "jobs" ? "função" : "grupo"
-    const article = catalog === "jobs" ? "a" : "o"
+  if (catalog === "jobs" || catalog === "categories") {
+    const Icon = catalog === "jobs" ? conceptIcon.job : conceptIcon.category
+    const noun = catalog === "jobs" ? "função" : "categoria"
+    const article = "a"
     if (mode !== "new" && !loaded && !error) {
       return (
         <div className="w-full min-w-0 space-y-5">
@@ -1316,15 +1319,15 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       )
     }
     const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
-    const subtitle = mode === "view" ? (catalog === "jobs" ? "Função" : "Grupo") : mode === "new" ? `Informe o nome d${article} ${noun}.` : `Atualize o nome d${article} ${noun}.`
-    const valuesOnPage = catalog === "groups" && mode === "view"
+    const subtitle = mode === "view" ? (catalog === "jobs" ? "Função" : "Categoria") : mode === "new" ? `Informe o nome d${article} ${noun}.` : `Atualize o nome d${article} ${noun}.`
+    const valuesOnPage = catalog === "categories" && mode === "view"
     return (
       <div className="w-full min-w-0 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <BackLink to={entry.backTo} appearance="detail" />
           {valuesOnPage && isAdmin ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
-              <Link to={`/groups/${id}/values/new`}>
+              <Link to={`/categories/${id}/values/new`}>
                 <Plus className="h-4 w-4" />
                 Novo valor
               </Link>
@@ -1363,16 +1366,16 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             </ActionForm>
           )}
         </section>
-        {valuesOnPage ? <GroupValues classificationId={id} canEdit={isAdmin} /> : null}
+        {valuesOnPage ? <CategoryValues classificationId={id} canEdit={isAdmin} /> : null}
       </div>
     )
   }
 
-  if (catalog === "units" || catalog === "sectors" || catalog === "teams") {
-    const Icon = catalog === "units" ? conceptIcon.unit : catalog === "teams" ? conceptIcon.team : conceptIcon.sector
-    const noun = catalog === "units" ? "empresa" : catalog === "teams" ? "equipe" : "setor"
-    const article = catalog === "sectors" ? "o" : "a"
-    const possession = catalog === "sectors" ? "do" : "da"
+  if (catalog === "units" || catalog === "teams") {
+    const Icon = catalog === "units" ? conceptIcon.unit : conceptIcon.team
+    const noun = catalog === "units" ? "empresa" : "equipe"
+    const article = "a"
+    const possession = "da"
     if (mode !== "new" && !loaded && !error) {
       return (
         <div className="w-full min-w-0 space-y-5">
@@ -1414,7 +1417,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
                       id={`${catalog}-${field.name}`}
                       value={form[field.name] ?? ""}
                       placeholder="Selecione"
-                      icon={field.name === "unit_id" ? conceptIcon.unit : conceptIcon.sector}
+                      icon={conceptIcon.unit}
                       loading={!optionsReady}
                       required={field.required}
                       searchable
