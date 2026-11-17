@@ -38,22 +38,22 @@ class CostCenter(Base):
     name = Column(String(255), nullable=False)
 
 
-class Group(Base):
-    __tablename__ = "groups"
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_group_tenant_name"),)
+class Category(Base):
+    __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_category_tenant_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
     name = Column(String(255), nullable=False)
 
 
-class GroupValue(Base):
-    __tablename__ = "group_values"
-    __table_args__ = (UniqueConstraint("group_id", "name", name="uq_group_value_name"),)
+class CategoryValue(Base):
+    __tablename__ = "category_values"
+    __table_args__ = (UniqueConstraint("category_id", "name", name="uq_category_value_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
-    group_id = Column(BigInteger, ForeignKey("groups.id"), nullable=False, index=True)
+    category_id = Column(BigInteger, ForeignKey("categories.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
 
 
@@ -66,23 +66,13 @@ class Unit(Base):
     name = Column(String(255), nullable=False)
 
 
-class Sector(Base):
-    __tablename__ = "sectors"
-    __table_args__ = (UniqueConstraint("tenant_id", "unit_id", "name", name="uq_sector_unit_name"),)
+class Team(Base):
+    __tablename__ = "teams"
+    __table_args__ = (UniqueConstraint("tenant_id", "unit_id", "name", name="uq_team_unit_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
     unit_id = Column(BigInteger, ForeignKey("units.id"), nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-
-
-class Team(Base):
-    __tablename__ = "teams"
-    __table_args__ = (UniqueConstraint("tenant_id", "sector_id", "name", name="uq_team_sector_name"),)
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    tenant_id = _tenant()
-    sector_id = Column(BigInteger, ForeignKey("sectors.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
 
 
@@ -221,7 +211,7 @@ class EmployeeVigency(Base):
     employee_id = Column(BigInteger, ForeignKey("employees.id"), nullable=False, index=True)
     kind = Column(String(32), nullable=False)
     reference_id = Column(BigInteger, nullable=True)
-    group_id = Column(BigInteger, ForeignKey("groups.id"), nullable=True, index=True)
+    category_id = Column(BigInteger, ForeignKey("categories.id"), nullable=True, index=True)
     label = Column(String(255), nullable=False)
     valid_from = Column(Date, nullable=False)
     valid_to = Column(Date, nullable=True)

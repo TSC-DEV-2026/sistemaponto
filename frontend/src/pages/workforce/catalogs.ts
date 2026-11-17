@@ -30,12 +30,12 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/staff?tab=jobs",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
-  groups: {
-    path: "/groups",
-    newLabel: "Novo grupo",
-    editTitle: "Editar grupo",
-    empty: "Nenhum grupo.",
-    backTo: "/staff?tab=groups",
+  categories: {
+    path: "/categories",
+    newLabel: "Nova categoria",
+    editTitle: "Editar categoria",
+    empty: "Nenhuma categoria.",
+    backTo: "/structure?tab=categories",
     fields: [{ name: "name", label: "Nome", type: "text", required: true }],
   },
   units: {
@@ -46,17 +46,6 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/structure?tab=units",
     fields: [{ name: "name", label: "Nome da empresa", type: "text", required: true }],
   },
-  sectors: {
-    path: "/sectors",
-    newLabel: "Novo setor",
-    editTitle: "Editar setor",
-    empty: "Nenhum setor.",
-    backTo: "/structure?tab=sectors",
-    fields: [
-      { name: "name", label: "Nome do setor", type: "text", required: true },
-      { name: "unit_id", label: "Empresa", type: "select", required: true, searchPath: "/units", loadOptions: () => optionsOf("/units") },
-    ],
-  },
   teams: {
     path: "/teams",
     newLabel: "Nova equipe",
@@ -65,7 +54,7 @@ export const catalogs: Record<string, Catalog> = {
     backTo: "/structure?tab=teams",
     fields: [
       { name: "name", label: "Nome da equipe", type: "text", required: true },
-      { name: "sector_id", label: "Setor", type: "select", required: true, searchPath: "/sectors", loadOptions: () => optionsOf("/sectors") },
+      { name: "unit_id", label: "Empresa", type: "select", required: true, searchPath: "/units", loadOptions: () => optionsOf("/units") },
     ],
   },
   unions: {

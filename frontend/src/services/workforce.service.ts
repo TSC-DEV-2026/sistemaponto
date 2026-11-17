@@ -6,7 +6,6 @@ export type NamedRecord = {
   id: number
   name: string
   unit_id?: number
-  sector_id?: number
   union_id?: number | null
   kind?: string
   active?: boolean
@@ -24,8 +23,8 @@ export type NamedRecord = {
   holiday_date?: string | null
 }
 
-export type EmployeeGroup = {
-  group_id: number
+export type EmployeeCategory = {
+  category_id: number
   name: string
   value_id: number
   value_name: string
@@ -49,12 +48,11 @@ export type Employee = {
   journey_label: string | null
   cost_center_label: string | null
   unit_label: string | null
-  sector_label: string | null
   team_label: string | null
   union_label: string | null
   manager_label: string | null
   managers?: EmployeeManager[]
-  groups?: EmployeeGroup[]
+  categories?: EmployeeCategory[]
 }
 
 export type EmployeeManager = {
@@ -68,7 +66,7 @@ export type Vigency = {
   employee_id: number
   kind: string
   reference_id: number | null
-  group_id?: number | null
+  category_id?: number | null
   label: string
   valid_from: string
   valid_to: string | null

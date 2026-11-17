@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.core.journey_plan import ORIGIN, legacy_days
-from app.core.workforce import COST_CENTER_CLASSIFICATION, REASON_KINDS, today_in_brazil
+from app.core.workforce import REASON_KINDS, today_in_brazil
 from app.models.workforce import (
-    Group,
-    GroupValue,
+    Category,
+    CategoryValue,
     Job,
     Journey,
     JourneyDay,
@@ -14,12 +14,13 @@ from app.models.workforce import (
     LaborUnion,
     PunchRule,
     Reason,
-    Sector,
     Team,
     Unit,
 )
 
 JOURNEY_NAME = "Jornada Padrão"
+CATEGORY_NAME = "Setores"
+CATEGORY_VALUE_NAME = "Setor padrão"
 PUNCH_RULE_NOTE = "Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Adicional noturno de 20% das 22:00 às 05:00."
 REASON_NAMES = {
     "adjustment": "Ajuste padrão",
@@ -31,11 +32,10 @@ REASON_NAMES = {
 
 def ensure_company_defaults(db: Session, tenant_id: int) -> None:
     _named(db, Job, tenant_id, "Função Padrão")
-    _default_group(db, tenant_id)
+    _default_category(db, tenant_id)
     unit = _named(db, Unit, tenant_id, "Empresa Padrão")
-    sector = _named(db, Sector, tenant_id, "Setor Padrão", unit_id=unit.id)
-    _named(db, Team, tenant_id, "Equipe Padrão", sector_id=sector.id)
-    _named(
+    _named(db, Team, tenant_id, "Equipe Padrão", unit_id=unit.id)
+    journey = _named(
         db,
         Journey,
         tenant_id,
@@ -111,30 +111,30 @@ def _ensure_journey_version(db: Session, journey: Journey) -> None:
     db.flush()
 
 
-def _default_group(db: Session, tenant_id: int) -> None:
+def _default_category(db: Session, tenant_id: int) -> None:
     found = (
-        db.query(Group)
-        .filter(Group.tenant_id == tenant_id, Group.name == COST_CENTER_CLASSIFICATION)
+        db.query(Category)
+        .filter(Category.tenant_id == tenant_id, Category.name == CATEGORY_NAME)
         .one_or_none()
     )
     if found is None:
-        found = Group(tenant_id=tenant_id, name=COST_CENTER_CLASSIFICATION)
+        found = Category(tenant_id=tenant_id, name=CATEGORY_NAME)
         db.add(found)
         db.flush()
     value = (
-        db.query(GroupValue)
+        db.query(CategoryValue)
         .filter(
-            GroupValue.group_id == found.id,
-            GroupValue.name == "Centro de custo Padrão",
+            CategoryValue.category_id == found.id,
+            CategoryValue.name == CATEGORY_VALUE_NAME,
         )
         .one_or_none()
     )
     if value is None:
         db.add(
-            GroupValue(
+            CategoryValue(
                 tenant_id=tenant_id,
-                group_id=found.id,
-                name="Centro de custo Padrão",
+                category_id=found.id,
+                name=CATEGORY_VALUE_NAME,
             )
         )
         db.flush()

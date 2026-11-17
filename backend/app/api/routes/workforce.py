@@ -9,8 +9,8 @@ from app.api.responses import json_data
 from app.api.serialization import dump_one, dump_page
 from app.core.exceptions import AppError
 from app.models.workforce import (
-    Group,
-    GroupValue,
+    Category,
+    CategoryValue,
     CostCenter,
     Holiday,
     Job,
@@ -19,7 +19,6 @@ from app.models.workforce import (
     LaborUnion,
     PunchRule,
     Reason,
-    Sector,
     Team,
     Unit,
 )
@@ -31,9 +30,9 @@ from app.schemas.workforce import (
     CertificatePhotoOut,
     ChargeOut,
     ChargeUpdate,
-    GroupValueCreate,
-    GroupValueOut,
-    GroupValueUpdate,
+    CategoryValueCreate,
+    CategoryValueOut,
+    CategoryValueUpdate,
     ClosingBankCreate,
     ClosingCreate,
     ClosingOut,
@@ -100,9 +99,6 @@ from app.schemas.workforce import (
     SubscriptionCreate,
     SubscriptionOut,
     SubscriptionUpdate,
-    SectorCreate,
-    SectorOut,
-    SectorUpdate,
     TeamCreate,
     TeamOut,
     TeamUpdate,
@@ -114,12 +110,11 @@ from app.services.workforce_service import Scope, WorkforceService
 
 INT_FILTERS = {
     "unit_id",
-    "sector_id",
     "union_id",
     "job_id",
     "journey_id",
     "cost_center_id",
-    "group_id",
+    "category_id",
     "team_id",
     "manager_id",
     "employee_id",
@@ -170,7 +165,7 @@ def _filter_parameter(name: str) -> inspect.Parameter:
     elif name in BOOL_FILTERS:
         annotation = bool | None
         default = Query(default=None)
-    elif name in {"group_value_id", "group_ids"}:
+    elif name in {"category_value_id", "category_ids"}:
         annotation = str | None
         default = Query(default=None, max_length=500, description="Ids separados por vírgula")
     elif name in {"name", "full_name", "q"}:
@@ -293,20 +288,19 @@ def mount_named(
 routers = [
     mount_named("/jobs", "jobs", Job, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named("/cost-centers", "cost-centers", CostCenter, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
-    mount_named("/groups", "groups", Group, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
+    mount_named("/categories", "categories", Category, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named(
-        "/group-values",
-        "group-values",
-        GroupValue,
-        GroupValueCreate,
-        GroupValueUpdate,
-        GroupValueOut,
-        ("name", "group_id"),
+        "/category-values",
+        "category-values",
+        CategoryValue,
+        CategoryValueCreate,
+        CategoryValueUpdate,
+        CategoryValueOut,
+        ("name", "category_id"),
         page_size=20,
     ),
     mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
-    mount_named("/sectors", "sectors", Sector, SectorCreate, SectorUpdate, SectorOut, ("name", "unit_id"), page_size=20),
-    mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "sector_id"), page_size=20),
+    mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "unit_id"), page_size=20),
     mount_named("/journeys", "journeys", Journey, JourneyCreate, JourneyUpdate, JourneyOut, ("name",)),
     mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named(
@@ -369,7 +363,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, group_value_id, unit_id, sector_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula. group_value_id aceita vários ids separados por vírgula: grupos diferentes se somam e valores do mesmo grupo se alternam.",
+    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, category_value_id, unit_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula. category_value_id aceita vários ids separados por vírgula: categorias diferentes se somam e valores da mesma categoria se alternam.",
 )
 @searchable(
     "q",
@@ -379,9 +373,8 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
     "job_id",
     "journey_id",
     "cost_center_id",
-    "group_value_id",
+    "category_value_id",
     "unit_id",
-    "sector_id",
     "team_id",
     "union_id",
     "manager_id",
@@ -410,9 +403,8 @@ def list_employees(
                 "job_id",
                 "journey_id",
                 "cost_center_id",
-                "group_value_id",
+                "category_value_id",
                 "unit_id",
-                "sector_id",
                 "team_id",
                 "union_id",
                 "manager_id",
@@ -427,7 +419,7 @@ def list_employees(
     "/changes",
     status_code=201,
     summary="Alterar funcionários em massa",
-    description="Uma operação por vez: função, jornada, grupo, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava setor e empresa. Se uma pessoa falhar, nenhuma do lote é salva.",
+    description="Uma operação por vez: função, jornada, categoria, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava a empresa. Se uma pessoa falhar, nenhuma do lote é salva.",
 )
 def change_employees(
     body: EmployeeBulkCreate,
@@ -810,11 +802,10 @@ def closing_candidates(
     starts_on: date | None = None,
     ends_on: date | None = None,
     unit_id: str | None = Query(default=None, max_length=500),
-    sector_id: str | None = Query(default=None, max_length=500),
     team_id: str | None = Query(default=None, max_length=500),
     job_id: str | None = Query(default=None, max_length=500),
     journey_id: str | None = Query(default=None, max_length=500),
-    union_id: str | None = Query(default=None, max_length=500),
+    situation: str | None = Query(default=None, max_length=32),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
@@ -826,11 +817,10 @@ def closing_candidates(
             "starts_on": starts_on,
             "ends_on": ends_on,
             "unit_id": unit_id,
-            "sector_id": sector_id,
             "team_id": team_id,
             "job_id": job_id,
             "journey_id": journey_id,
-            "union_id": union_id,
+            "situation": situation,
         },
     )
     return json_data(rows)
@@ -1198,15 +1188,15 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. group_ids escolhe os grupos da linha. group_value_id filtra como na lista de funcionários. Empresa, setor, equipe, função, jornada e sindicato aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
+    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. category_ids escolhe as categorias da linha. category_value_id filtra como na lista de funcionários. Empresa, equipe, função e jornada aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
 )
 @searchable(
     "full_name",
     "cpf",
     "person_id",
     "cost_center_id",
-    "group_value_id",
-    "group_ids",
+    "category_value_id",
+    "category_ids",
     "manager_id",
     "situation",
 )
@@ -1217,7 +1207,6 @@ def reports(
     ends_on: date = Query(),
     employee_id: int | None = Query(default=None),
     unit_id: str | None = Query(default=None, max_length=500, description="Ids de empresa separados por vírgula"),
-    sector_id: str | None = Query(default=None, max_length=500, description="Ids de setor separados por vírgula"),
     team_id: str | None = Query(default=None, max_length=500, description="Ids de equipe separados por vírgula"),
     job_id: str | None = Query(default=None, max_length=500, description="Ids de função separados por vírgula"),
     journey_id: str | None = Query(default=None, max_length=500, description="Ids de jornada separados por vírgula"),
@@ -1234,14 +1223,13 @@ def reports(
             "cpf",
             "person_id",
             "cost_center_id",
-            "group_value_id",
+            "category_value_id",
             "manager_id",
             "situation",
         ),
     )
     for name, value in (
         ("unit_id", unit_id),
-        ("sector_id", sector_id),
         ("team_id", team_id),
         ("job_id", job_id),
         ("journey_id", journey_id),
@@ -1249,9 +1237,9 @@ def reports(
     ):
         if value:
             filters[name] = value
-    shown = read_filters(request, ("group_ids",))
-    if shown.get("group_ids"):
-        filters["group_id"] = shown["group_ids"]
+    shown = read_filters(request, ("category_ids",))
+    if shown.get("category_ids"):
+        filters["category_id"] = shown["category_ids"]
     result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit, filters)
     return json_data(dump_one(result, ReportOut, None))
 

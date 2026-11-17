@@ -14,9 +14,9 @@ from app.models.membership import Membership
 from app.models.workforce import (
     Audit,
     Charge,
-    Group,
+    Category,
     CostCenter,
-    GroupValue,
+    CategoryValue,
     Closing,
     ClosingEvent,
     ClosingMember,
@@ -38,7 +38,6 @@ from app.models.workforce import (
     Punch,
     RequestEvent,
     RequestPunch,
-    Sector,
     Subscription,
     Team,
     TimeRequest,
@@ -234,11 +233,11 @@ class Memory:
             if row.kind == kind and row.reference_id == reference_id
         ]
 
-    def open_vigency(self, employee_id: int, kind: str, group_id: int | None = None):
+    def open_vigency(self, employee_id: int, kind: str, category_id: int | None = None):
         for row in self.rows:
             if not isinstance(row, EmployeeVigency) or row.employee_id != employee_id or row.kind != kind or row.valid_to is not None:
                 continue
-            if group_id is not None and row.group_id != group_id:
+            if category_id is not None and row.category_id != category_id:
                 continue
             return row
         return None
@@ -290,8 +289,8 @@ class Memory:
                 found.append(row.employee_id)
         return found
 
-    def group_named(self, tenant_id: int, name: str):
-        for row in self._of(Group, tenant_id):
+    def category_named(self, tenant_id: int, name: str):
+        for row in self._of(Category, tenant_id):
             if row.name == name:
                 return row
         return None
@@ -301,12 +300,12 @@ class Memory:
         found.sort(key=lambda item: (getattr(item, "name", ""), item.id))
         return found
 
-    def employees_with_values(self, tenant_id: int, group_id: int, day: date, reference_ids: set[int]) -> set[int]:
+    def employees_with_values(self, tenant_id: int, category_id: int, day: date, reference_ids: set[int]) -> set[int]:
         rows = [
             row
             for row in self._of(EmployeeVigency, tenant_id)
-            if row.kind == "group"
-            and row.group_id == group_id
+            if row.kind == "category"
+            and row.category_id == category_id
             and row.valid_from <= day
             and (row.valid_to is None or row.valid_to >= day)
         ]
@@ -316,7 +315,7 @@ class Memory:
             chosen[row.employee_id] = row
         return {employee_id for employee_id, row in chosen.items() if row.reference_id in reference_ids}
 
-    def applicable_groups(self, employee_ids: list[int], day: date):
+    def applicable_categories(self, employee_ids: list[int], day: date):
         if not employee_ids:
             return {}
         rows = [
@@ -324,15 +323,15 @@ class Memory:
             for row in self.rows
             if isinstance(row, EmployeeVigency)
             and row.employee_id in employee_ids
-            and row.kind == "group"
-            and row.group_id is not None
+            and row.kind == "category"
+            and row.category_id is not None
             and row.valid_from <= day
             and (row.valid_to is None or row.valid_to >= day)
         ]
         rows.sort(key=lambda item: (item.valid_from, item.id))
         found: dict[int, dict[int, EmployeeVigency]] = {}
         for row in rows:
-            found.setdefault(row.employee_id, {})[row.group_id] = row
+            found.setdefault(row.employee_id, {})[row.category_id] = row
         return found
 
     def applicable(self, employee_id: int, kind: str, day: date):
@@ -348,7 +347,7 @@ class Memory:
         rows.sort(key=lambda item: (item.valid_from, item.id))
         return rows[-1] if rows else None
 
-    def applicable_ids(self, tenant_id: int, kind: str, day: date, *, reference_id: int | None = None, label: str | None = None):
+    def applicable_ids(self, tenant_id: int, kind: str, day: date, *, reference_id: int | None = None, reference_ids: set[int] | None = None, label: str | None = None):
         rows = [
             row
             for row in self.rows
@@ -363,7 +362,9 @@ class Memory:
             found = []
             seen: set[int] = set()
             for row in rows:
-                if reference_id is not None and row.reference_id != reference_id:
+                if reference_ids is not None and row.reference_id not in reference_ids:
+                    continue
+                if reference_ids is None and reference_id is not None and row.reference_id != reference_id:
                     continue
                 if row.employee_id in seen:
                     continue
@@ -375,7 +376,9 @@ class Memory:
             chosen[row.employee_id] = row
         found = []
         for employee_id, row in chosen.items():
-            if reference_id is not None and row.reference_id != reference_id:
+            if reference_ids is not None and row.reference_id not in reference_ids:
+                continue
+            if reference_ids is None and reference_id is not None and row.reference_id != reference_id:
                 continue
             if label is not None and row.label != label:
                 continue
@@ -990,9 +993,8 @@ def test_gestor_aprova_a_propria_equipe_e_o_administrador_qualquer_uma():
     mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
     unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit.id})
     for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
         workforce.create_vigency(
             admin(),
@@ -1154,9 +1156,8 @@ def test_gestor_lanca_os_quatro_na_propria_equipe():
     mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
     unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit.id})
     for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
         workforce.create_vigency(
             admin(),
@@ -1777,9 +1778,8 @@ def test_gestor_lanca_na_equipe_e_periodo_fechado_bloqueia():
     for person in (mate, outsider):
         workforce.update_employee(admin(), person["id"], {"hour_bank": True})
     unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit.id})
     for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
         workforce.create_vigency(
             admin(),
@@ -2480,9 +2480,8 @@ def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
     outsider = workforce.create_employee(admin(), admitted(date(2026, 10, 6), "33333333333", 10))
     workforce.update_employee(admin(), mate["id"], {"hour_bank": True})
     unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit.id})
     for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
         workforce.create_vigency(
             admin(),
@@ -2576,8 +2575,7 @@ def test_administrador_nao_marca_por_outra_pessoa():
 
 def assign_unit(workforce, employee_id: int, unit_name: str, day: date):
     unit = workforce.create_named(Unit, admin(), {"name": unit_name})
-    sector = workforce.create_named(Sector, admin(), {"name": f"Setor {unit_name}", "unit_id": unit.id})
-    team = workforce.create_named(Team, admin(), {"name": f"Equipe {unit_name}", "sector_id": sector.id})
+    team = workforce.create_named(Team, admin(), {"name": f"Equipe {unit_name}", "unit_id": unit.id})
     workforce.create_vigency(
         admin(),
         {
@@ -2592,7 +2590,7 @@ def assign_unit(workforce, employee_id: int, unit_name: str, day: date):
     return unit
 
 
-def test_equipe_grava_setor_e_empresa_e_a_troca_realinha():
+def test_equipe_grava_empresa_e_a_troca_realinha():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     old_unit = workforce.create_named(Unit, admin(), {"name": "Antiga"})
@@ -2622,26 +2620,11 @@ def test_equipe_grava_setor_e_empresa_e_a_troca_realinha():
                 "note": None,
             },
         )
-    assert direct_unit.value.message == "Informe a equipe. Empresa e setor acompanham a equipe."
-    with pytest.raises(AppError) as direct_sector:
-        workforce.create_vigency(
-            admin(),
-            {
-                "employee_id": person["id"],
-                "kind": "sector",
-                "reference_id": old_unit.id,
-                "label": None,
-                "valid_from": date(2026, 10, 1),
-                "note": None,
-            },
-        )
-    assert direct_sector.value.message == "Informe a equipe. Empresa e setor acompanham a equipe."
+    assert direct_unit.value.message == "Informe a equipe. A empresa acompanha a equipe."
     unit_c = workforce.create_named(Unit, admin(), {"name": "C"})
-    sector_b = workforce.create_named(Sector, admin(), {"name": "B", "unit_id": unit_c.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector_b.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit_c.id})
     unit_z = workforce.create_named(Unit, admin(), {"name": "Z"})
-    sector_y = workforce.create_named(Sector, admin(), {"name": "Y", "unit_id": unit_z.id})
-    team_x = workforce.create_named(Team, admin(), {"name": "X", "sector_id": sector_y.id})
+    team_x = workforce.create_named(Team, admin(), {"name": "X", "unit_id": unit_z.id})
     workforce.create_vigency(
         admin(),
         {
@@ -2655,7 +2638,6 @@ def test_equipe_grava_setor_e_empresa_e_a_troca_realinha():
     )
     first = workforce.get_employee(admin(), person["id"])
     assert first["team_label"] == "A"
-    assert first["sector_label"] == "B"
     assert first["unit_label"] == "C"
     workforce.create_vigency(
         admin(),
@@ -2670,15 +2652,11 @@ def test_equipe_grava_setor_e_empresa_e_a_troca_realinha():
     )
     current = workforce.get_employee(admin(), person["id"])
     assert current["team_label"] == "X"
-    assert current["sector_label"] == "Y"
     assert current["unit_label"] == "Z"
     assert repo.applicable(person["id"], "team", date(2026, 10, 6)).label == "A"
-    assert repo.applicable(person["id"], "sector", date(2026, 10, 6)).label == "B"
     assert repo.applicable(person["id"], "unit", date(2026, 10, 6)).label == "C"
-    moved = workforce.create_named(Sector, admin(), {"name": "Outro", "unit_id": unit_c.id})
-    workforce.update_named(Team, admin(), team_x.id, {"sector_id": moved.id})
+    workforce.update_named(Team, admin(), team_x.id, {"unit_id": unit_c.id})
     stayed = workforce.get_employee(admin(), person["id"])
-    assert stayed["sector_label"] == "Y"
     assert stayed["unit_label"] == "Z"
     workforce.create_vigency(
         admin(),
@@ -2691,8 +2669,7 @@ def test_equipe_grava_setor_e_empresa_e_a_troca_realinha():
             "note": None,
         },
     )
-    assert workforce.get_employee(admin(), person["id"])["sector_label"] == "Y"
-    assert repo.applicable(person["id"], "sector", date(2026, 10, 8)).label == "Outro"
+    assert workforce.get_employee(admin(), person["id"])["unit_label"] == "Z"
     assert repo.applicable(person["id"], "unit", date(2026, 10, 8)).label == "C"
 
 
@@ -3223,8 +3200,7 @@ def test_operacao_em_massa_altera_o_lote_ou_nenhum():
     still_active, _still = wide.list_employees(admin(), 1, 20, {"situation": "active"})
     assert bia["id"] not in {row.id for row in still_active}
     unit = wide.create_named(Unit, admin(), {"name": "Z"})
-    sector = wide.create_named(Sector, admin(), {"name": "Y", "unit_id": unit.id})
-    team = wide.create_named(Team, admin(), {"name": "X", "sector_id": sector.id})
+    team = wide.create_named(Team, admin(), {"name": "X", "unit_id": unit.id})
     changed = wide.change_employees(
         admin(),
         {
@@ -3240,7 +3216,6 @@ def test_operacao_em_massa_altera_o_lote_ou_nenhum():
     assert changed == {"changed": 2}
     placed = wide.get_employee(admin(), ana["id"])
     assert placed["team_label"] == "X"
-    assert placed["sector_label"] == "Y"
     assert placed["unit_label"] == "Z"
     wide.change_employees(
         admin(),
@@ -3651,9 +3626,8 @@ def test_gestor_corrige_o_dia_e_lanca_falta_na_equipe():
     mate = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     outsider = workforce.create_employee(admin(), employee_payload("33333333333", 10))
     unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit.id})
     for person, team in ((leader, team_a), (mate, team_a), (outsider, team_b)):
         workforce.create_vigency(
             admin(),
@@ -3748,9 +3722,9 @@ def test_relatorio_de_marcacoes_lista_as_que_valem_e_as_que_deixaram():
     assert {row["title"] for row in listed["items"]} == {"08:00", "09:00", "12:00", "18:00"}
 
 
-def _value(workforce, group_id: int, name: str):
+def _value(workforce, category_id: int, name: str):
     return workforce.create_named(
-        GroupValue, admin(), {"name": name, "group_id": group_id}
+        CategoryValue, admin(), {"name": name, "category_id": category_id}
     )
 
 
@@ -3759,7 +3733,7 @@ def _classify(workforce, employee_id: int, value_id: int, day: date):
         admin(),
         {
             "employee_id": employee_id,
-            "kind": "group",
+            "kind": "category",
             "reference_id": value_id,
             "valid_from": day,
             "note": None,
@@ -3770,10 +3744,10 @@ def _classify(workforce, employee_id: int, value_id: int, day: date):
 def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     green = _value(workforce, eyes.id, "Verde")
-    age = workforce.create_named(Group, admin(), {"name": "Margem de idade"})
+    age = workforce.create_named(Category, admin(), {"name": "Margem de idade"})
     adult = _value(workforce, age.id, "18-59")
     with pytest.raises(AppError) as repeated:
         _value(workforce, eyes.id, "Castanho")
@@ -3782,42 +3756,42 @@ def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
     _classify(workforce, person["id"], adult.id, date(2026, 10, 1))
     _classify(workforce, person["id"], green.id, date(2026, 10, 6))
     current = workforce.get_employee(admin(), person["id"])
-    assert {(item["name"], item["value_name"]) for item in current["groups"]} == {
+    assert {(item["name"], item["value_name"]) for item in current["categories"]} == {
         ("Cor dos olhos", "Verde"),
         ("Margem de idade", "18-59"),
     }
     with pytest.raises(AppError) as blocked_value:
-        workforce.delete_named(GroupValue, admin(), brown.id)
+        workforce.delete_named(CategoryValue, admin(), brown.id)
     assert blocked_value.value.status_code == 409
     with pytest.raises(AppError) as blocked_kind:
-        workforce.delete_named(Group, admin(), eyes.id)
+        workforce.delete_named(Category, admin(), eyes.id)
     assert blocked_kind.value.status_code == 409
-    assert repo.get_row(Group, 1, eyes.id) is not None
+    assert repo.get_row(Category, 1, eyes.id) is not None
     center = workforce.create_named(CostCenter, admin(), {"name": "Obra A"})
     assert repo.get_row(CostCenter, 1, center.id) is None
-    assert repo.get_row(GroupValue, 1, center.id).name == "Obra A"
+    assert repo.get_row(CategoryValue, 1, center.id).name == "Obra A"
 
 
 def test_filtro_de_classificacao_soma_e_alterna():
     workforce, _repo = service()
     first = workforce.create_employee(admin(), employee_payload("11111111111", 8))
     second = workforce.create_employee(admin(), employee_payload("22222222222", 9))
-    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     green = _value(workforce, eyes.id, "Verde")
-    age = workforce.create_named(Group, admin(), {"name": "Margem de idade"})
+    age = workforce.create_named(Category, admin(), {"name": "Margem de idade"})
     adult = _value(workforce, age.id, "18-59")
     _classify(workforce, first["id"], brown.id, date(2026, 10, 1))
     _classify(workforce, first["id"], adult.id, date(2026, 10, 1))
     _classify(workforce, second["id"], green.id, date(2026, 10, 1))
     _classify(workforce, second["id"], adult.id, date(2026, 10, 1))
     both, both_total = workforce.list_employees(
-        admin(), 1, 20, {"group_value_id": f"{brown.id},{adult.id}"}
+        admin(), 1, 20, {"category_value_id": f"{brown.id},{adult.id}"}
     )
     assert both_total == 1
     assert both[0].id == first["id"]
     either, either_total = workforce.list_employees(
-        admin(), 1, 20, {"group_value_id": f"{brown.id},{green.id}"}
+        admin(), 1, 20, {"category_value_id": f"{brown.id},{green.id}"}
     )
     assert either_total == 2
     assert {row.id for row in either} == {first["id"], second["id"]}
@@ -3826,10 +3800,10 @@ def test_filtro_de_classificacao_soma_e_alterna():
 def test_lote_de_classificacao_nao_mexe_na_outra():
     workforce, repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     blue = _value(workforce, eyes.id, "Azul")
-    age = workforce.create_named(Group, admin(), {"name": "Margem de idade"})
+    age = workforce.create_named(Category, admin(), {"name": "Margem de idade"})
     adult = _value(workforce, age.id, "18-59")
     _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
     _classify(workforce, person["id"], adult.id, date(2026, 10, 1))
@@ -3839,7 +3813,7 @@ def test_lote_de_classificacao_nao_mexe_na_outra():
             admin(),
             {
                 "employee_ids": [person["id"], 999],
-                "kind": "group",
+                "kind": "category",
                 "reference_id": blue.id,
                 "valid_from": date(2026, 10, 6),
                 "note": None,
@@ -3850,29 +3824,27 @@ def test_lote_de_classificacao_nao_mexe_na_outra():
         admin(),
         {
             "employee_ids": [person["id"]],
-            "kind": "group",
+            "kind": "category",
             "reference_id": blue.id,
             "valid_from": date(2026, 10, 6),
             "note": None,
         },
     )
     current = workforce.get_employee(admin(), person["id"])
-    assert {(item["name"], item["value_name"]) for item in current["groups"]} == {
+    assert {(item["name"], item["value_name"]) for item in current["categories"]} == {
         ("Cor dos olhos", "Azul"),
         ("Margem de idade", "18-59"),
     }
 
 
-def test_relatorio_filtra_empresa_setor_e_equipe_pela_vigencia_do_dia():
+def test_relatorio_filtra_empresa_e_equipe_pela_vigencia_do_dia():
     workforce, repo = service()
     _access(repo, 9, "member")
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "22222222222", 9))
     unit_a = workforce.create_named(Unit, admin(), {"name": "Matriz"})
     unit_b = workforce.create_named(Unit, admin(), {"name": "Filial"})
-    sector_a = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit_a.id})
-    sector_b = workforce.create_named(Sector, admin(), {"name": "Apoio", "unit_id": unit_b.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector_a.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector_b.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit_a.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit_b.id})
     for team, day in ((team_a, date(2026, 10, 1)), (team_b, date(2026, 10, 7))):
         workforce.create_vigency(
             admin(),
@@ -3905,9 +3877,9 @@ def test_relatorio_filtra_empresa_setor_e_equipe_pela_vigencia_do_dia():
         {"unit_id": str(unit_a.id), "team_id": str(team_b.id)},
     )
     assert crossed["items"] == []
-    early = workforce.report(admin(), "people", date(2026, 10, 6), date(2026, 10, 6), None, 1, 10, {"sector_id": str(sector_a.id)})
+    early = workforce.report(admin(), "people", date(2026, 10, 6), date(2026, 10, 6), None, 1, 10, {"unit_id": str(unit_a.id)})
     assert [item["full_name"] for item in early["items"]] == [person["full_name"]]
-    later = workforce.report(admin(), "people", date(2026, 10, 7), date(2026, 10, 7), None, 1, 10, {"sector_id": str(sector_a.id)})
+    later = workforce.report(admin(), "people", date(2026, 10, 7), date(2026, 10, 7), None, 1, 10, {"unit_id": str(unit_a.id)})
     assert later["items"] == []
     with pytest.raises(AppError) as invalid:
         workforce.report(admin(), "marking", start, end, None, 1, 10, {"team_id": "a"})
@@ -3966,7 +3938,7 @@ def test_relatorio_filtra_funcao_e_situacao_pela_vigencia_do_dia():
 def test_relatorio_de_pessoas_usa_o_valor_do_dia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Group, admin(), {"name": "Cor dos olhos"})
+    eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
     green = _value(workforce, eyes.id, "Verde")
     _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
@@ -3984,7 +3956,7 @@ def test_relatorio_de_pessoas_usa_o_valor_do_dia():
         None,
         1,
         10,
-        {"group_value_id": str(green.id), "group_id": str(eyes.id)},
+        {"category_value_id": str(green.id), "category_id": str(eyes.id)},
     )
     assert [row["full_name"] for row in later["items"]] == [person["full_name"]]
     assert later["items"][0]["detail"] == "Cor dos olhos: Verde"
@@ -4014,9 +3986,8 @@ def test_funcionario_pode_ter_varios_gestores():
     ):
         repo.get_row(Employee, 1, person["id"]).full_name = name
     unit = workforce.create_named(Unit, admin(), {"name": "Matriz"})
-    sector = workforce.create_named(Sector, admin(), {"name": "Operação", "unit_id": unit.id})
-    team_a = workforce.create_named(Team, admin(), {"name": "A", "sector_id": sector.id})
-    team_b = workforce.create_named(Team, admin(), {"name": "B", "sector_id": sector.id})
+    team_a = workforce.create_named(Team, admin(), {"name": "A", "unit_id": unit.id})
+    team_b = workforce.create_named(Team, admin(), {"name": "B", "unit_id": unit.id})
     for person, team in ((leader, team_a), (mate, team_a), (staff, team_b), (other, team_b)):
         workforce.create_vigency(
             admin(),

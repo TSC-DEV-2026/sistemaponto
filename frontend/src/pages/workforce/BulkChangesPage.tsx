@@ -30,6 +30,7 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
 import { ListPager, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { OrganizationFilterFields, useOrganizationFilters } from "@/components/workforce/organization-filters"
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
@@ -40,10 +41,10 @@ import { clockMethodLabel, showDate } from "@/utils/labels"
 const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
 
 const catalog = [
-  { id: "group", kind: "group", title: "Alterar grupo", description: "Define o valor de um grupo para os funcionários.", valueName: "Novo valor", icon: conceptIcon.group, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "category", kind: "category", title: "Alterar categoria", description: "Define o valor de uma categoria para os funcionários.", valueName: "Novo valor", icon: conceptIcon.category, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "job", kind: "job", title: "Alterar função", description: "Define uma nova função.", valueName: "Nova função", icon: conceptIcon.job, path: "/jobs", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "journey", kind: "journey", title: "Alterar jornada", description: "Define uma nova jornada de trabalho.", valueName: "Nova jornada", icon: conceptIcon.journey, path: "/journeys", needsValue: true, needsDate: true, fixedLabel: "" },
-  { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. Setor e empresa acompanham a equipe.", valueName: "Nova equipe", icon: conceptIcon.team, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
+  { id: "team", kind: "team", title: "Transferir de equipe", description: "Altera o vínculo de equipe. A empresa acompanha a equipe.", valueName: "Nova equipe", icon: conceptIcon.team, path: "/teams", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "union", kind: "union", title: "Alterar sindicato", description: "Define um novo sindicato.", valueName: "Novo sindicato", icon: conceptIcon.union, path: "/unions", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "manager", kind: "manager", title: "Incluir gestor", description: "Inclui este gestor. Os demais permanecem.", valueName: "Gestor", icon: conceptIcon.manager, path: "/employees", needsValue: true, needsDate: true, fixedLabel: "" },
   { id: "dismissed", kind: "status", title: "Desligamento", description: "Encerra o vínculo na data informada, gravando a situação Desligado.", valueName: "", icon: UserMinus, path: "", needsValue: false, needsDate: true, fixedLabel: "dismissed" },
@@ -56,21 +57,6 @@ const steps = [
   { id: "people", label: "Funcionários" },
   { id: "config", label: "Configuração" },
 ] as const
-
-const filterFields = [
-  ["unit_id", "Empresa", "/units", conceptIcon.unit],
-  ["sector_id", "Setor", "/sectors", conceptIcon.sector],
-  ["team_id", "Equipe", "/teams", conceptIcon.team],
-  ["job_id", "Função", "/jobs", conceptIcon.job],
-  ["journey_id", "Jornada", "/journeys", conceptIcon.journey],
-  ["union_id", "Sindicato", "/unions", conceptIcon.union],
-] as const
-
-const situationOptions = [
-  { value: "", label: "Todos" },
-  { value: "active", label: "Ativo" },
-  { value: "dismissed", label: "Desligado" },
-]
 
 const clockOptions = Object.entries(clockMethodLabel).map(([value, label]) => ({ value, label }))
 const howItWorks = [
@@ -205,7 +191,7 @@ export function BulkChangesPage() {
   const [cycleDay, setCycleDay] = useState("")
   const [cycleTouched, setCycleTouched] = useState(false)
   const [note, setNote] = useState("")
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  const places = useOrganizationFilters(isAdmin)
   const [classificationId, setGroupId] = useState("")
   const [classificationValues, setGroupValues] = useState<Choice[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -222,10 +208,7 @@ export function BulkChangesPage() {
   const [expanded, setExpanded] = useState<string[]>([])
   const [result, setResult] = useState<RunResult | null>(null)
   const operation = operationId ? operationOf(operationId) : null
-  const query: ListParams = { ...personQuery(person) }
-  for (const [key, current] of Object.entries(filters)) {
-    if (current) query[key] = current
-  }
+  const query: ListParams = { ...personQuery(person), ...places.params }
   const list = usePagedList<Employee>("/employees", query, isAdmin, saved)
   const queryKey = JSON.stringify(query)
   const queryKeyRef = useRef(queryKey)
@@ -245,11 +228,11 @@ export function BulkChangesPage() {
   useEffect(() => {
     if (!isAdmin) return
     let active = true
-    const paths = [...new Set([...filterFields.map((item) => item[2]), ...catalog.map((item) => item.path).filter(Boolean)])]
+    const paths = [...new Set(catalog.map((item) => item.path).filter(Boolean))]
     Promise.all(paths.map(async (path) => [path, path === "/employees" ? await loadManagerChoices() : await loadChoices(path)] as const))
       .then(async (loaded) => {
-        const groups = await loadChoices("/groups").catch(() => [])
-        if (active) setChoices({ ...Object.fromEntries(loaded), "/groups": groups })
+        const groups = await loadChoices("/categories").catch(() => [])
+        if (active) setChoices({ ...Object.fromEntries(loaded), "/categories": groups })
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
@@ -265,7 +248,7 @@ export function BulkChangesPage() {
       return
     }
     let active = true
-    loadAll<NamedRecord>("/group-values", { group_id: Number(classificationId) })
+    loadAll<NamedRecord>("/category-values", { category_id: Number(classificationId) })
       .then((items) => {
         if (active) setGroupValues(items.map((item) => ({ value: String(item.id), label: item.name || "Não informado" })))
       })
@@ -315,7 +298,7 @@ export function BulkChangesPage() {
     setCycleDay(next.cycleDay)
     setCycleTouched(Boolean(next.cycleDay))
     setNote(next.note)
-    setFilters({})
+    places.reset()
     setFiltersOpen(false)
     setAllFilterSelected(false)
     setPersonDraft("")
@@ -391,7 +374,7 @@ export function BulkChangesPage() {
   function valueOptions() {
     if (!operation) return []
     if (operation.id === "clock_method") return clockOptions
-    if (operation.id === "group") return classificationValues
+    if (operation.id === "category") return classificationValues
     return choices[operation.path] || []
   }
 
@@ -589,7 +572,7 @@ export function BulkChangesPage() {
                   <Input id="bulk-person" value={personDraft} placeholder="Pesquisar por nome, CPF ou matrícula" className={cn(moduleFieldClass, "pl-10 pr-12")} onChange={(event) => setPersonDraft(event.target.value)} />
                   <button
                     type="button"
-                    className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || Object.values(filters).some(Boolean) ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+                    className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
                     aria-expanded={filtersOpen}
                     aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
                     onClick={() => setFiltersOpen((current) => !current)}
@@ -601,29 +584,8 @@ export function BulkChangesPage() {
               {filtersOpen ? (
               <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                 <h4 className="text-sm font-semibold text-[#0A0A0A]">Filtros</h4>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {filterFields.map(([key, label, path, icon]) => (
-                    <div key={key} className="space-y-2">
-                      <Label className={moduleLabelClass} htmlFor={`bulk-${key}`}>{label}</Label>
-                      <SiteSelect
-                        id={`bulk-${key}`}
-                        value={filters[key] || ""}
-                        placeholder="Todos"
-                        searchable
-                        searchPath={path}
-                        searchKey="name"
-                        searchPlaceholder={`Pesquisar ${label.toLocaleLowerCase("pt-BR")}`}
-                        className="h-12"
-                        icon={icon}
-                        options={[{ value: "", label: "Todos" }, ...(choices[path] || [])]}
-                        onChange={(next) => setFilters((current) => ({ ...current, [key]: next }))}
-                      />
-                    </div>
-                  ))}
-                  <div className="space-y-2">
-                    <Label className={moduleLabelClass} htmlFor="bulk-situation">Situação</Label>
-                    <SiteSelect id="bulk-situation" value={filters.situation || ""} className="h-12" icon={conceptIcon.situation} options={situationOptions} onChange={(next) => setFilters((current) => ({ ...current, situation: next }))} />
-                  </div>
+                <div className="mt-4">
+                  <OrganizationFilterFields idPrefix="bulk" filters={places} />
                 </div>
               </div>
               ) : null}
@@ -714,16 +676,16 @@ export function BulkChangesPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {operation.id === "group" ? (
+                {operation.id === "category" ? (
                   <div className="space-y-2">
-                    <Label className={moduleLabelClass} htmlFor="bulk-classification">Grupo</Label>
+                    <Label className={moduleLabelClass} htmlFor="bulk-classification">Categoria</Label>
                     <SiteSelect
                       id="bulk-classification"
                       value={classificationId}
                       placeholder="Selecione"
                       searchable
                       className="h-12"
-                      options={[{ value: "", label: "Selecione" }, ...(choices["/groups"] || [])]}
+                      options={[{ value: "", label: "Selecione" }, ...(choices["/categories"] || [])]}
                       onChange={(next) => {
                         setGroupId(next)
                         setValue("")
@@ -739,7 +701,7 @@ export function BulkChangesPage() {
                       value={value}
                       placeholder="Selecione"
                       searchable={operation.id !== "clock_method"}
-                      searchPath={operation.id === "clock_method" || operation.id === "group" || operation.path === "/employees" ? undefined : operation.path}
+                      searchPath={operation.id === "clock_method" || operation.id === "category" || operation.path === "/employees" ? undefined : operation.path}
                       searchPlaceholder="Pesquisar"
                       className="h-12"
                       options={valueOptions()}

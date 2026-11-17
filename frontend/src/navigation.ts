@@ -101,12 +101,11 @@ export const navGroups: NavGroup[] = [
         to: "/staff?tab=employees",
         label: "Quadro",
         icon: conceptIcon.quadro,
-        lead: "Funcionários, funções, jornadas e grupos. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
+        lead: "Funcionários, funções e jornadas. O cadastro do funcionário reúne dados, trabalho, ponto, ocorrências e histórico.",
         sections: [
           { title: "Funcionários", text: "Nenhum funcionário." },
           { title: "Funções", text: "Nenhuma função." },
           { title: "Jornadas", text: "Nenhuma jornada cadastrada." },
-          { title: "Grupos", text: "Nenhum grupo." },
         ],
       },
       {
@@ -127,7 +126,7 @@ export const navGroups: NavGroup[] = [
         adminOnly: true,
         lead: "Altera o vínculo ou o tipo de registro de várias pessoas de uma vez.",
         sections: [
-          { title: "Vínculos", text: "Função, jornada, grupo, equipe, situação, gestor e sindicato." },
+          { title: "Vínculos", text: "Função, jornada, categoria, equipe, situação, gestor e sindicato." },
           { title: "Tipo de registro", text: "Simples, QR Code ou reconhecimento facial." },
         ],
       },
@@ -155,11 +154,11 @@ export const navGroups: NavGroup[] = [
         to: "/structure?tab=units",
         label: "Estrutura Organizacional",
         icon: conceptIcon.structure,
-        lead: "Empresas, setores e equipes. Mudança relevante preserva vigência.",
+        lead: "Empresas, equipes e categorias. Mudança relevante preserva vigência.",
         sections: [
           { title: "Empresas", text: "Nenhuma empresa." },
-          { title: "Setores", text: "Nenhum setor." },
           { title: "Equipes", text: "Nenhuma equipe." },
+          { title: "Categorias", text: "Nenhuma categoria." },
         ],
       },
       {
