@@ -39,6 +39,7 @@ OCCURRENCE_KIND_ALIASES = {
 REASON_KINDS = ("adjustment", "absence", "allowance", "certificate")
 NORM_KINDS = ("convention", "agreement")
 PUNCH_SOURCES = ("employee", "admin", "approved_request", "manual", "afd")
+ADJUSTMENT_SOURCES = frozenset({"manual", "approved_request"})
 
 REASON_FOR_REQUEST = {
     "adjustment": "adjustment",

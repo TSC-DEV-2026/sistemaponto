@@ -23,15 +23,14 @@ import { apiErrorMessage } from "@/utils/api-error"
 import { closingSheetsPdf, type ClosingSheet } from "@/utils/report-pdf"
 
 const columns: { key: keyof ClosingPerson; label: string; signed?: boolean; days?: boolean }[] = [
-  { key: "expected_minutes", label: "Previstas" },
-  { key: "worked_minutes", label: "Trabalhadas" },
-  { key: "overtime_minutes", label: "Extras" },
-  { key: "night_additional_minutes", label: "Noturno" },
-  { key: "shortage_minutes", label: "Faltantes" },
-  { key: "delay_minutes", label: "Atrasos" },
-  { key: "early_leave_minutes", label: "Saídas antecipadas" },
+  { key: "contracted_minutes", label: "H. contratadas" },
+  { key: "worked_minutes", label: "H. trabalhadas" },
+  { key: "overtime_minutes", label: "H. extras" },
+  { key: "shortage_minutes", label: "H. faltantes" },
+  { key: "delay_minutes", label: "H. em atraso" },
   { key: "absence_days", label: "Faltas", days: true },
-  { key: "bank_minutes", label: "Banco no período", signed: true },
+  { key: "night_minutes", label: "H. noturnas" },
+  { key: "night_additional_minutes", label: "Adicional (H. noturnas)" },
   { key: "balance_minutes", label: "Saldo do banco", signed: true },
 ]
 
@@ -325,9 +324,9 @@ function sheetsOf(closing: Closing): ClosingSheet[] {
   return (closing.people || []).map((person) => {
     const bank = (closing.banks || []).find((item) => item.employee_id === person.employee_id)
     const notes = [
-      `Previstas ${showMinutes(person.expected_minutes)}. Trabalhadas ${showMinutes(person.worked_minutes)}. Extras ${showMinutes(person.overtime_minutes)}.`,
-      `Faltantes ${showMinutes(person.shortage_minutes)}. Faltas ${person.absence_days}. Atrasos ${showMinutes(person.delay_minutes)}. Saídas antecipadas ${showMinutes(person.early_leave_minutes)}.`,
-      `Adicional noturno ${showMinutes(person.night_additional_minutes)}.`,
+      `H. contratadas ${showMinutes(person.contracted_minutes)}. H. trabalhadas ${showMinutes(person.worked_minutes)}. H. extras ${showMinutes(person.overtime_minutes)}.`,
+      `H. faltantes ${showMinutes(person.shortage_minutes)}. Faltas ${person.absence_days}. H. em atraso ${showMinutes(person.delay_minutes)}.`,
+      `H. noturnas ${showMinutes(person.night_minutes)}. Adicional (H. noturnas) ${showMinutes(person.night_additional_minutes)}.`,
     ]
     if (person.hour_bank) {
       notes.push(`Banco no período ${showSignedMinutes(person.bank_minutes)}. Saldo do banco ${showSignedMinutes(person.balance_minutes ?? 0)}.`)
@@ -347,15 +346,18 @@ function sheetsOf(closing: Closing): ClosingSheet[] {
       days: (person.days || []).map((day) => ({
         date: dayLabel(day.work_date),
         punches: day.punches,
-        off: day.expected_minutes === 0 && !day.absence && day.punches.length === 0,
+        off: day.contracted_minutes === 0 && !day.absence && day.punches.length === 0,
+        absence: day.absence,
         worked: clockCell(day.worked_minutes),
         overtime: clockCell(day.overtime_minutes),
-        shortage: day.absence ? "Falta" : clockCell(day.shortage_minutes),
+        night: clockCell(day.night_minutes),
+        shortage: day.absence ? showMinutes(day.contracted_minutes) : clockCell(day.shortage_minutes),
         bank: person.hour_bank ? clockCell(day.bank_minutes) : "",
       })),
       totals: {
         worked: clockTotal(person.worked_minutes),
         overtime: clockTotal(person.overtime_minutes),
+        night: clockTotal(person.night_minutes),
         shortage: clockTotal(person.shortage_minutes),
         bank: person.hour_bank ? clockTotal(person.bank_minutes) : "",
       },

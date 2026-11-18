@@ -17,6 +17,10 @@ export type NamedRecord = {
   weekly_minutes?: number | null
   flexible?: boolean
   tolerance_minutes?: number
+  minimum_interval?: string
+  night_start?: string | null
+  night_end?: string | null
+  night_additional_percent?: number
   note?: string | null
   valid_from?: string | null
   valid_to?: string | null
@@ -80,6 +84,7 @@ export type Punch = {
   occurred_at: string
   source: string
   request_id: number | null
+  reason_id: number | null
   note: string | null
   valid: boolean
   voided_at: string | null
@@ -186,12 +191,12 @@ export type ClosingBank = {
 export type ClosingDay = {
   work_date: string
   punches: string[]
-  expected_minutes: number
+  contracted_minutes: number
   worked_minutes: number
   overtime_minutes: number
   shortage_minutes: number
   delay_minutes: number
-  early_leave_minutes: number
+  night_minutes: number
   night_additional_minutes: number
   bank_minutes: number
   absence: boolean
@@ -204,13 +209,13 @@ export type ClosingPerson = {
   registration_number: string | null
   unit_name: string | null
   hour_bank: boolean
-  expected_minutes: number
+  contracted_minutes: number
   worked_minutes: number
   overtime_minutes: number
+  night_minutes: number
   night_additional_minutes: number
   shortage_minutes: number
   delay_minutes: number
-  early_leave_minutes: number
   absence_days: number
   bank_minutes: number
   balance_minutes: number | null
@@ -349,10 +354,9 @@ export type FiscalImport = {
 
 export type TimeResult = {
   work_date: string
-  expected_minutes: number
+  contracted_minutes: number
   worked_minutes: number
   delay_minutes: number
-  early_leave_minutes: number
   overtime_minutes: number
   shortage_minutes: number
   bank_minutes: number

@@ -7,7 +7,7 @@ MINIMUM_BREAK_MINUTES = 60
 NIGHT_START = time(22, 0)
 NIGHT_END = time(5, 0)
 NIGHT_PERCENT = 20
-INTERVAL_WARNING = "intervalo menor do que o previsto"
+INTERVAL_WARNING = "intervalo menor do que o mínimo"
 
 
 def _minutes(start: datetime, end: datetime) -> int:
@@ -23,14 +23,17 @@ def _clock(day: date, value: str | None) -> datetime | None:
     return datetime(day.year, day.month, day.day, hour, minute, tzinfo=BR)
 
 
-def night_minutes(start: datetime, end: datetime) -> int:
+def night_minutes(start: datetime, end: datetime, night_start: time = NIGHT_START, night_end: time = NIGHT_END) -> int:
     start = start.astimezone(BR)
     end = end.astimezone(BR)
     total = 0
     current = start.date() - timedelta(days=1)
     while current <= end.date():
-        window_start = datetime.combine(current, NIGHT_START, tzinfo=BR)
-        window_end = datetime.combine(current + timedelta(days=1), NIGHT_END, tzinfo=BR)
+        window_start = datetime.combine(current, night_start, tzinfo=BR)
+        if (night_end.hour, night_end.minute) <= (night_start.hour, night_start.minute):
+            window_end = datetime.combine(current + timedelta(days=1), night_end, tzinfo=BR)
+        else:
+            window_end = datetime.combine(current, night_end, tzinfo=BR)
         begin = start if start > window_start else window_start
         finish = end if end < window_end else window_end
         total += _minutes(begin, finish)
@@ -60,14 +63,14 @@ def schedule_for(journey, day: date) -> dict:
     }
 
 
-def _pairs(moments: list[datetime]) -> tuple[int, int, int | None]:
+def _pairs(moments: list[datetime], night_start: time, night_end: time) -> tuple[int, int, int | None]:
     worked = 0
     night = 0
     for index in range(0, len(moments) - 1, 2):
         start = moments[index]
         end = moments[index + 1]
         worked += _minutes(start, end)
-        night += night_minutes(start, end)
+        night += night_minutes(start, end, night_start, night_end)
     if len(moments) >= 3:
         return worked, night, _minutes(moments[1], moments[2])
     if len(moments) == 2:
@@ -89,20 +92,25 @@ def settle_day(
     extra_warnings: list[str],
     uses_bank: bool = False,
     plan: dict | None = None,
+    rule: dict | None = None,
 ) -> dict:
+    chosen = rule or {}
+    tolerance = int(chosen.get("tolerance_minutes", TOLERANCE_MINUTES))
+    minimum_interval = int(chosen.get("minimum_interval_minutes", MINIMUM_BREAK_MINUTES))
+    night_start = chosen.get("night_start", NIGHT_START)
+    night_end = chosen.get("night_end", NIGHT_END)
+    night_percent = int(chosen.get("night_additional_percent", NIGHT_PERCENT))
     if plan is None:
         workday = work_date.weekday() < 5
         schedule = {"start": None, "end": None, "expected": 0, "break_minutes": 0}
         mode = "legacy"
         flexible = False
-        tolerance = TOLERANCE_MINUTES
     else:
         schedule = plan
         workday = bool(plan["workday"])
         mode = plan["mode"]
         flexible = bool(plan["flexible"])
-        tolerance = int(plan["tolerance"])
-    worked, night, actual_break = _pairs(moments)
+    worked, night, actual_break = _pairs(moments, night_start, night_end)
     excused = holiday or vacation or leave or full_allowance or full_certificate
     closed_pair = len(moments) >= 2 and len(moments) % 2 == 0
     incomplete = workday and len(moments) % 2 == 1 and not excused
@@ -111,7 +119,6 @@ def settle_day(
         absence = False
     expected = 0
     delay = 0
-    early = 0
     overtime = 0
     snapped = False
     if mode in {"livre", "carga"}:
@@ -145,8 +152,6 @@ def settle_day(
                 worked += late
             elif late > tolerance:
                 delay = late
-        if schedule["end"] is not None and closed_pair:
-            early = _minutes(moments[-1], schedule["end"])
         overtime = max(0, worked - expected)
     if not snapped:
         settled = worked
@@ -159,7 +164,7 @@ def settle_day(
         and not leave
         and schedule["break_minutes"]
         and actual_break is not None
-        and actual_break < schedule["break_minutes"]
+        and actual_break < minimum_interval
     ):
         warnings.append(INTERVAL_WARNING)
     for text in extra_warnings:
@@ -190,15 +195,14 @@ def settle_day(
     last_exit = moments[-1] if closed_pair else None
     return {
         "work_date": work_date,
-        "expected_minutes": expected,
+        "contracted_minutes": expected,
         "worked_minutes": worked,
         "delay_minutes": delay,
-        "early_leave_minutes": early,
         "overtime_minutes": overtime,
         "shortage_minutes": shortage,
         "bank_minutes": bank,
         "night_minutes": night,
-        "night_additional_minutes": night * NIGHT_PERCENT // 100,
+        "night_additional_minutes": night * night_percent // 100,
         "absence": absence,
         "incomplete": incomplete,
         "holiday": holiday,

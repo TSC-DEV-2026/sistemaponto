@@ -41,6 +41,7 @@ from app.core.reports import (
     REQUEST_TITLES,
 )
 from app.core.workforce import (
+    ADJUSTMENT_SOURCES,
     AUDIT_ACTION,
     BR,
     CERTIFICATE_CONFLICT,
@@ -715,6 +716,7 @@ class WorkforceService:
                 occurred_at=occurred,
                 source=chosen,
                 request_id=request_id,
+                reason_id=data.get("reason_id"),
                 note=self._note(data.get("note")),
                 valid=True,
                 voided_at=None,
@@ -973,6 +975,7 @@ class WorkforceService:
         self._can_launch(scope, employee)
         day, moments = self._normalize_day(data["punches"])
         self._assert_no_pending(scope, employee.id, day, day)
+        reason_id = self._reason(scope, "adjustment", data.get("reason_id"))
         created = self._replace_day(
             scope,
             employee,
@@ -980,10 +983,40 @@ class WorkforceService:
             moments,
             source="manual",
             request_id=None,
+            reason_id=reason_id,
             note=self._note(data.get("note")),
             origin_label="manual",
         )
         return {"employee_id": employee.id, "day": day, "origin": "manual", "punches": created}
+
+    def restore_punches(self, scope: Scope, data: dict) -> dict:
+        employee = self._employee(scope, int(data["employee_id"]))
+        self._can_launch(scope, employee)
+        day = data["day"]
+        self._assert_open(scope.tenant_id, day, employee.id)
+        self._assert_no_pending(scope, employee.id, day, day)
+        self._assert_working(scope, employee)
+        start, end = day_bounds(day)
+        rows = self.repo.punches_between(scope.tenant_id, employee.id, start, end)
+        current = [row for row in rows if row.valid and row.source in ADJUSTMENT_SOURCES]
+        if not current:
+            raise AppError(409, "Não há ajuste para desfazer")
+        voided_at = self.clock()
+        for row in current:
+            row.valid = False
+            row.voided_at = voided_at
+            self.repo.add(row)
+        restored = []
+        for row in rows:
+            if row.source in ADJUSTMENT_SOURCES or row.valid:
+                continue
+            row.valid = True
+            row.voided_at = None
+            self.repo.add(row)
+            restored.append(row)
+        subject_id = restored[0].id if restored else current[0].id
+        self._audit(scope, employee.id, "punch_restore", subject_id, "ajuste", "original", day)
+        return {"employee_id": employee.id, "day": day, "punches": restored}
 
     def refuse_punch_change(self, scope: Scope, row_id: int) -> None:
         self.get_punch(scope, row_id)
@@ -1879,10 +1912,11 @@ class WorkforceService:
         occurrences = self.repo.occurrences_between(scope.tenant_id, employee.id, span_start, span_end)
         holidays = {row.holiday_date for row in self.repo.holidays_between(scope.tenant_id, span_start, span_end)}
         journeys: dict[int, Journey] = {}
+        rule_on = self._norm_rules(scope, employee.id, span_start - timedelta(days=1), span_end)
         consumed: set[int] = set()
         previous = span_start - timedelta(days=1)
         if len(by_day.get(previous, [])) % 2 == 1:
-            self._take_night_exit(by_day, previous, consumed, self._night_limit(scope, vigencies, journeys, previous))
+            self._take_night_exit(by_day, previous, consumed, self._night_limit(scope, vigencies, journeys, previous, rule_on(previous)["night_end"]))
         items = []
         current = span_start
         while current <= span_end:
@@ -1897,7 +1931,7 @@ class WorkforceService:
             working = [row for row in calendar if row.id not in consumed]
             moments = [row.occurred_at for row in working]
             if len(working) % 2 == 1:
-                exit_at = self._take_night_exit(by_day, current, consumed, self._night_limit_for(plan))
+                exit_at = self._take_night_exit(by_day, current, consumed, self._night_limit_for(plan, rule_on(current)["night_end"]))
                 if exit_at is not None:
                     moments.append(exit_at)
             covering = [row for row in occurrences if row.starts_on <= current <= row.ends_on]
@@ -1919,6 +1953,7 @@ class WorkforceService:
                 extra_warnings=[row.warning for row in covering if row.warning],
                 uses_bank=bool(employee.hour_bank),
                 plan=plan,
+                rule=rule_on(current),
             )
             item["mode"] = None if spec is None else spec.kind
             item["excused"] = holiday or vacation or leave or full_allowance or full_certificate
@@ -1931,10 +1966,9 @@ class WorkforceService:
         visible = [item for item in items if starts_on <= item["work_date"] <= ends_on]
         public = (
             "work_date",
-            "expected_minutes",
+            "contracted_minutes",
             "worked_minutes",
             "delay_minutes",
-            "early_leave_minutes",
             "overtime_minutes",
             "shortage_minutes",
             "bank_minutes",
@@ -2209,25 +2243,67 @@ class WorkforceService:
         scratch.closed_tenant = None
         scratch.pins.clear()
 
-    def _night_limit(self, scope: Scope, vigencies: list, journeys: dict, day: date) -> time | None:
+    def _night_limit(self, scope: Scope, vigencies: list, journeys: dict, day: date, night_end: time) -> time | None:
         vigency = self._vigency_on(vigencies, day)
         journey = None if vigency is None else self._journey_row(scope, journeys, vigency.reference_id)
         spec = None if journey is None else self._spec_on(scope.tenant_id, journey, day)
         plan = None
         if spec is not None and vigency is not None:
             plan = schedule_of(spec, day, vigency.valid_from, vigency.cycle_day or vigency.valid_from.isoweekday())
-        return self._night_limit_for(plan)
+        return self._night_limit_for(plan, night_end)
 
-    def _night_limit_for(self, plan: dict | None) -> time | None:
+    def _night_limit_for(self, plan: dict | None, night_end: time) -> time | None:
         if plan is None:
-            return time(5, 0)
+            return night_end
         if plan["mode"] in {"carga", "livre"}:
             return None
         start = plan["start"]
         end = plan["end"]
         if start is not None and end is not None and end.date() > start.date():
             return None
-        return time(5, 0)
+        return night_end
+
+    def _norm_rules(self, scope: Scope, employee_id: int, starts_on: date, ends_on: date):
+        vigencies = self.repo.vigencies_between(scope.tenant_id, employee_id, "norm", starts_on, ends_on)
+        rows: dict[int, Norm] = {}
+
+        def rule_on(day: date) -> dict:
+            vigency = self._vigency_on(vigencies, day)
+            norm = None
+            if vigency is not None and vigency.reference_id is not None:
+                if vigency.reference_id not in rows:
+                    found = self.repo.get_row(Norm, scope.tenant_id, vigency.reference_id)
+                    if found is not None:
+                        rows[vigency.reference_id] = found
+                norm = rows.get(vigency.reference_id)
+            return self._norm_rule(norm)
+
+        return rule_on
+
+    def _norm_rule(self, norm) -> dict:
+        if norm is None:
+            return {
+                "tolerance_minutes": 10,
+                "minimum_interval_minutes": 60,
+                "night_start": time(22, 0),
+                "night_end": time(5, 0),
+                "night_additional_percent": 20,
+            }
+        return {
+            "tolerance_minutes": int(norm.tolerance_minutes),
+            "minimum_interval_minutes": self._interval_minutes(norm.minimum_interval),
+            "night_start": self._clock_time(norm.night_start),
+            "night_end": self._clock_time(norm.night_end),
+            "night_additional_percent": int(norm.night_additional_percent),
+        }
+
+    def _interval_minutes(self, value: str) -> int:
+        hours, minutes = (int(part) for part in str(value).split(":"))
+        return hours * 60 + minutes
+
+    def _clock_time(self, value: str) -> time:
+        hour, minute = (int(part) for part in str(value).split(":"))
+        return time(hour, minute)
 
     def _take_night_exit(self, by_day: dict, day: date, consumed: set[int], limit: time | None) -> datetime | None:
         following = by_day.get(day + timedelta(days=1), [])
@@ -2269,7 +2345,7 @@ class WorkforceService:
             target = nearest_minute(weekly * len(countable) / 7)
             done = sum(item["worked_minutes"] for item in countable)
             delta = done - target
-            close["expected_minutes"] = target
+            close["contracted_minutes"] = target
             if employee.hour_bank:
                 close["bank_minutes"] = close["bank_minutes"] + delta
                 close["overtime_minutes"] = 0
@@ -2331,7 +2407,6 @@ class WorkforceService:
                 afternoon_end=afternoon_end,
                 kind=spec.kind,
                 flexible=spec.flexible,
-                tolerance_minutes=spec.tolerance_minutes,
                 weekly_minutes=spec.weekly_minutes,
             )
         )
@@ -2370,7 +2445,6 @@ class WorkforceService:
                 journey.afternoon_end = afternoon_end
                 journey.kind = spec.kind
                 journey.flexible = spec.flexible
-                journey.tolerance_minutes = spec.tolerance_minutes
                 journey.weekly_minutes = spec.weekly_minutes
         self.repo.add(journey)
         return self._present_journey(scope, journey)
@@ -2384,7 +2458,6 @@ class WorkforceService:
                 "weekly_minutes",
                 "weekly_time",
                 "flexible",
-                "tolerance_minutes",
                 "morning_start",
                 "morning_end",
                 "afternoon_start",
@@ -2403,12 +2476,11 @@ class WorkforceService:
                 raise AppError(400, "Os dias ficam na programada")
             days = parse_days(data["days"])
             flexible = bool(data.get("flexible", False))
-            tolerance = int(data.get("tolerance_minutes") if data.get("tolerance_minutes") is not None else 10)
-            return JourneySpec("programada", flexible, tolerance, None, days, ORIGIN)
+            return JourneySpec("programada", flexible, None, days, ORIGIN)
         if kind == "livre":
             if data.get("flexible"):
                 raise AppError(400, "A flexível fica na programada")
-            return JourneySpec("livre", False, 10, None, [], ORIGIN)
+            return JourneySpec("livre", False, None, [], ORIGIN)
         if kind == "carga" or weekly is not None:
             if data.get("flexible"):
                 raise AppError(400, "A flexível fica na programada")
@@ -2416,14 +2488,11 @@ class WorkforceService:
                 weekly = current.weekly_minutes
             if not weekly:
                 raise AppError(400, "Informe a carga da semana")
-            return JourneySpec("carga", False, 10, int(weekly), [], ORIGIN)
+            return JourneySpec("carga", False, int(weekly), [], ORIGIN)
         clock_keys = ("morning_start", "morning_end", "afternoon_start", "afternoon_end")
         flexible = bool(data.get("flexible", False if current is None else current.flexible))
-        tolerance = data.get("tolerance_minutes")
-        if tolerance is None:
-            tolerance = 10 if current is None else current.tolerance_minutes
         if current is not None and not any(key in data for key in clock_keys):
-            return JourneySpec(current.kind, flexible if current.kind == "programada" else False, int(tolerance), current.weekly_minutes, current.days, ORIGIN)
+            return JourneySpec(current.kind, flexible if current.kind == "programada" else False, current.weekly_minutes, current.days, ORIGIN)
         stored = clocks_of(current) if current is not None else (None, None, None, None)
         morning = data["morning_start"] if "morning_start" in data else stored[0]
         morning_end = data["morning_end"] if "morning_end" in data else stored[1]
@@ -2434,7 +2503,6 @@ class WorkforceService:
         return JourneySpec(
             "programada",
             flexible,
-            int(tolerance),
             None,
             legacy_days(morning, morning_end, afternoon, afternoon_end),
             ORIGIN,
@@ -2457,7 +2525,6 @@ class WorkforceService:
                 valid_from=spec.valid_from,
                 kind=spec.kind,
                 flexible=spec.flexible,
-                tolerance_minutes=spec.tolerance_minutes,
                 weekly_minutes=spec.weekly_minutes,
             )
         )
@@ -2527,7 +2594,6 @@ class WorkforceService:
             days=day_view(chosen),
             weekly_minutes=chosen.weekly_minutes,
             flexible=chosen.flexible,
-            tolerance_minutes=chosen.tolerance_minutes,
             valid_from=chosen.valid_from,
         )
 
@@ -2620,7 +2686,6 @@ class WorkforceService:
         return JourneySpec(
             kind=chosen.kind,
             flexible=bool(chosen.flexible),
-            tolerance_minutes=int(chosen.tolerance_minutes),
             weekly_minutes=chosen.weekly_minutes,
             days=days,
             valid_from=chosen.valid_from,
@@ -2686,6 +2751,59 @@ class WorkforceService:
             raise AppError(400, "Informe um dia da sequência")
         return chosen
 
+    def _norm_measures(self, data: dict, current) -> dict:
+        payload = {}
+        payload.update(self._norm_minutes(data, current, "tolerance_minutes", 10, 240, "Informe a tolerância", "A tolerância precisa ficar entre 0 e 240 minutos"))
+        payload.update(self._norm_interval(data, current))
+        payload.update(self._norm_clock(data, current, "night_start", "22:00", "Informe o início do período noturno"))
+        payload.update(self._norm_clock(data, current, "night_end", "05:00", "Informe o fim do período noturno"))
+        payload.update(self._norm_minutes(data, current, "night_additional_percent", 20, 100, "Informe o adicional das horas noturnas", "O adicional precisa ficar entre 0 e 100"))
+        return payload
+
+    def _norm_minutes(self, data: dict, current, key: str, default: int, high: int, missing: str, bounds: str) -> dict:
+        if current is not None and key not in data:
+            return {}
+        raw = data.get(key)
+        if raw is None or str(raw).strip() == "":
+            if current is None:
+                return {key: default}
+            raise AppError(400, missing)
+        text = str(raw).strip()
+        if not text.lstrip("-").isdigit():
+            raise AppError(400, bounds)
+        value = int(text)
+        if value < 0 or value > high:
+            raise AppError(400, bounds)
+        return {key: value}
+
+    def _norm_interval(self, data: dict, current) -> dict:
+        key = "minimum_interval"
+        if current is not None and key not in data:
+            return {}
+        raw = data.get(key)
+        if raw is None or not str(raw).strip():
+            if current is None:
+                return {key: "01:00"}
+            raise AppError(400, "Informe o intervalo mínimo")
+        parts = str(raw).strip().split(":")
+        if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit() or len(parts[1]) != 2:
+            raise AppError(400, "Informe o intervalo mínimo no formato 01:30")
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        if minutes > 59 or hours > 12 or (hours == 12 and minutes > 0):
+            raise AppError(400, "O intervalo mínimo precisa ficar entre 00:00 e 12:00")
+        return {key: f"{hours:02d}:{minutes:02d}"}
+
+    def _norm_clock(self, data: dict, current, key: str, default: str, missing: str) -> dict:
+        if current is not None and key not in data:
+            return {}
+        raw = data.get(key)
+        if raw is None or not str(raw).strip():
+            if current is None:
+                return {key: default}
+            raise AppError(400, missing)
+        return {key: assert_clock(str(raw))}
+
     def _prepare_named(self, model, scope: Scope, data: dict, current) -> dict:
         payload = {}
         if "name" in data and data["name"] is not None:
@@ -2729,6 +2847,7 @@ class WorkforceService:
                 raise AppError(400, "O fim precisa ser igual ou posterior ao início")
             if current is None or "note" in data:
                 payload["note"] = self._note(data.get("note"))
+            payload.update(self._norm_measures(data, current))
         if model is Holiday:
             if current is None or "holiday_date" in data:
                 payload["holiday_date"] = data.get("holiday_date")
@@ -3203,6 +3322,7 @@ class WorkforceService:
                 moments,
                 source="approved_request",
                 request_id=row.id,
+                reason_id=row.reason_id,
                 note=row.note,
                 origin_label="solicitação",
             )
@@ -3251,6 +3371,7 @@ class WorkforceService:
         *,
         source: str,
         request_id: int | None,
+        reason_id: int | None,
         note: str | None,
         origin_label: str,
     ) -> list[Punch]:
@@ -3266,7 +3387,7 @@ class WorkforceService:
         created = [
             self.create_punch(
                 scope,
-                {"employee_id": employee.id, "occurred_at": moment, "note": note},
+                {"employee_id": employee.id, "occurred_at": moment, "note": note, "reason_id": reason_id},
                 source=source,
                 request_id=request_id,
             )
@@ -3761,13 +3882,13 @@ class WorkforceService:
     def _closing_person(self, scope: Scope, row: Closing, employee: Employee, finish: date, *, with_days: bool) -> tuple[dict, dict | None]:
         day_start = employee.admission_date if employee.admission_date > row.starts_on else row.starts_on
         totals = {
-            "expected_minutes": 0,
+            "contracted_minutes": 0,
             "worked_minutes": 0,
             "overtime_minutes": 0,
+            "night_minutes": 0,
             "night_additional_minutes": 0,
             "shortage_minutes": 0,
             "delay_minutes": 0,
-            "early_leave_minutes": 0,
             "absence_days": 0,
             "bank_minutes": 0,
         }
@@ -3792,12 +3913,12 @@ class WorkforceService:
                         {
                             "work_date": cursor,
                             "punches": [],
-                            "expected_minutes": 0,
+                            "contracted_minutes": 0,
                             "worked_minutes": 0,
                             "overtime_minutes": 0,
                             "shortage_minutes": 0,
                             "delay_minutes": 0,
-                            "early_leave_minutes": 0,
+                            "night_minutes": 0,
                             "night_additional_minutes": 0,
                             "bank_minutes": 0,
                             "absence": False,
@@ -3808,12 +3929,12 @@ class WorkforceService:
                         {
                             "work_date": cursor,
                             "punches": day["punches"],
-                            "expected_minutes": day["expected_minutes"],
+                            "contracted_minutes": day["contracted_minutes"],
                             "worked_minutes": day["worked_minutes"],
                             "overtime_minutes": day["overtime_minutes"],
                             "shortage_minutes": day["shortage_minutes"],
                             "delay_minutes": day["delay_minutes"],
-                            "early_leave_minutes": day["early_leave_minutes"],
+                            "night_minutes": day["night_minutes"],
                             "night_additional_minutes": day["night_additional_minutes"],
                             "bank_minutes": day["bank_minutes"],
                             "absence": day["absence"],
@@ -4376,6 +4497,8 @@ class WorkforceService:
             action = "Registro de marcação"
         elif kind == "punch_correction":
             action = "Correção de marcação"
+        elif kind == "punch_restore":
+            action = "Restauração de marcação"
         elif kind == "occurrence":
             action = "Registro de ocorrência"
         elif kind == "occurrence_delete":

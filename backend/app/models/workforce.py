@@ -90,7 +90,6 @@ class Journey(Base):
     note = Column(Text, nullable=True)
     kind = Column(String(16), nullable=False, default="programada")
     flexible = Column(Boolean, nullable=False, default=False)
-    tolerance_minutes = Column(Integer, nullable=False, default=10)
     weekly_minutes = Column(Integer, nullable=True)
 
 
@@ -103,7 +102,6 @@ class JourneyVersion(Base):
     valid_from = Column(Date, nullable=False)
     kind = Column(String(16), nullable=False)
     flexible = Column(Boolean, nullable=False, default=False)
-    tolerance_minutes = Column(Integer, nullable=False, default=10)
     weekly_minutes = Column(Integer, nullable=True)
 
 
@@ -139,6 +137,11 @@ class Norm(Base):
     kind = Column(String(16), nullable=False)
     valid_from = Column(Date, nullable=False)
     valid_to = Column(Date, nullable=True)
+    tolerance_minutes = Column(Integer, nullable=False, default=10)
+    minimum_interval = Column(String(5), nullable=False, default="01:00")
+    night_start = Column(String(5), nullable=False, default="22:00")
+    night_end = Column(String(5), nullable=False, default="05:00")
+    night_additional_percent = Column(Integer, nullable=False, default=20)
     note = Column(Text, nullable=True)
 
 
@@ -210,6 +213,7 @@ class Punch(Base):
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     source = Column(String(32), nullable=False)
     request_id = Column(BigInteger, nullable=True)
+    reason_id = Column(BigInteger, ForeignKey("reasons.id"), nullable=True)
     note = Column(Text, nullable=True)
     valid = Column(Boolean, nullable=False, default=True)
     voided_at = Column(DateTime(timezone=True), nullable=True)

@@ -37,6 +37,7 @@ from app.models.workforce import (
     NoticePreference,
     Occurrence,
     Punch,
+    Reason,
     RequestEvent,
     RequestPunch,
     Subscription,
@@ -622,7 +623,11 @@ class Memory:
         return found
 
     def reasons_active(self, tenant_id: int, kind: str) -> int:
-        return 0
+        return sum(
+            1
+            for row in self._of(Reason, tenant_id)
+            if row.kind == kind and row.active
+        )
 
 
 BOUND: dict[str, int] = {}
@@ -784,6 +789,50 @@ def test_norma_entra_na_ficha_do_funcionario():
     )
     shown = workforce.get_employee(admin(), person["id"])
     assert shown["norm_label"] == "CCT Comerciários 2026"
+
+
+def test_norma_grava_tolerancia_intervalo_e_noturno():
+    workforce, _repo = service(1)
+    norm = workforce.create_named(
+        Norm,
+        admin(),
+        {"name": "CCT 2026", "union_name": "Sindicato", "kind": "convention", "valid_from": TODAY},
+    )
+    assert norm.tolerance_minutes == 10
+    assert norm.minimum_interval == "01:00"
+    assert norm.night_start == "22:00"
+    assert norm.night_end == "05:00"
+    assert norm.night_additional_percent == 20
+    updated = workforce.update_named(
+        Norm,
+        admin(),
+        norm.id,
+        {
+            "tolerance_minutes": 15,
+            "minimum_interval": "1:30",
+            "night_start": "21:00",
+            "night_end": "06:00",
+            "night_additional_percent": 30,
+        },
+    )
+    assert updated.tolerance_minutes == 15
+    assert updated.minimum_interval == "01:30"
+    assert updated.night_start == "21:00"
+    assert updated.night_end == "06:00"
+    assert updated.night_additional_percent == 30
+    renamed = workforce.update_named(Norm, admin(), norm.id, {"name": "CCT nova"})
+    assert renamed.tolerance_minutes == 15
+    assert renamed.minimum_interval == "01:30"
+    assert renamed.night_additional_percent == 30
+    with pytest.raises(AppError) as caught:
+        workforce.update_named(Norm, admin(), norm.id, {"minimum_interval": "13:00"})
+    assert caught.value.status_code == 400
+    with pytest.raises(AppError) as caught:
+        workforce.update_named(Norm, admin(), norm.id, {"night_start": "25:00"})
+    assert caught.value.status_code == 400
+    with pytest.raises(AppError) as caught:
+        workforce.update_named(Norm, admin(), norm.id, {"night_additional_percent": 120})
+    assert caught.value.status_code == 400
 
 
 def test_desligamento_libera_a_vaga():
@@ -977,6 +1026,40 @@ def test_correcao_manual_do_administrador_segue_a_mesma_troca():
     assert workforce.dashboard(admin())["punches_today"] == 2
     audits = [row for row in repo.rows if isinstance(row, Audit) and row.action == "Correção de marcação"]
     assert audits[-1].new_label == "manual"
+
+
+def test_nova_correcao_substitui_a_anterior_e_desfazer_volta_ao_original():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    first = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
+    second = workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(18, 0), "note": None})
+    reason = workforce.create_named(Reason, admin(), {"name": "Esquecimento", "kind": "adjustment"})
+    with pytest.raises(AppError) as missing:
+        workforce.correct_punches(
+            admin(),
+            {"employee_id": person["id"], "punches": [at(8, 10), at(18, 10)], "note": None},
+        )
+    assert missing.value.message == "Selecione um motivo"
+    earlier = workforce.correct_punches(
+        admin(),
+        {"employee_id": person["id"], "punches": [at(8, 10), at(18, 10)], "reason_id": reason.id, "note": "Primeiro ajuste"},
+    )
+    later = workforce.correct_punches(
+        admin(),
+        {"employee_id": person["id"], "punches": [at(8, 20), at(18, 20)], "reason_id": reason.id, "note": "Segundo ajuste"},
+    )
+    assert first.valid is False and second.valid is False
+    assert all(row.valid is False for row in earlier["punches"])
+    assert all(row.valid is True and row.reason_id == reason.id for row in later["punches"])
+    restored = workforce.restore_punches(admin(), {"employee_id": person["id"], "day": date(2026, 10, 6)})
+    assert first.valid is True and first.voided_at is None
+    assert second.valid is True and second.voided_at is None
+    assert {row.id for row in restored["punches"]} == {first.id, second.id}
+    assert all(row.valid is False for row in earlier["punches"])
+    assert all(row.valid is False for row in later["punches"])
+    with pytest.raises(AppError) as again:
+        workforce.restore_punches(admin(), {"employee_id": person["id"], "day": date(2026, 10, 6)})
+    assert again.value.message == "Não há ajuste para desfazer"
 
 
 def test_periodo_fechado_bloqueia_ajuste_e_correcao():
@@ -1352,7 +1435,7 @@ def test_apuracao_usa_so_marcacao_valida_e_ignora_pedido_pendente():
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
     row = result["items"][0]
     assert row["worked_minutes"] == 8 * 60 + 48
-    assert row["expected_minutes"] == 8 * 60 + 48
+    assert row["contracted_minutes"] == 8 * 60 + 48
     assert row["overtime_minutes"] == 0
     assert row["absence"] is False
     assert row["incomplete"] is False
@@ -1377,21 +1460,21 @@ def test_tolerancia_perdoa_dez_minutos_e_desconta_o_atraso_inteiro():
     assert late["incomplete"] is False
 
 
-def test_saida_antecipada_desconta_e_hora_extra_e_o_excedente():
+def test_sair_antes_vira_horas_faltantes_e_o_excedente_vira_extra():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 18))
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
-    early = day_result(result, date(2026, 10, 6))
+    short = day_result(result, date(2026, 10, 6))
     extra = day_result(result, date(2026, 10, 7))
-    assert early["early_leave_minutes"] == 30
-    assert early["worked_minutes"] == 8 * 60 + 18
-    assert early["overtime_minutes"] == 0
+    assert short["shortage_minutes"] == 30
+    assert short["worked_minutes"] == 8 * 60 + 18
+    assert short["overtime_minutes"] == 0
     assert extra["overtime_minutes"] == 30
     assert extra["worked_minutes"] == 9 * 60 + 18
-    assert extra["early_leave_minutes"] == 0
+    assert extra["shortage_minutes"] == 0
 
 
 def test_intervalo_menor_avisa_e_a_marcacao_permanece():
@@ -1400,9 +1483,44 @@ def test_intervalo_menor_avisa_e_a_marcacao_permanece():
     work_journey(workforce, person["id"])
     rows = mark(workforce, person["id"], 6, (8, 0), (12, 0), (12, 40), (17, 48))
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
-    assert result["items"][0]["warnings"] == ["intervalo menor do que o previsto"]
+    assert result["items"][0]["warnings"] == ["intervalo menor do que o mínimo"]
     assert result["items"][0]["incomplete"] is False
     assert all(row.valid for row in rows)
+
+
+def test_norma_manda_na_tolerancia_no_intervalo_e_no_noturno():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    work_journey(workforce, person["id"])
+    norm = workforce.create_named(
+        Norm,
+        admin(),
+        {
+            "name": "CCT noturna",
+            "union_name": "Sindicato",
+            "kind": "convention",
+            "valid_from": date(2026, 10, 1),
+            "tolerance_minutes": 5,
+            "minimum_interval": "00:30",
+            "night_start": "21:00",
+            "night_end": "05:00",
+            "night_additional_percent": 50,
+        },
+    )
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "norm", "reference_id": norm.id, "label": None, "valid_from": date(2026, 10, 1), "note": None},
+    )
+    mark(workforce, person["id"], 6, (8, 8), (12, 0), (12, 40), (17, 48))
+    workforce.create_named(Holiday, admin(), {"name": "Noite", "holiday_date": date(2026, 10, 5), "note": None})
+    mark(workforce, person["id"], 5, (21, 0), (22, 0))
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
+    late = day_result(result, date(2026, 10, 6))
+    night = day_result(result, date(2026, 10, 5))
+    assert late["delay_minutes"] == 8
+    assert late["warnings"] == []
+    assert night["night_minutes"] == 60
+    assert night["night_additional_minutes"] == 30
 
 
 def test_feriado_trabalhado_vira_hora_extra_e_noturno_fica_no_horario():
@@ -1596,8 +1714,8 @@ def test_jornada_vigente_muda_o_previsto_do_dia():
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (17, 48))
     mark(workforce, person["id"], 7, (8, 0), (12, 0))
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
-    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 8 * 60 + 48
-    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 4 * 60
+    assert day_result(result, date(2026, 10, 6))["contracted_minutes"] == 8 * 60 + 48
+    assert day_result(result, date(2026, 10, 7))["contracted_minutes"] == 4 * 60
     assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 4 * 60
     assert day_result(result, date(2026, 10, 7))["warnings"] == []
 
@@ -1917,7 +2035,7 @@ def test_conflito_impede_o_fechamento_e_intervalo_menor_nao():
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 6, (8, 0), (12, 0), (12, 40), (17, 48))
     warned = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
-    assert warned["warnings"] == ["intervalo menor do que o previsto"]
+    assert warned["warnings"] == ["intervalo menor do que o mínimo"]
     opened = workforce.create_closing(
         admin(),
         {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6), "note": None},
@@ -3376,7 +3494,7 @@ def test_folga_trabalhada_vira_hora_extra_e_dia_util_permanece():
     assert saturday["absence"] is False
     assert saturday["worked_minutes"] == 8 * 60
     assert saturday["overtime_minutes"] == 8 * 60
-    assert saturday["expected_minutes"] == 0
+    assert saturday["contracted_minutes"] == 0
 
 
 def test_programada_comeca_no_dia_escolhido():
@@ -3401,9 +3519,9 @@ def test_programada_comeca_no_dia_escolhido():
     )
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
     assert day_result(result, date(2026, 10, 6))["absence"] is False
-    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 0
+    assert day_result(result, date(2026, 10, 6))["contracted_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["absence"] is True
-    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 4 * 60
+    assert day_result(result, date(2026, 10, 7))["contracted_minutes"] == 4 * 60
 
 
 def test_flexivel_compara_a_duracao_e_a_tolerancia():
@@ -3416,7 +3534,6 @@ def test_flexivel_compara_a_duracao_e_a_tolerancia():
             "name": "Flex",
             "days": [{"off": False, "spans": [{"starts_at": "08:00", "ends_at": "12:00"}]}],
             "flexible": True,
-            "tolerance_minutes": 10,
             "note": None,
         },
     )
@@ -3459,10 +3576,10 @@ def test_carga_fecha_no_ultimo_dia_e_o_feriado_sai_da_meta():
     )
     vigency.valid_to = date(2026, 10, 9)
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 11))
-    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 0
+    assert day_result(result, date(2026, 10, 7))["contracted_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["absence"] is False
     closing = day_result(result, date(2026, 10, 9))
-    assert closing["expected_minutes"] == 18 * 60 + 51
+    assert closing["contracted_minutes"] == 18 * 60 + 51
     assert closing["shortage_minutes"] == 18 * 60 + 51
     holiday = workforce.create_employee(admin(), employee_payload("10987654321", None))
     workforce.create_named(Holiday, admin(), {"name": "Segunda", "holiday_date": date(2026, 10, 5), "note": None})
@@ -3480,7 +3597,7 @@ def test_carga_fecha_no_ultimo_dia_e_o_feriado_sai_da_meta():
     mark(workforce, holiday["id"], 5, (8, 0), (16, 0))
     week = workforce.calculations(admin(), holiday["id"], date(2026, 10, 5), date(2026, 10, 11))
     assert day_result(week, date(2026, 10, 5))["overtime_minutes"] == 8 * 60
-    assert day_result(week, date(2026, 10, 11))["expected_minutes"] == 37 * 60 + 43
+    assert day_result(week, date(2026, 10, 11))["contracted_minutes"] == 37 * 60 + 43
 
 
 def test_livre_nao_gera_falta_e_feriado_trabalhado_e_extra():
@@ -3517,8 +3634,8 @@ def test_alterar_horario_atualiza_os_dias_em_aberto():
     journey = work_journey(workforce, person["id"])
     workforce.update_named(Journey, admin(), journey.id, {"afternoon_end": "18:00"})
     result = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 7))
-    assert day_result(result, date(2026, 10, 6))["expected_minutes"] == 9 * 60
-    assert day_result(result, date(2026, 10, 7))["expected_minutes"] == 9 * 60
+    assert day_result(result, date(2026, 10, 6))["contracted_minutes"] == 9 * 60
+    assert day_result(result, date(2026, 10, 7))["contracted_minutes"] == 9 * 60
 
 
 def _week(off: set[int]) -> list[dict]:
@@ -3548,14 +3665,14 @@ def test_periodo_fechado_guarda_a_jornada_e_o_aberto_segue_a_nova():
     workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
     workforce.update_named(Journey, admin(), journey.id, {"days": _week({1, 7})})
     kept = workforce.calculations(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
-    assert day_result(kept, date(2026, 9, 25))["expected_minutes"] == 0
+    assert day_result(kept, date(2026, 9, 25))["contracted_minutes"] == 0
     assert day_result(kept, date(2026, 9, 25))["absence"] is False
-    assert day_result(kept, date(2026, 9, 27))["expected_minutes"] == 4 * 60
+    assert day_result(kept, date(2026, 9, 27))["contracted_minutes"] == 4 * 60
     assert day_result(kept, date(2026, 9, 27))["absence"] is True
     opened_days = workforce.calculations(admin(), person["id"], date(2026, 10, 9), date(2026, 10, 11))
-    assert day_result(opened_days, date(2026, 10, 9))["expected_minutes"] == 4 * 60
+    assert day_result(opened_days, date(2026, 10, 9))["contracted_minutes"] == 4 * 60
     assert day_result(opened_days, date(2026, 10, 9))["absence"] is True
-    assert day_result(opened_days, date(2026, 10, 11))["expected_minutes"] == 0
+    assert day_result(opened_days, date(2026, 10, 11))["contracted_minutes"] == 0
     assert day_result(opened_days, date(2026, 10, 11))["absence"] is False
     workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Corrigir a escala"})
     released = workforce.calculations(admin(), person["id"], date(2026, 9, 25), date(2026, 9, 27))
@@ -3769,7 +3886,7 @@ def test_dia_sem_jornada_leva_o_texto():
     day = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))["items"][0]
     assert day["warnings"] == ["Sem jornada prevista"]
     assert day["absence"] is False
-    assert day["expected_minutes"] == 0
+    assert day["contracted_minutes"] == 0
     assert day["balance_minutes"] is None
 
 

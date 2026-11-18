@@ -21,7 +21,7 @@ CATEGORY_NAME = "Setores"
 CATEGORY_VALUE_NAME = "Setor padrão"
 PUNCH_RULE_NOTE = "Tolerância de 10 minutos. Intervalo mínimo de 1 hora. Adicional noturno de 20% das 22:00 às 05:00."
 REASON_NAMES = {
-    "adjustment": "Ajuste padrão",
+    "adjustment": "Correção padrão",
     "absence": "Falta padrão",
     "allowance": "Abono padrão",
     "certificate": "Atestado padrão",
@@ -44,7 +44,6 @@ def ensure_company_defaults(db: Session, tenant_id: int) -> None:
         afternoon_end="17:30",
         kind="programada",
         flexible=False,
-        tolerance_minutes=10,
     )
     _ensure_journey_version(db, journey)
     _named(
@@ -55,6 +54,11 @@ def ensure_company_defaults(db: Session, tenant_id: int) -> None:
         union_name="Sindicato Padrão",
         kind="convention",
         valid_from=today_in_brazil(),
+        tolerance_minutes=10,
+        minimum_interval="01:00",
+        night_start="22:00",
+        night_end="05:00",
+        night_additional_percent=20,
         note=PUNCH_RULE_NOTE,
     )
     for kind in REASON_KINDS:
@@ -78,7 +82,6 @@ def _ensure_journey_version(db: Session, journey: Journey) -> None:
         valid_from=ORIGIN,
         kind="programada",
         flexible=False,
-        tolerance_minutes=10,
         weekly_minutes=None,
     )
     db.add(version)

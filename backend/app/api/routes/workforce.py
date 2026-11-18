@@ -79,6 +79,7 @@ from app.schemas.workforce import (
     QrCardOut,
     PunchCorrectionCreate,
     PunchCorrectionOut,
+    PunchRestorationCreate,
     PunchCreate,
     QrPunchCreate,
     FaceEmbeddingOut,
@@ -573,6 +574,22 @@ def correct_punches(
         punches=[PunchOut.model_validate(item) for item in result["punches"]],
     )
     return json_data(dump_one(payload, PunchCorrectionOut, None), status_code=201)
+
+
+@punches.post("/restorations", summary="Desfazer o ajuste do dia")
+def restore_punches(
+    body: PunchRestorationCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    result = service.restore_punches(as_scope(actor), body.model_dump())
+    payload = PunchCorrectionOut(
+        employee_id=result["employee_id"],
+        day=result["day"],
+        origin="original",
+        punches=[PunchOut.model_validate(item) for item in result["punches"]],
+    )
+    return json_data(dump_one(payload, PunchCorrectionOut, None))
 
 
 @face_embeddings.get("", summary="Baixar os rostos da organização")

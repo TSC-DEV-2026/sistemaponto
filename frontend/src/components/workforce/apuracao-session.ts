@@ -23,10 +23,9 @@ function isResultItem(value: unknown): value is TimeResult {
   const row = value as TimeResult
   return (
     typeof row.work_date === "string" &&
-    typeof row.expected_minutes === "number" &&
+    typeof row.contracted_minutes === "number" &&
     typeof row.worked_minutes === "number" &&
     typeof row.delay_minutes === "number" &&
-    typeof row.early_leave_minutes === "number" &&
     typeof row.overtime_minutes === "number" &&
     typeof row.shortage_minutes === "number" &&
     typeof row.bank_minutes === "number" &&

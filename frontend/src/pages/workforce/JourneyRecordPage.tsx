@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { FormEvent, useEffect, useState } from "react"
 import { Clock, Plus, Save, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
@@ -73,24 +73,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const [days, setDays] = useState<DayDraft[]>(() => toDraft(standardWeek()))
   const [weekly, setWeekly] = useState("44:00")
   const [flexible, setFlexible] = useState(false)
-  const [tolerance, setTolerance] = useState("10")
-  const toleranceRef = useRef<HTMLInputElement>(null)
-  const toleranceCaret = useRef<number | null>(null)
-
-  useLayoutEffect(() => {
-    const element = toleranceRef.current
-    const position = toleranceCaret.current
-    toleranceCaret.current = null
-    if (!element || position == null || document.activeElement !== element) return
-    const place = () => {
-      if (document.activeElement !== element) return
-      const next = Math.min(position, element.value.length)
-      element.setSelectionRange(next, next)
-    }
-    place()
-    const frame = requestAnimationFrame(place)
-    return () => cancelAnimationFrame(frame)
-  }, [tolerance])
   const [validFrom, setValidFrom] = useState(() => punchDay(new Date().toISOString()))
   const [openedLength, setOpenedLength] = useState(7)
   const [openedKind, setOpenedKind] = useState<JourneyKind>("programada")
@@ -124,7 +106,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         setOpenedKind(nextKind)
         setWeekly(row.weekly_minutes ? showSafe(row.weekly_minutes) : "44:00")
         setFlexible(Boolean(row.flexible))
-        setTolerance(String(row.tolerance_minutes ?? 10))
         setLoaded(true)
       })
       .catch((caught: unknown) => {
@@ -175,11 +156,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         setError(problem)
         return
       }
-      const minutes = Number(tolerance)
-      if (!Number.isInteger(minutes) || minutes < 0 || minutes > 120) {
-        setError("A tolerância fica entre 0 e 120 minutos")
-        return
-      }
     }
     if (kind === "carga") {
       const problem = weeklyError(weekly)
@@ -207,7 +183,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
       note: note.trim() || null,
       kind,
       flexible: kind === "programada" ? flexible : false,
-      tolerance_minutes: kind === "programada" ? Number(tolerance) : 10,
     }
     if (kind === "programada") body.days = plainDays(days)
     if (kind === "carga") body.weekly_time = weekly.trim()
@@ -250,7 +225,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Informações da jornada</h2>
-          <JourneySchedule name={name} note={note} kind={kind} days={plainDays(days)} weeklyMinutes={weeklyToMinutes(weekly)} flexible={flexible} toleranceMinutes={Number(tolerance) || 10} />
+          <JourneySchedule name={name} note={note} kind={kind} days={plainDays(days)} weeklyMinutes={weeklyToMinutes(weekly)} flexible={flexible} />
         </section>
       </div>
     )
@@ -333,35 +308,9 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
               <Plus className="h-4 w-4" />
               Incluir dia
             </Button>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className={moduleLabelClass} htmlFor="journey-flexible">Apuração do dia</Label>
-                <SiteSelect id="journey-flexible" value={flexible ? "true" : "false"} options={[{ value: "false", label: "Horário previsto" }, { value: "true", label: "Flexível" }]} onChange={(value) => setFlexible(value === "true")} />
-              </div>
-              <div className="space-y-2">
-                <Label className={moduleLabelClass} htmlFor="journey-tolerance">Tolerância (minutos)</Label>
-                <Input
-                  ref={toleranceRef}
-                  id="journey-tolerance"
-                  className={moduleFieldClass}
-                  inputMode="numeric"
-                  value={tolerance}
-                  onChange={(event) => {
-                    const input = event.target
-                    const cursorAt = input.selectionStart ?? input.value.length
-                    const digitsBefore = input.value.slice(0, cursorAt).replace(/\D/g, "").length
-                    const digits = input.value.replace(/\D/g, "").slice(0, 3)
-                    const place = Math.min(digitsBefore, digits.length)
-                    if (digits === tolerance) {
-                      input.value = digits
-                      input.setSelectionRange(place, place)
-                      return
-                    }
-                    toleranceCaret.current = place
-                    setTolerance(digits)
-                  }}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className={moduleLabelClass} htmlFor="journey-flexible">Apuração do dia</Label>
+              <SiteSelect id="journey-flexible" value={flexible ? "true" : "false"} options={[{ value: "false", label: "Horário contratado" }, { value: "true", label: "Flexível" }]} onChange={(value) => setFlexible(value === "true")} />
             </div>
           </div>
         ) : null}

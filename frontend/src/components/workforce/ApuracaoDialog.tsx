@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { ApuracaoDayDetails } from "@/components/workforce/apuracao-day"
 import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
-import { moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { createRecord, listRecords, uploadCertificatePhoto, type NamedRecord, type Punch, type TimeResult } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
@@ -54,9 +54,14 @@ async function punchesOnDay(employeeId: number, day: string) {
   return found.sort((left, right) => left.occurred_at.localeCompare(right.occurred_at))
 }
 
-function DayPunches({ employeeId, day }: { employeeId: number; day: string }) {
+const adjustmentSources = new Set(["manual", "approved_request"])
+
+function DayPunches({ employeeId, day, locked, warnings, onRestored }: { employeeId: number; day: string; locked: boolean; warnings: string[]; onRestored: () => Promise<void> }) {
   const [items, setItems] = useState<Punch[] | null>(null)
+  const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [error, setError] = useState("")
+  const [restoring, setRestoring] = useState(false)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -72,9 +77,42 @@ function DayPunches({ employeeId, day }: { employeeId: number; day: string }) {
     return () => {
       active = false
     }
-  }, [employeeId, day])
+  }, [employeeId, day, reload])
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>
+  useEffect(() => {
+    let active = true
+    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: "adjustment", active: true })
+      .then((page) => {
+        if (active) setReasons(page.items)
+      })
+      .catch(() => {
+        if (active) setReasons([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const current = (items || []).filter((item) => item.valid)
+  const adjusted = current.some((item) => adjustmentSources.has(item.source))
+  const reasonId = current.find((item) => item.reason_id)?.reason_id
+  const reason = reasons.find((item) => item.id === reasonId)?.name
+
+  async function undo() {
+    setError("")
+    setRestoring(true)
+    try {
+      await createRecord("/punches/restorations", { employee_id: employeeId, day })
+      setReload((value) => value + 1)
+      await onRestored()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível desfazer o ajuste.")
+    } finally {
+      setRestoring(false)
+    }
+  }
+
+  if (error && !items) return <p className="text-sm text-destructive">{error}</p>
   if (!items) {
     return (
       <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-4 py-10" role="status" aria-live="polite">
@@ -82,12 +120,32 @@ function DayPunches({ employeeId, day }: { employeeId: number; day: string }) {
       </div>
     )
   }
-  if (items.length === 0) {
-    return <p className="rounded-xl border border-dashed border-[#E4E4E7] px-4 py-8 text-center text-sm text-[#71717A]">Nenhuma marcação neste dia.</p>
-  }
+  const intervalWarning = warnings.find((warning) => warning.toLocaleLowerCase("pt-BR").includes("intervalo"))
   return (
+    <div className="space-y-3">
+      {intervalWarning ? (
+        <p className="rounded-xl border border-[#F4E7C3] bg-[#FFF8E8] px-4 py-3 text-sm text-[#7A5B12]">
+          {intervalWarning.charAt(0).toLocaleUpperCase("pt-BR") + intervalWarning.slice(1)}.
+        </p>
+      ) : null}
+      {adjusted ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-[#F4E7C3] bg-[#FFF8E8] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[#7A5B12]">
+            Este dia foi ajustado. As marcações abaixo substituem o que a pessoa registrou.
+            {reason ? ` Motivo: ${reason}.` : ""}
+          </p>
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-10 shrink-0")} disabled={restoring || locked} onClick={() => void undo()}>
+            {restoring ? <Spinner className="h-4 w-4" /> : null}
+            Desfazer ajuste
+          </Button>
+        </div>
+      ) : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {current.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-[#E4E4E7] px-4 py-8 text-center text-sm text-[#71717A]">Nenhuma marcação neste dia.</p>
+      ) : (
     <ul className="divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E4E4E7] bg-white">
-      {items.map((item) => (
+      {current.map((item) => (
         <li key={item.id} className="flex items-center gap-3 px-4 py-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(30,138,58,0.10)] text-[#1E8A3A]">
             <Clock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -97,7 +155,6 @@ function DayPunches({ employeeId, day }: { employeeId: number; day: string }) {
             <span className="mt-0.5 block text-xs text-[#64748B]">
               {punchOrigin(item.source)}
               {item.channel === "online" ? " · Online" : item.channel === "offline" ? " · Offline" : ""}
-              {item.valid ? "" : " · Deixou de valer"}
             </span>
           </span>
           {item.qr_url || item.selfie_url || item.face_url ? (
@@ -110,6 +167,8 @@ function DayPunches({ employeeId, day }: { employeeId: number; day: string }) {
         </li>
       ))}
     </ul>
+      )}
+    </div>
   )
 }
 
@@ -276,7 +335,7 @@ export function ApuracaoDialog({
             </SlidingHighlight>
             </div>
           ) : null}
-          {mode === "details" && detailTab === "punches" ? <DayPunches employeeId={employeeId} day={day} /> : null}
+          {mode === "details" && detailTab === "punches" ? <DayPunches employeeId={employeeId} day={day} locked={Boolean(lockMessage)} warnings={item.warnings} onRestored={onSaved} /> : null}
           {mode === "details" && detailTab === "hours" ? <ApuracaoDayDetails item={item} /> : null}
           {mode === "details" && detailTab === "hours" && item.balance_minutes != null ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E4E7] px-4 py-3">
