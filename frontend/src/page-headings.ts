@@ -16,10 +16,8 @@ const catalogAreas: Record<string, { base: string; subtitle: string }> = {
   categories: { base: "/categories", subtitle: "Gerencie a estrutura da organização" },
   units: { base: "/units", subtitle: "Gerencie a estrutura da organização" },
   teams: { base: "/teams", subtitle: "Gerencie a estrutura da organização" },
-  unions: { base: "/unions", subtitle: "Configure as regras trabalhistas" },
-  agreements: { base: "/agreements", subtitle: "Configure as regras trabalhistas" },
-  holidays: { base: "/holidays", subtitle: "Configure as regras trabalhistas" },
-  "punch-rules": { base: "/punch-rules", subtitle: "Configure as regras trabalhistas" },
+  norms: { base: "/norms", subtitle: "Configure as regras de ponto" },
+  holidays: { base: "/holidays", subtitle: "Configure as regras de ponto" },
 }
 
 function recordNoun(editTitle: string) {
@@ -47,9 +45,9 @@ const patterns: Pattern[] = [
   { path: "/hour-bank-entries/new", title: "Novo lançamento", subtitle: "Some, diminua, lance o saldo ou quite o saldo" },
   { path: "/hour-bank-entries/:id/edit", title: "Editar lançamento", subtitle: "Some, diminua, lance o saldo ou quite o saldo" },
   { path: "/punches", title: "Registro", subtitle: "Registre e consulte suas marcações" },
-  { path: "/reasons/new", title: "Novo motivo", subtitle: "Gerencie os motivos cadastrados" },
-  { path: "/reasons/:id/edit", title: "Editar motivo", subtitle: "Gerencie os motivos cadastrados" },
-  { path: "/reasons/:id", title: "Motivo", subtitle: "Gerencie os motivos cadastrados" },
+  { path: "/reasons/new", title: "Novo motivo", subtitle: "Configure as regras de ponto" },
+  { path: "/reasons/:id/edit", title: "Editar motivo", subtitle: "Configure as regras de ponto" },
+  { path: "/reasons/:id", title: "Motivo", subtitle: "Configure as regras de ponto" },
   { path: "/occurrences/new", title: "Nova ocorrência", subtitle: "Lance abono, atestado, falta, afastamento ou férias" },
   { path: "/occurrences/:id/edit", title: "Editar ocorrência", subtitle: "Atualize a observação do lançamento" },
   { path: "/occurrences/:id", title: "Ocorrência", subtitle: "Consulta do lançamento" },
@@ -70,9 +68,8 @@ const patterns: Pattern[] = [
   { path: "/bulk-changes", title: "Operações em massa", subtitle: "Altere várias pessoas de uma vez" },
   { path: "/reports", title: "Relatórios", subtitle: "Consulte informações e indicadores" },
   { path: "/structure", title: "Estrutura Organizacional", subtitle: "Gerencie a estrutura da organização" },
-  { path: "/labor-rules", title: "Regras Trabalhistas", subtitle: "Configure as regras trabalhistas" },
+  { path: "/punch-rules", title: "Regras de ponto", subtitle: "Normas, feriados e motivos" },
   { path: "/integrations", title: "Fiscal / Folha", subtitle: "Consulte integrações e informações" },
-  { path: "/reasons", title: "Motivos", subtitle: "Gerencie os motivos cadastrados" },
   { path: "/notices", title: "Notificações", subtitle: "Avisos da conta e da organização" },
   { path: "/memberships", title: "Permissões e Acessos", subtitle: "Gerencie permissões e usuários" },
   { path: "/memberships/new", title: "Vincular pessoa", subtitle: "Novo acesso ao sistema" },
@@ -122,11 +119,6 @@ export function headingFor(pathname: string, search = ""): PageHeading {
     }
   }
   if (!best) return { title: "sistemaponto", subtitle: "" }
-  if (best.path === "/reasons/new") {
-    const kind = new URLSearchParams(search).get("kind") || ""
-    const entry = Object.values(catalogs).find((item) => item.kind === kind)
-    if (entry) return { ...best, title: entry.newLabel }
-  }
   if (best.path === "/occurrences/new") {
     const kind = new URLSearchParams(search).get("kind") || new URLSearchParams(search).get("tipo") || ""
     const title = occurrenceNewLabel[occurrenceKindOf(kind)] || occurrenceNewLabel[kind]

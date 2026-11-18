@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, ClipboardList, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, ScrollText, Search, Send, SlidersHorizontal, Trash2, Upload, X } from "lucide-react"
+import { ArrowLeft, ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, Search, Send, SlidersHorizontal, Trash2, Upload, X } from "lucide-react"
 
 import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
@@ -1646,28 +1646,12 @@ export function OrganizationPage() {
 export function LaborPage() {
   return (
     <DomainTabs
-      title="Regras Trabalhistas"
+      title="Regras de ponto"
       organization
       tabs={[
-        { id: "unions", label: "Sindicatos", icon: conceptIcon.union, panel: <CatalogList catalog="unions" presentation="organization" /> },
-        { id: "agreements", label: "Convenções e acordos", icon: ScrollText, panel: <CatalogList catalog="agreements" presentation="organization" /> },
-        { id: "holidays", label: "Feriados", icon: Calendar, panel: <CatalogList catalog="holidays" presentation="organization" /> },
-        { id: "punch-rules", label: "Regras de ponto", icon: ClipboardList, panel: <CatalogList catalog="punch-rules" presentation="organization" /> },
-      ]}
-    />
-  )
-}
-
-export function ReasonsPage() {
-  return (
-    <DomainTabs
-      title="Motivos"
-      organization
-      tabs={[
-        { id: "allowances", label: "Abonos", icon: conceptIcon.allowance, panel: <CatalogList catalog="reason-allowance" presentation="organization" /> },
-        { id: "certificates", label: "Atestados", icon: conceptIcon.certificate, panel: <CatalogList catalog="reason-certificate" presentation="organization" /> },
-        { id: "absences", label: "Faltas", icon: conceptIcon.fault, panel: <CatalogList catalog="reason-absence" presentation="organization" /> },
-        { id: "adjustments", label: "Ajustes", icon: ClipboardList, panel: <CatalogList catalog="reason-adjustment" presentation="organization" /> },
+        { id: "norms", label: "Normas", icon: conceptIcon.norm, panel: <CatalogList catalog="norms" presentation="organization" /> },
+        { id: "holidays", label: "Feriados", icon: conceptIcon.holiday, panel: <CatalogList catalog="holidays" presentation="organization" /> },
+        { id: "reasons", label: "Motivos", icon: conceptIcon.reason, panel: <CatalogList catalog="reasons" presentation="organization" /> },
       ]}
     />
   )

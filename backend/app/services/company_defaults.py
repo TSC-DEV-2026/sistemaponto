@@ -10,9 +10,7 @@ from app.models.workforce import (
     JourneyDay,
     JourneySpan,
     JourneyVersion,
-    Agreement,
-    LaborUnion,
-    PunchRule,
+    Norm,
     Reason,
     Team,
     Unit,
@@ -49,25 +47,16 @@ def ensure_company_defaults(db: Session, tenant_id: int) -> None:
         tolerance_minutes=10,
     )
     _ensure_journey_version(db, journey)
-    union = _named(db, LaborUnion, tenant_id, "Sindicato Padrão")
-    agreement = (
-        db.query(Agreement)
-        .filter(Agreement.tenant_id == tenant_id, Agreement.name == "Convenção Padrão")
-        .one_or_none()
+    _named(
+        db,
+        Norm,
+        tenant_id,
+        "Norma Padrão",
+        union_name="Sindicato Padrão",
+        kind="convention",
+        valid_from=today_in_brazil(),
+        note=PUNCH_RULE_NOTE,
     )
-    if agreement is None:
-        db.add(
-            Agreement(
-                tenant_id=tenant_id,
-                union_id=union.id,
-                name="Convenção Padrão",
-                valid_from=today_in_brazil(),
-                valid_to=None,
-                note=None,
-            )
-        )
-        db.flush()
-    _named(db, PunchRule, tenant_id, "Regra de ponto Padrão", note=PUNCH_RULE_NOTE)
     for kind in REASON_KINDS:
         found = (
             db.query(Reason)

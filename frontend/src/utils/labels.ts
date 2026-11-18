@@ -110,9 +110,22 @@ export const vigencyKindLabel: Record<string, string> = {
   unit: "Empresa",
   sector: "Setor",
   team: "Equipe",
-  union: "Sindicato",
+  union: "Norma",
+  norm: "Norma",
   manager: "Gestor",
   status: "Situação",
+}
+
+export const normKindLabel: Record<string, string> = {
+  convention: "Convenção",
+  agreement: "Acordo",
+}
+
+export const reasonUseLabel: Record<string, string> = {
+  allowance: "Abono",
+  certificate: "Atestado",
+  absence: "Falta",
+  adjustment: "Ajuste",
 }
 
 export const clockMethodLabel: Record<string, string> = {

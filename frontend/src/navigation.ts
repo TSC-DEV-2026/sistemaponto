@@ -3,10 +3,9 @@ import {
   LayoutDashboard,
   ListChecks,
   MonitorSmartphone,
-  ScrollText,
+  ClipboardList,
   Shield,
   Smartphone,
-  StickyNote,
   type LucideIcon,
 } from "lucide-react"
 
@@ -126,7 +125,7 @@ export const navGroups: NavGroup[] = [
         adminOnly: true,
         lead: "Altera o vínculo ou o tipo de registro de várias pessoas de uma vez.",
         sections: [
-          { title: "Vínculos", text: "Função, jornada, categoria, equipe, situação, gestor e sindicato." },
+          { title: "Vínculos", text: "Função, jornada, categoria, equipe, situação, gestor e norma." },
           { title: "Tipo de registro", text: "Simples, QR Code ou reconhecimento facial." },
         ],
       },
@@ -162,15 +161,14 @@ export const navGroups: NavGroup[] = [
         ],
       },
       {
-        to: "/labor-rules?tab=unions",
-        label: "Regras Trabalhistas",
-        icon: ScrollText,
-        lead: "Sindicatos, convenções, feriados e regras de ponto.",
+        to: "/punch-rules?tab=norms",
+        label: "Regras de ponto",
+        icon: ClipboardList,
+        lead: "Normas, feriados e motivos.",
         sections: [
-          { title: "Sindicatos", text: "Nenhum sindicato." },
-          { title: "Convenções e acordos", text: "Nenhum acordo." },
+          { title: "Normas", text: "Sindicato, convenção ou acordo e regras de ponto." },
           { title: "Feriados", text: "Nenhum feriado." },
-          { title: "Regras de ponto", text: "Nenhuma regra." },
+          { title: "Motivos", text: "O tipo diz onde o motivo é usado." },
         ],
       },
     ],
@@ -195,18 +193,6 @@ export const navGroups: NavGroup[] = [
   {
     label: "Administração",
     items: [
-      {
-        to: "/reasons?tab=allowances",
-        label: "Motivos",
-        icon: StickyNote,
-        lead: "Catálogo da organização. A observação complementar continua possível.",
-        sections: [
-          { title: "Ajustes", text: "Nenhum motivo." },
-          { title: "Faltas", text: "Nenhum motivo." },
-          { title: "Abonos", text: "Nenhum motivo." },
-          { title: "Atestados", text: "Nenhum motivo." },
-        ],
-      },
       {
         to: "/memberships",
         label: "Permissões e Acessos",
