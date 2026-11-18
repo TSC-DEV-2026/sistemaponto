@@ -11,6 +11,7 @@ import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
+import { DurationField } from "@/components/ui/duration-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
@@ -44,6 +45,7 @@ function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
 
 function catalogFieldIcon(field: CatalogField, fallback: LucideIcon) {
   if (field.type === "date") return Calendar
+  if (field.type === "time" || field.type === "number" || field.type === "duration") return Clock
   if (field.type === "textarea") return FileText
   if (field.name === "kind") return conceptIcon.reason
   if (field.name === "union_name") return conceptIcon.norm
@@ -186,7 +188,7 @@ export function SortArrows({ active, dir }: { active: boolean; dir: "asc" | "des
 function blankForm(fields: CatalogField[]) {
   const next: Record<string, string> = {}
   for (const field of fields) {
-    next[field.name] = field.type === "checkbox" ? "true" : ""
+    next[field.name] = field.defaultValue ?? (field.type === "checkbox" ? "true" : "")
   }
   return next
 }
@@ -200,6 +202,8 @@ function bodyFrom(fields: CatalogField[], form: Record<string, string>, kind?: s
     const raw = form[field.name] ?? ""
     if (field.type === "checkbox") {
       body[field.name] = raw === "true"
+    } else if (field.type === "number") {
+      body[field.name] = raw.trim() ? Number(raw) : null
     } else if (field.name.endsWith("_id")) {
       body[field.name] = raw ? Number(raw) : null
     } else {
@@ -882,7 +886,7 @@ const reasonUseOptions = [
   { value: "allowance", label: "Abono" },
   { value: "certificate", label: "Atestado" },
   { value: "absence", label: "Falta" },
-  { value: "adjustment", label: "Ajuste" },
+  { value: "adjustment", label: "Correção" },
 ]
 
 const organizationCopy: Record<string, { title: string; lead: string; mark: LucideIcon }> = {
@@ -1423,7 +1427,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   const labor = catalog === "norms" || catalog === "holidays" || catalog === "reasons"
   if (labor) {
     const meta = {
-      norms: { icon: conceptIcon.norm, noun: "norma", article: "a", newLead: "Informe o sindicato, o tipo e as regras de ponto.", editLead: "Atualize a norma." },
+      norms: { icon: conceptIcon.norm, noun: "norma", article: "a", newLead: "Informe o sindicato, o tipo e a observação.", editLead: "Atualize a norma." },
       holidays: { icon: conceptIcon.holiday, noun: "feriado", article: "o", newLead: "Informe os dados do feriado.", editLead: "Atualize os dados do feriado." },
       reasons: { icon: conceptIcon.reason, noun: "motivo", article: "o", newLead: "Informe o nome e onde o motivo é usado.", editLead: "Atualize o motivo." },
     }[catalog]
@@ -1491,6 +1495,36 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         )
       }
       if (field.type === "date") return dateControl(field)
+      if (field.type === "duration") {
+        return (
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
+            <DurationField id={`${catalog}-${field.name}`} className={moduleFieldClass} required={field.required} value={form[field.name] ?? ""} onValueChange={(value) => setForm({ ...form, [field.name]: value })} />
+          </div>
+        )
+      }
+      if (field.type === "time" || field.type === "number") {
+        return (
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
+            <Input
+              id={`${catalog}-${field.name}`}
+              type={field.type}
+              inputMode={field.type === "number" ? "numeric" : undefined}
+              min={field.min}
+              max={field.max}
+              step={field.type === "time" ? 60 : 1}
+              required={field.required}
+              className={moduleFieldClass}
+              value={form[field.name] ?? ""}
+              onChange={(event) => {
+                const value = field.type === "number" ? event.target.value.replace(/\D/g, "") : event.target.value
+                setForm({ ...form, [field.name]: value })
+              }}
+            />
+          </div>
+        )
+      }
       return (
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
@@ -1502,11 +1536,13 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     for (let index = 0; index < entry.fields.length; index += 1) {
       const field = entry.fields[index]
       const next = entry.fields[index + 1]
-      if (field.type === "date" && next?.type === "date") {
+      const paired = next != null && (((field.type === "date" || field.type === "time" || field.type === "number") && next.type === field.type) || (field.type === "number" && next.type === "duration"))
+      if (paired) {
+        const control = field.type === "date" ? dateControl : textControl
         controls.push(
           <div key={field.name} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {dateControl(field)}
-            {dateControl(next)}
+            {control(field)}
+            {control(next)}
           </div>,
         )
         index += 1

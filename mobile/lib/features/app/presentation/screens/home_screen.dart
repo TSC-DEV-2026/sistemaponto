@@ -552,13 +552,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : <String>[];
     final extra = <String>[
       if ((day['delay_minutes'] ?? 0) != 0)
-        'Atraso ${showMinutes(day['delay_minutes'])}',
-      if ((day['early_leave_minutes'] ?? 0) != 0)
-        'Saída antecipada ${showMinutes(day['early_leave_minutes'])}',
+        'Horas em atraso ${showMinutes(day['delay_minutes'])}',
       if ((day['overtime_minutes'] ?? 0) != 0)
-        'Extra ${showMinutes(day['overtime_minutes'])}',
+        'H. extras ${showMinutes(day['overtime_minutes'])}',
       if ((day['shortage_minutes'] ?? 0) != 0)
-        'Falta de horas ${showMinutes(day['shortage_minutes'])}',
+        'Horas faltantes ${showMinutes(day['shortage_minutes'])}',
       if ((day['night_additional_minutes'] ?? 0) != 0)
         'Adicional noturno ${showMinutes(day['night_additional_minutes'])}',
       if (day['incomplete'] == true) 'Incompleto',
@@ -570,7 +568,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       contentPadding: EdgeInsets.zero,
       title: Text('${day['work_date']}'),
       subtitle: Text(
-        'Trabalhado ${showMinutes(day['worked_minutes'])} · Previsto ${showMinutes(day['expected_minutes'])}'
+        'H. trabalhadas ${showMinutes(day['worked_minutes'])} · H. contratadas ${showMinutes(day['contracted_minutes'])}'
         '${extra.isEmpty ? '' : '\n${extra.join(' · ')}'}',
       ),
     );

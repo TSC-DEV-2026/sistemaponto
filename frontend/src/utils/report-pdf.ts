@@ -118,8 +118,10 @@ export type ClosingSheetDay = {
   date: string
   punches: string[]
   off: boolean
+  absence: boolean
   worked: string
   overtime: string
+  night: string
   shortage: string
   bank: string
 }
@@ -132,7 +134,7 @@ export type ClosingSheet = {
   period: string
   hourBank: boolean
   days: ClosingSheetDay[]
-  totals: { worked: string; overtime: string; shortage: string; bank: string }
+  totals: { worked: string; overtime: string; night: string; shortage: string; bank: string }
   notes: string[]
 }
 
@@ -169,8 +171,8 @@ function sheetPages(sheet: ClosingSheet) {
   const tableWidth = pageWidth - margin * 2
   const punchCount = Math.max(4, ...sheet.days.map((day) => day.punches.length))
   const dateWidth = 42
-  const metricWidth = sheet.hourBank ? 46 : 54
-  const metricCount = sheet.hourBank ? 4 : 3
+  const metricWidth = sheet.hourBank ? 58 : 64
+  const metricCount = sheet.hourBank ? 5 : 4
   const punchWidth = (tableWidth - dateWidth - metricWidth * metricCount) / punchCount
   const punchLabel = (index: number) => {
     const pair = Math.floor(index / 2) + 1
@@ -180,9 +182,10 @@ function sheetPages(sheet: ClosingSheet) {
   const columns = [
     { label: "Dia", width: dateWidth },
     ...Array.from({ length: punchCount }, (_, index) => ({ label: punchLabel(index), width: punchWidth })),
-    { label: "Trab.", width: metricWidth },
-    { label: "Extra", width: metricWidth },
-    { label: "Falta", width: metricWidth },
+    { label: "H. trabalhadas", width: metricWidth },
+    { label: "H. extras", width: metricWidth },
+    { label: "H. faltantes", width: metricWidth },
+    { label: "H. noturnas", width: metricWidth },
     ...(sheet.hourBank ? [{ label: "Banco", width: metricWidth }] : []),
   ]
   const rowHeight = 16
@@ -216,7 +219,7 @@ function sheetPages(sheet: ClosingSheet) {
     const slice = sheet.days.slice(cursor, cursor + count)
     const last = cursor + count >= sheet.days.length
     const rows = last
-      ? [...slice, { date: "Total", punches: [], off: false, worked: sheet.totals.worked, overtime: sheet.totals.overtime, shortage: sheet.totals.shortage, bank: sheet.totals.bank }]
+      ? [...slice, { date: "Total", punches: [], off: false, absence: false, worked: sheet.totals.worked, overtime: sheet.totals.overtime, night: sheet.totals.night, shortage: sheet.totals.shortage, bank: sheet.totals.bank }]
       : slice
     const tableTop = y
     const tableHeight = headerHeight + rows.length * rowHeight
@@ -227,7 +230,7 @@ function sheetPages(sheet: ClosingSheet) {
     })
     rows.forEach((day, index) => {
       const top = tableTop - headerHeight - index * rowHeight
-      const tone = day.date === "Total" ? TOTAL : day.shortage === "Falta" ? ABSENCE : day.off ? OFF : index % 2 === 1 ? ZEBRAS : "1 1 1"
+      const tone = day.date === "Total" ? TOTAL : day.absence ? ABSENCE : day.off ? OFF : index % 2 === 1 ? ZEBRAS : "1 1 1"
       commands.push(box(margin, top - rowHeight, tableWidth, rowHeight, fill(tone)))
     })
     commands.push(`${LINE} RG`)
@@ -256,9 +259,10 @@ function sheetPages(sheet: ClosingSheet) {
         day.worked,
         day.overtime,
         day.shortage,
+        day.night,
         ...(sheet.hourBank ? [day.bank] : []),
       ]
-      commands.push(fill(day.shortage === "Falta" && day.date !== "Total" ? "0.620 0.165 0.165" : INK))
+      commands.push(fill(day.absence && day.date !== "Total" ? "0.620 0.165 0.165" : INK))
       let cell = margin
       values.forEach((value, column) => {
         const width = columns[column].width

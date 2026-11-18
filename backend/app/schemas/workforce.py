@@ -117,7 +117,6 @@ class JourneyCreate(NamedCreate):
     weekly_minutes: int | None = Field(default=None, gt=0, le=10080)
     weekly_time: str | None = None
     flexible: bool = False
-    tolerance_minutes: int = Field(default=10, ge=0, le=120)
     valid_from: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
@@ -132,7 +131,6 @@ class JourneyUpdate(NamedUpdate):
     weekly_minutes: int | None = Field(default=None, gt=0, le=10080)
     weekly_time: str | None = None
     flexible: bool | None = None
-    tolerance_minutes: int | None = Field(default=None, ge=0, le=120)
     valid_from: date | None = None
     anchors: list[JourneyAnchor] | None = None
     note: str | None = Field(default=None, max_length=2000)
@@ -158,7 +156,6 @@ class JourneyOut(NamedOut):
     days: list[JourneyDayOut] = Field(default_factory=list)
     weekly_minutes: int | None = None
     flexible: bool = False
-    tolerance_minutes: int = 10
     valid_from: date | None = None
     note: str | None
 
@@ -168,6 +165,11 @@ class NormCreate(NamedCreate):
     kind: NormKind
     valid_from: date
     valid_to: date | None = None
+    tolerance_minutes: int = Field(default=10, ge=0, le=240)
+    minimum_interval: str = Field(default="01:00", min_length=4, max_length=5)
+    night_start: str = Field(default="22:00", min_length=5, max_length=5)
+    night_end: str = Field(default="05:00", min_length=5, max_length=5)
+    night_additional_percent: int = Field(default=20, ge=0, le=100)
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -176,6 +178,11 @@ class NormUpdate(NamedUpdate):
     kind: NormKind | None = None
     valid_from: date | None = None
     valid_to: date | None = None
+    tolerance_minutes: int | None = Field(default=None, ge=0, le=240)
+    minimum_interval: str | None = Field(default=None, min_length=4, max_length=5)
+    night_start: str | None = Field(default=None, min_length=5, max_length=5)
+    night_end: str | None = Field(default=None, min_length=5, max_length=5)
+    night_additional_percent: int | None = Field(default=None, ge=0, le=100)
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -184,6 +191,11 @@ class NormOut(NamedOut):
     kind: str
     valid_from: date
     valid_to: date | None
+    tolerance_minutes: int = 10
+    minimum_interval: str = "01:00"
+    night_start: str = "22:00"
+    night_end: str = "05:00"
+    night_additional_percent: int = 20
     note: str | None
 
 
@@ -343,6 +355,7 @@ class PunchOut(BaseModel):
     occurred_at: datetime
     source: str
     request_id: int | None
+    reason_id: int | None = None
     note: str | None
     valid: bool
     voided_at: datetime | None
@@ -407,13 +420,19 @@ class FaceEmbeddingOut(BaseModel):
 class PunchCorrectionCreate(BaseModel):
     employee_id: int
     punches: list[datetime] = Field(min_length=1, max_length=20)
+    reason_id: int | None = None
     note: str | None = Field(default=None, max_length=2000)
+
+
+class PunchRestorationCreate(BaseModel):
+    employee_id: int
+    day: date
 
 
 class PunchCorrectionOut(BaseModel):
     employee_id: int
     day: date
-    origin: Literal["manual"]
+    origin: Literal["manual", "original"]
     punches: list[PunchOut]
 
 
@@ -582,13 +601,13 @@ class ClosingBankOut(BaseModel):
 class ClosingDayOut(BaseModel):
     work_date: date
     punches: list[str]
-    expected_minutes: int
+    contracted_minutes: int
     worked_minutes: int
     overtime_minutes: int
     shortage_minutes: int
     delay_minutes: int
-    early_leave_minutes: int
     night_additional_minutes: int
+    night_minutes: int
     bank_minutes: int
     absence: bool
 
@@ -600,13 +619,13 @@ class ClosingPersonOut(BaseModel):
     registration_number: str | None
     unit_name: str | None
     hour_bank: bool
-    expected_minutes: int
+    contracted_minutes: int
     worked_minutes: int
     overtime_minutes: int
+    night_minutes: int
     night_additional_minutes: int
     shortage_minutes: int
     delay_minutes: int
-    early_leave_minutes: int
     absence_days: int
     bank_minutes: int
     balance_minutes: int | None
@@ -821,10 +840,9 @@ class FiscalImportOut(BaseModel):
 
 class TimeResultOut(BaseModel):
     work_date: date
-    expected_minutes: int
+    contracted_minutes: int
     worked_minutes: int
     delay_minutes: int
-    early_leave_minutes: int
     overtime_minutes: int
     shortage_minutes: int
     bank_minutes: int

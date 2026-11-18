@@ -11,8 +11,11 @@ export function optionsOf(path: string) {
 export type CatalogField = {
   name: string
   label: string
-  type: "text" | "date" | "time" | "textarea" | "select" | "checkbox"
+  type: "text" | "date" | "time" | "number" | "duration" | "textarea" | "select" | "checkbox"
   required?: boolean
+  defaultValue?: string
+  min?: number
+  max?: number
   options?: { value: string; label: string }[]
   searchPath?: string
   searchParams?: Record<string, string | number | boolean | undefined>

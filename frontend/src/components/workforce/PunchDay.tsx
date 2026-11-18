@@ -1,9 +1,10 @@
 import { History, Trash2 } from "lucide-react"
-import { FormEvent, useState } from "react"
+import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { DatePickerField } from "@/components/ui/date-picker-field"
+import { SiteSelect } from "@/components/ui/site-select"
 import { TimePickerField } from "@/components/ui/time-picker-field"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { Label } from "@/components/ui/label"
@@ -12,7 +13,7 @@ import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
-import { createRecord, type Employee, type Punch } from "@/services/workforce.service"
+import { createRecord, listRecords, type Employee, type NamedRecord, type Punch } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
 import { brazilMoment, punchOrigin, showClock, showDateTime } from "@/utils/labels"
 
@@ -127,16 +128,36 @@ export function PunchCorrectionForm({
   const [selected, setSelected] = useState("")
   const [day, setDay] = useState(fixedDay || "")
   const [times, setTimes] = useState(["", ""])
+  const [reasonId, setReasonId] = useState("")
+  const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [note, setNote] = useState("")
   const [error, setError] = useState("")
   const chosenDay = fixedDay || day
   const blocked = guard?.(chosenDay) || ""
+
+  useEffect(() => {
+    let active = true
+    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: "adjustment", active: true })
+      .then((page) => {
+        if (active) setReasons(page.items)
+      })
+      .catch(() => {
+        if (active) setReasons([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
     if (blocked) {
       setError(blocked)
+      return
+    }
+    if (reasons.length > 0 && !reasonId) {
+      setError("Selecione o motivo.")
       return
     }
     const filled = times.map((item) => item.trim()).filter(Boolean)
@@ -148,9 +169,11 @@ export function PunchCorrectionForm({
       await createRecord("/punches/corrections", {
         employee_id: employeeId ?? Number(selected),
         punches: momentsOf(chosenDay, times),
+        reason_id: reasonId ? Number(reasonId) : null,
         note: note.trim() || null,
       })
       setTimes(["", ""])
+      setReasonId("")
       setNote("")
       await onSaved()
     } catch (caught) {
@@ -162,7 +185,7 @@ export function PunchCorrectionForm({
 
   return (
     <ActionForm id={formId} className={formId ? "space-y-5" : module ? cn(moduleCardClass, "space-y-5") : "grid gap-3 rounded-md border border-border bg-card p-3"} onSubmit={onSubmit}>
-      <p className={module ? "text-sm leading-6 text-[#52525B]" : "text-sm text-muted-foreground"}>A correção manual substitui as marcações que valem neste dia. As antigas deixam de valer e ficam no histórico. Origem: manual.</p>
+      <p className={module ? "text-sm leading-6 text-[#52525B]" : "text-sm text-muted-foreground"}>A correção substitui as marcações que valem neste dia. Outra correção substitui a anterior. O registro original pode ser restaurado em Ver detalhes.</p>
       {employees ? (
         <div className="space-y-2">
           <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-employee">
@@ -172,6 +195,23 @@ export function PunchCorrectionForm({
         </div>
       ) : null}
       <DayTimesFields dayId="correction-day" day={chosenDay} times={times} onDay={setDay} onTimes={setTimes} tone={module ? "module" : "plain"} lockDay={Boolean(fixedDay)} />
+      <div className="space-y-2">
+        <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-reason">
+          Motivo
+        </Label>
+        <SiteSelect
+          id="correction-reason"
+          value={reasonId}
+          searchable
+          searchPath="/reasons"
+          searchParams={{ kind: "adjustment", active: true }}
+          searchPlaceholder="Pesquisar motivo"
+          placeholder="Selecione"
+          className={module ? "h-12 w-full shadow-none hover:shadow-none focus-visible:shadow-none" : "w-full"}
+          options={reasons.map((reason) => ({ value: String(reason.id), label: reason.name }))}
+          onChange={setReasonId}
+        />
+      </div>
       <div className="space-y-2">
         <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-note">
           Observação

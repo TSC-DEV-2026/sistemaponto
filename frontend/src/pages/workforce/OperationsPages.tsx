@@ -2299,8 +2299,8 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
     const shortage = punchMeasure(item.detail, "falta")
     if (worked !== null && extra !== null && night !== null && shortage !== null) {
       const metrics = [
-        ["trabalhadas", showDuration(worked)],
-        ["hora extra", showDuration(extra)],
+        ["H. trabalhadas", showDuration(worked)],
+        ["H. extras", showDuration(extra)],
         ["adicional noturno", showDuration(night)],
       ] as const
       return (
@@ -2323,7 +2323,7 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
             ))}
             <span aria-hidden>|</span>
             <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", shortage > 0 ? "bg-[rgba(239,83,80,0.14)] text-[#C62828]" : "bg-[#F4F4F5] text-[#52525B]")}>
-              falta {showDuration(shortage)}
+              H. faltantes {showDuration(shortage)}
             </span>
           </span>
         </li>
@@ -2702,7 +2702,7 @@ function PayrollTotalsPanel() {
             </span>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[#0A0A0A]">Consultar totais</h2>
-              <p className="text-sm text-[#64748B]">A folha traz horas trabalhadas, hora extra, adicional noturno, falta de tempo e saldo do banco.</p>
+              <p className="text-sm text-[#64748B]">A folha traz horas trabalhadas, horas extras, adicional noturno, horas faltantes e saldo do banco.</p>
             </div>
           </div>
           <ActionForm className="mt-4 space-y-4" onSubmit={onSubmit}>
@@ -2775,10 +2775,10 @@ function PayrollTotalsPanel() {
                   <thead>
                     <tr className="border-b border-[#E2E8F0] text-left text-sm font-semibold text-[#64748B]">
                       <th className="px-3 py-3 font-semibold">Funcionário</th>
-                      <th className="px-3 py-3 text-right font-semibold">Trabalhado</th>
-                      <th className="px-3 py-3 text-right font-semibold">Hora extra</th>
+                      <th className="px-3 py-3 text-right font-semibold">H. trabalhadas</th>
+                      <th className="px-3 py-3 text-right font-semibold">H. extras</th>
                       <th className="px-3 py-3 text-right font-semibold">Noturno</th>
-                      <th className="px-3 py-3 text-right font-semibold">Falta</th>
+                      <th className="px-3 py-3 text-right font-semibold">H. faltantes</th>
                       <th className="px-3 py-3 text-right font-semibold">Banco</th>
                     </tr>
                   </thead>
@@ -2820,11 +2820,11 @@ function PayrollTotalsPanel() {
                     </p>
                     <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                       <div>
-                        <dt className="text-[#64748B]">Trabalhado</dt>
+                        <dt className="text-[#64748B]">H. trabalhadas</dt>
                         <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.worked_minutes)}</dd>
                       </div>
                       <div>
-                        <dt className="text-[#64748B]">Hora extra</dt>
+                        <dt className="text-[#64748B]">H. extras</dt>
                         <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.overtime_minutes)}</dd>
                       </div>
                       <div>
@@ -2832,7 +2832,7 @@ function PayrollTotalsPanel() {
                         <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.night_additional_minutes)}</dd>
                       </div>
                       <div>
-                        <dt className="text-[#64748B]">Falta</dt>
+                        <dt className="text-[#64748B]">H. faltantes</dt>
                         <dd className={cn("font-medium tabular-nums", item.shortage_minutes > 0 ? "text-[#C62828]" : "text-[#111827]")}>{showMinutes(item.shortage_minutes)}</dd>
                       </div>
                       <div className="col-span-2">

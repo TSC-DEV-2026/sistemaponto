@@ -14,7 +14,6 @@ export function JourneySchedule({
   days,
   weeklyMinutes,
   flexible,
-  toleranceMinutes,
   cycleDay,
 }: {
   name?: string | null
@@ -23,7 +22,6 @@ export function JourneySchedule({
   days?: JourneyDay[]
   weeklyMinutes?: number | null
   flexible?: boolean
-  toleranceMinutes?: number
   cycleDay?: number | null
 }) {
   const resolved = kind || "programada"
@@ -57,8 +55,7 @@ export function JourneySchedule({
       {resolved === "programada" ? (
         <>
           <p className="mt-2 text-sm text-[#64748B]">
-            {flexible ? "Flexível. " : "Horário previsto. "}
-            Tolerância de {toleranceMinutes ?? 10} minutos.
+            {flexible ? "Flexível." : "Horário contratado."}
           </p>
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {sequence.map((day, index) => (

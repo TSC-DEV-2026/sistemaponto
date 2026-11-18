@@ -646,7 +646,6 @@ export function EmployeePage() {
                 days={schedule.days}
                 weeklyMinutes={schedule.weekly_minutes}
                 flexible={schedule.flexible}
-                toleranceMinutes={schedule.tolerance_minutes}
                 cycleDay={journey?.cycle_day}
               />
             ) : (

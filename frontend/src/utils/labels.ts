@@ -125,7 +125,7 @@ export const reasonUseLabel: Record<string, string> = {
   allowance: "Abono",
   certificate: "Atestado",
   absence: "Falta",
-  adjustment: "Ajuste",
+  adjustment: "Correção",
 }
 
 export const clockMethodLabel: Record<string, string> = {
@@ -255,7 +255,7 @@ export const monthOptions = [
 ]
 
 export const reasonKindLabel: Record<string, string> = {
-  adjustment: "Ajustes",
+  adjustment: "Correções",
   absence: "Faltas",
   allowance: "Abonos",
   certificate: "Atestados",

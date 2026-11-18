@@ -25,7 +25,6 @@ class DaySpec:
 class JourneySpec:
     kind: str
     flexible: bool
-    tolerance_minutes: int
     weekly_minutes: int | None
     days: list[DaySpec]
     valid_from: date
@@ -81,7 +80,6 @@ def legacy_spec(morning_start, morning_end, afternoon_start, afternoon_end, vali
     return JourneySpec(
         kind="programada",
         flexible=False,
-        tolerance_minutes=10,
         weekly_minutes=None,
         days=legacy_days(morning_start, morning_end, afternoon_start, afternoon_end),
         valid_from=valid_from,
@@ -145,7 +143,6 @@ def same_content(left: JourneySpec, right: JourneySpec) -> bool:
     if (
         left.kind != right.kind
         or left.flexible != right.flexible
-        or left.tolerance_minutes != right.tolerance_minutes
         or left.weekly_minutes != right.weekly_minutes
         or len(left.days) != len(right.days)
     ):
@@ -192,9 +189,9 @@ def _at(day: date, value: str) -> datetime:
 
 def schedule_of(spec: JourneySpec, day: date, anchor: date, start_day: int) -> dict:
     if spec.kind == "livre":
-        return {"mode": "livre", "workday": False, "start": None, "end": None, "expected": 0, "break_minutes": 0, "flexible": False, "tolerance": 10}
+        return {"mode": "livre", "workday": False, "start": None, "end": None, "expected": 0, "break_minutes": 0, "flexible": False}
     if spec.kind == "carga":
-        return {"mode": "carga", "workday": False, "start": None, "end": None, "expected": 0, "break_minutes": 0, "flexible": False, "tolerance": 10}
+        return {"mode": "carga", "workday": False, "start": None, "end": None, "expected": 0, "break_minutes": 0, "flexible": False}
     position = cycle_position(day, anchor, start_day, spec.length)
     chosen = spec.days[position - 1]
     if chosen.off or not chosen.spans:
@@ -206,7 +203,6 @@ def schedule_of(spec: JourneySpec, day: date, anchor: date, start_day: int) -> d
             "expected": 0,
             "break_minutes": 0,
             "flexible": spec.flexible,
-            "tolerance": spec.tolerance_minutes,
         }
     start = _at(day, chosen.spans[0].starts_at)
     last = chosen.spans[-1]
@@ -217,7 +213,7 @@ def schedule_of(spec: JourneySpec, day: date, anchor: date, start_day: int) -> d
     if len(chosen.spans) >= 2:
         gap = minutes_of(chosen.spans[1].starts_at) - minutes_of(chosen.spans[0].ends_at)
         if gap > 0:
-            break_minutes = max(gap, 60)
+            break_minutes = gap
     return {
         "mode": "programada",
         "workday": True,
@@ -226,5 +222,4 @@ def schedule_of(spec: JourneySpec, day: date, anchor: date, start_day: int) -> d
         "expected": expected,
         "break_minutes": break_minutes,
         "flexible": spec.flexible,
-        "tolerance": spec.tolerance_minutes,
     }

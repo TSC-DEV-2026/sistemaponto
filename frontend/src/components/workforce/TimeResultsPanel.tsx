@@ -345,10 +345,10 @@ export function CalculationsPanel({
             <li key={item.work_date} className="space-y-1 px-4 py-3 text-sm">
               <p className="font-medium">{showDate(item.work_date)}</p>
               <p className="text-muted-foreground">
-                Previsto {showDuration(item.expected_minutes)} · Trabalhado {showDuration(item.worked_minutes)} · Atraso {showDuration(item.delay_minutes)} · Saída antecipada {showDuration(item.early_leave_minutes)}
+                H. contratadas {showDuration(item.contracted_minutes)} · H. trabalhadas {showDuration(item.worked_minutes)} · H. em atraso {showDuration(item.delay_minutes)}
               </p>
               <p className="text-muted-foreground">
-                Hora extra {showDuration(item.overtime_minutes)} · Falta de tempo {showDuration(item.shortage_minutes)} · Banco {showDuration(item.bank_minutes)}{item.balance_minutes != null ? ` · Saldo ${showDuration(item.balance_minutes)}` : ""} · Noturno {showDuration(item.night_minutes)} · Adicional {showDuration(item.night_additional_minutes)}
+                H. extras {showDuration(item.overtime_minutes)} · H. faltantes {showDuration(item.shortage_minutes)} · Banco {showDuration(item.bank_minutes)}{item.balance_minutes != null ? ` · Saldo ${showDuration(item.balance_minutes)}` : ""} · H. noturnas {showDuration(item.night_minutes)} · Adicional (H. noturnas) {showDuration(item.night_additional_minutes)}
               </p>
               {dayMarks(item) ? <p>{dayMarks(item)}</p> : null}
             </li>

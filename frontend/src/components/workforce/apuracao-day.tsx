@@ -47,7 +47,7 @@ export function DayIconButton({ label, disabled = false, onClick, children }: { 
 }
 
 function withoutJourney(item: TimeResult) {
-  return item.expected_minutes <= 0 && !item.first_entry_at && !item.last_exit_at && !item.holiday && !item.absence && !item.incomplete
+  return item.contracted_minutes <= 0 && !item.first_entry_at && !item.last_exit_at && !item.holiday && !item.absence && !item.incomplete
 }
 
 export function dayStatus(item: TimeResult) {
@@ -56,7 +56,7 @@ export function dayStatus(item: TimeResult) {
   const notes = labels.filter((label) => label !== "Sem jornada")
   if ((labels.includes("Sem jornada") || withoutJourney(item)) && notes.length === 0 && item.shortage_minutes <= 0 && !item.incomplete) return { kind: "idle" as const, label: "Sem jornada" }
   if (notes.length === 0 && item.shortage_minutes <= 0 && !item.incomplete) return { kind: "clear" as const, label: "Jornada cumprida" }
-  const label = notes[0] || (item.shortage_minutes > 0 ? "Falta de tempo" : "Ponto a conferir")
+  const label = notes[0] || (item.shortage_minutes > 0 ? "H. faltantes" : "Ponto a conferir")
   return { kind: "alert" as const, label }
 }
 
@@ -153,8 +153,8 @@ export function ApuracaoDaySummary({
         <div className={cn("grid min-w-0 flex-1 gap-x-3", showBank ? "grid-cols-5" : "grid-cols-4")}>
           <Metric label="Entrada" value={showClock(item.first_entry_at)} />
           <Metric label="Saída" value={showClock(item.last_exit_at)} />
-          <Metric label="Hora extra" value={showDuration(item.overtime_minutes)} />
-          <Metric label="Falta de tempo" value={showDuration(item.shortage_minutes)} alert={item.shortage_minutes > 0} />
+          <Metric label="H. extras" value={showDuration(item.overtime_minutes)} />
+          <Metric label="H. faltantes" value={showDuration(item.shortage_minutes)} alert={item.shortage_minutes > 0} />
           {showBank ? <Metric label="Banco de horas" value={showDuration(balance)} /> : null}
         </div>
         <div className="flex w-48 shrink-0 flex-wrap items-center justify-end gap-1.5">
@@ -172,15 +172,14 @@ const detailRows = (item: TimeResult) =>
   [
     ["Primeira entrada", showClock(item.first_entry_at), false],
     ["Última saída", showClock(item.last_exit_at), false],
-    ["Horas previstas", showDuration(item.expected_minutes), false],
-    ["Horas trabalhadas", showDuration(item.worked_minutes), false],
-    ["Atraso", showDuration(item.delay_minutes), false],
-    ["Saída antecipada", showDuration(item.early_leave_minutes), false],
-    ["Hora extra", showDuration(item.overtime_minutes), false],
-    ["Falta de tempo", showDuration(item.shortage_minutes), item.shortage_minutes > 0],
+    ["H. contratadas", showDuration(item.contracted_minutes), false],
+    ["H. trabalhadas", showDuration(item.worked_minutes), false],
+    ["H. em atraso", showDuration(item.delay_minutes), false],
+    ["H. extras", showDuration(item.overtime_minutes), false],
+    ["H. faltantes", showDuration(item.shortage_minutes), item.shortage_minutes > 0],
     ["Banco de horas", showDuration(item.bank_minutes), false],
-    ["Noturno", showDuration(item.night_minutes), false],
-    ["Adicional", showDuration(item.night_additional_minutes), false],
+    ["H. noturnas", showDuration(item.night_minutes), false],
+    ["Adicional (H. noturnas)", showDuration(item.night_additional_minutes), false],
   ] as const
 
 export function ApuracaoDayDetails({ item }: { item: TimeResult }) {
