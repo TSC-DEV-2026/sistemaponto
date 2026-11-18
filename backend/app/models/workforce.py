@@ -128,23 +128,15 @@ class JourneySpan(Base):
     ends_at = Column(String(5), nullable=False)
 
 
-class LaborUnion(Base):
-    __tablename__ = "unions"
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_union_tenant_name"),)
+class Norm(Base):
+    __tablename__ = "norms"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_norm_tenant_name"),)
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
     name = Column(String(255), nullable=False)
-
-
-class Agreement(Base):
-    __tablename__ = "agreements"
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_agreement_tenant_name"),)
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    tenant_id = _tenant()
-    union_id = Column(BigInteger, ForeignKey("unions.id"), nullable=True, index=True)
-    name = Column(String(255), nullable=False)
+    union_name = Column(String(255), nullable=False)
+    kind = Column(String(16), nullable=False)
     valid_from = Column(Date, nullable=False)
     valid_to = Column(Date, nullable=True)
     note = Column(Text, nullable=True)
@@ -157,16 +149,6 @@ class Holiday(Base):
     tenant_id = _tenant()
     name = Column(String(255), nullable=False)
     holiday_date = Column(Date, nullable=False)
-    note = Column(Text, nullable=True)
-
-
-class PunchRule(Base):
-    __tablename__ = "punch_rules"
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_punch_rule_tenant_name"),)
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    tenant_id = _tenant()
-    name = Column(String(255), nullable=False)
     note = Column(Text, nullable=True)
 
 

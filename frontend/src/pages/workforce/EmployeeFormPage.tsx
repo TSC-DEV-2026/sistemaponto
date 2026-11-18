@@ -28,7 +28,7 @@ const vigencyTargets: { kind: string; label: string; path: string; searchKey: "n
   { kind: "journey", label: "Jornada", path: "/journeys", searchKey: "name", icon: conceptIcon.journey },
   { kind: "team", label: "Equipe", path: "/teams", searchKey: "name", icon: conceptIcon.team },
   { kind: "manager", label: "Gestor", path: "/employees", searchKey: "full_name", icon: conceptIcon.manager },
-  { kind: "union", label: "Sindicato", path: "/unions", searchKey: "name", icon: conceptIcon.union },
+  { kind: "norm", label: "Norma", path: "/norms", searchKey: "name", icon: conceptIcon.norm },
   { kind: "status", label: "Situação", path: "", searchKey: "name", icon: conceptIcon.situation },
 ]
 
@@ -36,7 +36,7 @@ const vigencyHeading: Record<string, string> = {
   job: "Nova função",
   journey: "Nova jornada",
   team: "Nova equipe",
-  union: "Novo sindicato",
+  norm: "Nova norma",
   manager: "Adicionar gestor",
   status: "Alterar situação",
 }
@@ -64,7 +64,7 @@ function tabValue(id: string, person: Employee | null) {
     job: person.job_label,
     journey: person.journey_label,
     team: person.team_label,
-    union: person.union_label,
+    norm: person.norm_label,
     manager: person.manager_label,
     status: situationLabel[person.situation || ""],
   }

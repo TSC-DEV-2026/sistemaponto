@@ -619,7 +619,7 @@ export function EmployeePage() {
                   [conceptIcon.journey, "Jornada", employee.journey_label],
                   [conceptIcon.unit, "Empresa", employee.unit_label],
                   [conceptIcon.team, "Equipe", employee.team_label],
-                  [conceptIcon.union, "Sindicato", employee.union_label],
+                  [conceptIcon.norm, "Norma", employee.norm_label],
                 ] as const
                 ).map(([icon, label, value]) => (
                 <FieldTile key={label} icon={icon} label={label}>

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 ReasonKind = Literal["adjustment", "absence", "allowance", "certificate"]
+NormKind = Literal["convention", "agreement"]
 RequestKind = Literal["adjustment", "allowance", "certificate", "leave", "vacation"]
 RequestStatus = Literal["pending", "approved", "rejected", "cancelled"]
 DecisionStatus = Literal["approved", "rejected", "cancelled"]
@@ -28,7 +29,7 @@ VigencyKind = Literal[
     "category",
     "unit",
     "team",
-    "union",
+    "norm",
     "manager",
     "status",
 ]
@@ -162,22 +163,25 @@ class JourneyOut(NamedOut):
     note: str | None
 
 
-class AgreementCreate(NamedCreate):
-    union_id: int | None = None
+class NormCreate(NamedCreate):
+    union_name: str = Field(min_length=1, max_length=255)
+    kind: NormKind
     valid_from: date
     valid_to: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
-class AgreementUpdate(NamedUpdate):
-    union_id: int | None = None
+class NormUpdate(NamedUpdate):
+    union_name: str | None = Field(default=None, min_length=1, max_length=255)
+    kind: NormKind | None = None
     valid_from: date | None = None
     valid_to: date | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
-class AgreementOut(NamedOut):
-    union_id: int | None
+class NormOut(NamedOut):
+    union_name: str
+    kind: str
     valid_from: date
     valid_to: date | None
     note: str | None
@@ -198,18 +202,6 @@ class HolidayOut(NamedOut):
     note: str | None
 
 
-class PunchRuleCreate(NamedCreate):
-    note: str | None = Field(default=None, max_length=2000)
-
-
-class PunchRuleUpdate(NamedUpdate):
-    note: str | None = Field(default=None, max_length=2000)
-
-
-class PunchRuleOut(NamedOut):
-    note: str | None
-
-
 class ReasonCreate(NamedCreate):
     kind: ReasonKind
     active: bool = True
@@ -217,6 +209,7 @@ class ReasonCreate(NamedCreate):
 
 class ReasonUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    kind: ReasonKind | None = None
     active: bool | None = None
 
 
@@ -268,7 +261,7 @@ class EmployeeOut(BaseModel):
     cost_center_label: str | None
     unit_label: str | None
     team_label: str | None
-    union_label: str | None
+    norm_label: str | None
     manager_label: str | None
     managers: list[EmployeeManagerOut] = Field(default_factory=list)
     categories: list[EmployeeCategoryOut] = Field(default_factory=list)
@@ -282,7 +275,7 @@ BulkKind = Literal[
     "cost_center",
     "category",
     "team",
-    "union",
+    "norm",
     "manager",
     "status",
     "clock_method",

@@ -15,17 +15,15 @@ from app.models.workforce import (
     Holiday,
     Job,
     Journey,
-    Agreement,
-    LaborUnion,
-    PunchRule,
+    Norm,
     Reason,
     Team,
     Unit,
 )
 from app.schemas.workforce import (
-    AgreementCreate,
-    AgreementOut,
-    AgreementUpdate,
+    NormCreate,
+    NormOut,
+    NormUpdate,
     AuditOut,
     CertificatePhotoOut,
     ChargeOut,
@@ -87,9 +85,6 @@ from app.schemas.workforce import (
     FacePunchCreate,
     SelfiePhotoOut,
     PunchOut,
-    PunchRuleCreate,
-    PunchRuleOut,
-    PunchRuleUpdate,
     PunchUpdate,
     ReasonCreate,
     ReasonOut,
@@ -111,7 +106,7 @@ from app.services.workforce_service import Scope, WorkforceService
 
 INT_FILTERS = {
     "unit_id",
-    "union_id",
+    "norm_id",
     "job_id",
     "journey_id",
     "cost_center_id",
@@ -303,28 +298,17 @@ routers = [
     mount_named("/units", "units", Unit, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named("/teams", "teams", Team, TeamCreate, TeamUpdate, TeamOut, ("name", "unit_id"), page_size=20),
     mount_named("/journeys", "journeys", Journey, JourneyCreate, JourneyUpdate, JourneyOut, ("name",)),
-    mount_named("/unions", "unions", LaborUnion, NamedCreate, NamedUpdate, NamedOut, ("name",), page_size=20),
     mount_named(
-        "/agreements",
-        "agreements",
-        Agreement,
-        AgreementCreate,
-        AgreementUpdate,
-        AgreementOut,
-        ("name", "union_id"),
+        "/norms",
+        "norms",
+        Norm,
+        NormCreate,
+        NormUpdate,
+        NormOut,
+        ("name", "kind", "union_name"),
         page_size=20,
     ),
     mount_named("/holidays", "holidays", Holiday, HolidayCreate, HolidayUpdate, HolidayOut, ("name",), page_size=20),
-    mount_named(
-        "/punch-rules",
-        "punch-rules",
-        PunchRule,
-        PunchRuleCreate,
-        PunchRuleUpdate,
-        PunchRuleOut,
-        ("name",),
-        page_size=20,
-    ),
     mount_named(
         "/reasons",
         "reasons",
@@ -364,7 +348,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula.",
+    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, team_id, norm_id, manager_id, situation. q procura nome, CPF e matrícula.",
 )
 @searchable(
     "q",
@@ -376,7 +360,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
     "cost_center_id",
     "unit_id",
     "team_id",
-    "union_id",
+    "norm_id",
     "manager_id",
     "situation",
 )
@@ -405,7 +389,7 @@ def list_employees(
                 "cost_center_id",
                 "unit_id",
                 "team_id",
-                "union_id",
+                "norm_id",
                 "manager_id",
                 "situation",
             ),
@@ -418,7 +402,7 @@ def list_employees(
     "/changes",
     status_code=201,
     summary="Alterar funcionários em massa",
-    description="Uma operação por vez: função, jornada, categoria, equipe, sindicato, gestor, situação ou tipo de registro. A equipe também grava a empresa. Se uma pessoa falhar, nenhuma do lote é salva.",
+    description="Uma operação por vez: função, jornada, categoria, equipe, norma, gestor, situação ou tipo de registro. A equipe também grava a empresa. Se uma pessoa falhar, nenhuma do lote é salva.",
 )
 def change_employees(
     body: EmployeeBulkCreate,
@@ -1218,7 +1202,7 @@ def reports(
     team_id: str | None = Query(default=None, max_length=500, description="Ids de equipe separados por vírgula"),
     job_id: str | None = Query(default=None, max_length=500, description="Ids de função separados por vírgula"),
     journey_id: str | None = Query(default=None, max_length=500, description="Ids de jornada separados por vírgula"),
-    union_id: str | None = Query(default=None, max_length=500, description="Ids de sindicato separados por vírgula"),
+    norm_id: str | None = Query(default=None, max_length=500, description="Ids de norma separados por vírgula"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     actor: Actor = Depends(require_tenant),
@@ -1240,7 +1224,7 @@ def reports(
         ("team_id", team_id),
         ("job_id", job_id),
         ("journey_id", journey_id),
-        ("union_id", union_id),
+        ("norm_id", norm_id),
     ):
         if value:
             filters[name] = value

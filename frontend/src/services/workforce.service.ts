@@ -6,7 +6,7 @@ export type NamedRecord = {
   id: number
   name: string
   unit_id?: number
-  union_id?: number | null
+  union_name?: string | null
   kind?: string
   active?: boolean
   morning_start?: string | null
@@ -49,7 +49,7 @@ export type Employee = {
   cost_center_label: string | null
   unit_label: string | null
   team_label: string | null
-  union_label: string | null
+  norm_label: string | null
   manager_label: string | null
   managers?: EmployeeManager[]
   categories?: EmployeeCategory[]

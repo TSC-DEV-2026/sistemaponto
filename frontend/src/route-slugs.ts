@@ -14,10 +14,14 @@ const tabAliases: Record<string, string> = {
   setores: "teams",
   sectors: "teams",
   equipes: "teams",
-  sindicatos: "unions",
-  convencoes: "agreements",
+  sindicatos: "norms",
+  unions: "norms",
+  convencoes: "norms",
+  agreements: "norms",
+  regras: "norms",
+  "punch-rules": "norms",
   feriados: "holidays",
-  regras: "punch-rules",
+  motivos: "reasons",
   allowance: "allowances",
   certificate: "certificates",
   absence: "absences",
@@ -79,10 +83,16 @@ export function legacyPath(pathname: string, search: string) {
   path = swapPrefix(path, "/organization/teams", "/teams")
   path = swapPrefix(path, "/organization", "/structure")
   path = swapPrefix(path, "/payroll", "/integrations")
-  path = swapPrefix(path, "/labor-rules/unions", "/unions")
-  path = swapPrefix(path, "/labor-rules/agreements", "/agreements")
-  path = swapPrefix(path, "/labor-rules/holidays", "/holidays")
-  path = swapPrefix(path, "/labor-rules/punch-rules", "/punch-rules")
+  if (path === "/labor-rules/holidays" || path.startsWith("/labor-rules/holidays/")) {
+    path = `/holidays${path.slice("/labor-rules/holidays".length)}`
+  } else if (path === "/labor-rules" || path.startsWith("/labor-rules/")) {
+    path = "/punch-rules"
+  }
+  if (path === "/unions/new") path = "/norms/new"
+  else if (path === "/unions" || path.startsWith("/unions/")) path = "/punch-rules"
+  if (path === "/agreements/new") path = "/norms/new"
+  else if (path.startsWith("/agreements/")) path = `/norms${path.slice("/agreements".length)}`
+  else if (path === "/agreements") path = "/punch-rules"
   path = swapPrefix(path, "/time-clock", "/punches")
   path = swapPrefix(path, "/notifications", "/notices")
   if (path.startsWith("/staff/cost-centers")) {
@@ -108,6 +118,12 @@ export function legacyPath(pathname: string, search: string) {
   if (path === "/staff") {
     const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query)
     if (params.get("tab") === "categories") return "/structure?tab=categories"
+  }
+  if (path === "/reasons") return "/punch-rules?tab=reasons"
+  if (path === "/punch-rules") {
+    const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query)
+    if (!params.get("tab")) params.set("tab", "norms")
+    return `/punch-rules?${params.toString()}`
   }
   if (!kind) return `${path}${query}`
   return query ? `${path}${query}&kind=${kind}` : `${path}?kind=${kind}`

@@ -4,7 +4,7 @@ from app.schemas.clock_device import ClockDeviceOut
 from app.schemas.membership import MembershipOut
 from app.schemas.tenant import TenantOut
 from app.schemas.workforce import (
-    AgreementOut,
+    NormOut,
     AuditOut,
     ChargeOut,
     ClosingOut,
@@ -21,7 +21,6 @@ from app.schemas.workforce import (
     NoticePreferenceOut,
     OccurrenceOut,
     PunchOut,
-    PunchRuleOut,
     ReasonOut,
     RequestOut,
     SubscriptionOut,
@@ -40,10 +39,8 @@ RESOURCES: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
     "units": (NamedOut, NamedOut),
     "teams": (TeamOut, TeamOut),
     "journeys": (JourneyOut, JourneyOut),
-    "unions": (NamedOut, NamedOut),
-    "agreements": (AgreementOut, AgreementOut),
+    "norms": (NormOut, NormOut),
     "holidays": (HolidayOut, HolidayOut),
-    "punch-rules": (PunchRuleOut, PunchRuleOut),
     "reasons": (ReasonOut, ReasonOut),
     "employees": (EmployeeOut, EmployeeOut),
     "face-embeddings": (FaceEmbeddingOut, FaceEmbeddingOut),

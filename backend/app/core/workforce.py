@@ -12,7 +12,7 @@ VIGENCY_KINDS = (
     "category",
     "unit",
     "team",
-    "union",
+    "norm",
     "manager",
     "status",
 )
@@ -37,6 +37,7 @@ OCCURRENCE_KIND_ALIASES = {
     "leave": "leaves",
 }
 REASON_KINDS = ("adjustment", "absence", "allowance", "certificate")
+NORM_KINDS = ("convention", "agreement")
 PUNCH_SOURCES = ("employee", "admin", "approved_request", "manual", "afd")
 
 REASON_FOR_REQUEST = {
@@ -73,6 +74,7 @@ AUDIT_ACTION = {
     "sector": "Alteração de setor",
     "team": "Alteração de equipe",
     "union": "Alteração de sindicato",
+    "norm": "Alteração de norma",
     "manager": "Alteração de gestor",
     "status": "Alteração de situação",
 }

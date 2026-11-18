@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Calendar, ChevronDown, ChevronUp, CircleCheck, ClipboardList, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, ScrollText, Search, Trash2, type LucideIcon } from "lucide-react"
+import { Calendar, ChevronDown, ChevronUp, CircleCheck, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, Search, Trash2, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { canonicalTab } from "@/route-slugs"
@@ -24,7 +24,7 @@ import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type 
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf } from "@/utils/digits"
-import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
+import { clockMethodLabel, normKindLabel, reasonUseLabel, showDate, situationLabel } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
 import { journeyDetail } from "@/pages/workforce/journey"
 import { JourneyRecordPage } from "@/pages/workforce/JourneyRecordPage"
@@ -45,7 +45,8 @@ function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
 function catalogFieldIcon(field: CatalogField, fallback: LucideIcon) {
   if (field.type === "date") return Calendar
   if (field.type === "textarea") return FileText
-  if (field.name === "union_id") return conceptIcon.union
+  if (field.name === "kind") return conceptIcon.reason
+  if (field.name === "union_name") return conceptIcon.norm
   if (field.name === "unit_id") return conceptIcon.unit
   if (field.name === "active" || field.type === "checkbox") return CircleCheck
   return fallback
@@ -442,7 +443,7 @@ export function RecordList<T extends Row>({
                   id={`filter-${path}-${select.key}`}
                   value={chosen[select.key] ?? ""}
                   placeholder="Todos"
-                  icon={select.key === "unit_id" ? conceptIcon.unit : select.key === "union_id" ? conceptIcon.union : select.key === "active" ? CircleCheck : undefined}
+                  icon={select.key === "unit_id" ? conceptIcon.unit : select.key === "kind" ? conceptIcon.reason : select.key === "active" ? CircleCheck : undefined}
                   searchable={Boolean(select.source)}
                   searchPath={select.source}
                   searchPlaceholder={`Pesquisar ${select.label.toLocaleLowerCase("pt-BR")}`}
@@ -875,21 +876,22 @@ export function EmployeeList() {
 
 const linkedSelects: Record<string, { key: string; label: string; source: string }> = {
   teams: { key: "unit_id", label: "Empresa", source: "/units" },
-  agreements: { key: "union_id", label: "Sindicato", source: "/unions" },
 }
+
+const reasonUseOptions = [
+  { value: "allowance", label: "Abono" },
+  { value: "certificate", label: "Atestado" },
+  { value: "absence", label: "Falta" },
+  { value: "adjustment", label: "Ajuste" },
+]
 
 const organizationCopy: Record<string, { title: string; lead: string; mark: LucideIcon }> = {
   units: { title: "Pesquisar empresas", lead: "Consulte as empresas cadastradas.", mark: conceptIcon.unit },
   teams: { title: "Pesquisar equipes", lead: "Consulte as equipes cadastradas.", mark: conceptIcon.team },
   categories: { title: "Pesquisar categorias", lead: "Consulte as categorias cadastradas.", mark: conceptIcon.category },
-  unions: { title: "Filtros de pesquisa", lead: "Consulte os sindicatos cadastrados.", mark: conceptIcon.union },
-  agreements: { title: "Filtros de pesquisa", lead: "Consulte as convenções e acordos cadastrados.", mark: ScrollText },
-  holidays: { title: "Filtros de pesquisa", lead: "Consulte os feriados cadastrados.", mark: Calendar },
-  "punch-rules": { title: "Filtros de pesquisa", lead: "Consulte as regras de ponto cadastradas.", mark: ClipboardList },
-  "reason-adjustment": { title: "Pesquisar ajustes", lead: "Consulte os motivos de ajuste cadastrados.", mark: ClipboardList },
-  "reason-absence": { title: "Pesquisar faltas", lead: "Consulte os motivos de falta cadastrados.", mark: conceptIcon.fault },
-  "reason-allowance": { title: "Pesquisar abonos", lead: "Consulte os motivos de abono cadastrados.", mark: conceptIcon.allowance },
-  "reason-certificate": { title: "Pesquisar atestados", lead: "Consulte os motivos de atestado cadastrados.", mark: conceptIcon.certificate },
+  norms: { title: "Pesquisar normas", lead: "Consulte as normas cadastradas.", mark: conceptIcon.norm },
+  holidays: { title: "Pesquisar feriados", lead: "Consulte os feriados cadastrados.", mark: conceptIcon.holiday },
+  reasons: { title: "Pesquisar motivos", lead: "Consulte os motivos cadastrados.", mark: conceptIcon.reason },
 }
 
 export function CatalogList({ catalog, presentation }: { catalog: string; presentation?: "journey" | "people" | "organization" }) {
@@ -912,6 +914,9 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
   }, [linked])
   const selects: ListSelect[] = [
     ...(linked ? [{ key: linked.key, label: linked.label, options: linkedOptions, valueType: "number" as const, source: linked.source }] : []),
+    ...(catalog === "reasons"
+      ? [{ key: "kind", label: "Tipo", options: reasonUseOptions, valueType: "string" as const }]
+      : []),
     ...(entry.kind ? [{ key: "active", label: "Situação", options: [{ value: "true", label: "Ativo" }, { value: "false", label: "Inativo" }], valueType: "boolean" as const }] : []),
   ]
   return (
@@ -930,6 +935,8 @@ export function CatalogList({ catalog, presentation }: { catalog: string; presen
       detailOf={(item) => {
         const journey = journeyDetail(item)
         if (journey) return journey
+        if (item.union_name) return [normKindLabel[item.kind || ""] || "", item.union_name].filter((part) => part).join(" · ")
+        if (catalog === "reasons" && item.kind) return reasonUseLabel[item.kind] || item.kind
         if (typeof item.active === "boolean") return item.active ? "Ativo" : "Inativo"
         if (item.holiday_date) return showDate(item.holiday_date)
         return ""
@@ -1163,45 +1170,10 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
   )
 }
 
-const reasonCatalogs: Record<string, string> = {
-  adjustment: "reason-adjustment",
-  absence: "reason-absence",
-  allowance: "reason-allowance",
-  certificate: "reason-certificate",
-}
-
-export function ReasonRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
-  const [search] = useSearchParams()
-  const params = useParams()
-  const requested = reasonCatalogs[search.get("kind") || ""] || ""
-  const [catalog, setCatalog] = useState(mode === "new" ? requested || "reason-adjustment" : "")
-
-  useEffect(() => {
-    if (mode === "new") {
-      setCatalog(requested || "reason-adjustment")
-      return
-    }
-    const id = Number(params.id)
-    let active = true
-    getRecord<NamedRecord & { kind?: string }>("/reasons", id)
-      .then((row) => {
-        if (active) setCatalog(reasonCatalogs[row.kind || ""] || "reason-adjustment")
-      })
-      .catch(() => {
-        if (active) setCatalog("reason-adjustment")
-      })
-    return () => {
-      active = false
-    }
-  }, [mode, params.id, requested])
-
-  if (!catalog) return null
-  return <EntityRecordPage catalog={catalog} mode={mode} />
-}
-
 export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "new" | "edit" | "view" }) {
   const entry = catalogs[catalog]
   const params = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
   const id = Number(params.id)
@@ -1239,7 +1211,11 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         setOptionsReady(true)
       })
     if (mode === "new") {
-      setForm(blankForm(entry.fields))
+      const next = blankForm(entry.fields)
+      const requestedKind = searchParams.get("kind") || ""
+      const kindField = entry.fields.find((field) => field.name === "kind")
+      if (requestedKind && kindField?.options?.some((option) => option.value === requestedKind)) next.kind = requestedKind
+      setForm(next)
       setTitle(entry.newLabel)
       setError("")
       setLoaded(true)
@@ -1273,7 +1249,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     return () => {
       active = false
     }
-  }, [catalog, mode, id])
+  }, [catalog, mode, id, searchParams])
 
   if (catalog === "journeys") return <JourneyRecordPage mode={mode} />
 
@@ -1444,13 +1420,12 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     )
   }
 
-  const labor = catalog === "unions" || catalog === "agreements" || catalog === "holidays" || catalog === "punch-rules"
+  const labor = catalog === "norms" || catalog === "holidays" || catalog === "reasons"
   if (labor) {
     const meta = {
-      unions: { icon: conceptIcon.union, noun: "sindicato", article: "o", newLead: "Informe os dados do sindicato.", editLead: "Atualize os dados do sindicato." },
-      agreements: { icon: ScrollText, noun: "convenção", article: "a", newLead: "Informe os dados da convenção ou acordo.", editLead: "Atualize os dados da convenção ou acordo." },
-      holidays: { icon: Calendar, noun: "feriado", article: "o", newLead: "Informe os dados do feriado.", editLead: "Atualize os dados do feriado." },
-      "punch-rules": { icon: ClipboardList, noun: "regra de ponto", article: "a", newLead: "Informe os dados da regra de ponto.", editLead: "Atualize os dados da regra de ponto." },
+      norms: { icon: conceptIcon.norm, noun: "norma", article: "a", newLead: "Informe o sindicato, o tipo e as regras de ponto.", editLead: "Atualize a norma." },
+      holidays: { icon: conceptIcon.holiday, noun: "feriado", article: "o", newLead: "Informe os dados do feriado.", editLead: "Atualize os dados do feriado." },
+      reasons: { icon: conceptIcon.reason, noun: "motivo", article: "o", newLead: "Informe o nome e onde o motivo é usado.", editLead: "Atualize o motivo." },
     }[catalog]
     const Icon = meta.icon
     if (mode !== "new" && !loaded && !error) {
@@ -1478,13 +1453,30 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
               id={`${catalog}-${field.name}`}
               value={form[field.name] ?? ""}
               placeholder="Selecione"
-              icon={field.name === "union_id" ? conceptIcon.union : conceptIcon.unit}
+              icon={field.name === "kind" ? conceptIcon.reason : conceptIcon.unit}
               loading={!optionsReady}
               required={field.required}
               searchable={Boolean(field.searchPath)}
               searchPath={field.searchPath}
               searchPlaceholder={`Pesquisar ${field.label.toLocaleLowerCase("pt-BR")}`}
               options={[...(field.required ? [] : [{ value: "", label: "Selecione" }]), ...(options[field.name] || [])]}
+              onChange={(value) => setForm({ ...form, [field.name]: value })}
+            />
+          </div>
+        )
+      }
+      if (field.type === "checkbox") {
+        return (
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>{field.label}</Label>
+            <SiteSelect
+              id={`${catalog}-${field.name}`}
+              value={form[field.name] ?? "true"}
+              icon={CircleCheck}
+              options={[
+                { value: "true", label: "Ativo" },
+                { value: "false", label: "Inativo" },
+              ]}
               onChange={(value) => setForm({ ...form, [field.name]: value })}
             />
           </div>
@@ -1554,75 +1546,5 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     )
   }
 
-  const reasonMeta = {
-    "reason-adjustment": { icon: ClipboardList, noun: "ajuste", article: "o", newLead: "Informe o nome do ajuste.", editLead: "Atualize o nome do ajuste." },
-    "reason-absence": { icon: conceptIcon.fault, noun: "falta", article: "a", newLead: "Informe o nome da falta.", editLead: "Atualize o nome da falta." },
-    "reason-allowance": { icon: conceptIcon.allowance, noun: "abono", article: "o", newLead: "Informe o nome do abono.", editLead: "Atualize o nome do abono." },
-    "reason-certificate": { icon: conceptIcon.certificate, noun: "atestado", article: "o", newLead: "Informe o nome do atestado.", editLead: "Atualize o nome do atestado." },
-  }[catalog]
-  if (!reasonMeta) return null
-  const Icon = reasonMeta.icon
-  if (mode !== "new" && !loaded && !error) {
-    return (
-      <div className="w-full min-w-0 space-y-5">
-        <BackLink to={entry.backTo} appearance="detail" />
-        <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-          <Spinner label={`Carregando ${reasonMeta.article} ${reasonMeta.noun}`} className="h-8 w-8 text-[#1E8A3A]" />
-          <p className="text-sm font-medium text-[#64748B]">Carregando {reasonMeta.article} {reasonMeta.noun}</p>
-        </section>
-      </div>
-    )
-  }
-  const heading = mode === "view" ? title : mode === "new" ? entry.newLabel : entry.editTitle
-  const subtitle = mode === "view" ? reasonMeta.noun.charAt(0).toUpperCase() + reasonMeta.noun.slice(1) : mode === "new" ? reasonMeta.newLead : reasonMeta.editLead
-  return (
-    <div className="w-full min-w-0 space-y-5">
-      <BackLink to={entry.backTo} appearance="detail" />
-      <section className={cn(moduleCardClass, "w-full space-y-5")}>
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <Icon className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
-            <p className="text-sm text-[#64748B]">{subtitle}</p>
-          </div>
-        </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        {mode === "view" ? (
-          <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
-        ) : (
-          <ActionForm className="space-y-5" onSubmit={onSubmit}>
-            {entry.fields.map((field) => (
-              <div key={field.name} className="space-y-2">
-                <Label className={moduleLabelClass} htmlFor={`${catalog}-${field.name}`}>
-                  {field.label}
-                </Label>
-                {field.type === "checkbox" ? (
-                  <SiteSelect
-                    id={`${catalog}-${field.name}`}
-                    value={form[field.name] ?? "true"}
-                    icon={CircleCheck}
-                    options={[
-                      { value: "true", label: "Ativo" },
-                      { value: "false", label: "Inativo" },
-                    ]}
-                    onChange={(value) => setForm({ ...form, [field.name]: value })}
-                  />
-                ) : (
-                  <Input id={`${catalog}-${field.name}`} className={moduleFieldClass} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
-                )}
-              </div>
-            ))}
-            <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
-              <Button type="submit" className={modulePrimaryClass}>
-                <Save className="h-4 w-4" />
-                Salvar
-              </Button>
-            </div>
-          </ActionForm>
-        )}
-      </section>
-    </div>
-  )
+  return null
 }

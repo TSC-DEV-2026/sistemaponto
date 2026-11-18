@@ -25,6 +25,7 @@ from app.models.workforce import (
     EmployeeVigency,
     FiscalFile,
     Holiday,
+    Norm,
     HourBankEntry,
     Job,
     Journey,
@@ -760,6 +761,29 @@ def test_capacidade_bloqueia_o_funcionario_extra():
     with pytest.raises(AppError) as caught:
         workforce.create_employee(admin(), employee_payload("10987654321", None))
     assert caught.value.status_code == 409
+
+
+def test_norma_entra_na_ficha_do_funcionario():
+    workforce, _repo = service(1)
+    person = workforce.create_employee(admin(), employee_payload())
+    norm = workforce.create_named(
+        Norm,
+        admin(),
+        {
+            "name": "CCT Comerciários 2026",
+            "union_name": "Sindicato dos Comerciários",
+            "kind": "convention",
+            "valid_from": TODAY,
+            "valid_to": None,
+            "note": "Tolerância de 10 minutos.",
+        },
+    )
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "norm", "reference_id": norm.id, "label": None, "valid_from": TODAY, "note": None},
+    )
+    shown = workforce.get_employee(admin(), person["id"])
+    assert shown["norm_label"] == "CCT Comerciários 2026"
 
 
 def test_desligamento_libera_a_vaga():

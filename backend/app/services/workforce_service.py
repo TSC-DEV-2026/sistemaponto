@@ -47,8 +47,10 @@ from app.core.workforce import (
     COST_CENTER_CLASSIFICATION,
     MANUAL_OCCURRENCE_KINDS,
     OCCURRENCE_FOR_REQUEST,
+    NORM_KINDS,
     REASON_FOR_OCCURRENCE,
     REASON_FOR_REQUEST,
+    REASON_KINDS,
     occurrence_kind,
     STATUS_LABELS,
     assert_aware,
@@ -84,12 +86,10 @@ from app.models.workforce import (
     JourneyDay,
     JourneySpan,
     JourneyVersion,
-    Agreement,
-    LaborUnion,
+    Norm,
     Notice,
     Occurrence,
     Punch,
-    PunchRule,
     Reason,
     RequestEvent,
     RequestPunch,
@@ -113,9 +113,7 @@ UNIQUE_MODELS = {
     Unit,
     Team,
     Journey,
-    LaborUnion,
-    Agreement,
-    PunchRule,
+    Norm,
     Reason,
 }
 REF_MODELS = {
@@ -124,7 +122,7 @@ REF_MODELS = {
     "cost_center": CostCenter,
     "unit": Unit,
     "team": Team,
-    "union": LaborUnion,
+    "norm": Norm,
     "manager": Employee,
 }
 BULK_KINDS = (
@@ -133,7 +131,7 @@ BULK_KINDS = (
     "cost_center",
     "category",
     "team",
-    "union",
+    "norm",
     "manager",
     "status",
     "clock_method",
@@ -143,7 +141,7 @@ VIGENCY_QUERY = {
     "journey_id": "journey",
     "unit_id": "unit",
     "team_id": "team",
-    "union_id": "union",
+    "norm_id": "norm",
     "manager_id": "manager",
 }
 KIND_FIELD = {
@@ -152,7 +150,7 @@ KIND_FIELD = {
     "journey": "journey_label",
     "unit": "unit_label",
     "team": "team_label",
-    "union": "union_label",
+    "norm": "norm_label",
     "manager": "manager_label",
 }
 
@@ -229,11 +227,11 @@ class WorkforceService:
             return self._update_journey(scope, row_id, data)
         row = self._row(model, scope, row_id)
         payload = self._prepare_named(model, scope, data, current=row)
-        if "name" in payload or "unit_id" in payload:
+        if "name" in payload or "unit_id" in payload or "kind" in payload:
             merged = {
                 "name": payload.get("name", row.name),
                 "unit_id": payload.get("unit_id", getattr(row, "unit_id", None)),
-                "kind": getattr(row, "kind", None),
+                "kind": payload.get("kind", getattr(row, "kind", None)),
                 "category_id": payload.get("category_id", getattr(row, "category_id", None)),
             }
             self._unique_name(model, scope.tenant_id, merged, exclude_id=row.id)
@@ -288,6 +286,10 @@ class WorkforceService:
         matched: set[int] | None = None
         filters.pop("category_value_id", None)
         filters.pop("category_id", None)
+        if "union_id" in filters and "norm_id" not in filters:
+            filters["norm_id"] = filters.pop("union_id")
+        else:
+            filters.pop("union_id", None)
         value_ids = []
         if "cost_center_id" in filters:
             value_ids.append(int(filters.pop("cost_center_id")))
@@ -1610,12 +1612,16 @@ class WorkforceService:
 
     def _place_sets(self, filters: dict) -> tuple[dict[str, set[int]], str | None]:
         found: dict[str, set[int]] = {}
+        if "union_id" in filters and "norm_id" not in filters:
+            filters["norm_id"] = filters.pop("union_id")
+        else:
+            filters.pop("union_id", None)
         for key, kind in (
             ("unit_id", "unit"),
             ("team_id", "team"),
             ("job_id", "job"),
             ("journey_id", "journey"),
-            ("union_id", "union"),
+            ("norm_id", "norm"),
         ):
             ids = self._id_list(filters.pop(key, None))
             if ids:
@@ -2700,12 +2706,17 @@ class WorkforceService:
                     payload[key] = assert_clock(data.get(key))
             if current is None or "note" in data:
                 payload["note"] = self._note(data.get("note"))
-        if model is Agreement:
-            if current is None or "union_id" in data:
-                union_id = data.get("union_id")
-                if union_id is not None:
-                    self._row(LaborUnion, scope, int(union_id))
-                payload["union_id"] = int(union_id) if union_id is not None else None
+        if model is Norm:
+            if current is None or "union_name" in data:
+                union_name = str(data.get("union_name") or "").strip()
+                if not union_name:
+                    raise AppError(400, "Informe o sindicato")
+                payload["union_name"] = union_name
+            if current is None or "kind" in data:
+                kind = str(data.get("kind") or "").strip()
+                if kind not in NORM_KINDS:
+                    raise AppError(400, "Informe se é convenção ou acordo")
+                payload["kind"] = kind
             start = data.get("valid_from", getattr(current, "valid_from", None))
             end = data.get("valid_to", getattr(current, "valid_to", None)) if current is None or "valid_to" in data or "valid_from" in data else getattr(current, "valid_to", None)
             if current is None or "valid_from" in data:
@@ -2723,15 +2734,13 @@ class WorkforceService:
                 payload["holiday_date"] = data.get("holiday_date")
             if current is None or "note" in data:
                 payload["note"] = self._note(data.get("note"))
-        if model is PunchRule:
-            if current is None or "note" in data:
-                payload["note"] = self._note(data.get("note"))
         if model is Reason:
-            if current is None:
-                payload["kind"] = data["kind"]
-                payload["active"] = bool(data.get("active", True))
-            elif "active" in data and data["active"] is not None:
-                payload["active"] = bool(data["active"])
+            if current is None or "kind" in data:
+                kind = data.get("kind")
+                if kind not in REASON_KINDS:
+                    raise AppError(400, "Informe onde o motivo é usado")
+                payload["kind"] = kind
+            payload["active"] = True
         if model is CategoryValue and current is None:
             category_id = data.get("category_id")
             if category_id is None:
@@ -2756,7 +2765,6 @@ class WorkforceService:
     def _guard_catalog(self, model, row) -> None:
         checks = {
             Unit: (Team, {"unit_id": row.id}, "Existem equipes nesta empresa."),
-            LaborUnion: (Agreement, {"union_id": row.id}, "Existem acordos neste sindicato."),
         }
         if model in checks:
             other, equals, message = checks[model]
@@ -2768,7 +2776,7 @@ class WorkforceService:
             Unit: "unit",
             Team: "team",
             Journey: "journey",
-            LaborUnion: "union",
+            Norm: "norm",
         }
         kind = kind_by_model.get(model)
         if kind and self.repo.count_model(EmployeeVigency, kind=kind, reference_id=row.id):
