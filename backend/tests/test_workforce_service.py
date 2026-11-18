@@ -3833,29 +3833,16 @@ def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
     assert repo.get_row(CategoryValue, 1, center.id).name == "Obra A"
 
 
-def test_filtro_de_classificacao_soma_e_alterna():
+def test_lista_nao_filtra_por_categoria():
     workforce, _repo = service()
     first = workforce.create_employee(admin(), employee_payload("11111111111", 8))
     second = workforce.create_employee(admin(), employee_payload("22222222222", 9))
     eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
     brown = _value(workforce, eyes.id, "Castanho")
-    green = _value(workforce, eyes.id, "Verde")
-    age = workforce.create_named(Category, admin(), {"name": "Margem de idade"})
-    adult = _value(workforce, age.id, "18-59")
     _classify(workforce, first["id"], brown.id, date(2026, 10, 1))
-    _classify(workforce, first["id"], adult.id, date(2026, 10, 1))
-    _classify(workforce, second["id"], green.id, date(2026, 10, 1))
-    _classify(workforce, second["id"], adult.id, date(2026, 10, 1))
-    both, both_total = workforce.list_employees(
-        admin(), 1, 20, {"category_value_id": f"{brown.id},{adult.id}"}
-    )
-    assert both_total == 1
-    assert both[0].id == first["id"]
-    either, either_total = workforce.list_employees(
-        admin(), 1, 20, {"category_value_id": f"{brown.id},{green.id}"}
-    )
-    assert either_total == 2
-    assert {row.id for row in either} == {first["id"], second["id"]}
+    listed, total = workforce.list_employees(admin(), 1, 20, {"category_value_id": str(brown.id)})
+    assert total == 2
+    assert {row.id for row in listed} == {first["id"], second["id"]}
 
 
 def test_lote_de_classificacao_nao_mexe_na_outra():
@@ -3938,9 +3925,9 @@ def test_relatorio_filtra_empresa_e_equipe_pela_vigencia_do_dia():
         {"unit_id": str(unit_a.id), "team_id": str(team_b.id)},
     )
     assert crossed["items"] == []
-    early = workforce.report(admin(), "people", date(2026, 10, 6), date(2026, 10, 6), None, 1, 10, {"unit_id": str(unit_a.id)})
+    early = workforce.report(admin(), "employees", date(2026, 10, 6), date(2026, 10, 6), None, 1, 10, {"unit_id": str(unit_a.id)})
     assert [item["full_name"] for item in early["items"]] == [person["full_name"]]
-    later = workforce.report(admin(), "people", date(2026, 10, 7), date(2026, 10, 7), None, 1, 10, {"unit_id": str(unit_a.id)})
+    later = workforce.report(admin(), "employees", date(2026, 10, 7), date(2026, 10, 7), None, 1, 10, {"unit_id": str(unit_a.id)})
     assert later["items"] == []
     with pytest.raises(AppError) as invalid:
         workforce.report(admin(), "marking", start, end, None, 1, 10, {"team_id": "a"})
@@ -3996,19 +3983,30 @@ def test_relatorio_filtra_funcao_e_situacao_pela_vigencia_do_dia():
     assert invalid.value.message == "Situação inválida"
 
 
-def test_relatorio_de_pessoas_usa_o_valor_do_dia():
+def test_relatorio_de_funcionarios_mostra_o_vinculo_do_dia():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
-    eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
-    brown = _value(workforce, eyes.id, "Castanho")
-    green = _value(workforce, eyes.id, "Verde")
-    _classify(workforce, person["id"], brown.id, date(2026, 10, 1))
-    _classify(workforce, person["id"], green.id, date(2026, 10, 6))
-    early = workforce.report(
-        admin(), "people", date(2026, 10, 5), date(2026, 10, 5), person["id"], 1, 10
+    job = workforce.create_named(Job, admin(), {"name": "Auxiliar"})
+    workforce.create_vigency(
+        admin(),
+        {
+            "employee_id": person["id"],
+            "kind": "job",
+            "reference_id": job.id,
+            "label": None,
+            "valid_from": date(2026, 10, 6),
+            "note": None,
+        },
     )
-    assert early["name"] == "Pessoas"
-    assert early["items"][0]["detail"] == "Cor dos olhos: Castanho"
+    eyes = workforce.create_named(Category, admin(), {"name": "Cor dos olhos"})
+    green = _value(workforce, eyes.id, "Verde")
+    _classify(workforce, person["id"], green.id, date(2026, 10, 1))
+    early = workforce.report(admin(), "employees", date(2026, 10, 5), date(2026, 10, 5), person["id"], 1, 10)
+    assert early["kind"] == "employees"
+    assert early["name"] == "Funcionários"
+    assert "Função Não informado" in early["items"][0]["detail"]
+    assert "Situação Ativo" in early["items"][0]["detail"]
+    assert "Cor dos olhos" not in early["items"][0]["detail"]
     later = workforce.report(
         admin(),
         "people",
@@ -4019,11 +4017,13 @@ def test_relatorio_de_pessoas_usa_o_valor_do_dia():
         10,
         {"category_value_id": str(green.id), "category_id": str(eyes.id)},
     )
+    assert later["kind"] == "employees"
     assert [row["full_name"] for row in later["items"]] == [person["full_name"]]
-    assert later["items"][0]["detail"] == "Cor dos olhos: Verde"
+    assert "Função Auxiliar" in later["items"][0]["detail"]
+    assert "CPF 123.456.789-01" in later["items"][0]["detail"]
     with pytest.raises(AppError) as span:
-        workforce.report(admin(), "people", date(2026, 10, 1), date(2026, 10, 6), None, 1, 10)
-    assert span.value.message == "O relatório de pessoas pede um dia"
+        workforce.report(admin(), "employees", date(2026, 10, 1), date(2026, 10, 6), None, 1, 10)
+    assert span.value.message == "O relatório de funcionários pede um dia"
 
 
 def test_funcionario_pode_ter_varios_gestores():
