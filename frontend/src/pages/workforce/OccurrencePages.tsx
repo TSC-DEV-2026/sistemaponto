@@ -18,6 +18,7 @@ import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDra
 import { useDayLocks } from "@/components/workforce/use-day-lock"
 import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { createRecord, getRecord, listRecords, removeRecord, updateRecord, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
+import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
@@ -38,15 +39,14 @@ function tabPath(kind: string) {
   return `/occurrences?tab=${tab}`
 }
 
-function canLaunchKind(role: string | null | undefined, kind: string) {
-  const manual = absenceKinds.includes(occurrenceKindOf(kind) as (typeof absenceKinds)[number])
-  return role === "admin" || (role === "manager" && manual)
+function canLaunchKind(role: string | null | undefined, _kind: string) {
+  return canOperate(role)
 }
 
 function OccurrenceKindList({ kind, employees }: { kind: string; employees: Employee[] }) {
   const role = useAuthStore((state) => state.user?.role)
   const canLaunch = canLaunchKind(role, kind)
-  const canEdit = role === "admin"
+  const canEdit = canOperate(role)
   const [listEmployee, setListEmployee] = useState("")
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const asksReason = !isVacationKind(kind) && !isLeaveKind(kind) && kind !== "punch_entry"
@@ -470,7 +470,7 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const role = useAuthStore((state) => state.user?.role)
-  const canEdit = role === "admin"
+  const canEdit = canOperate(role)
   const [item, setItem] = useState<Occurrence | null>(null)
   const [employeeName, setEmployeeName] = useState("")
   const [reasonName, setReasonName] = useState("")

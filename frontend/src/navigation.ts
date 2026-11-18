@@ -5,7 +5,6 @@ import {
   MonitorSmartphone,
   ClipboardList,
   Shield,
-  Smartphone,
   type LucideIcon,
 } from "lucide-react"
 
@@ -25,6 +24,7 @@ export type NavItem = {
   adminOnly?: boolean
   staffOnly?: boolean
   hideFromAdmin?: boolean
+  member?: boolean
 }
 
 export type NavGroup = {
@@ -36,6 +36,29 @@ export const dashboardItem = {
   to: "/",
   label: "Dashboard",
   icon: LayoutDashboard,
+}
+
+export function canOperate(role: string | null | undefined) {
+  return role === "admin" || role === "manager"
+}
+
+export function routeAllowed(role: string | null | undefined, pathname: string) {
+  if (pathname === "/punches") return false
+  if (role === "manager") {
+    return pathname !== "/memberships" && !pathname.startsWith("/memberships/") && pathname !== "/plan" && !pathname.startsWith("/plan/") && pathname !== "/tenants" && !pathname.startsWith("/tenants/")
+  }
+  if (role === "member") {
+    return (
+      pathname === "/" ||
+      pathname === "/settings" ||
+      pathname === "/change-password" ||
+      pathname === "/requests" ||
+      pathname.startsWith("/requests/") ||
+      pathname === "/notices" ||
+      pathname.startsWith("/notices/")
+    )
+  }
+  return true
 }
 
 export const navGroups: NavGroup[] = [
@@ -51,18 +74,6 @@ export const navGroups: NavGroup[] = [
           { title: "Apurações", text: "Resultado do período." },
           { title: "Banco de horas", text: "Saldo contínuo." },
           { title: "Fechamento", text: "Nenhum fechamento." },
-        ],
-      },
-      {
-        to: "/punches",
-        label: "Registro",
-        icon: Smartphone,
-        hideFromAdmin: true,
-        lead: "Modalidades do registro feito pelo funcionário no app.",
-        sections: [
-          { title: "Registro Simples", text: "Botão do funcionário." },
-          { title: "QR Code + Selfie", text: "Empresa, CPF e matrícula." },
-          { title: "Reconhecimento facial", text: "Online e offline." },
         ],
       },
       {
@@ -82,6 +93,7 @@ export const navGroups: NavGroup[] = [
         to: "/requests",
         label: "Solicitações",
         icon: conceptIcon.request,
+        member: true,
         lead: "Caixa de entrada. Uma solicitação pendente não altera o ponto.",
         sections: [
           { title: "Todas", text: "0" },
@@ -111,7 +123,7 @@ export const navGroups: NavGroup[] = [
         to: "/clock-devices",
         label: "Aparelhos",
         icon: MonitorSmartphone,
-        adminOnly: true,
+        staffOnly: true,
         lead: "Libera um aparelho para várias pessoas registrarem o ponto.",
         sections: [
           { title: "Código", text: "Uso único, válido por alguns minutos." },
@@ -122,7 +134,7 @@ export const navGroups: NavGroup[] = [
         to: "/bulk-changes",
         label: "Operações em massa",
         icon: ListChecks,
-        adminOnly: true,
+        staffOnly: true,
         lead: "Altera o vínculo ou o tipo de registro de várias pessoas de uma vez.",
         sections: [
           { title: "Vínculos", text: "Função, jornada, categoria, equipe, situação, gestor e norma." },

@@ -116,11 +116,12 @@ export function SettingsPage() {
 
   const verified = Boolean(user?.email_verified)
   const displayName = user?.full_name || ""
-  const links = management.filter((item) => !item.admin || user?.role === "admin")
+  const accountAdmin = user?.role === "admin"
+  const links = accountAdmin ? management : management.filter((item) => item.title === "Notificações")
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      <section className={cn(moduleCardClass, "space-y-5")}>
+      {accountAdmin ? <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-sm font-semibold text-[#1E8A3A]" aria-hidden>
@@ -193,10 +194,10 @@ export function SettingsPage() {
           </div>
         ) : null}
         {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-      </section>
+      </section> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section className={cn(moduleCardClass, "space-y-4")}>
+        {accountAdmin ? <section className={cn(moduleCardClass, "space-y-4")}>
           <div className="flex items-center gap-3">
             <IconTile icon={Mail} />
             <div className="min-w-0 flex-1">
@@ -232,7 +233,7 @@ export function SettingsPage() {
               </ActionForm>
             </>
           ) : null}
-        </section>
+        </section> : null}
 
         <section className={cn(moduleCardClass, "space-y-4")}>
           <div className="flex items-center gap-3">

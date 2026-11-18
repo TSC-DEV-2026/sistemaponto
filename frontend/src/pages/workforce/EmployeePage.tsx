@@ -29,6 +29,7 @@ import {
   type Vigency,
 } from "@/services/workforce.service"
 import { resultNote } from "@/pages/workforce/journey"
+import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
@@ -370,7 +371,7 @@ export function EmployeePage() {
   const navigate = useNavigate()
   const id = Number(params.id)
   const role = useAuthStore((state) => state.user?.role)
-  const isAdmin = role === "admin"
+  const canEdit = canOperate(role)
   const [tab, setTab] = useState<(typeof tabs)[number][0]>("data")
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [vigencies, setVigencies] = useState<Vigency[]>([])
@@ -385,7 +386,7 @@ export function EmployeePage() {
   const history = usePagedList<Vigency>("/employee-vigencies", { employee_id: id, ...(historyKind ? { kind: historyKind } : {}) }, ready, saved)
   const events = usePagedList<Occurrence>("/occurrences", { employee_id: id, ...(eventKind ? { kind: eventKind } : {}) }, ready, saved)
   const inbox = usePagedList<TimeRequest>("/requests", { employee_id: id, ...(requestKind ? { kind: requestKind } : {}), ...(requestState ? { status: requestState } : {}) }, ready, saved)
-  const trail = usePagedList<Audit>("/audits", { employee_id: id }, ready && isAdmin, saved)
+  const trail = usePagedList<Audit>("/audits", { employee_id: id }, ready && canEdit, saved)
   const [error, setError] = useState("")
   const [fullName, setFullName] = useState("")
   const [cpf, setCpf] = useState("")
@@ -479,7 +480,7 @@ export function EmployeePage() {
     <div className={fichaFrameClass}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackLink to="/staff?tab=employees" appearance="detail" />
-        {isAdmin ? (
+        {canEdit ? (
           confirmDelete ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
               <span className="text-sm text-[#111827]">Excluir {personName}?</span>

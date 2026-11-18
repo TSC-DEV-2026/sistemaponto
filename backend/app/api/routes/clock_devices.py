@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.dependencies.auth import Actor, require_admin
+from app.api.dependencies.auth import Actor, require_staff
 from app.api.dependencies.services import get_clock_device_service
 from app.api.responses import json_data
 from app.api.serialization import dump_one, dump_page
@@ -43,7 +43,7 @@ def list_devices(
     limit: int = Query(10, ge=1, le=100),
     public_id: str | None = Query(default=None, max_length=80),
     fields: str | None = Query(default=None, max_length=500),
-    actor: Actor = Depends(require_admin),
+    actor: Actor = Depends(require_staff),
     service: ClockDeviceService = Depends(get_clock_device_service),
 ):
     items, total = service.list_devices(as_scope(actor), page, limit, public_id)
@@ -112,7 +112,7 @@ def punch_qr(
 def get_device(
     row_id: int,
     fields: str | None = Query(default=None, max_length=500),
-    actor: Actor = Depends(require_admin),
+    actor: Actor = Depends(require_staff),
     service: ClockDeviceService = Depends(get_clock_device_service),
 ):
     return json_data(dump_one(service.get_device(as_scope(actor), row_id), ClockDeviceOut, fields))
@@ -122,7 +122,7 @@ def get_device(
 def update_device(
     row_id: int,
     body: ClockDeviceUpdate,
-    actor: Actor = Depends(require_admin),
+    actor: Actor = Depends(require_staff),
     service: ClockDeviceService = Depends(get_clock_device_service),
 ):
     body.model_dump()
@@ -133,7 +133,7 @@ def update_device(
 @devices.delete("/{row_id}", summary="Revogar aparelho", description="Derruba a chave desta organização. As outras organizações do aparelho permanecem.")
 def revoke_device(
     row_id: int,
-    actor: Actor = Depends(require_admin),
+    actor: Actor = Depends(require_staff),
     service: ClockDeviceService = Depends(get_clock_device_service),
 ):
     service.revoke(as_scope(actor), row_id)
@@ -142,7 +142,7 @@ def revoke_device(
 
 @codes.post("", status_code=201, summary="Gerar código de liberação", description="Código curto, válido por 10 minutos e de uso único.")
 def issue_code(
-    actor: Actor = Depends(require_admin),
+    actor: Actor = Depends(require_staff),
     service: ClockDeviceService = Depends(get_clock_device_service),
 ):
     return json_data(dump_one(service.issue_code(as_scope(actor)), ClockReleaseCodeOut, None), status_code=201)

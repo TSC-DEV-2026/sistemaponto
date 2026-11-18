@@ -2,6 +2,7 @@ import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, 
 import { Calendar, ChevronDown, ChevronUp, CircleCheck, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, Search, Trash2, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
+import { canOperate } from "@/navigation"
 import { canonicalTab } from "@/route-slugs"
 import { conceptIcon } from "@/utils/concept-icons"
 
@@ -324,7 +325,7 @@ export function RecordList<T extends Row>({
   searchLead?: string
   extraParams?: ListParams
 }) {
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const canEdit = canOperate(useAuthStore((state) => state.user?.role))
   const setTabAction = useContext(TabAction)
   const journey = presentation === "journey"
   const people = presentation === "people"
@@ -340,7 +341,7 @@ export function RecordList<T extends Row>({
   })
 
   useEffect(() => {
-    const create = isAdmin ? (
+    const create = canEdit ? (
       <Button asChild className={journey || people || organization ? cn(modulePrimaryClass, "shrink-0", organization && "w-full sm:w-auto") : undefined}>
         <Link to={newTo}>
           <Plus className="h-4 w-4" />
@@ -359,7 +360,7 @@ export function RecordList<T extends Row>({
       </div>,
     )
     return () => setTabAction(null)
-  }, [extra, isAdmin, journey, newLabel, newTo, organization, people, setTabAction])
+  }, [extra, canEdit, journey, newLabel, newTo, organization, people, setTabAction])
 
   async function onDelete(id: number) {
     list.setError("")
@@ -506,7 +507,7 @@ export function RecordList<T extends Row>({
                         Cancelar
                       </Button>
                     </div>
-                  ) : isAdmin ? (
+                  ) : canEdit ? (
                     <div className="flex shrink-0 gap-1.5">
                       <ActionTip label="Editar">
                         <Button asChild variant="outline" className={moduleIconClass}>
@@ -635,7 +636,7 @@ export function RecordList<T extends Row>({
                           </Link>
                         </Button>
                       </ActionTip>
-                      {isAdmin ? (
+                      {canEdit ? (
                         <ActionTip label="Editar">
                           <Button asChild variant="outline" className={moduleIconClass}>
                             <Link to={editTo(item.id)} aria-label={`Editar ${nameOf(item)}`}>
@@ -644,7 +645,7 @@ export function RecordList<T extends Row>({
                           </Button>
                         </ActionTip>
                       ) : null}
-                      {isAdmin ? (
+                      {canEdit ? (
                         <ActionTip label="Excluir">
                           <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${nameOf(item)}`} onClick={() => setPending(item.id)}>
                             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
@@ -733,7 +734,7 @@ export function RecordList<T extends Row>({
                       Cancelar
                     </Button>
                   </div>
-                ) : isAdmin ? (
+                ) : canEdit ? (
                   <div className="flex shrink-0 gap-1.5">
                     <ActionTip label="Editar">
                       <Button asChild variant="outline" className={moduleIconClass}>
@@ -777,7 +778,7 @@ export function RecordList<T extends Row>({
                       </Link>
                     </Button>
                   </ActionTip>
-                  {isAdmin ? (
+                  {canEdit ? (
                     <ActionTip label="Editar">
                       <Button asChild size="sm" variant="outline">
                         <Link to={editTo(item.id)} aria-label="Editar">
@@ -786,7 +787,7 @@ export function RecordList<T extends Row>({
                       </Button>
                     </ActionTip>
                   ) : null}
-                  {isAdmin ? (
+                  {canEdit ? (
                     <ActionTip label="Excluir">
                       <Button type="button" size="sm" variant="outline" aria-label="Excluir" onClick={() => setPending(item.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -1070,7 +1071,7 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
 export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const params = useParams()
   const navigate = useNavigate()
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const canEdit = canOperate(useAuthStore((state) => state.user?.role))
   const classificationId = Number(params.id)
   const valueId = Number(params.valueId)
   const backTo = `/categories/${classificationId}`
@@ -1083,8 +1084,8 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
       navigate("/structure?tab=categories", { replace: true })
       return
     }
-    if (mode !== "view" && !isAdmin) navigate(backTo, { replace: true })
-  }, [isAdmin, mode, classificationId, backTo, navigate])
+    if (mode !== "view" && !canEdit) navigate(backTo, { replace: true })
+  }, [canEdit, mode, classificationId, backTo, navigate])
 
   useEffect(() => {
     if (mode === "new") return
@@ -1179,7 +1180,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   const params = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const canEdit = canOperate(useAuthStore((state) => state.user?.role))
   const id = Number(params.id)
   const [form, setForm] = useState<Record<string, string>>(() => blankForm(entry.fields))
   const [options, setOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -1189,10 +1190,10 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   const [optionsReady, setOptionsReady] = useState(false)
 
   useEffect(() => {
-    if (mode !== "view" && !isAdmin) {
+    if (mode !== "view" && !canEdit) {
       navigate(mode === "new" ? entry.backTo : `${entry.path}/${id}`, { replace: true })
     }
-  }, [mode, isAdmin, id])
+  }, [mode, canEdit, id])
 
   useEffect(() => {
     if (catalog === "journeys") return
@@ -1305,7 +1306,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       <div className="w-full min-w-0 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <BackLink to={entry.backTo} appearance="detail" />
-          {valuesOnPage && isAdmin ? (
+          {valuesOnPage && canEdit ? (
             <Button asChild className={cn(modulePrimaryClass, "shrink-0")}>
               <Link to={`/categories/${id}/values/new`}>
                 <Plus className="h-4 w-4" />
@@ -1346,7 +1347,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             </ActionForm>
           )}
         </section>
-        {valuesOnPage ? <CategoryValues classificationId={id} canEdit={isAdmin} /> : null}
+        {valuesOnPage ? <CategoryValues classificationId={id} canEdit={canEdit} /> : null}
       </div>
     )
   }

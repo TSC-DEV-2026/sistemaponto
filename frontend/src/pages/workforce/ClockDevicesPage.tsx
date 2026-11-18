@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleDangerClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { issueClockCode, listClockDevices, revokeClockDevice } from "@/services/clock-device.service"
+import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import type { ClockDevice, ClockReleaseCode } from "@/types/api"
 import { cn } from "@/utils/cn"
@@ -20,7 +21,7 @@ function when(value: string) {
 export function ClockDevicesPage() {
   const navigate = useNavigate()
   const role = useAuthStore((state) => state.user?.role)
-  const isAdmin = role === "admin"
+  const canEdit = canOperate(role)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const requestId = useRef(0)
   const [page, setPage] = useState(1)
@@ -36,12 +37,12 @@ export function ClockDevicesPage() {
   const [revoking, setRevoking] = useState(false)
 
   useEffect(() => {
-    if (!role || isAdmin) return
+    if (!role || canEdit) return
     navigate("/", { replace: true })
-  }, [role, isAdmin, navigate])
+  }, [role, canEdit, navigate])
 
   useEffect(() => {
-    if (!isAdmin) return
+    if (!canEdit) return
     const current = ++requestId.current
     setLoading(true)
     setError("")
@@ -60,7 +61,7 @@ export function ClockDevicesPage() {
       .finally(() => {
         if (current === requestId.current) setLoading(false)
       })
-  }, [isAdmin, tenantId, page, pageSize, reloadKey])
+  }, [canEdit, tenantId, page, pageSize, reloadKey])
 
   async function generate() {
     setIssuing(true)
@@ -88,7 +89,7 @@ export function ClockDevicesPage() {
     }
   }
 
-  if (!isAdmin) return null
+  if (!canEdit) return null
 
   return (
     <div className="w-full min-w-0 space-y-4">

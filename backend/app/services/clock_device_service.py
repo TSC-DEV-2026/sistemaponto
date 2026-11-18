@@ -237,7 +237,7 @@ class ClockDeviceService:
         }
 
     def _admin(self, scope: Scope) -> None:
-        if scope.role != "admin" or scope.tenant_id is None:
+        if scope.role not in {"admin", "manager"} or scope.tenant_id is None:
             raise AppError(403, "Sem permissão")
 
     def _public_id(self, value: str) -> str:
