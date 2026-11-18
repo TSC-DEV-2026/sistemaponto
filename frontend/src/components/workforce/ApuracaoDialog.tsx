@@ -56,7 +56,7 @@ async function punchesOnDay(employeeId: number, day: string) {
 
 const adjustmentSources = new Set(["manual", "approved_request"])
 
-function DayPunches({ employeeId, day, locked, warnings, onRestored }: { employeeId: number; day: string; locked: boolean; warnings: string[]; onRestored: () => Promise<void> }) {
+function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: number; day: string; locked: boolean; onRestored: () => Promise<void> }) {
   const [items, setItems] = useState<Punch[] | null>(null)
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [error, setError] = useState("")
@@ -120,14 +120,8 @@ function DayPunches({ employeeId, day, locked, warnings, onRestored }: { employe
       </div>
     )
   }
-  const intervalWarning = warnings.find((warning) => warning.toLocaleLowerCase("pt-BR").includes("intervalo"))
   return (
     <div className="space-y-3">
-      {intervalWarning ? (
-        <p className="rounded-xl border border-[#F4E7C3] bg-[#FFF8E8] px-4 py-3 text-sm text-[#7A5B12]">
-          {intervalWarning.charAt(0).toLocaleUpperCase("pt-BR") + intervalWarning.slice(1)}.
-        </p>
-      ) : null}
       {adjusted ? (
         <div className="flex flex-col gap-3 rounded-xl border border-[#F4E7C3] bg-[#FFF8E8] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-[#7A5B12]">
@@ -335,7 +329,7 @@ export function ApuracaoDialog({
             </SlidingHighlight>
             </div>
           ) : null}
-          {mode === "details" && detailTab === "punches" ? <DayPunches employeeId={employeeId} day={day} locked={Boolean(lockMessage)} warnings={item.warnings} onRestored={onSaved} /> : null}
+          {mode === "details" && detailTab === "punches" ? <DayPunches employeeId={employeeId} day={day} locked={Boolean(lockMessage)} onRestored={onSaved} /> : null}
           {mode === "details" && detailTab === "hours" ? <ApuracaoDayDetails item={item} /> : null}
           {mode === "details" && detailTab === "hours" && item.balance_minutes != null ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E4E7] px-4 py-3">
