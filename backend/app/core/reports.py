@@ -5,7 +5,7 @@ REPORTS = (
     ("occurrence", "Ocorrências"),
     ("management", "Gestão"),
     ("marking", "Marcações"),
-    ("people", "Pessoas"),
+    ("employees", "Funcionários"),
 )
 
 REPORT_NAMES = dict(REPORTS)

@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label"
 import { ListPlaceholder } from "@/components/ui/list-placeholder"
 import { Spinner } from "@/components/ui/spinner"
 import { SiteSelect } from "@/components/ui/site-select"
-import { CategoryFilter, classificationQuery, loadCategories } from "@/components/workforce/ClassificationFilter"
 import { EmployeeCombobox } from "@/components/workforce/employee-combobox"
 import { OrganizationFilterFields, useOrganizationFilters } from "@/components/workforce/organization-filters"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
@@ -33,7 +32,6 @@ import {
   updateRecord,
   type Closing,
   type Employee,
-  type NamedRecord,
   type FiscalFile,
   type FiscalImport,
   type Notice,
@@ -1958,8 +1956,6 @@ type ReportQuery = {
   startsOn: string
   endsOn: string
   employeeId: string
-  classificationValueId: string
-  classificationIds: string
   unitIds: string
   teamIds: string
   jobIds: string
@@ -1969,8 +1965,6 @@ type ReportQuery = {
 
 function reportExtra(query: ReportQuery) {
   const extra: Record<string, string> = {}
-  if (query.classificationValueId) extra.category_value_id = query.classificationValueId
-  if (query.classificationIds) extra.category_ids = query.classificationIds
   if (query.unitIds) extra.unit_id = query.unitIds
   if (query.teamIds) extra.team_id = query.teamIds
   if (query.jobIds) extra.job_id = query.jobIds
@@ -2021,9 +2015,6 @@ export function ReportsPage() {
   const [employeeId, setEmployeeId] = useState("")
   const places = useOrganizationFilters(canRead)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [valueIds, setValueIds] = useState<number[]>([])
-  const [showIds, setShowIds] = useState<number[]>([])
-  const [categoryOptions, setGroupOptions] = useState<NamedRecord[]>([])
   const [result, setResult] = useState<Report | null>(null)
   const [applied, setApplied] = useState<ReportQuery | null>(null)
   const [loading, setLoading] = useState(false)
@@ -2050,8 +2041,6 @@ export function ReportsPage() {
         }
         setCatalog(reports.items)
         setEmployees(people.items)
-        const loaded = await loadCategories().catch(() => null)
-        if (active && loaded) setGroupOptions(loaded.map((item) => ({ id: item.id, name: item.name })))
         if (reports.items[0]) {
           setKind(reports.items[0].kind)
         }
@@ -2072,7 +2061,7 @@ export function ReportsPage() {
   async function openPage(page: number, next: ReportQuery) {
     const ticket = requestId.current + 1
     requestId.current = ticket
-    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.classificationValueId === next.classificationValueId && applied.classificationIds === next.classificationIds && applied.unitIds === next.unitIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.situation === next.situation
+    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.unitIds === next.unitIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.situation === next.situation
     setLoading(true)
     setError("")
     if (!sameQuery) {
@@ -2097,14 +2086,12 @@ export function ReportsPage() {
   async function consult(event: FormEvent) {
     event.preventDefault()
     if (loading) return
-    const people = kind === "people"
+    const employeesReport = kind === "employees"
     await openPage(1, {
       kind,
       startsOn,
-      endsOn: people ? startsOn : endsOn,
+      endsOn: employeesReport ? startsOn : endsOn,
       employeeId,
-      classificationValueId: people ? classificationQuery(valueIds) : "",
-      classificationIds: people ? classificationQuery(showIds) : "",
       unitIds: places.params.unit_id || "",
       teamIds: places.params.team_id || "",
       jobIds: places.params.job_id || "",
@@ -2157,7 +2144,7 @@ export function ReportsPage() {
   return (
     <div className="w-full min-w-0 space-y-4">
       <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={consult}>
-        <div className={cn("grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:items-end", kind === "people" ? "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]" : "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]")}>
+        <div className={cn("grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:items-end", kind === "employees" ? "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]" : "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]")}>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-kind">
               Tipo de relatório
@@ -2165,9 +2152,9 @@ export function ReportsPage() {
             <SiteSelect id="report-kind" value={kind} icon={FileText} loading={!filtersReady} options={catalog.map((item) => ({ value: item.kind, label: item.name }))} onChange={setKind} />
           </div>
           <div className="min-w-0">
-            <DatePickerField id="report-start" label={kind === "people" ? "Dia" : "De"} value={startsOn} onChange={setStartsOn} required />
+            <DatePickerField id="report-start" label={kind === "employees" ? "Dia" : "De"} value={startsOn} onChange={setStartsOn} required />
           </div>
-          {kind === "people" ? null : (
+          {kind === "employees" ? null : (
           <div className="min-w-0">
             <DatePickerField id="report-end" label="Até" value={endsOn} onChange={setEndsOn} required />
           </div>
@@ -2199,34 +2186,6 @@ export function ReportsPage() {
         <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
           <OrganizationFilterFields idPrefix="report" filters={places} />
         </div>
-        ) : null}
-        {kind === "people" ? (
-          <div className="mt-5 space-y-4 border-t border-[#F1F5F9] pt-5">
-            <div>
-              <p className="text-sm font-semibold text-[#0A0A0A]">Categorias no relatório</p>
-              <p className="mt-1 text-sm text-[#64748B]">Sem marcação, o relatório mostra todas.</p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {categoryOptions.map((item) => (
-                  <label key={item.id} className="flex items-center gap-2 text-sm text-[#334155]">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-[#1E8A3A]"
-                      checked={showIds.includes(item.id)}
-                      onChange={() => setShowIds((current) => (current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]))}
-                    />
-                    {item.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[#0A0A0A]">Filtro de pessoas</p>
-              <p className="mt-1 text-sm text-[#64748B]">Valores da mesma categoria se alternam. Categorias diferentes se somam.</p>
-              <div className="mt-3">
-                <CategoryFilter selected={valueIds} onChange={setValueIds} />
-              </div>
-            </div>
-          </div>
         ) : null}
       </ActionForm>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

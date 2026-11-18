@@ -286,7 +286,9 @@ class WorkforceService:
     def _vigency_matches(self, scope: Scope, filters: dict, day: date | None = None) -> set[int] | None:
         day = day or self.today()
         matched: set[int] | None = None
-        value_ids = self._id_list(filters.pop("category_value_id", None))
+        filters.pop("category_value_id", None)
+        filters.pop("category_id", None)
+        value_ids = []
         if "cost_center_id" in filters:
             value_ids.append(int(filters.pop("cost_center_id")))
         if value_ids:
@@ -1536,13 +1538,15 @@ class WorkforceService:
         filters: dict | None = None,
     ) -> dict:
         self._can_manage_period(scope)
+        if kind == "people":
+            kind = "employees"
         name = REPORT_NAMES.get(kind)
         if name is None:
             raise AppError(400, "Relatório inválido")
         if ends_on < starts_on:
             raise AppError(400, "O fim precisa ser igual ou posterior ao início")
-        if kind == "people" and ends_on != starts_on:
-            raise AppError(400, "O relatório de pessoas pede um dia")
+        if kind == "employees" and ends_on != starts_on:
+            raise AppError(400, "O relatório de funcionários pede um dia")
         if (ends_on - starts_on).days + 1 > 366:
             raise AppError(400, "O relatório aceita no máximo 366 dias")
         lines = self._report_lines(scope, kind, starts_on, ends_on, employee_id, filters or {})
@@ -1569,8 +1573,8 @@ class WorkforceService:
     ) -> list[dict]:
         chosen = dict(filters or {})
         places, situation = self._place_sets(chosen)
-        if kind == "people":
-            lines = self._people_lines(scope, starts_on, employee_id, chosen)
+        if kind == "employees":
+            lines = self._employee_lines(scope, starts_on, employee_id, chosen)
         else:
             lines = self._kind_lines(scope, kind, starts_on, ends_on, employee_id)
         if places or situation:
@@ -3021,9 +3025,9 @@ class WorkforceService:
             cards[employee_id] = items
         return cards
 
-    def _people_lines(self, scope: Scope, day: date, employee_id: int | None, filters: dict) -> list[dict]:
+    def _employee_lines(self, scope: Scope, day: date, employee_id: int | None, filters: dict) -> list[dict]:
         chosen = dict(filters)
-        show_ids = self._id_list(chosen.pop("category_id", None))
+        chosen.pop("category_id", None)
         matched = self._vigency_matches(scope, chosen, day)
         people = self._report_people(scope, employee_id)
         if matched is not None:
@@ -3037,29 +3041,42 @@ class WorkforceService:
         if "person_id" in chosen:
             person_id = int(chosen["person_id"])
             people = [person for person in people if person.person_id == person_id]
-        if show_ids:
-            categories = [self._row(Category, scope, item) for item in show_ids]
-        else:
-            categories = self.repo.rows_of(Category, scope.tenant_id)
-        categories.sort(key=lambda item: item.name.casefold())
-        assignments = self.repo.applicable_categories([person.id for person in people], day)
-        lines = []
-        for person in people:
-            by_class = assignments.get(person.id, {})
-            parts = []
-            for category in categories:
-                current = by_class.get(category.id)
-                parts.append(f"{category.name}: {current.label if current is not None else 'sem valor'}")
-            lines.append(
-                {
-                    "employee_id": person.id,
-                    "full_name": person.full_name,
-                    "occurred_on": day,
-                    "title": "Pessoas",
-                    "detail": "; ".join(parts) if parts else "sem categoria",
-                }
-            )
-        return lines
+        labels = self.repo.labels_on([person.id for person in people], day)
+        return [
+            {
+                "employee_id": person.id,
+                "full_name": person.full_name,
+                "occurred_on": day,
+                "title": "Funcionários",
+                "detail": self._employee_snapshot(person, labels.get(person.id, {})),
+            }
+            for person in people
+        ]
+
+    def _employee_snapshot(self, person: Employee, labels: dict) -> str:
+        situation = labels.get("status")
+        situation_name = {"active": "Ativo", "dismissed": "Desligado"}.get(situation.label if situation is not None else "", "Não informado")
+        parts = (
+            f"Matrícula {self._shown(person.registration_number)}",
+            f"CPF {self._cpf_text(person.cpf)}",
+            f"Empresa {self._shown(labels['unit'].label if labels.get('unit') is not None else None)}",
+            f"Equipe {self._shown(labels['team'].label if labels.get('team') is not None else None)}",
+            f"Função {self._shown(labels['job'].label if labels.get('job') is not None else None)}",
+            f"Jornada {self._shown(labels['journey'].label if labels.get('journey') is not None else None)}",
+            f"Situação {situation_name}",
+            f"Admissão {person.admission_date.strftime('%d/%m/%Y')}",
+            f"Banco de horas {'sim' if person.hour_bank else 'não'}",
+        )
+        return ". ".join(parts)
+
+    def _shown(self, value) -> str:
+        text = "" if value is None else str(value).strip()
+        return text or "Não informado"
+
+    def _cpf_text(self, digits: str) -> str:
+        if len(digits) != 11:
+            return self._shown(digits)
+        return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}"
 
     def _cost_center_category(self, scope: Scope, *, create: bool) -> Category | None:
         found = self.repo.category_named(scope.tenant_id, COST_CENTER_CLASSIFICATION)

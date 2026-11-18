@@ -364,7 +364,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, category_value_id, unit_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula. category_value_id aceita vários ids separados por vírgula: categorias diferentes se somam e valores da mesma categoria se alternam.",
+    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, team_id, union_id, manager_id, situation. q procura nome, CPF e matrícula.",
 )
 @searchable(
     "q",
@@ -374,7 +374,6 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
     "job_id",
     "journey_id",
     "cost_center_id",
-    "category_value_id",
     "unit_id",
     "team_id",
     "union_id",
@@ -404,7 +403,6 @@ def list_employees(
                 "job_id",
                 "journey_id",
                 "cost_center_id",
-                "category_value_id",
                 "unit_id",
                 "team_id",
                 "union_id",
@@ -1200,15 +1198,13 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de pessoas, starts_on é o dia e ends_on repete esse dia. category_ids escolhe as categorias da linha. category_value_id filtra como na lista de funcionários. Empresa, equipe, função e jornada aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
+    description="No relatório de funcionários, starts_on é o dia e ends_on repete esse dia. Empresa, equipe, função e jornada aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
 )
 @searchable(
     "full_name",
     "cpf",
     "person_id",
     "cost_center_id",
-    "category_value_id",
-    "category_ids",
     "manager_id",
     "situation",
 )
@@ -1235,7 +1231,6 @@ def reports(
             "cpf",
             "person_id",
             "cost_center_id",
-            "category_value_id",
             "manager_id",
             "situation",
         ),
@@ -1249,9 +1244,6 @@ def reports(
     ):
         if value:
             filters[name] = value
-    shown = read_filters(request, ("category_ids",))
-    if shown.get("category_ids"):
-        filters["category_id"] = shown["category_ids"]
     result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit, filters)
     return json_data(dump_one(result, ReportOut, None))
 
