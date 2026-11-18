@@ -2,7 +2,8 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { ChevronRight, type LucideIcon } from "lucide-react"
 
-import { getDashboard, listRecords, type Dashboard, type Subscription } from "@/services/workforce.service"
+import { OwnClockSummary } from "@/components/workforce/OwnClockSummary"
+import { getDashboard, listRecords, type Dashboard, type Employee, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
@@ -133,10 +134,56 @@ function BoardCard({
   )
 }
 
+function OwnAccountFoot({ showBank, quietWhenUnlinked = false }: { showBank: boolean; quietWhenUnlinked?: boolean }) {
+  const personId = useAuthStore((state) => state.user?.person_id)
+  const tenantId = useAuthStore((state) => state.activeTenant?.id)
+  const [employee, setEmployee] = useState<Employee | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    const load = personId
+      ? listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId })
+      : Promise.resolve(null)
+    load
+      .then((page) => {
+        if (active) setEmployee(page?.items[0] ?? null)
+      })
+      .catch(() => {
+        if (active) setEmployee(null)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [personId, tenantId])
+
+  if (loading) return quietWhenUnlinked ? null : <p className="text-sm text-brand-quiet">Carregando as suas informações.</p>
+  if (!employee) return quietWhenUnlinked ? null : <p className="text-sm text-brand-quiet">O cadastro precisa estar ligado ao acesso para mostrar o seu ponto.</p>
+  return <OwnClockSummary employeeId={employee.id} hourBank={employee.hour_bank} showBank={showBank} />
+}
+
+function MemberHome() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <BoardCard tone={tones.gold} icon={conceptIcon.request} title="Solicitações" href="/requests">
+          <p className="mt-1 text-sm text-brand-quiet">As suas solicitações.</p>
+        </BoardCard>
+      </div>
+      <OwnAccountFoot showBank />
+    </div>
+  )
+}
+
 export function HomePage() {
   const user = useAuthStore((state) => state.user)
   const tenant = useAuthStore((state) => state.activeTenant)
   const isAdmin = user?.role === "admin"
+  const member = user?.role === "member"
   const ended = tenant ? trialEnded(tenant.trial_ends_at) : false
   const days = tenant ? trialDaysLeft(tenant.trial_ends_at) : 0
   const [board, setBoard] = useState<Dashboard | null>(null)
@@ -145,6 +192,7 @@ export function HomePage() {
   const [plan, setPlan] = useState<Subscription | null>(null)
 
   useEffect(() => {
+    if (member) return
     let active = true
     setBoardState("loading")
     setBoardError("")
@@ -165,7 +213,7 @@ export function HomePage() {
     return () => {
       active = false
     }
-  }, [tenant?.id])
+  }, [member, tenant?.id])
 
   useEffect(() => {
     if (!isAdmin) {
@@ -199,6 +247,16 @@ export function HomePage() {
     : tenant
       ? `${ended ? "Trial encerrado. Contrate um plano." : `Trial. ${days} dia(s) restante(s).`} Capacidade ${tenant.employee_capacity}. ${people}Termina em ${formatDate(tenant.trial_ends_at)}.`
       : ""
+
+  if (member) {
+    return (
+      <div className="-mx-4 -my-6 bg-brand-paper px-6 py-7 md:-mx-8 md:px-8 md:py-8">
+        <div className="mx-auto max-w-[1240px]">
+          <MemberHome />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="-mx-4 -my-6 bg-brand-paper px-6 py-7 md:-mx-8 md:px-8 md:py-8">
@@ -244,6 +302,9 @@ export function HomePage() {
               </BoardCard>
             </div>
           ) : null}
+        </div>
+        <div className="mt-4">
+          <OwnAccountFoot showBank quietWhenUnlinked={isAdmin} />
         </div>
       </div>
     </div>

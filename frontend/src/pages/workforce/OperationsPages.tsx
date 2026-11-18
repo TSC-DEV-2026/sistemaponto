@@ -652,6 +652,7 @@ export function RequestsPage() {
   const personId = useAuthStore((state) => state.user?.person_id)
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const canDecide = role === "admin" || role === "manager"
+  const ownOnly = role === "member"
   const [status, setStatus] = useState("pending")
   const [listEmployee, setListEmployee] = useState("")
   const [listKind, setListKind] = useState("")
@@ -670,9 +671,10 @@ export function RequestsPage() {
   const flight = useRef(0)
   const [counts, setCounts] = useState<Partial<Record<string, number>>>({})
   const [countsLoading, setCountsLoading] = useState(true)
+  const employeeQuery = ownOnly ? ownEmployeeId ?? undefined : listEmployee ? Number(listEmployee) : undefined
   const inbox = usePagedList<TimeRequest>("/requests", {
     status,
-    ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
+    ...(employeeQuery ? { employee_id: employeeQuery } : {}),
     ...(listKind ? { kind: listKind } : {}),
   })
 
@@ -716,7 +718,7 @@ export function RequestsPage() {
     const base = {
       page: 1,
       limit: 1,
-      ...(listEmployee ? { employee_id: Number(listEmployee) } : {}),
+      ...(employeeQuery ? { employee_id: employeeQuery } : {}),
       ...(listKind ? { kind: listKind } : {}),
     }
     Promise.all(
@@ -741,7 +743,7 @@ export function RequestsPage() {
     return () => {
       active = false
     }
-  }, [inbox.loading, inbox.error, inbox.total, status, listEmployee, listKind, tenantId])
+  }, [inbox.loading, inbox.error, inbox.total, status, employeeQuery, listKind, tenantId])
 
   function openDecision(item: TimeRequest, action: "approved" | "rejected" | "cancelled", opener: HTMLButtonElement) {
     if (busy.current) {
@@ -885,7 +887,8 @@ export function RequestsPage() {
             </Button>
           ) : null}
         </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className={cn("mt-5 grid gap-4", ownOnly ? "sm:grid-cols-1" : "sm:grid-cols-2")}>
+          {ownOnly ? null : (
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="request-employee">
               Funcionário
@@ -899,6 +902,7 @@ export function RequestsPage() {
               onChange={setListEmployee}
             />
           </div>
+          )}
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="request-kind">
               Tipo
@@ -2639,7 +2643,6 @@ function AfdPanel() {
 function PayrollTotalsPanel() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
-  const isAdmin = role === "admin"
   const requestId = useRef(0)
   const [year, setYear] = useState(String(new Date().getFullYear()))
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
@@ -2670,10 +2673,6 @@ function PayrollTotalsPanel() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!isAdmin) {
-      await generatePayroll()
-      return
-    }
     await consult(Number(year), Number(month))
   }
 
@@ -2721,12 +2720,10 @@ function PayrollTotalsPanel() {
                 {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <FilePlus className="h-4 w-4" />}
                 Gerar arquivo
               </Button>
-              {isAdmin ? (
-                <Button type="submit" className={cn(modulePrimaryClass, "order-1 h-12 w-full sm:order-2 sm:w-auto")} disabled={consulting} aria-busy={consulting}>
-                  {consulting ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Search className="h-4 w-4" />}
-                  Consultar totais
-                </Button>
-              ) : null}
+              <Button type="submit" className={cn(modulePrimaryClass, "order-1 h-12 w-full sm:order-2 sm:w-auto")} disabled={consulting} aria-busy={consulting}>
+                {consulting ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Search className="h-4 w-4" />}
+                Consultar totais
+              </Button>
             </div>
           </ActionForm>
         </section>
@@ -2740,7 +2737,7 @@ function PayrollTotalsPanel() {
           <Spinner label="Consultando os totais" className="h-8 w-8 text-[#1E8A3A]" />
         </section>
       ) : null}
-      {!consulting && !result && !error && isAdmin ? (
+      {!consulting && !result && !error && canManage ? (
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
             <conceptIcon.employee className="h-6 w-6" strokeWidth={1.75} aria-hidden />

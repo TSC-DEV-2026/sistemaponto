@@ -211,7 +211,7 @@ class WorkforceService:
         return row
 
     def create_named(self, model, scope: Scope, data: dict):
-        self._admin(scope)
+        self._staff(scope)
         if model is CostCenter:
             return self._create_cost_center_value(scope, data)
         if model is Journey:
@@ -221,7 +221,7 @@ class WorkforceService:
         return self.repo.add(model(tenant_id=scope.tenant_id, **payload))
 
     def update_named(self, model, scope: Scope, row_id: int, data: dict):
-        self._admin(scope)
+        self._staff(scope)
         if model is CostCenter:
             return self._rename_cost_center_value(scope, row_id, data)
         if model is Journey:
@@ -241,7 +241,7 @@ class WorkforceService:
         return self.repo.add(row)
 
     def delete_named(self, model, scope: Scope, row_id: int) -> None:
-        self._admin(scope)
+        self._staff(scope)
         if model is CostCenter:
             self._delete_cost_center_value(scope, row_id)
             return
@@ -331,7 +331,7 @@ class WorkforceService:
         return self.employees_out([row])[0]
 
     def create_employee(self, scope: Scope, data: dict) -> dict:
-        self._admin(scope)
+        self._staff(scope)
         payload = self._employee_payload(scope, data, current=None)
         vector, face_key = self._reference_photo(data, payload["clock_method"])
         self._assert_capacity(scope)
@@ -354,8 +354,9 @@ class WorkforceService:
         return self.employees_out([row])[0]
 
     def update_employee(self, scope: Scope, employee_id: int, data: dict) -> dict:
-        self._admin(scope)
+        self._staff(scope)
         row = self._employee(scope, employee_id)
+        self._visible(scope, row.id)
         payload = self._employee_payload(scope, data, current=row)
         next_method = payload.get("clock_method", row.clock_method or "simple")
         vector, face_key = self._reference_photo(data, next_method)
@@ -371,8 +372,9 @@ class WorkforceService:
         return self.employees_out([row])[0]
 
     def delete_employee(self, scope: Scope, employee_id: int) -> None:
-        self._admin(scope)
+        self._staff(scope)
         row = self._employee(scope, employee_id)
+        self._visible(scope, row.id)
         if self.repo.count_model(Punch, tenant_id=scope.tenant_id, employee_id=row.id):
             raise AppError(409, "O histórico permanece. Desligue o funcionário.")
         if self.repo.count_model(Occurrence, tenant_id=scope.tenant_id, employee_id=row.id):
@@ -417,8 +419,9 @@ class WorkforceService:
         return row
 
     def create_vigency(self, scope: Scope, data: dict) -> EmployeeVigency:
-        self._admin(scope)
+        self._staff(scope)
         employee = self._employee(scope, int(data["employee_id"]))
+        self._visible(scope, employee.id)
         kind = data["kind"]
         if kind == "unit":
             raise AppError(400, "Informe a equipe. A empresa acompanha a equipe.")
@@ -529,7 +532,7 @@ class WorkforceService:
         return row
 
     def change_employees(self, scope: Scope, data: dict) -> dict:
-        self._admin(scope)
+        self._staff(scope)
         raw_ids = data.get("employee_ids") or []
         if not raw_ids:
             raise AppError(400, "Selecione ao menos um funcionário.")
@@ -546,6 +549,7 @@ class WorkforceService:
             row = self.repo.get_row(Employee, scope.tenant_id, employee_id)
             if row is None:
                 raise AppError(404, "Há um funcionário da seleção que não existe.")
+            self._visible(scope, row.id)
             people.append(row)
         if kind == "clock_method":
             method = str(data.get("clock_method") or "").strip().lower()
@@ -632,8 +636,9 @@ class WorkforceService:
             raise AppError(409, f"{employee.full_name}: período fechado")
 
     def update_vigency(self, scope: Scope, row_id: int, data: dict) -> EmployeeVigency:
-        self._admin(scope)
+        self._staff(scope)
         row = self._row(EmployeeVigency, scope, row_id)
+        self._visible(scope, row.employee_id)
         if data.get("end"):
             return self._end_manager(scope, row)
         self._assert_open(scope.tenant_id, row.valid_from, row.employee_id)
@@ -1044,7 +1049,8 @@ class WorkforceService:
             self._can_launch(scope, employee)
             origin = "manual"
         else:
-            self._admin(scope)
+            self._staff(scope)
+            self._visible(scope, employee.id)
             origin = "admin"
         self._days_only(kind, data)
         start, end, starts_at, ends_at = self._span(data)
@@ -1091,7 +1097,7 @@ class WorkforceService:
         )
 
     def update_occurrence(self, scope: Scope, row_id: int, data: dict) -> Occurrence:
-        self._admin(scope)
+        self._staff(scope)
         row = self.get_occurrence(scope, row_id)
         self._assert_open(scope.tenant_id, row.starts_on, row.employee_id)
         self._assert_no_pending(scope, row.employee_id, row.starts_on, row.ends_on)
@@ -1106,7 +1112,7 @@ class WorkforceService:
         if row.kind in MANUAL_OCCURRENCE_KINDS:
             self._can_launch(scope, employee)
         else:
-            self._admin(scope)
+            self._staff(scope)
         self._assert_span_open(scope.tenant_id, row.starts_on, row.ends_on, row.employee_id)
         self._audit(scope, row.employee_id, "occurrence_delete", row.id, row.kind, None, row.starts_on)
         self.repo.delete(row)
@@ -1399,15 +1405,15 @@ class WorkforceService:
         raise AppError(409, "Notificação gerada permanece no histórico.")
 
     def list_audits(self, scope: Scope, page: int, limit: int, equals: dict):
-        self._admin(scope)
+        self._staff(scope)
         return self.repo.list_rows(Audit, scope.tenant_id, page=page, limit=limit, equals=equals, descending=True)
 
     def get_audit(self, scope: Scope, row_id: int) -> Audit:
-        self._admin(scope)
+        self._staff(scope)
         return self._row(Audit, scope, row_id)
 
     def refuse_audit_write(self, scope: Scope) -> None:
-        self._admin(scope)
+        self._staff(scope)
         raise AppError(409, "Auditoria é gerada pelo sistema.")
 
     def dashboard(self, scope: Scope) -> dict:
@@ -1429,7 +1435,7 @@ class WorkforceService:
         }
 
     def payroll(self, scope: Scope, year: int, month: int) -> dict:
-        self._admin(scope)
+        self._staff(scope)
         start = date(year, month, 1)
         if month == 12:
             end = date(year, 12, 31)
@@ -4702,6 +4708,11 @@ class WorkforceService:
 
     def _employee(self, scope: Scope, employee_id: int) -> Employee:
         return self._row(Employee, scope, employee_id)
+
+    def _staff(self, scope: Scope) -> None:
+        self._known(scope)
+        if scope.role not in {"admin", "manager"}:
+            raise AppError(403, "Sem permissão")
 
     def _admin(self, scope: Scope) -> None:
         self._known(scope)

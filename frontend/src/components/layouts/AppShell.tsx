@@ -1,9 +1,9 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
-import { Link, Outlet, useLocation } from "react-router-dom"
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom"
 
 import { AppHeader } from "@/components/layouts/AppHeader"
-import { dashboardItem, navGroups, type NavItem } from "@/navigation"
+import { dashboardItem, navGroups, routeAllowed, type NavItem } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 
 const STORAGE_KEY = "sistemaponto.sidebar"
@@ -112,8 +112,13 @@ function SideLink({ item, pathname, collapsed }: { item: Pick<NavItem, "to" | "l
 export function AppShell() {
   const user = useAuthStore((state) => state.user)
   const location = useLocation()
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const { navRef, indicator, animate } = useActiveIndicator(location.pathname, collapsed, user?.role)
+
+  useEffect(() => {
+    if (user?.role && !routeAllowed(user.role, location.pathname)) navigate("/", { replace: true })
+  }, [location.pathname, navigate, user?.role])
 
   function toggleSidebar() {
     setCollapsed((current) => {
@@ -162,6 +167,7 @@ export function AppShell() {
                 if (item.adminOnly && user?.role !== "admin") return false
                 if (item.hideFromAdmin && user?.role === "admin") return false
                 if (item.staffOnly && user?.role !== "admin" && user?.role !== "manager") return false
+                if (user?.role === "member" && !item.member) return false
                 return true
               })
               if (items.length === 0) return null

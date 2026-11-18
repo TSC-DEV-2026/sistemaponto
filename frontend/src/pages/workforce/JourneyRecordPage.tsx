@@ -16,6 +16,7 @@ import { TimePickerField } from "@/components/ui/time-picker-field"
 import { JourneySchedule } from "@/components/workforce/JourneySchedule"
 import { moduleCardClass, moduleDangerIconClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { createRecord, getRecord, listRecords, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { punchDay, showDuration } from "@/utils/labels"
@@ -65,7 +66,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const entry = catalogs.journeys
   const navigate = useNavigate()
   const params = useParams()
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const canEdit = canOperate(useAuthStore((state) => state.user?.role))
   const id = Number(params.id)
   const [name, setName] = useState("")
   const [note, setNote] = useState("")
@@ -83,10 +84,10 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const lengthChanged = mode === "edit" && openedKind === "programada" && kind === "programada" && days.length !== openedLength
 
   useEffect(() => {
-    if (mode !== "view" && !isAdmin) {
+    if (mode !== "view" && !canEdit) {
       navigate(mode === "new" ? entry.backTo : `${entry.backTo.split("?")[0]}/journeys/${id}`, { replace: true })
     }
-  }, [entry.backTo, id, isAdmin, mode, navigate])
+  }, [entry.backTo, id, canEdit, mode, navigate])
 
   useEffect(() => {
     if (mode === "new") return

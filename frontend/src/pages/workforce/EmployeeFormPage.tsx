@@ -16,6 +16,7 @@ import { loadCategories } from "@/components/workforce/ClassificationFilter"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
 import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeCategory, type NamedRecord } from "@/services/workforce.service"
+import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
@@ -228,7 +229,7 @@ export function EmployeeFormPage() {
   const [validFrom, setValidFrom] = useState("")
   const [vigencyNote, setVigencyNote] = useState("")
   const [savingLink, setSavingLink] = useState(false)
-  const isAdmin = useAuthStore((state) => state.user?.role) === "admin"
+  const canEdit = canOperate(useAuthStore((state) => state.user?.role))
   const [tab, setTab] = useState("data")
   const linkTarget = vigencyTargets.find((item) => item.kind === tab)
 
@@ -259,7 +260,7 @@ export function EmployeeFormPage() {
   }, [id])
 
   useEffect(() => {
-    if (!isAdmin || id === null || !linkTarget || linkTarget.kind === "status") {
+    if (!canEdit || id === null || !linkTarget || linkTarget.kind === "status") {
       setLinkChoices([])
       return
     }
@@ -284,7 +285,7 @@ export function EmployeeFormPage() {
     return () => {
       active = false
     }
-  }, [isAdmin, id, linkTarget])
+  }, [canEdit, id, linkTarget])
 
   const listedJourney = tab === "journey" ? linkChoices.find((item) => item.value === referenceId) : undefined
 
@@ -426,10 +427,10 @@ export function EmployeeFormPage() {
           {(
             [
               { id: "data", label: "Dados", icon: conceptIcon.employee, show: true },
-              ...vigencyTargets.filter((item) => item.kind === "team").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
-              ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: isAdmin })),
-              { id: "category", label: "Categorias", icon: conceptIcon.category, show: isAdmin && id !== null },
-              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey" && item.kind !== "team").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: isAdmin })),
+              ...vigencyTargets.filter((item) => item.kind === "team").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: canEdit })),
+              ...vigencyTargets.filter((item) => item.kind === "job" || item.kind === "journey").map((item) => ({ id: item.kind, label: item.label, icon: item.icon, show: canEdit })),
+              { id: "category", label: "Categorias", icon: conceptIcon.category, show: canEdit && id !== null },
+              ...vigencyTargets.filter((item) => item.kind !== "job" && item.kind !== "journey" && item.kind !== "team").map((item) => ({ id: item.kind, label: item.kind === "manager" ? "Gestores" : item.label, icon: item.icon, show: canEdit })),
             ]
           )
             .filter((item) => item.show)
@@ -582,8 +583,8 @@ export function EmployeeFormPage() {
         </div>
       </ActionForm>
       ) : null}
-      {id !== null && tab === "category" && isAdmin ? <GroupAssignment employeeId={id} current={profile?.categories || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
-      {id !== null && linkTarget && isAdmin ? (
+      {id !== null && tab === "category" && canEdit ? <GroupAssignment employeeId={id} current={profile?.categories || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
+      {id !== null && linkTarget && canEdit ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
           {linkTarget.kind === "manager" ? (
             <div>

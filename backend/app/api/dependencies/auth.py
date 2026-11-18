@@ -65,3 +65,9 @@ def require_admin(actor: Actor = Depends(require_tenant)) -> Actor:
     if actor.role != "admin":
         raise AppError(403, "Sem permissão")
     return actor
+
+
+def require_staff(actor: Actor = Depends(require_tenant)) -> Actor:
+    if actor.role not in {"admin", "manager"}:
+        raise AppError(403, "Sem permissão")
+    return actor

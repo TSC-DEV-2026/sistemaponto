@@ -32,6 +32,7 @@ import { ListPager, usePagedList, type ListParams } from "@/components/workforce
 import { moduleCardClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { OrganizationFilterFields, useOrganizationFilters } from "@/components/workforce/organization-filters"
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
+import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { isoWeekday } from "@/pages/workforce/journey"
@@ -179,7 +180,7 @@ function newRuleId() {
 export function BulkChangesPage() {
   const navigate = useNavigate()
   const role = useAuthStore((state) => state.user?.role)
-  const isAdmin = role === "admin"
+  const canEdit = canOperate(role)
   const [screen, setScreen] = useState<Screen>("home")
   const [step, setStep] = useState<StepId>("operation")
   const [rules, setRules] = useState<Rule[]>([])
@@ -191,7 +192,7 @@ export function BulkChangesPage() {
   const [cycleDay, setCycleDay] = useState("")
   const [cycleTouched, setCycleTouched] = useState(false)
   const [note, setNote] = useState("")
-  const places = useOrganizationFilters(isAdmin)
+  const places = useOrganizationFilters(canEdit)
   const [classificationId, setGroupId] = useState("")
   const [classificationValues, setGroupValues] = useState<Choice[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -209,7 +210,7 @@ export function BulkChangesPage() {
   const [result, setResult] = useState<RunResult | null>(null)
   const operation = operationId ? operationOf(operationId) : null
   const query: ListParams = { ...personQuery(person), ...places.params }
-  const list = usePagedList<Employee>("/employees", query, isAdmin, saved)
+  const list = usePagedList<Employee>("/employees", query, canEdit, saved)
   const queryKey = JSON.stringify(query)
   const queryKeyRef = useRef(queryKey)
   queryKeyRef.current = queryKey
@@ -221,12 +222,12 @@ export function BulkChangesPage() {
   const blocker = useBlocker(dirty)
 
   useEffect(() => {
-    if (!role || isAdmin) return
+    if (!role || canEdit) return
     navigate("/", { replace: true })
-  }, [role, isAdmin, navigate])
+  }, [role, canEdit, navigate])
 
   useEffect(() => {
-    if (!isAdmin) return
+    if (!canEdit) return
     let active = true
     const paths = [...new Set(catalog.map((item) => item.path).filter(Boolean))]
     Promise.all(paths.map(async (path) => [path, path === "/employees" ? await loadManagerChoices() : await loadChoices(path)] as const))
@@ -240,7 +241,7 @@ export function BulkChangesPage() {
     return () => {
       active = false
     }
-  }, [isAdmin])
+  }, [canEdit])
 
   useEffect(() => {
     if (!classificationId) {
@@ -463,7 +464,7 @@ export function BulkChangesPage() {
     setSaved((current) => current + 1)
   }
 
-  if (!isAdmin) return null
+  if (!canEdit) return null
 
   return (
     <div className="w-full min-w-0 space-y-4">
