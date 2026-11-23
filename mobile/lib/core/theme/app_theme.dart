@@ -15,6 +15,8 @@ class BrandColors {
   static const wordmark = Color(0xFF2DA468);
   static const focus = Color(0xFF53BB7E);
   static const danger = Color(0xFFEF5350);
+  static const warn = Color(0xFFE6B325);
+  static const onWarn = Color(0xFF1B2534);
   static const field = Color(0xFFE4E8ED);
   static const line = Color(0xFF222222);
   static const stroke = Color(0xFFD9DEE5);
@@ -136,10 +138,72 @@ ThemeData appTheme() {
         side: BorderSide(color: BrandColors.card),
       ),
     ),
+    extensions: const [
+      FeedbackColors(
+        success: BrandColors.cta,
+        onSuccess: BrandColors.white,
+        warning: BrandColors.warn,
+        onWarning: BrandColors.onWarn,
+        danger: BrandColors.danger,
+        onDanger: BrandColors.white,
+      ),
+    ],
     progressIndicatorTheme: const ProgressIndicatorThemeData(color: BrandColors.cta),
     snackBarTheme: const SnackBarThemeData(
       backgroundColor: BrandColors.heading,
       contentTextStyle: TextStyle(color: BrandColors.white),
     ),
   );
+}
+
+class FeedbackColors extends ThemeExtension<FeedbackColors> {
+  const FeedbackColors({
+    required this.success,
+    required this.onSuccess,
+    required this.warning,
+    required this.onWarning,
+    required this.danger,
+    required this.onDanger,
+  });
+
+  final Color success;
+  final Color onSuccess;
+  final Color warning;
+  final Color onWarning;
+  final Color danger;
+  final Color onDanger;
+
+  @override
+  FeedbackColors copyWith({
+    Color? success,
+    Color? onSuccess,
+    Color? warning,
+    Color? onWarning,
+    Color? danger,
+    Color? onDanger,
+  }) {
+    return FeedbackColors(
+      success: success ?? this.success,
+      onSuccess: onSuccess ?? this.onSuccess,
+      warning: warning ?? this.warning,
+      onWarning: onWarning ?? this.onWarning,
+      danger: danger ?? this.danger,
+      onDanger: onDanger ?? this.onDanger,
+    );
+  }
+
+  @override
+  FeedbackColors lerp(ThemeExtension<FeedbackColors>? other, double t) {
+    if (other is! FeedbackColors) {
+      return this;
+    }
+    return FeedbackColors(
+      success: Color.lerp(success, other.success, t)!,
+      onSuccess: Color.lerp(onSuccess, other.onSuccess, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
+      onWarning: Color.lerp(onWarning, other.onWarning, t)!,
+      danger: Color.lerp(danger, other.danger, t)!,
+      onDanger: Color.lerp(onDanger, other.onDanger, t)!,
+    );
+  }
 }

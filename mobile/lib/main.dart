@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'features/app/data/punch_reminders.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,5 +13,6 @@ Future<void> main() async {
   if (kReleaseMode && !url.startsWith('https://')) {
     throw StateError('API_URL em produção precisa de https');
   }
+  await PunchReminders.instance.prepare();
   runApp(const ProviderScope(child: SistemapontoApp()));
 }

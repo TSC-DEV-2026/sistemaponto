@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
+import '../../../../shared/widgets/panel_spinner.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
@@ -19,6 +20,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _preferences = [];
   String? _error;
+  bool _loading = true;
   int _page = 1;
   int _total = 0;
   String _kind = '';
@@ -33,7 +35,10 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
   Future<void> _load() async {
     final client = ref.read(apiClientProvider);
     ref.read(loaderProvider.notifier).state = true;
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
     try {
       final notices = await client.get('/api/v1/notices', query: {'page': _page, 'limit': _limit});
       final preferences = await client.get('/api/v1/notice-preferences', query: {'page': 1, 'limit': 100, if (_kind.isNotEmpty) 'kind': _kind});
@@ -45,6 +50,9 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
       ref.read(loaderProvider.notifier).state = false;
     }
   }
@@ -190,7 +198,10 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
               trailing: read ? const Text('Lida') : BusyButton(kind: BusyButtonKind.text, onPressed: () => _mark(item['id'] as int), label: 'Marcar lida'),
             );
           }),
-          if (_items.isEmpty) const Text('Nenhum aviso.'),
+          if (_loading && _items.isEmpty)
+            const PanelSpinner()
+          else if (_items.isEmpty)
+            const Text('Nenhum aviso.'),
           if (_total > 0) ...[
             const SizedBox(height: 12),
             Text('Página $_page de ${(_total / _limit).ceil()} ($_total ${_total == 1 ? 'item' : 'itens'})'),
