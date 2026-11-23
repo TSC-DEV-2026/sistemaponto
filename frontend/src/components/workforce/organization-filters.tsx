@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react"
 
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
+import { CategoryFilterField } from "@/components/workforce/category-filter-drawer"
 import { PlaceCombobox } from "@/components/workforce/place-combobox"
 import { moduleLabelClass } from "@/components/workforce/module-visual"
+import { loadCategories, type CategoryRecord } from "@/components/workforce/ClassificationFilter"
 import { listRecords, type NamedRecord } from "@/services/workforce.service"
 import { toastError } from "@/store/toast.store"
 import { conceptIcon } from "@/utils/concept-icons"
@@ -45,11 +47,13 @@ export function useOrganizationFilters(enabled: boolean) {
   const [teams, setTeams] = useState<NamedRecord[]>([])
   const [jobs, setJobs] = useState<NamedRecord[]>([])
   const [journeys, setJourneys] = useState<NamedRecord[]>([])
+  const [categories, setCategories] = useState<CategoryRecord[]>([])
   const [ready, setReady] = useState(false)
   const [unitIds, setUnitIds] = useState<number[]>([])
   const [teamIds, setTeamIds] = useState<number[]>([])
   const [jobIds, setJobIds] = useState<number[]>([])
   const [journeyIds, setJourneyIds] = useState<number[]>([])
+  const [categoryValueIds, setCategoryValueIds] = useState<number[]>([])
   const [situation, setSituation] = useState("")
   const unitIdsRef = useRef<number[]>([])
   const teamsRef = useRef<NamedRecord[]>([])
@@ -64,14 +68,16 @@ export function useOrganizationFilters(enabled: boolean) {
       listRecords<NamedRecord>("/teams", { page: 1, limit: 100 }),
       listRecords<NamedRecord>("/jobs", { page: 1, limit: 100 }),
       listRecords<NamedRecord>("/journeys", { page: 1, limit: 100 }),
+      loadCategories(),
     ])
-      .then(([unitPage, teamPage, jobPage, journeyPage]) => {
+      .then(([unitPage, teamPage, jobPage, journeyPage, categoryRows]) => {
         if (!active) return
         setUnits(unitPage.items)
         setTeams(teamPage.items)
         teamsRef.current = teamPage.items
         setJobs(jobPage.items)
         setJourneys(journeyPage.items)
+        setCategories(categoryRows)
       })
       .catch((caught: unknown) => {
         if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar os filtros.")
@@ -91,6 +97,7 @@ export function useOrganizationFilters(enabled: boolean) {
     setTeamIds([])
     setJobIds([])
     setJourneyIds([])
+    setCategoryValueIds([])
     setSituation("")
   }
 
@@ -135,8 +142,9 @@ export function useOrganizationFilters(enabled: boolean) {
   if (teamIds.length) params.team_id = teamIds.join(",")
   if (jobIds.length) params.job_id = jobIds.join(",")
   if (journeyIds.length) params.journey_id = journeyIds.join(",")
+  if (categoryValueIds.length) params.category_value_id = categoryValueIds.join(",")
   if (situation) params.situation = situation
-  const active = unitIds.length + teamIds.length + jobIds.length + journeyIds.length > 0 || situation !== ""
+  const active = unitIds.length + teamIds.length + jobIds.length + journeyIds.length + categoryValueIds.length > 0 || situation !== ""
   const key = JSON.stringify(params)
 
   return {
@@ -149,15 +157,18 @@ export function useOrganizationFilters(enabled: boolean) {
     teamOptions,
     jobs,
     journeys,
+    categories,
     unitIds,
     teamIds,
     jobIds,
     journeyIds,
+    categoryValueIds,
     situation,
     changeUnits,
     changeTeams,
     setJobIds,
     setJourneyIds,
+    setCategoryValueIds,
     setSituation,
   }
 }
@@ -186,6 +197,10 @@ export function OrganizationFilterFields({
       <div className="min-w-0 space-y-2">
         <Label className={moduleLabelClass} htmlFor={`${idPrefix}-journey`}>Jornada</Label>
         <PlaceCombobox id={`${idPrefix}-journey`} icon={conceptIcon.journey} options={filters.journeys} selected={filters.journeyIds} emptyLabel="Todas" searchPlaceholder="Pesquisar jornada" emptyResult="Nenhuma jornada encontrada." searchPath="/journeys" extendSearch={filters.journeys.length >= 100} loading={!filters.ready} onChange={filters.setJourneyIds} />
+      </div>
+      <div className="min-w-0 space-y-2">
+        <Label className={moduleLabelClass} htmlFor={`${idPrefix}-category`}>Categoria</Label>
+        <CategoryFilterField id={`${idPrefix}-category`} categories={filters.categories} selected={filters.categoryValueIds} loading={!filters.ready} onChange={filters.setCategoryValueIds} />
       </div>
       <div className="min-w-0 space-y-2">
         <Label className={moduleLabelClass} htmlFor={`${idPrefix}-situation`}>Situação</Label>

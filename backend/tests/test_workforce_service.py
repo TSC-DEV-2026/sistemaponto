@@ -2131,6 +2131,16 @@ def test_fechamento_escolhe_as_pessoas_e_deixa_as_outras_abertas():
     assert again.value.people == [first["id"]]
 
 
+def test_candidatos_do_fechamento_filtram_por_nome_ou_cpf():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), {**employee_payload(), "full_name": "Ana Lima"})
+    second = workforce.create_employee(admin(), {**employee_payload("10987654321", None), "full_name": "Bruno Dias"})
+    by_name = workforce.closing_candidates(admin(), {"year": 2026, "month": 10, "q": "bruno"})
+    assert [item["id"] for item in by_name] == [second["id"]]
+    by_cpf = workforce.closing_candidates(admin(), {"year": 2026, "month": 10, "q": "123.456.789-01"})
+    assert [item["id"] for item in by_cpf] == [first["id"]]
+
+
 def test_resultado_do_fechamento_apura_so_a_pagina():
     workforce, _repo = service()
     first = workforce.create_employee(admin(), employee_payload())
@@ -3974,7 +3984,7 @@ def test_classificacao_guarda_um_valor_e_nao_apaga_o_historico():
     assert repo.get_row(CategoryValue, 1, center.id).name == "Obra A"
 
 
-def test_lista_nao_filtra_por_categoria():
+def test_lista_filtra_por_categoria():
     workforce, _repo = service()
     first = workforce.create_employee(admin(), employee_payload("11111111111", 8))
     second = workforce.create_employee(admin(), employee_payload("22222222222", 9))
@@ -3982,8 +3992,8 @@ def test_lista_nao_filtra_por_categoria():
     brown = _value(workforce, eyes.id, "Castanho")
     _classify(workforce, first["id"], brown.id, date(2026, 10, 1))
     listed, total = workforce.list_employees(admin(), 1, 20, {"category_value_id": str(brown.id)})
-    assert total == 2
-    assert {row.id for row in listed} == {first["id"], second["id"]}
+    assert total == 1
+    assert {row.id for row in listed} == {first["id"]}
 
 
 def test_lote_de_classificacao_nao_mexe_na_outra():

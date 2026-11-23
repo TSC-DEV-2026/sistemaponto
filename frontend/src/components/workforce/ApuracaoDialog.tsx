@@ -12,6 +12,7 @@ import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { createRecord, listRecords, uploadCertificatePhoto, type NamedRecord, type Punch, type TimeResult } from "@/services/workforce.service"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { punchDay, punchOrigin, showClock, showDuration } from "@/utils/labels"
 
@@ -59,20 +60,20 @@ const adjustmentSources = new Set(["manual", "approved_request"])
 function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: number; day: string; locked: boolean; onRestored: () => Promise<void> }) {
   const [items, setItems] = useState<Punch[] | null>(null)
   const [reasons, setReasons] = useState<NamedRecord[]>([])
-  const [error, setError] = useState("")
   const [restoring, setRestoring] = useState(false)
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let active = true
     setItems(null)
-    setError("")
     punchesOnDay(employeeId, day)
       .then((rows) => {
         if (active) setItems(rows)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar as marcações.")
+        if (!active) return
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar as marcações.")
+        setItems([])
       })
     return () => {
       active = false
@@ -99,20 +100,18 @@ function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: numbe
   const reason = reasons.find((item) => item.id === reasonId)?.name
 
   async function undo() {
-    setError("")
     setRestoring(true)
     try {
       await createRecord("/punches/restorations", { employee_id: employeeId, day })
       setReload((value) => value + 1)
       await onRestored()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível desfazer o ajuste.")
+    } catch {
+      return
     } finally {
       setRestoring(false)
     }
   }
 
-  if (error && !items) return <p className="text-sm text-destructive">{error}</p>
   if (!items) {
     return (
       <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-4 py-10" role="status" aria-live="polite">
@@ -134,7 +133,6 @@ function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: numbe
           </Button>
         </div>
       ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {current.length === 0 ? (
         <p className="rounded-xl border border-dashed border-[#E4E4E7] px-4 py-8 text-center text-sm text-[#71717A]">Nenhuma marcação neste dia.</p>
       ) : (
@@ -193,7 +191,6 @@ export function ApuracaoDialog({
   const [note, setNote] = useState("")
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
   const reasonKind = mode === "absence" ? "absence" : mode === "timeoff" ? offKind : ""
   const asksReason = reasonKind === "absence" || reasonKind === "certificate" || reasonKind === "allowance"
 
@@ -229,13 +226,12 @@ export function ApuracaoDialog({
   }, [asksReason, reasonKind])
 
   async function saveAbsence() {
-    setError("")
     if (lockMessage) {
-      setError(lockMessage)
+      toastError(lockMessage)
       return
     }
     if (reasons.length > 0 && !reasonId) {
-      setError("Selecione o motivo.")
+      toastError("Selecione o motivo.")
       return
     }
     setSaving(true)
@@ -250,22 +246,21 @@ export function ApuracaoDialog({
       })
       await onSaved()
       onClose()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível lançar a falta.")
+    } catch {
+      return
     } finally {
       setSaving(false)
     }
   }
 
   async function saveTimeOff() {
-    setError("")
     const blocked = lockRange?.(day, day) || lockMessage
     if (blocked) {
-      setError(blocked)
+      toastError(blocked)
       return
     }
     if (reasons.length > 0 && !reasonId) {
-      setError("Selecione o motivo.")
+      toastError("Selecione o motivo.")
       return
     }
     setSaving(true)
@@ -283,8 +278,8 @@ export function ApuracaoDialog({
       })
       await onSaved()
       onClose()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível lançar.")
+    } catch {
+      return
     } finally {
       setSaving(false)
     }
@@ -367,7 +362,6 @@ export function ApuracaoDialog({
                 <Label className={moduleLabelClass} htmlFor="apuracao-absence-note">Observação</Label>
                 <textarea id="apuracao-absence-note" className={cn(moduleTextClass, "min-h-24 shadow-none hover:shadow-none focus:shadow-none")} value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
-              {lockMessage || error ? <p className="text-sm text-destructive">{lockMessage || error}</p> : null}
             </div>
           ) : null}
           {mode === "timeoff" ? (
@@ -404,7 +398,6 @@ export function ApuracaoDialog({
                 <Label className={moduleLabelClass} htmlFor="apuracao-off-note">Observação</Label>
                 <textarea id="apuracao-off-note" className={cn(moduleTextClass, "min-h-24 shadow-none hover:shadow-none focus:shadow-none")} value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
-              {lockMessage || error ? <p className="text-sm text-destructive">{lockMessage || error}</p> : null}
             </div>
           ) : null}
         </div>

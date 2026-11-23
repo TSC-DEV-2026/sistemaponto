@@ -99,7 +99,7 @@ from app.models.workforce import (
     TimeRequest,
     Unit,
 )
-from app.repositories.workforce_repository import WorkforceRepository
+from app.repositories.workforce_repository import WorkforceRepository, employee_search_matches
 from app.services.authenticator_client import AuthenticatorClient
 from app.services.face_embedder import embed_image
 from app.services.storage_service import StorageService
@@ -285,13 +285,13 @@ class WorkforceService:
     def _vigency_matches(self, scope: Scope, filters: dict, day: date | None = None) -> set[int] | None:
         day = day or self.today()
         matched: set[int] | None = None
-        filters.pop("category_value_id", None)
+        raw_values = filters.pop("category_value_id", None)
         filters.pop("category_id", None)
         if "union_id" in filters and "norm_id" not in filters:
             filters["norm_id"] = filters.pop("union_id")
         else:
             filters.pop("union_id", None)
-        value_ids = []
+        value_ids = self._id_list(raw_values) if raw_values else []
         if "cost_center_id" in filters:
             value_ids.append(int(filters.pop("cost_center_id")))
         if value_ids:
@@ -1613,6 +1613,8 @@ class WorkforceService:
         filters: dict | None = None,
     ) -> list[dict]:
         chosen = dict(filters or {})
+        category_values = self._id_list(chosen.pop("category_value_id", None))
+        chosen.pop("category_id", None)
         places, situation = self._place_sets(chosen)
         if kind == "employees":
             lines = self._employee_lines(scope, starts_on, employee_id, chosen)
@@ -1624,6 +1626,16 @@ class WorkforceService:
                 for line in lines
                 if self._on_places(line.get("employee_id"), line["occurred_on"], places, situation)
             ]
+        if category_values:
+            matched: dict[date, set[int]] = {}
+            kept = []
+            for line in lines:
+                day = line["occurred_on"]
+                if day not in matched:
+                    matched[day] = self._category_value_ids(scope, category_values, day)
+                if line.get("employee_id") in matched[day]:
+                    kept.append(line)
+            lines = kept
         return sorted(lines, key=lambda item: (item["occurred_on"], item["full_name"] or "", item["title"], item["detail"]))
 
     def _kind_lines(
@@ -4565,11 +4577,18 @@ class WorkforceService:
                 "situation": data.get("situation"),
             }
         )
+        category_values = self._id_list(data.get("category_value_id"))
+        matched = self._category_value_ids(scope, category_values, day) if category_values else None
+        search = str(data.get("q") or "").strip()
         found = []
         for employee in self._report_people(scope, None):
             if employee.admission_date > end:
                 continue
+            if search and not employee_search_matches(employee.full_name, employee.cpf, employee.registration_number, search):
+                continue
             if (places or situation) and not self._on_places(employee.id, day, places, situation):
+                continue
+            if matched is not None and employee.id not in matched:
                 continue
             found.append(
                 {
