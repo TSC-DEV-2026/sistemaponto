@@ -14,6 +14,7 @@ import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import { createRecord, listRecords, type Employee, type NamedRecord, type Punch } from "@/services/workforce.service"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { brazilMoment, punchOrigin, showClock, showDateTime } from "@/utils/labels"
 
@@ -131,7 +132,6 @@ export function PunchCorrectionForm({
   const [reasonId, setReasonId] = useState("")
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [note, setNote] = useState("")
-  const [error, setError] = useState("")
   const chosenDay = fixedDay || day
   const blocked = guard?.(chosenDay) || ""
 
@@ -151,18 +151,21 @@ export function PunchCorrectionForm({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     if (blocked) {
-      setError(blocked)
+      toastError(blocked)
       return
     }
     if (reasons.length > 0 && !reasonId) {
-      setError("Selecione o motivo.")
+      toastError("Selecione o motivo.")
       return
     }
     const filled = times.map((item) => item.trim()).filter(Boolean)
     if (filled.length % 2 !== 0) {
-      setError("Informe as marcações em pares. Cada entrada precisa de uma saída.")
+      toastError("Informe as marcações em pares. Cada entrada precisa de uma saída.")
+      return
+    }
+    if (!chosenDay || filled.length === 0) {
+      toastError("Informe o dia e ao menos uma marcação.")
       return
     }
     try {
@@ -176,8 +179,8 @@ export function PunchCorrectionForm({
       setReasonId("")
       setNote("")
       await onSaved()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível corrigir.")
+    } catch {
+      return
     }
   }
 
@@ -218,7 +221,6 @@ export function PunchCorrectionForm({
         </Label>
         <textarea id="correction-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
-      {blocked || error ? <p className="text-sm text-destructive">{blocked || error}</p> : null}
       {formId ? null : (
         <Button type="submit" className={module ? modulePrimaryClass : undefined} disabled={Boolean(blocked)}>
           Corrigir o dia
@@ -252,6 +254,14 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
   const history = usePagedList<Punch>("/punches", { ...scope, valid: false }, true, reloadKey)
   const employeeName = employees ? (id: number) => employees.find((item) => item.id === id)?.full_name || String(id) : undefined
 
+  useEffect(() => {
+    if (current.error) toastError(current.error)
+  }, [current.error])
+
+  useEffect(() => {
+    if (history.error) toastError(history.error)
+  }, [history.error])
+
   if (appearance === "module") {
     return (
       <div className="space-y-4">
@@ -269,7 +279,6 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
             </div>
           )}
           <h3 className="mt-6 text-sm font-semibold text-brand-ink">Marcações que valem</h3>
-          {current.error ? <p className="mt-3 text-sm text-destructive">{current.error}</p> : null}
           <PunchTable className="mt-3" empty="Nenhuma marcação válida." loading={current.loading} punches={current.items} employeeName={employeeName} />
           {current.total > 0 ? (
             <div className="mt-4 border-t border-[#F0F0F2] pt-4">
@@ -279,7 +288,6 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
         </section>
         <section className="min-w-0 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
           <h2 className="text-base font-semibold text-brand-ink">Histórico — deixaram de valer</h2>
-          {history.error ? <p className="mt-3 text-sm text-destructive">{history.error}</p> : null}
           <PunchTable className="mt-4" empty="Nenhuma marcação antiga." loading={history.loading} punches={history.items} employeeName={employeeName} quietEmpty />
           {history.total > 0 ? (
             <div className="mt-4 border-t border-[#F0F0F2] pt-4">
@@ -301,10 +309,8 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
       )}
       <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." loading={current.loading} punches={current.items} employeeName={employeeName} />
       <ListPager page={current.page} pageSize={current.pageSize} total={current.total} onPage={current.setPage} onPageSize={current.setPageSize} />
-      {current.error ? <p className="text-sm text-destructive">{current.error}</p> : null}
       <PunchGroup title="Histórico — deixaram de valer" empty="Nenhuma marcação antiga." loading={history.loading} punches={history.items} employeeName={employeeName} />
       <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} />
-      {history.error ? <p className="text-sm text-destructive">{history.error}</p> : null}
     </div>
   )
 }

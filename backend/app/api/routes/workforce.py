@@ -349,7 +349,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
 @employees.get(
     "",
     summary="Listar funcionários",
-    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, team_id, norm_id, manager_id, situation. q procura nome, CPF e matrícula.",
+    description="Filtros: q, full_name, cpf, person_id, job_id, journey_id, cost_center_id, unit_id, team_id, norm_id, manager_id, situation, category_value_id. q procura nome, CPF e matrícula. category_value_id aceita vários ids separados por vírgula.",
 )
 @searchable(
     "q",
@@ -364,6 +364,7 @@ charges = APIRouter(prefix="/charges", tags=["charges"])
     "norm_id",
     "manager_id",
     "situation",
+    "category_value_id",
 )
 def list_employees(
     request: Request,
@@ -393,6 +394,7 @@ def list_employees(
                 "norm_id",
                 "manager_id",
                 "situation",
+                "category_value_id",
             ),
         ),
     )
@@ -806,6 +808,8 @@ def closing_candidates(
     job_id: str | None = Query(default=None, max_length=500),
     journey_id: str | None = Query(default=None, max_length=500),
     situation: str | None = Query(default=None, max_length=32),
+    category_value_id: str | None = Query(default=None, max_length=500, description="Ids de valor de categoria separados por vírgula"),
+    q: str | None = Query(default=None, max_length=120, description="Trecho do nome, do CPF ou da matrícula"),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
@@ -821,6 +825,8 @@ def closing_candidates(
             "job_id": job_id,
             "journey_id": journey_id,
             "situation": situation,
+            "category_value_id": category_value_id,
+            "q": q,
         },
     )
     return json_data(rows)
@@ -1199,7 +1205,7 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de funcionários, starts_on é o dia e ends_on repete esse dia. Empresa, equipe, função e jornada aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
+    description="No relatório de funcionários, starts_on é o dia e ends_on repete esse dia. Empresa, equipe, função, jornada e valor de categoria aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
 )
 @searchable(
     "full_name",
@@ -1208,6 +1214,7 @@ def report_catalog(
     "cost_center_id",
     "manager_id",
     "situation",
+    "category_value_id",
 )
 def reports(
     request: Request,
@@ -1234,6 +1241,7 @@ def reports(
             "cost_center_id",
             "manager_id",
             "situation",
+            "category_value_id",
         ),
     )
     for name, value in (

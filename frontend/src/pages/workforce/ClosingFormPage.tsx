@@ -1,17 +1,18 @@
 import { FormEvent, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { Check, CircleCheck, Filter, X } from "lucide-react"
+import { Check, CircleCheck, Filter, Search, X } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { DatePickerField, YearPickerField } from "@/components/ui/date-picker-field"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SiteSelect } from "@/components/ui/site-select"
 import { Spinner } from "@/components/ui/spinner"
 import { ListPager } from "@/components/workforce/list-controls"
-import { moduleCardClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { OrganizationFilterFields, useOrganizationFilters } from "@/components/workforce/organization-filters"
 import { api, ensureCsrf } from "@/services/api"
 import { closingCandidates, type Closing, type ClosingCandidate } from "@/services/workforce.service"
@@ -60,6 +61,8 @@ export function ClosingFormPage() {
   const [endsOn, setEndsOn] = useState("")
   const places = useOrganizationFilters(canManage)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [personDraft, setPersonDraft] = useState("")
+  const [person, setPerson] = useState("")
   const [candidates, setCandidates] = useState<ClosingCandidate[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -72,8 +75,9 @@ export function ClosingFormPage() {
 
   const periodReady = mode === "month" || Boolean(startsOn)
   const allMarked = candidates.length > 0 && candidates.every((item) => chosen.includes(item.id))
-  const listed = candidates.map((item) => item.id).join(",")
   const visible = candidates.slice((page - 1) * pageSize, page * pageSize)
+  const scopeKey = `${mode}|${year}|${month}|${startsOn}|${endsOn}|${places.key}`
+  const scopeRef = useRef("")
 
   useEffect(() => {
     if (!canManage || !periodReady) return
@@ -86,9 +90,15 @@ export function ClosingFormPage() {
     closingCandidates({
       ...params,
       ...places.params,
+      q: person || undefined,
     })
       .then((rows) => {
-        if (active) setCandidates(rows)
+        if (!active) return
+        setCandidates(rows)
+        if (scopeRef.current !== scopeKey) {
+          scopeRef.current = scopeKey
+          setChosen(rows.map((item) => item.id))
+        }
       })
       .catch((caught: unknown) => {
         if (!active) return
@@ -101,11 +111,12 @@ export function ClosingFormPage() {
     return () => {
       active = false
     }
-  }, [canManage, periodReady, mode, year, month, startsOn, endsOn, places.key])
+  }, [canManage, periodReady, mode, year, month, startsOn, endsOn, places.key, person, scopeKey])
 
   useEffect(() => {
-    setChosen(listed ? listed.split(",").map(Number) : [])
-  }, [listed])
+    const timer = window.setTimeout(() => setPerson(personDraft.trim()), 280)
+    return () => window.clearTimeout(timer)
+  }, [personDraft])
 
   useEffect(() => {
     setNotices({})
@@ -167,7 +178,11 @@ export function ClosingFormPage() {
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/closings" appearance="detail" />
-      <ActionForm className={cn(moduleCardClass, "space-y-4")} onSubmit={askClose}>
+      <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={askClose}>
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Novo fechamento</h2>
+          <p className="mt-1 text-sm text-[#64748B]">Selecione o período e quem entra no fechamento.</p>
+        </div>
         <div className="min-w-0 space-y-2">
           <Label className={moduleLabelClass} htmlFor="closing-mode">
             Período
@@ -204,17 +219,22 @@ export function ClosingFormPage() {
           </div>
         )}
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-[#0A0A0A]">Quem entra no fechamento</p>
-            <button
-              type="button"
-              className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
-              aria-expanded={filtersOpen}
-              aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
-              onClick={() => setFiltersOpen((current) => !current)}
-            >
-              <Filter className="h-4 w-4" strokeWidth={1.75} />
-            </button>
+          <h3 className="text-lg font-semibold text-[#0A0A0A]">Quem entra no fechamento</h3>
+          <div className="space-y-2">
+            <Label className={moduleLabelClass} htmlFor="closing-person">Pesquisar</Label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+              <Input id="closing-person" value={personDraft} placeholder="Pesquisar por nome, CPF ou matrícula" className={cn(moduleFieldClass, "pl-10 pr-12")} onChange={(event) => setPersonDraft(event.target.value)} />
+              <button
+                type="button"
+                className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+                aria-expanded={filtersOpen}
+                aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
+                onClick={() => setFiltersOpen((current) => !current)}
+              >
+                <Filter className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
@@ -222,7 +242,7 @@ export function ClosingFormPage() {
               className={cn("inline-flex h-10 items-center gap-2 rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allMarked ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
               disabled={!peopleReady || candidates.length === 0}
               aria-pressed={allMarked}
-              onClick={() => setChosen(candidates.map((item) => item.id))}
+              onClick={() => setChosen((current) => [...new Set([...current, ...candidates.map((item) => item.id)])])}
             >
               <span className={cn("flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border", allMarked ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
                 {allMarked ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}

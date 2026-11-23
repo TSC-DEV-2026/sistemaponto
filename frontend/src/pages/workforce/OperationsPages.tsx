@@ -1948,6 +1948,7 @@ type ReportQuery = {
   teamIds: string
   jobIds: string
   journeyIds: string
+  categoryIds: string
   situation: string
 }
 
@@ -1957,6 +1958,7 @@ function reportExtra(query: ReportQuery) {
   if (query.teamIds) extra.team_id = query.teamIds
   if (query.jobIds) extra.job_id = query.jobIds
   if (query.journeyIds) extra.journey_id = query.journeyIds
+  if (query.categoryIds) extra.category_value_id = query.categoryIds
   if (query.situation) extra.situation = query.situation
   return extra
 }
@@ -2049,7 +2051,7 @@ export function ReportsPage() {
   async function openPage(page: number, next: ReportQuery) {
     const ticket = requestId.current + 1
     requestId.current = ticket
-    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.unitIds === next.unitIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.situation === next.situation
+    const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.unitIds === next.unitIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.categoryIds === next.categoryIds && applied.situation === next.situation
     setLoading(true)
     setError("")
     if (!sameQuery) {
@@ -2084,6 +2086,7 @@ export function ReportsPage() {
       teamIds: places.params.team_id || "",
       jobIds: places.params.job_id || "",
       journeyIds: places.params.journey_id || "",
+      categoryIds: places.params.category_value_id || "",
       situation: places.params.situation || "",
     })
   }
