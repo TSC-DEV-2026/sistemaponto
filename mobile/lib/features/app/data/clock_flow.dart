@@ -14,10 +14,11 @@ import 'page_items.dart';
 import 'clock_store.dart';
 
 class PunchResult {
-  const PunchResult({required this.message, required this.ok});
+  const PunchResult({required this.message, required this.ok, this.stored = false});
 
   final String message;
   final bool ok;
+  final bool stored;
 }
 
 class ClockFlow {
@@ -106,7 +107,7 @@ class ClockFlow {
     });
   }
 
-  Future<String> punchFace({required int employeeId, required String imagePath}) async {
+  Future<PunchResult> punchFace({required int employeeId, required String imagePath}) async {
     final bytes = await _jpeg(await File(imagePath).readAsBytes());
     final occurred = DateTime.now().toUtc().toIso8601String();
     final eventId = _uuid.v4();
@@ -119,7 +120,7 @@ class ClockFlow {
         'client_event_id': eventId,
         'note': null,
       });
-      return 'Marcação por rosto registrada.';
+      return const PunchResult(message: 'Marcação por rosto registrada.', ok: true);
     } on ApiException catch (error) {
       if (error.statusCode != null) {
         rethrow;
@@ -136,7 +137,11 @@ class ClockFlow {
       occurredAt: occurred,
       imagePath: kept,
     );
-    return 'Marcação guardada neste aparelho. Ela sobe quando a internet voltar.';
+    return const PunchResult(
+      message: 'Marcação guardada neste aparelho. Ela sobe quando a internet voltar.',
+      ok: true,
+      stored: true,
+    );
   }
 
   Future<int?> _matchLocal(int employeeId, String imagePath) async {

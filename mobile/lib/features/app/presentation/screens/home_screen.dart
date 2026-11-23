@@ -7,10 +7,13 @@ import '../../../../core/errors/api_exception.dart';
 import '../../../../data/network/dio_client.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
+import '../../../../shared/widgets/panel_spinner.dart';
+import '../../../../shared/widgets/punch_toast.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/clock_flow.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
+import '../../data/punch_reminders.dart';
 import 'face_camera_screen.dart';
 import 'qr_punch_screen.dart';
 
@@ -37,9 +40,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _tab = 'registro';
   String? _profileError;
   String? _panelError;
+  bool _profileLoading = true;
   bool _panelReady = true;
-  String? _notice;
-  bool _noticeOk = true;
   bool _missing = false;
   int _panelTicket = 0;
   int? _facePreparedFor;
@@ -61,6 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() {
         _employee = null;
         _missing = false;
+        _profileLoading = false;
         _profileError = user == null
             ? 'Sem conexão. A sessão continua neste aparelho.'
             : 'Seu acesso ainda não está ligado a um funcionário.';
@@ -122,6 +125,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() => _profileError = error.message);
       }
     } finally {
+      if (mounted) {
+        setState(() => _profileLoading = false);
+      }
       ref.read(loaderProvider.notifier).state = false;
     }
   }
@@ -194,13 +200,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (mounted) {
         setState(() => _journey = null);
       }
+      unawaited(PunchReminders.instance.clear());
       return;
     }
     try {
       final journey = await client.get('/api/v1/journeys/$reference');
-      if (mounted) {
-        setState(() => _journey = journey);
+      if (!mounted) {
+        return;
       }
+      setState(() => _journey = journey);
+      final cycle = current?['cycle_day'];
+      final anchor = currentFrom ?? day;
+      unawaited(
+        PunchReminders.instance.sync(
+          journey: journey,
+          anchor: anchor,
+          cycleDay: cycle is num ? cycle.toInt() : anchor.weekday,
+        ),
+      );
     } on ApiException {
       if (mounted) {
         setState(() => _journey = null);
@@ -213,11 +230,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final flow = ClockFlow(client);
     try {
       final sent = await flow.syncPending();
-      if (sent > 0 && mounted && _notice == null) {
-        setState(() {
-          _notice = 'Marcações offline enviadas.';
-          _noticeOk = true;
-        });
+      if (sent > 0 && mounted) {
+        showPunchToast(context, message: 'Marcações offline enviadas.', ok: true);
       }
     } on ApiException {
       return;
@@ -307,13 +321,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     unawaited(_loadPanel());
   }
 
-  void _showNotice(String message, {required bool ok}) {
-    setState(() {
-      _notice = message;
-      _noticeOk = ok;
-    });
-  }
-
   Future<void> _punchSimple() async {
     final employee = _employee;
     if (employee == null) {
@@ -328,11 +335,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'note': null,
       });
       if (mounted) {
-        _showNotice('Marcação registrada.', ok: true);
+        showPunchToast(context, message: 'Marcação registrada.', ok: true);
       }
     } on ApiException catch (error) {
       if (mounted) {
-        _showNotice(error.message, ok: false);
+        showPunchToast(context, message: error.message, ok: false);
       }
     } finally {
       ref.read(loaderProvider.notifier).state = false;
@@ -353,7 +360,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (result == null || !mounted) {
       return;
     }
-    _showNotice(result.message, ok: result.ok);
+    showPunchToast(context, message: result.message, ok: result.ok, stored: result.stored);
   }
 
   Future<void> _openFace() async {
@@ -371,15 +378,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final client = ref.read(apiClientProvider);
     ref.read(loaderProvider.notifier).state = true;
     try {
-      final message = await ClockFlow(
+      final result = await ClockFlow(
         client,
       ).punchFace(employeeId: _employeeId(employee), imagePath: path);
       if (mounted) {
-        _showNotice(message, ok: true);
+        showPunchToast(context, message: result.message, ok: result.ok, stored: result.stored);
       }
     } on ApiException catch (error) {
       if (mounted) {
-        _showNotice(error.message, ok: false);
+        showPunchToast(context, message: error.message, ok: false);
       }
     } finally {
       ref.read(loaderProvider.notifier).state = false;
@@ -406,15 +413,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           Text('Meu ponto', style: Theme.of(context).textTheme.headlineSmall),
-          if (_notice != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _notice!,
-              style: TextStyle(
-                color: _noticeOk ? null : Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
@@ -435,6 +433,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 16),
           if (_missing)
             const Text('Seu acesso ainda não está ligado a um funcionário.')
+          else if (employee == null && _profileLoading)
+            const PanelSpinner()
           else if (employee == null)
             Text(
               _profileError ?? 'Sem conexão. A sessão continua neste aparelho.',
@@ -447,7 +447,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             )
           else if (!_panelReady)
-            const SizedBox.shrink()
+            const PanelSpinner()
           else if (_tab == 'apuracao')
             ..._days.map(_dayTile)
           else if (_tab == 'marcacoes')

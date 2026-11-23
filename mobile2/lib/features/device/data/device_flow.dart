@@ -15,6 +15,14 @@ import 'clock_store.dart';
 import 'face_decision.dart';
 import 'page_items.dart';
 
+class DevicePunch {
+  const DevicePunch(this.message, {this.ok = true, this.stored = false});
+
+  final String message;
+  final bool ok;
+  final bool stored;
+}
+
 class DeviceFlow {
   DeviceFlow(this.api, this.vault, this.store);
 
@@ -124,7 +132,7 @@ class DeviceFlow {
     return sent;
   }
 
-  Future<String> punchFace(String imagePath) async {
+  Future<DevicePunch> punchFace(String imagePath) async {
     final publicId = await vault.publicId();
     final keys = (await vault.grants()).map((item) => item.key).toList();
     final bytes = await _jpeg(await File(imagePath).readAsBytes());
@@ -132,7 +140,7 @@ class DeviceFlow {
     final eventId = _uuid.v4();
     try {
       await api.punchFace(publicId, keys, occurredAt: occurred, image: base64Encode(bytes), channel: 'online', eventId: eventId);
-      return 'Marcação por rosto registrada.';
+      return const DevicePunch('Marcação por rosto registrada.');
     } on ApiException catch (error) {
       if (error.statusCode != null) {
         rethrow;
@@ -141,7 +149,7 @@ class DeviceFlow {
     await _matchLocal(imagePath);
     final kept = await _keepPhoto(imagePath, eventId);
     await store.addPending(clientEventId: eventId, occurredAt: occurred, imagePath: kept);
-    return 'Marcação guardada neste aparelho. Ela sobe quando a internet voltar.';
+    return const DevicePunch('Marcação guardada neste aparelho. Ela sobe quando a internet voltar.', stored: true);
   }
 
   Future<void> punchQr({required String content, required Uint8List qrImage, required Uint8List selfie}) async {

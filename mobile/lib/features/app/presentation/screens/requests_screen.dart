@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
+import '../../../../shared/widgets/panel_spinner.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/format.dart';
 import '../../data/page_items.dart';
@@ -19,6 +20,7 @@ class RequestsScreen extends ConsumerStatefulWidget {
 class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   List<Map<String, dynamic>> _items = [];
   String? _error;
+  bool _loading = true;
   bool _canRequest = false;
   int _page = 1;
   int _total = 0;
@@ -35,7 +37,10 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   Future<void> _load() async {
     final client = ref.read(apiClientProvider);
     ref.read(loaderProvider.notifier).state = true;
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
     try {
       var canRequest = false;
       final personId = ref.read(authProvider).user?.personId;
@@ -66,6 +71,9 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
       }
       setState(() => _error = error.message);
     } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
       ref.read(loaderProvider.notifier).state = false;
     }
   }
@@ -171,7 +179,10 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                   : null,
             );
           }),
-          if (_items.isEmpty) const Text('Nenhuma solicitação.'),
+          if (_loading && _items.isEmpty)
+            const PanelSpinner()
+          else if (_items.isEmpty)
+            const Text('Nenhuma solicitação.'),
           if (_total > 0) ...[
             const SizedBox(height: 12),
             Text('Página $_page de ${(_total / _limit).ceil()} ($_total ${_total == 1 ? 'item' : 'itens'})'),
