@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from time import monotonic
 from types import SimpleNamespace
 
 from app.core.billing import MAX_CAPACITY, MIN_CAPACITY, PRICE_CENTS, monthly_amount, prorate
@@ -106,6 +107,14 @@ from app.services.storage_service import StorageService
 
 logger = logging.getLogger("sistemaponto.workforce")
 
+_FACE_REGISTRY_SECONDS = 60.0
+_face_registries: dict[int, tuple[float, list[tuple[int, list[float]]]]] = {}
+
+
+def clear_face_registry_cache() -> None:
+    _face_registries.clear()
+
+
 UNIQUE_MODELS = {
     Job,
     CostCenter,
@@ -116,6 +125,15 @@ UNIQUE_MODELS = {
     Journey,
     Norm,
     Reason,
+}
+_KEEP_VIGENCY = {
+    "job": "Mantenha ao menos uma função.",
+    "journey": "Mantenha ao menos uma jornada.",
+    "team": "Mantenha ao menos uma equipe.",
+    "norm": "Mantenha ao menos uma norma.",
+    "status": "Mantenha ao menos uma situação.",
+    "manager": "Mantenha ao menos um gestor.",
+    "category": "Mantenha ao menos um valor nesta categoria.",
 }
 REF_MODELS = {
     "job": Job,
@@ -319,8 +337,12 @@ class WorkforceService:
         labels = self.repo.labels_on(ids, self.today())
         cards = self._cards_on(rows, self.today())
         managers = self.repo.managers_on(ids, self.today())
+        tenant_id = rows[0].tenant_id if rows else 0
+        linked = [item for group in labels.values() for item in group.values()]
+        linked.extend(item for group in managers.values() for item in group)
+        names = self._entity_names(tenant_id, linked)
         return [
-            self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, []), managers.get(row.id, []))
+            self._employee_out(row, labels.get(row.id, {}), cards.get(row.id, []), managers.get(row.id, []), names)
             for row in rows
         ]
 
@@ -369,6 +391,8 @@ class WorkforceService:
         self.repo.add(row)
         if vector is not None:
             self._write_embedding(scope, row.id, vector)
+        else:
+            self._drop_faces(scope.tenant_id)
         return self.employees_out([row])[0]
 
     def delete_employee(self, scope: Scope, employee_id: int) -> None:
@@ -397,6 +421,7 @@ class WorkforceService:
         embedding = self._embedding(scope, row.id)
         if embedding is not None:
             self.repo.delete(embedding)
+        self._drop_faces(scope.tenant_id)
         self.repo.delete(row)
 
     def list_vigencies(self, scope: Scope, page: int, limit: int, equals: dict):
@@ -408,15 +433,54 @@ class WorkforceService:
             if len(ids) != 1:
                 return [], 0
             equals = {**equals, "employee_id": ids[0]}
-        return self.repo.list_rows(
+        rows, total = self.repo.list_rows(
             EmployeeVigency, scope.tenant_id, page=page, limit=limit, equals=equals, descending=True
         )
+        names = self._entity_names(scope.tenant_id, rows)
+        return [self._present_vigency(row, names) for row in rows], total
 
-    def get_vigency(self, scope: Scope, row_id: int) -> EmployeeVigency:
+    def get_vigency(self, scope: Scope, row_id: int):
         self._known(scope)
         row = self._row(EmployeeVigency, scope, row_id)
         self._visible(scope, row.employee_id)
-        return row
+        names = self._entity_names(scope.tenant_id, [row])
+        return self._present_vigency(row, names)
+
+    def _present_vigency(self, row: EmployeeVigency, names: dict[tuple[str, int], str]):
+        return SimpleNamespace(
+            id=row.id,
+            employee_id=row.employee_id,
+            kind=row.kind,
+            reference_id=row.reference_id,
+            category_id=row.category_id,
+            label=self._shown_name(row, names),
+            valid_from=row.valid_from,
+            valid_to=row.valid_to,
+            note=row.note,
+            cycle_day=row.cycle_day,
+        )
+
+    def _shown_name(self, row: EmployeeVigency | None, names: dict[tuple[str, int], str]) -> str | None:
+        if row is None:
+            return None
+        if row.kind == "status" or row.reference_id is None:
+            return row.label
+        return names.get((row.kind, int(row.reference_id)), row.label)
+
+    def _entity_names(self, tenant_id: int, rows) -> dict[tuple[str, int], str]:
+        grouped: dict[str, set[int]] = {}
+        for row in rows:
+            if row is None or row.kind == "status" or row.reference_id is None:
+                continue
+            grouped.setdefault(row.kind, set()).add(int(row.reference_id))
+        found: dict[tuple[str, int], str] = {}
+        for kind, ids in grouped.items():
+            model = CategoryValue if kind == "category" else REF_MODELS.get(kind)
+            if model is None:
+                continue
+            for item in self.repo.rows_in(model, tenant_id, list(ids)):
+                found[(kind, item.id)] = item.full_name if kind == "manager" else item.name
+        return found
 
     def create_vigency(self, scope: Scope, data: dict) -> EmployeeVigency:
         self._staff(scope)
@@ -666,9 +730,80 @@ class WorkforceService:
         return row
 
     def delete_vigency(self, scope: Scope, row_id: int) -> None:
-        self._known(scope)
-        self._row(EmployeeVigency, scope, row_id)
-        raise AppError(409, "A vigência permanece no histórico.")
+        self._staff(scope)
+        row = self._row(EmployeeVigency, scope, row_id)
+        self._visible(scope, row.employee_id)
+        if row.kind == "unit":
+            raise AppError(400, "A empresa acompanha a equipe.")
+        companion = self._companion_unit(scope, row) if row.kind == "team" else None
+        planned = [self._plan_release(scope, row, keep=row.kind != "manager")]
+        if companion is not None:
+            planned.append(self._plan_release(scope, companion, keep=False))
+        for previous, target in planned:
+            if previous is not None:
+                previous.valid_to = target.valid_to
+                self.repo.add(previous)
+            self._audit(scope, target.employee_id, target.kind, target.id, target.label, None, target.valid_from)
+            self.repo.delete(target)
+
+    def _companion_unit(self, scope: Scope, row: EmployeeVigency) -> EmployeeVigency | None:
+        found = [
+            item
+            for item in self._vigency_rows(scope.tenant_id, row.employee_id, "unit")
+            if item.valid_from == row.valid_from
+        ]
+        matched = [item for item in found if item.valid_to == row.valid_to]
+        chosen = matched or found
+        return chosen[-1] if chosen else None
+
+    def _plan_release(self, scope: Scope, row: EmployeeVigency, *, keep: bool) -> tuple[EmployeeVigency | None, EmployeeVigency]:
+        chain = self._release_chain(scope, row)
+        if keep and len(chain) <= 1:
+            raise AppError(409, _KEEP_VIGENCY.get(row.kind, "Mantenha ao menos um vínculo."))
+        self._assert_range_open(scope.tenant_id, row.employee_id, row.valid_from, row.valid_to)
+        index = next((place for place, item in enumerate(chain) if item.id == row.id), None)
+        previous = chain[index - 1] if index is not None and index > 0 else None
+        return previous, row
+
+    def _release_chain(self, scope: Scope, row: EmployeeVigency) -> list[EmployeeVigency]:
+        if row.kind == "manager":
+            everyone = self._vigency_rows(scope.tenant_id, row.employee_id, "manager")
+            if len(everyone) <= 1:
+                raise AppError(409, _KEEP_VIGENCY["manager"])
+            return [item for item in everyone if item.reference_id == row.reference_id]
+        if row.kind == "category":
+            return self._vigency_rows(scope.tenant_id, row.employee_id, "category", category_id=row.category_id)
+        return self._vigency_rows(scope.tenant_id, row.employee_id, row.kind)
+
+    def _vigency_rows(self, tenant_id: int, employee_id: int, kind: str, **equals) -> list[EmployeeVigency]:
+        found: list[EmployeeVigency] = []
+        page = 1
+        while True:
+            rows, total = self.repo.list_rows(
+                EmployeeVigency,
+                tenant_id,
+                page=page,
+                limit=100,
+                equals={"employee_id": employee_id, "kind": kind, **equals},
+                descending=False,
+            )
+            found.extend(rows)
+            if len(found) >= total or not rows:
+                break
+            page += 1
+        found.sort(key=lambda item: (item.valid_from, item.id))
+        return found
+
+    def _assert_range_open(self, tenant_id: int, employee_id: int, start: date, end: date | None) -> None:
+        finish = end if end is not None else max(start, self.today())
+        if finish < start:
+            return
+        for row in self.repo.overlapping_closings(tenant_id, start, finish):
+            if getattr(row, "status", None) != "closed":
+                continue
+            members = self.repo.member_ids(row.id)
+            if not members or employee_id in members:
+                raise AppError(409, "Período fechado")
 
     def list_punches(self, scope: Scope, page: int, limit: int, equals: dict):
         rows, total = self._scoped_list(scope, Punch, page, limit, equals)
@@ -745,7 +880,7 @@ class WorkforceService:
         return {
             "employee_id": employee.id,
             "unit_id": unit.reference_id,
-            "unit_name": unit.label,
+            "unit_name": self._shown_name(unit, self._entity_names(employee.tenant_id, [unit])),
             "cpf": employee.cpf,
             "registration_number": registration,
             "content": render_code(unit.reference_id, employee.cpf, registration),
@@ -1776,7 +1911,7 @@ class WorkforceService:
                         "employee_id": employee.id,
                         "full_name": employee.full_name,
                         "occurred_on": vigency.valid_from,
-                        "title": vigency.label,
+                        "title": journey.name if journey is not None else vigency.label,
                         "detail": f"{clocks}; {period}" if clocks else period,
                     }
                 )
@@ -2974,11 +3109,15 @@ class WorkforceService:
                     embedding=vector,
                 )
             )
-            return
-        current.model_name = MODEL_NAME
-        current.model_version = MODEL_VERSION
-        current.embedding = vector
-        self.repo.add(current)
+        else:
+            current.model_name = MODEL_NAME
+            current.model_version = MODEL_VERSION
+            current.embedding = vector
+            self.repo.add(current)
+        self._drop_faces(scope.tenant_id)
+
+    def _drop_faces(self, tenant_id: int) -> None:
+        _face_registries.pop(tenant_id, None)
 
     def _embedding(self, scope: Scope, employee_id: int) -> FaceEmbedding | None:
         rows, _total = self.repo.list_rows(
@@ -2992,6 +3131,15 @@ class WorkforceService:
         return rows[0] if rows else None
 
     def _face_registry(self, scope: Scope) -> list[tuple[int, list[float]]]:
+        cached = _face_registries.get(scope.tenant_id)
+        now = monotonic()
+        if cached is not None and now - cached[0] < _FACE_REGISTRY_SECONDS:
+            return list(cached[1])
+        found = self._load_face_registry(scope)
+        _face_registries[scope.tenant_id] = (now, found)
+        return list(found)
+
+    def _load_face_registry(self, scope: Scope) -> list[tuple[int, list[float]]]:
         found = []
         page = 1
         while True:
@@ -3077,7 +3225,7 @@ class WorkforceService:
             payload["clock_method"] = method
         return payload
 
-    def _employee_out(self, row: Employee, labels: dict, cards: list | None = None, managers: list | None = None) -> dict:
+    def _employee_out(self, row: Employee, labels: dict, cards: list | None = None, managers: list | None = None, names: dict | None = None) -> dict:
         body = {
             "id": row.id,
             "full_name": row.full_name,
@@ -3096,13 +3244,13 @@ class WorkforceService:
             if kind == "manager":
                 continue
             item = labels.get(kind)
-            body[field] = item.label if item is not None else None
+            body[field] = self._shown_name(item, names or {}) if item is not None else None
         current_managers = list(managers or [])
         body["managers"] = [
-            {"vigency_id": item.id, "reference_id": item.reference_id, "name": item.label}
+            {"vigency_id": item.id, "reference_id": item.reference_id, "name": self._shown_name(item, names or {})}
             for item in current_managers
         ]
-        body["manager_label"] = ", ".join(item.label for item in current_managers) or None
+        body["manager_label"] = ", ".join(item["name"] for item in body["managers"]) or None
         chosen = cards or []
         body["categories"] = chosen
         cost = next((item for item in chosen if item["name"] == COST_CENTER_CLASSIFICATION), None)
@@ -3150,20 +3298,21 @@ class WorkforceService:
 
     def _cards_on(self, rows: list[Employee], day: date) -> dict[int, list[dict]]:
         grouped = self.repo.applicable_categories([row.id for row in rows], day)
-        names: dict[int, str] = {}
+        vigencies = [vigency for by_class in grouped.values() for vigency in by_class.values()]
+        tenant_id = vigencies[0].tenant_id if vigencies else (rows[0].tenant_id if rows else 0)
+        value_names = self._entity_names(tenant_id, vigencies)
+        category_ids = [item.category_id for item in vigencies if item.category_id is not None]
+        category_names = {item.id: item.name for item in self.repo.rows_in(Category, tenant_id, category_ids)}
         cards: dict[int, list[dict]] = {}
         for employee_id, by_class in grouped.items():
             items = []
             for category_id, vigency in by_class.items():
-                if category_id not in names:
-                    found = self.repo.get_row(Category, vigency.tenant_id, category_id)
-                    names[category_id] = found.name if found is not None else ""
                 items.append(
                     {
                         "category_id": category_id,
-                        "name": names[category_id],
+                        "name": category_names.get(category_id, ""),
                         "value_id": vigency.reference_id,
-                        "value_name": vigency.label,
+                        "value_name": self._shown_name(vigency, value_names),
                     }
                 )
             items.sort(key=lambda item: item["name"].casefold())
@@ -3201,13 +3350,14 @@ class WorkforceService:
     def _employee_snapshot(self, person: Employee, labels: dict) -> str:
         situation = labels.get("status")
         situation_name = {"active": "Ativo", "dismissed": "Desligado"}.get(situation.label if situation is not None else "", "Não informado")
+        names = self._entity_names(person.tenant_id, list(labels.values()))
         parts = (
             f"Matrícula {self._shown(person.registration_number)}",
             f"CPF {self._cpf_text(person.cpf)}",
-            f"Empresa {self._shown(labels['unit'].label if labels.get('unit') is not None else None)}",
-            f"Equipe {self._shown(labels['team'].label if labels.get('team') is not None else None)}",
-            f"Função {self._shown(labels['job'].label if labels.get('job') is not None else None)}",
-            f"Jornada {self._shown(labels['journey'].label if labels.get('journey') is not None else None)}",
+            f"Empresa {self._shown(self._shown_name(labels.get('unit'), names))}",
+            f"Equipe {self._shown(self._shown_name(labels.get('team'), names))}",
+            f"Função {self._shown(self._shown_name(labels.get('job'), names))}",
+            f"Jornada {self._shown(self._shown_name(labels.get('journey'), names))}",
             f"Situação {situation_name}",
             f"Admissão {person.admission_date.strftime('%d/%m/%Y')}",
             f"Banco de horas {'sim' if person.hour_bank else 'não'}",
@@ -3546,7 +3696,7 @@ class WorkforceService:
             "employee_id": employee.id,
             "full_name": employee.full_name,
             "unit_id": unit.reference_id,
-            "unit_name": unit.label,
+            "unit_name": self._shown_name(unit, self._entity_names(employee.tenant_id, [unit])),
             "cpf": employee.cpf,
             "registration_number": registration,
             "content": render_code(unit.reference_id, employee.cpf, registration),
@@ -3976,7 +4126,7 @@ class WorkforceService:
             "full_name": employee.full_name,
             "cpf": employee.cpf,
             "registration_number": employee.registration_number,
-            "unit_name": None if unit is None else unit.label,
+            "unit_name": None if unit is None else self._shown_name(unit, self._entity_names(employee.tenant_id, [unit])),
             "hour_bank": bool(employee.hour_bank),
             "balance_minutes": balance,
             "days": days,

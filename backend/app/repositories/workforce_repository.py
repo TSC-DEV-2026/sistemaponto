@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session, load_only
 
 from app.models.membership import Membership
@@ -224,9 +224,21 @@ class WorkforceRepository:
             query = query.filter(model.employee_id.in_(employee_ids))
         query = _apply_filters(query, model, equals)
         total = query.count()
-        order = model.id.desc() if descending else model.id.asc()
-        items = query.order_by(order).offset((page - 1) * limit).limit(limit).all()
+        if model is EmployeeVigency and descending:
+            order = (
+                case((EmployeeVigency.valid_to.is_(None), 0), else_=1),
+                EmployeeVigency.valid_from.desc(),
+                EmployeeVigency.id.desc(),
+            )
+        else:
+            order = (model.id.desc() if descending else model.id.asc(),)
+        items = query.order_by(*order).offset((page - 1) * limit).limit(limit).all()
         return items, total
+
+    def rows_in(self, model, tenant_id: int, ids: list[int]):
+        if not ids:
+            return []
+        return self.db.query(model).filter(model.tenant_id == tenant_id, model.id.in_(ids)).all()
 
     def get_row(self, model, tenant_id: int, row_id: int):
         return (

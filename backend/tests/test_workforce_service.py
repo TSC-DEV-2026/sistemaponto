@@ -45,7 +45,7 @@ from app.models.workforce import (
     TimeRequest,
     Unit,
 )
-from app.services.workforce_service import Scope, WorkforceService
+from app.services.workforce_service import Scope, WorkforceService, clear_face_registry_cache
 
 BR = ZoneInfo("America/Sao_Paulo")
 TODAY = date(2026, 10, 7)
@@ -155,10 +155,17 @@ class Memory:
                 continue
             if all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
                 found.append(row)
-        found.sort(key=lambda item: item.id, reverse=descending)
+        if model is EmployeeVigency and descending:
+            found.sort(key=lambda item: (item.valid_to is not None, -item.valid_from.toordinal(), -item.id))
+        else:
+            found.sort(key=lambda item: item.id, reverse=descending)
         total = len(found)
         start = (page - 1) * limit
         return found[start : start + limit], total
+
+    def rows_in(self, model, tenant_id: int, ids):
+        wanted = set(ids)
+        return [row for row in self._of(model, tenant_id) if row.id in wanted]
 
     def get_row(self, model, tenant_id: int, row_id: int):
         for row in self._of(model, tenant_id):
@@ -701,6 +708,7 @@ class KeptFiles:
 
 
 def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
+    clear_face_registry_cache()
     repo = Memory(capacity)
     return (
         WorkforceService(
@@ -760,6 +768,78 @@ def test_vigencia_anterior_termina_no_dia_previo():
     assert previous_end(date(2026, 1, 1), date(2026, 9, 1)) == date(2026, 8, 31)
 
 
+def _one_day(name: str, end: str) -> dict:
+    return {"name": name, "days": [{"off": False, "spans": [{"starts_at": "08:00", "ends_at": end}]}], "note": None}
+
+
+def test_excluir_jornada_devolve_o_periodo_a_escala_anterior():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    short = workforce.create_named(Journey, admin(), _one_day("Curta", "12:00"))
+    long = workforce.create_named(Journey, admin(), _one_day("Longa", "17:00"))
+    first = workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "journey", "reference_id": short.id, "label": None, "valid_from": date(2026, 10, 1), "cycle_day": 1, "note": None},
+    )
+    second = workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "journey", "reference_id": long.id, "label": None, "valid_from": date(2026, 10, 6), "cycle_day": 1, "note": None},
+    )
+    assert first.valid_to == date(2026, 10, 5)
+    before = workforce.calculations(admin(), person["id"], date(2026, 10, 5), date(2026, 10, 6))
+    assert day_result(before, date(2026, 10, 5))["contracted_minutes"] == 4 * 60
+    assert day_result(before, date(2026, 10, 6))["contracted_minutes"] == 9 * 60
+    workforce.delete_vigency(admin(), second.id)
+    assert first.valid_to is None
+    after = workforce.calculations(admin(), person["id"], date(2026, 10, 6), date(2026, 10, 6))
+    assert day_result(after, date(2026, 10, 6))["contracted_minutes"] == 4 * 60
+    with pytest.raises(AppError) as caught:
+        workforce.delete_vigency(admin(), first.id)
+    assert caught.value.status_code == 409
+    assert caught.value.message == "Mantenha ao menos uma jornada."
+
+
+def test_excluir_movimentacao_do_meio_estende_a_anterior_ate_a_seguinte():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    jobs = [workforce.create_named(Job, admin(), {"name": name, "note": None}) for name in ("Caixa", "Gerente", "Supervisor")]
+    starts = (date(2026, 10, 1), date(2026, 10, 6), date(2026, 10, 10))
+    rows = [
+        workforce.create_vigency(
+            admin(),
+            {"employee_id": person["id"], "kind": "job", "reference_id": job.id, "label": None, "valid_from": start, "note": None},
+        )
+        for job, start in zip(jobs, starts)
+    ]
+    workforce.delete_vigency(admin(), rows[1].id)
+    assert rows[0].valid_to == date(2026, 10, 9)
+    assert rows[2].valid_from == date(2026, 10, 10)
+    assert rows[2].valid_to is None
+
+
+def test_excluir_equipe_reabre_a_empresa_da_equipe_anterior():
+    workforce, repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    matriz = workforce.create_named(Unit, admin(), {"name": "Matriz"})
+    filial = workforce.create_named(Unit, admin(), {"name": "Filial"})
+    loja = workforce.create_named(Team, admin(), {"name": "Loja", "unit_id": matriz.id, "note": None})
+    caixa = workforce.create_named(Team, admin(), {"name": "Caixa", "unit_id": filial.id, "note": None})
+    first = workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "team", "reference_id": loja.id, "label": None, "valid_from": date(2026, 10, 1), "note": None},
+    )
+    second = workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "team", "reference_id": caixa.id, "label": None, "valid_from": date(2026, 10, 6), "note": None},
+    )
+    workforce.delete_vigency(admin(), second.id)
+    units = [row for row in repo.rows if isinstance(row, EmployeeVigency) and row.kind == "unit"]
+    assert first.valid_to is None
+    assert len(units) == 1
+    assert units[0].label == "Matriz"
+    assert units[0].valid_to is None
+
+
 def test_capacidade_bloqueia_o_funcionario_extra():
     workforce, _repo = service(1)
     workforce.create_employee(admin(), employee_payload())
@@ -789,6 +869,41 @@ def test_norma_entra_na_ficha_do_funcionario():
     )
     shown = workforce.get_employee(admin(), person["id"])
     assert shown["norm_label"] == "CCT Comerciários 2026"
+
+
+def test_nome_da_norma_acompanha_o_cadastro():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    norm = workforce.create_named(
+        Norm,
+        admin(),
+        {"name": "Convenção padrão", "union_name": "Sindicato", "kind": "convention", "valid_from": TODAY},
+    )
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "norm", "reference_id": norm.id, "label": None, "valid_from": TODAY, "note": None},
+    )
+    workforce.update_named(Norm, admin(), norm.id, {"name": "CCT 2026"})
+    assert workforce.get_employee(admin(), person["id"])["norm_label"] == "CCT 2026"
+    listed, _total = workforce.list_vigencies(admin(), 1, 10, {"employee_id": person["id"], "kind": "norm"})
+    assert listed[0].label == "CCT 2026"
+
+
+def test_vigencias_listam_a_atual_primeiro():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    jobs = [workforce.create_named(Job, admin(), {"name": name, "note": None}) for name in ("Caixa", "Gerente")]
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "job", "reference_id": jobs[0].id, "label": None, "valid_from": date(2026, 10, 1), "note": None},
+    )
+    workforce.create_vigency(
+        admin(),
+        {"employee_id": person["id"], "kind": "job", "reference_id": jobs[1].id, "label": None, "valid_from": date(2026, 10, 6), "note": None},
+    )
+    listed, _total = workforce.list_vigencies(admin(), 1, 10, {"employee_id": person["id"], "kind": "job"})
+    assert [item.label for item in listed] == ["Gerente", "Caixa"]
+    assert listed[0].valid_to is None
 
 
 def test_norma_grava_tolerancia_intervalo_e_noturno():
@@ -3746,6 +3861,21 @@ def test_turno_que_passa_da_meia_noite_fica_no_dia_que_comecou():
     assert day_result(result, date(2026, 10, 6))["worked_minutes"] == 12 * 60
     assert day_result(result, date(2026, 10, 6))["overtime_minutes"] == 0
     assert day_result(result, date(2026, 10, 7))["worked_minutes"] == 0
+
+
+def test_cache_de_rostos_vale_na_hora_e_nao_atravessa_outra_base():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    person = workforce.create_employee(
+        admin(),
+        {**admitted(date(2026, 10, 1), "22222222222", 9), "clock_method": "face", "face_image": photo(b"ana")},
+    )
+    assert workforce.device_face_candidate(1, b"ana") == person["id"]
+    workforce.update_employee(admin(), person["id"], {"face_image": photo(b"bia")})
+    assert workforce.device_face_candidate(1, b"ana") is None
+    assert workforce.device_face_candidate(1, b"bia") == person["id"]
+    other, _other_repo = service()
+    assert other.device_face_candidate(1, b"bia") is None
 
 
 def test_aparelho_reconhece_rosto_e_qr_sem_sessao_da_pessoa():

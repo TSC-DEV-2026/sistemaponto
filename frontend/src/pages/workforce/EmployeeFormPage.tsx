@@ -15,14 +15,14 @@ import { Spinner } from "@/components/ui/spinner"
 import { loadCategories } from "@/components/workforce/ClassificationFilter"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
-import { createRecord, getRecord, listRecords, updateRecord, type Employee, type EmployeeCategory, type NamedRecord } from "@/services/workforce.service"
+import { createRecord, getRecord, listRecords, removeRecord, updateRecord, type Employee, type EmployeeCategory, type NamedRecord } from "@/services/workforce.service"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { isoWeekday } from "@/pages/workforce/journey"
 import { conceptIcon } from "@/utils/concept-icons"
-import { clockMethodLabel, situationLabel } from "@/utils/labels"
+import { clockMethodLabel, showDate, situationLabel } from "@/utils/labels"
 
 const vigencyTargets: { kind: string; label: string; path: string; searchKey: "name" | "full_name"; icon: LucideIcon }[] = [
   { kind: "job", label: "Função", path: "/jobs", searchKey: "name", icon: conceptIcon.job },
@@ -33,13 +33,14 @@ const vigencyTargets: { kind: string; label: string; path: string; searchKey: "n
   { kind: "status", label: "Situação", path: "", searchKey: "name", icon: conceptIcon.situation },
 ]
 
-const vigencyHeading: Record<string, string> = {
-  job: "Nova função",
-  journey: "Nova jornada",
-  team: "Nova equipe",
-  norm: "Nova norma",
-  manager: "Adicionar gestor",
-  status: "Alterar situação",
+type Movement = {
+  id: number
+  kind: string
+  category_id: number | null
+  label: string
+  valid_from: string
+  valid_to: string | null
+  cycle_day: number | null
 }
 
 function readFaceImage(file: File) {
@@ -73,6 +74,130 @@ function tabValue(id: string, person: Employee | null) {
   return current[id]?.trim() || "Não informado"
 }
 
+async function loadMovements(employeeId: number, kind: string) {
+  const items: Movement[] = []
+  let page = 1
+  let total = 0
+  do {
+    const result = await listRecords<Movement>("/employee-vigencies", { employee_id: employeeId, kind, page, limit: 100 })
+    items.push(...result.items)
+    total = result.total
+    page += 1
+  } while (items.length < total)
+  return items.sort((left, right) => {
+    const current = Number(Boolean(left.valid_to)) - Number(Boolean(right.valid_to))
+    if (current !== 0) return current
+    const byDate = right.valid_from.localeCompare(left.valid_from)
+    return byDate || right.id - left.id
+  })
+}
+
+function movementTitle(item: Movement, categoryNames: Record<number, string>) {
+  if (item.kind === "status") return situationLabel[item.label] || item.label
+  if (item.kind === "category") {
+    const name = item.category_id ? categoryNames[item.category_id] : ""
+    return name ? `${name}: ${item.label}` : item.label
+  }
+  return item.label
+}
+
+function movementPeriod(item: Movement) {
+  const end = item.valid_to ? showDate(item.valid_to) : "atual"
+  const cycle = item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""
+  return `${showDate(item.valid_from)} até ${end}${cycle}`
+}
+
+function MovementHistory({
+  employeeId,
+  kind,
+  revision,
+  categoryNames = {},
+  onChanged,
+}: {
+  employeeId: number
+  kind: string
+  revision: number
+  categoryNames?: Record<number, string>
+  onChanged: () => void
+}) {
+  const [items, setItems] = useState<Movement[]>([])
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<number | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [message, setMessage] = useState("")
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    loadMovements(employeeId, kind)
+      .then((rows) => {
+        if (!active) return
+        setItems(rows)
+        setMessage("")
+      })
+      .catch((caught: unknown) => {
+        if (active) setMessage(caught instanceof Error ? caught.message : "Não foi possível carregar o histórico.")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [employeeId, kind, revision])
+
+  async function remove(vigencyId: number) {
+    setMessage("")
+    setRemoving(true)
+    try {
+      await removeRecord("/employee-vigencies", vigencyId)
+      setPending(null)
+      setItems(await loadMovements(employeeId, kind))
+      onChanged()
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Não foi possível excluir a movimentação.")
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-[#64748B]">Carregando histórico</p>
+  }
+  if (!items.length && !message) return null
+
+  return (
+    <div className="space-y-3 border-t border-[#F1F5F9] pt-5">
+      <h2 className="text-lg font-semibold text-[#0A0A0A]">Histórico</h2>
+      {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
+      <ul className="space-y-1.5">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 rounded-md bg-[#F4F1EA] px-3 py-2">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium leading-5 text-[#3F3F46]">{movementTitle(item, categoryNames)}</span>
+              <span className="block truncate text-xs leading-5 text-[#64748B]">{movementPeriod(item)}</span>
+            </span>
+            {pending === item.id ? (
+              <span className="flex shrink-0 items-center gap-3">
+                <button type="button" className="text-sm font-semibold text-[#EF5350] disabled:opacity-60" disabled={removing} onClick={() => void remove(item.id)}>
+                  {removing ? "Excluindo" : "Excluir"}
+                </button>
+                <button type="button" className="text-sm font-semibold text-[#64748B]" disabled={removing} onClick={() => setPending(null)}>
+                  Cancelar
+                </button>
+              </span>
+            ) : (
+              <button type="button" className="shrink-0 text-sm font-semibold text-[#EF5350]" onClick={() => { setMessage(""); setPending(item.id) }}>
+                Excluir
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number; current: EmployeeCategory[]; onSaved: () => void }) {
   const [groups, setGroups] = useState<{ id: number; name: string; values: NamedRecord[] }[]>([])
   const [classificationId, setGroupId] = useState("")
@@ -81,7 +206,10 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
   const [note, setNote] = useState("")
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
+  const [revision, setRevision] = useState(0)
   const selected = groups.find((item) => String(item.id) === classificationId)
+  const categoryNames: Record<number, string> = {}
+  for (const item of groups) categoryNames[item.id] = item.name
 
   useEffect(() => {
     let active = true
@@ -124,6 +252,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
       setValueId("")
       setValidFrom("")
       setNote("")
+      setRevision((value) => value + 1)
       onSaved()
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar a categoria.")
@@ -152,7 +281,6 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
           <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
         )}
       </div>
-      <h2 className="text-lg font-semibold text-[#0A0A0A]">Nova categoria</h2>
       {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -198,6 +326,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
         {saving ? <Spinner className="h-4 w-4" /> : null}
         Salvar categoria
       </Button>
+      <MovementHistory employeeId={employeeId} kind="category" revision={revision} categoryNames={categoryNames} onChanged={onSaved} />
     </section>
   )
 }
@@ -218,7 +347,6 @@ export function EmployeeFormPage() {
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [hasFacePhoto, setHasFacePhoto] = useState(false)
   const [error, setError] = useState("")
-  const [endingId, setEndingId] = useState<number | null>(null)
   const [profile, setProfile] = useState<Employee | null>(null)
   const [linkChoices, setLinkChoices] = useState<{ value: string; label: string; kind?: string; length?: number }[]>([])
   const [referenceId, setReferenceId] = useState("")
@@ -229,6 +357,7 @@ export function EmployeeFormPage() {
   const [validFrom, setValidFrom] = useState("")
   const [vigencyNote, setVigencyNote] = useState("")
   const [savingLink, setSavingLink] = useState(false)
+  const [linkRevision, setLinkRevision] = useState(0)
   const canEdit = canOperate(useAuthStore((state) => state.user?.role))
   const [tab, setTab] = useState("data")
   const linkTarget = vigencyTargets.find((item) => item.kind === tab)
@@ -355,26 +484,12 @@ export function EmployeeFormPage() {
       setVigencyNote("")
       setCycleDay("")
       setCycleTouched(false)
-      const person = await getRecord<Employee>("/employees", id)
-      setProfile(person)
+      setProfile(await getRecord<Employee>("/employees", id))
+      setLinkRevision((value) => value + 1)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar o vínculo.")
     } finally {
       setSavingLink(false)
-    }
-  }
-
-  async function endManager(vigencyId: number) {
-    if (id === null) return
-    setError("")
-    setEndingId(vigencyId)
-    try {
-      await updateRecord("/employee-vigencies", vigencyId, { end: true })
-      setProfile(await getRecord<Employee>("/employees", id))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível encerrar o gestor.")
-    } finally {
-      setEndingId(null)
     }
   }
 
@@ -595,16 +710,8 @@ export function EmployeeFormPage() {
                 <div className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
                   <ul className="space-y-1.5">
                     {(profile?.managers || []).map((item) => (
-                      <li key={item.vigency_id} className="flex items-center justify-between gap-3 rounded-md bg-[#F4F1EA] px-3 py-2">
-                        <span className="truncate text-sm font-medium leading-5 text-[#3F3F46]">{item.name}</span>
-                        <button
-                          type="button"
-                          className="shrink-0 text-sm font-semibold text-[#1E8A3A] disabled:opacity-60"
-                          disabled={endingId === item.vigency_id}
-                          onClick={() => void endManager(item.vigency_id)}
-                        >
-                          {endingId === item.vigency_id ? "Encerrando" : "Encerrar"}
-                        </button>
+                      <li key={item.vigency_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                        {item.name}
                       </li>
                     ))}
                   </ul>
@@ -617,7 +724,6 @@ export function EmployeeFormPage() {
               <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{tabValue(linkTarget.kind, profile) || "Não informado"}</p>
             </div>
           )}
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">{vigencyHeading[linkTarget.kind]}</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {linkTarget.kind === "status" ? (
               <div className="space-y-2">
@@ -681,6 +787,14 @@ export function EmployeeFormPage() {
             {savingLink ? <Spinner className="h-4 w-4" /> : null}
             {linkTarget.kind === "manager" ? "Adicionar gestor" : `Salvar ${linkTarget.label.toLocaleLowerCase("pt-BR")}`}
           </Button>
+          <MovementHistory
+            employeeId={id}
+            kind={linkTarget.kind}
+            revision={linkRevision}
+            onChanged={() => {
+              getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined)
+            }}
+          />
         </section>
       ) : null}
     </div>
