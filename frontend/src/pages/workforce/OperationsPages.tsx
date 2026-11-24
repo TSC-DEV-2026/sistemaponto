@@ -24,7 +24,6 @@ import { CatalogList, DomainTabs, SortArrows, TabAction } from "@/pages/workforc
 import { CertificatePhotoField, DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
-  getPayroll,
   getReport,
   listRecords,
   notifyNoticesChanged,
@@ -36,7 +35,7 @@ import {
   type FiscalImport,
   type Notice,
   type NoticePreference,
-  type Payroll,
+  type PayrollEvent,
   type Report,
   type ReportCatalogItem,
   type TimeRequest,
@@ -49,7 +48,6 @@ import {
   closingEventLabel,
   closingStatusLabel,
   monthOptions,
-  fiscalKindLabel,
   noticePhrase,
   certificateText,
   periodText,
@@ -61,8 +59,6 @@ import {
   showDate,
   showDateTime,
   showDuration,
-  showMinutes,
-  showSignedMinutes,
 } from "@/utils/labels"
 import { reportPdf } from "@/utils/report-pdf"
 
@@ -2369,10 +2365,6 @@ function readTextFile(file: File) {
   })
 }
 
-function monthName(value: number) {
-  return monthOptions.find((option) => option.value === String(value))?.label ?? String(value)
-}
-
 export function PayrollPage() {
   const role = useAuthStore((state) => state.user?.role)
   const canRead = role === "admin" || role === "manager"
@@ -2390,7 +2382,7 @@ export function PayrollPage() {
       organization
       title="Fiscal / Folha"
       tabs={[
-        { id: "fiscal-files", label: "AFD", icon: FileText, panel: <AfdPanel /> },
+        { id: "fiscal-files", label: "AFD / AEJ", icon: FileText, panel: <AfdPanel /> },
         { id: "payroll-totals", label: "Totais da folha", icon: List, panel: <PayrollTotalsPanel /> },
       ]}
     />
@@ -2406,8 +2398,6 @@ function AfdPanel() {
   const [fileMonth, setFileMonth] = useState(String(new Date().getMonth() + 1))
   const [startsOn, setStartsOn] = useState("")
   const [endsOn, setEndsOn] = useState("")
-  const [filterKind, setFilterKind] = useState("")
-  const [filterValid, setFilterValid] = useState("")
   const [afdFile, setAfdFile] = useState<File | null>(null)
   const [fileKey, setFileKey] = useState(0)
   const [imported, setImported] = useState<FiscalImport | null>(null)
@@ -2415,14 +2405,6 @@ function AfdPanel() {
   const [generating, setGenerating] = useState(false)
   const [importing, setImporting] = useState(false)
   const importingLock = useRef(false)
-  const files = usePagedList<FiscalFile>(
-    "/fiscal-files",
-    {
-      ...(filterKind ? { kind: filterKind } : {}),
-      ...(filterValid ? { valid: filterValid === "true" } : {}),
-    },
-    canManage,
-  )
 
   async function generateFile(event: FormEvent) {
     event.preventDefault()
@@ -2431,8 +2413,8 @@ function AfdPanel() {
     setGenerating(true)
     try {
       const body = mode === "range" ? { kind, starts_on: startsOn, ends_on: endsOn || null } : { kind, year: Number(fileYear), month: Number(fileMonth) }
-      await createRecord<FiscalFile>("/fiscal-files", body)
-      files.reload()
+      const file = await createRecord<FiscalFile>("/fiscal-files", body)
+      downloadFiscalFile(file)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
     } finally {
@@ -2461,7 +2443,6 @@ function AfdPanel() {
       setImported(outcome)
       setAfdFile(null)
       setFileKey((current) => current + 1)
-      files.reload()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível importar.")
     } finally {
@@ -2474,7 +2455,7 @@ function AfdPanel() {
     return <p className="text-sm text-[#64748B]">Gerar, importar e baixar o arquivo fica com o administrador e o gestor.</p>
   }
 
-  const fileHint = kind === "aej" ? "Arquivo da jornada. Sai só de um período fechado." : "Arquivo com as marcações. Sai de qualquer período."
+  const fileHint = kind === "aej" ? "Arquivo da jornada. Sai de qualquer período." : "Arquivo com as marcações. Sai de qualquer período."
 
   return (
     <div className="w-full min-w-0 space-y-4">
@@ -2525,7 +2506,7 @@ function AfdPanel() {
               </>
             )}
             <Button type="submit" className={cn(modulePrimaryClass, "h-12 w-full shrink-0 sm:col-span-2 xl:col-span-1 xl:w-auto")} disabled={generating} aria-busy={generating}>
-              {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <FilePlus className="h-4 w-4" />}
+              {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Download className="h-4 w-4" />}
               {generating ? "Gerando" : kind === "aej" ? "Gerar AEJ" : "Gerar AFD"}
             </Button>
           </div>
@@ -2560,133 +2541,68 @@ function AfdPanel() {
         ) : null}
       </section>
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-      <section className={moduleCardClass}>
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <FileText className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Arquivos gerados</h2>
-            <p className="text-sm text-[#64748B]">Se o período for cancelado ou reaberto, o arquivo deixa de valer e precisa ser gerado de novo.</p>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="fiscal-kind">Tipo</Label>
-            <SiteSelect
-              id="fiscal-kind"
-              value={filterKind}
-              className="h-12"
-              placeholder="Todos"
-              options={[{ value: "", label: "Todos" }, ...Object.entries(fiscalKindLabel).map(([value, label]) => ({ value, label }))]}
-              onChange={setFilterKind}
-            />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <Label className={moduleLabelClass} htmlFor="fiscal-valid">Validade</Label>
-            <SiteSelect
-              id="fiscal-valid"
-              value={filterValid}
-              className="h-12"
-              placeholder="Todas"
-              options={[
-                { value: "", label: "Todas" },
-                { value: "true", label: "Vale" },
-                { value: "false", label: "Não vale" },
-              ]}
-              onChange={setFilterValid}
-            />
-          </div>
-        </div>
-        {files.error ? <p className="mt-4 text-sm text-destructive" role="alert">{files.error}</p> : null}
-        {files.loading && files.items.length === 0 ? (
-          <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando os arquivos" className="h-8 w-8 text-[#1E8A3A]" />
-          </div>
-        ) : null}
-        {!files.loading && !files.error && files.items.length === 0 ? (
-          <div className="px-2 py-10 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
-              <FileText className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-            </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum arquivo gerado</p>
-            <p className="mt-1 text-sm text-[#71717A]">Os arquivos deste filtro aparecem aqui.</p>
-          </div>
-        ) : null}
-        {files.items.length > 0 ? (
-          <ul className="mt-5 divide-y divide-[#F1F5F9] overflow-hidden rounded-xl border border-[#E2E8F0]">
-            {files.items.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-sm transition-colors duration-200 hover:bg-[#F7FCF8] motion-reduce:transition-none">
-                <div className="min-w-0">
-                  <p className="font-semibold text-[#0A0A0A]">{fiscalKindLabel[item.kind] || item.kind}</p>
-                  <p className="mt-0.5 text-[#64748B]">{showDate(item.starts_on)} a {showDate(item.ends_on)}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", item.valid ? "bg-[rgba(30,138,58,0.14)] text-[#146C2E]" : "bg-[rgba(239,83,80,0.16)] text-[#C62828]")}>
-                    {item.valid ? <CircleCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> : <CircleX className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />}
-                    {item.valid ? "Vale" : "Não vale. Gere de novo."}
-                  </span>
-                  <Button type="button" className="h-10 gap-2 rounded-[10px] border border-[#8ED4A8] bg-[#EAF7EF] px-3 text-[#086B35] shadow-none transition-[background-color] duration-200 hover:bg-[#DDF3E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" onClick={() => downloadFiscalFile(item)}>
-                    <Download className="h-4 w-4" aria-hidden />
-                    Baixar
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <div className="mt-4">
-          <ListPager page={files.page} pageSize={files.pageSize} total={files.total} onPage={files.setPage} onPageSize={files.setPageSize} />
-        </div>
-      </section>
     </div>
   )
 }
 
+const payrollEventOptions = [
+  ["worked", "Horas trabalhadas"],
+  ["overtime", "Horas extras"],
+  ["night_additional", "Adicional noturno"],
+  ["shortage", "Horas faltantes"],
+  ["hour_bank_balance", "Saldo do banco de horas"],
+  ["absence_days", "Dias de falta"],
+  ["allowance_days", "Dias em abono"],
+  ["vacation_days", "Dias de férias"],
+  ["leave_days", "Dias de afastamento"],
+  ["certificate_days", "Dias de atestado"],
+] as const
+
+const payrollEventLabel = Object.fromEntries(payrollEventOptions)
+
 function PayrollTotalsPanel() {
   const role = useAuthStore((state) => state.user?.role)
   const canManage = role === "admin" || role === "manager"
-  const requestId = useRef(0)
+  const [mode, setMode] = useState("month")
   const [year, setYear] = useState(String(new Date().getFullYear()))
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
-  const [result, setResult] = useState<Payroll | null>(null)
+  const [startsOn, setStartsOn] = useState("")
+  const [endsOn, setEndsOn] = useState("")
   const [notice, setNotice] = useState("")
   const [error, setError] = useState("")
-  const [consulting, setConsulting] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [savingEvent, setSavingEvent] = useState(false)
+  const [systemEvent, setSystemEvent] = useState<string>("worked")
+  const [externalCode, setExternalCode] = useState("")
+  const [timeFormat, setTimeFormat] = useState("centesimal")
+  const events = usePagedList<PayrollEvent>("/payroll-events", {}, canManage)
+  const usedEvents = events.items.map((item) => item.system_event).join("|")
+  const availableEvents = payrollEventOptions.filter(([value]) => !usedEvents.split("|").filter(Boolean).includes(value))
 
-  async function consult(yearValue: number, monthValue: number) {
-    const current = ++requestId.current
-    setConsulting(true)
-    setError("")
-    setNotice("")
-    setResult(null)
-    try {
-      const next = await getPayroll(yearValue, monthValue)
-      if (current !== requestId.current) return
-      setResult(next)
-    } catch (caught) {
-      if (current !== requestId.current) return
-      setResult(null)
-      setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
-    } finally {
-      if (current === requestId.current) setConsulting(false)
+  useEffect(() => {
+    const open = payrollEventOptions.filter(([value]) => !usedEvents.split("|").filter(Boolean).includes(value))
+    if (open.length === 0) {
+      return
     }
-  }
+    if (!open.some(([value]) => value === systemEvent)) {
+      setSystemEvent(open[0][0])
+    }
+  }, [usedEvents, systemEvent])
 
-  async function onSubmit(event: FormEvent) {
+  async function generatePayroll(event: FormEvent) {
     event.preventDefault()
-    await consult(Number(year), Number(month))
-  }
-
-  async function generatePayroll() {
     if (generating) return
     setError("")
     setNotice("")
     setGenerating(true)
     try {
-      await createRecord<FiscalFile>("/fiscal-files", { kind: "payroll", year: Number(year), month: Number(month) })
-      setNotice("Arquivo gerado. Ele aparece na opção AFD.")
+      const body =
+        mode === "range"
+          ? { kind: "payroll", starts_on: startsOn, ends_on: endsOn || null }
+          : { kind: "payroll", year: Number(year), month: Number(month) }
+      const file = await createRecord<FiscalFile>("/fiscal-files", body)
+      downloadFiscalFile(file)
+      setNotice("Download iniciado.")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
     } finally {
@@ -2694,159 +2610,171 @@ function PayrollTotalsPanel() {
     }
   }
 
+  async function saveEvent(event: FormEvent) {
+    event.preventDefault()
+    if (savingEvent) return
+    setError("")
+    setSavingEvent(true)
+    try {
+      await createRecord<PayrollEvent>("/payroll-events", {
+        system_event: systemEvent,
+        external_code: externalCode.trim(),
+        time_format: timeFormat,
+        active: true,
+      })
+      setExternalCode("")
+      const remaining = payrollEventOptions
+        .map(([value]) => value)
+        .filter((value) => value !== systemEvent && !events.items.some((item) => item.system_event === value))
+      if (remaining[0]) {
+        setSystemEvent(remaining[0])
+      }
+      events.reload()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o evento.")
+    } finally {
+      setSavingEvent(false)
+    }
+  }
+
+  async function removeEvent(id: number) {
+    setError("")
+    try {
+      await removeRecord("/payroll-events", id)
+      events.reload()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível excluir o evento.")
+    }
+  }
+
+  if (!canManage) {
+    return <p className="text-sm text-[#64748B]">Gerar o arquivo da folha fica com o administrador e o gestor.</p>
+  }
+
   return (
     <div className="w-full min-w-0 space-y-4">
-      {canManage ? (
-        <section className={moduleCardClass}>
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-              <Calendar className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">Consultar totais</h2>
-              <p className="text-sm text-[#64748B]">A folha traz horas trabalhadas, horas extras, adicional noturno, horas faltantes e saldo do banco.</p>
-            </div>
+      <section className={moduleCardClass}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <Download className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Gerar arquivo</h2>
+            <p className="text-sm text-[#64748B]">Escolha o mês civil ou um intervalo de datas e baixe o arquivo com os eventos configurados.</p>
           </div>
-          <ActionForm className="mt-4 space-y-4" onSubmit={onSubmit}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="min-w-0 space-y-2">
-                <Label className={moduleLabelClass} htmlFor="month">Mês</Label>
-                <SiteSelect id="month" value={month} className="h-12" options={monthOptions} onChange={setMonth} required />
-              </div>
-              <div className="min-w-0 space-y-2">
-                <Label className={moduleLabelClass} htmlFor="year">Ano</Label>
-                <Input id="year" className={moduleFieldClass} inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} required />
-              </div>
+        </div>
+        <ActionForm className="mt-4 space-y-4" onSubmit={generatePayroll}>
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor="payroll-mode">Período</Label>
+              <SiteSelect
+                id="payroll-mode"
+                value={mode}
+                className="h-12"
+                options={[
+                  { value: "month", label: "Mês civil" },
+                  { value: "range", label: "Intervalo de datas" },
+                ]}
+                onChange={setMode}
+              />
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <Button type="button" className={cn(moduleQuietClass, "order-2 h-12 w-full gap-2 sm:order-1 sm:w-auto")} disabled={generating} aria-busy={generating} onClick={() => void generatePayroll()}>
-                {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <FilePlus className="h-4 w-4" />}
-                Gerar arquivo
-              </Button>
-              <Button type="submit" className={cn(modulePrimaryClass, "order-1 h-12 w-full sm:order-2 sm:w-auto")} disabled={consulting} aria-busy={consulting}>
-                {consulting ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Search className="h-4 w-4" />}
-                Consultar totais
-              </Button>
+            {mode === "month" ? (
+              <>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="payroll-month">Mês</Label>
+                  <SiteSelect id="payroll-month" value={month} className="h-12" options={monthOptions} onChange={setMonth} required />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="payroll-year">Ano</Label>
+                  <Input id="payroll-year" className={moduleFieldClass} inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} required />
+                </div>
+              </>
+            ) : (
+              <>
+                <DatePickerField id="payroll-start" label="De" value={startsOn} onChange={setStartsOn} required />
+                <DatePickerField id="payroll-end" label="Até" value={endsOn} onChange={setEndsOn} />
+              </>
+            )}
+            <Button type="submit" className={cn(modulePrimaryClass, "h-12 w-full shrink-0 sm:col-span-2 xl:col-span-1 xl:w-auto")} disabled={generating} aria-busy={generating}>
+              {generating ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Download className="h-4 w-4" />}
+              Gerar arquivo
+            </Button>
+          </div>
+        </ActionForm>
+      </section>
+      <section className={moduleCardClass}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <SlidersHorizontal className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A0A0A]">Eventos da folha</h2>
+            <p className="text-sm text-[#64748B]">Cadastre quantos eventos precisar. No arquivo, cada pessoa gera uma linha por evento em que tiver valor.</p>
+          </div>
+        </div>
+        <ActionForm className="mt-4 space-y-4" onSubmit={saveEvent}>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor="payroll-event">Evento do ponto</Label>
+              <SiteSelect
+                id="payroll-event"
+                value={systemEvent}
+                className="h-12"
+                options={availableEvents.map(([value, label]) => ({ value, label }))}
+                onChange={setSystemEvent}
+              />
             </div>
-          </ActionForm>
-        </section>
-      ) : (
-        <p className="text-sm text-[#64748B]">Consultar os totais fica com o administrador.</p>
-      )}
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor="payroll-code">Código no destino</Label>
+              <Input id="payroll-code" className={moduleFieldClass} value={externalCode} onChange={(event) => setExternalCode(event.target.value)} required />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label className={moduleLabelClass} htmlFor="payroll-format">Formato de hora</Label>
+              <SiteSelect
+                id="payroll-format"
+                value={timeFormat}
+                className="h-12"
+                options={[
+                  { value: "centesimal", label: "Centesimal" },
+                  { value: "sexagesimal", label: "Sexagesimal" },
+                ]}
+                onChange={setTimeFormat}
+              />
+            </div>
+            <Button
+              type="submit"
+              className={cn(modulePrimaryClass, "h-12 w-full lg:mt-7 lg:w-auto")}
+              disabled={savingEvent || availableEvents.length === 0}
+              aria-busy={savingEvent}
+            >
+              {savingEvent ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Plus className="h-4 w-4" />}
+              Salvar evento
+            </Button>
+          </div>
+        </ActionForm>
+        {events.items.length > 0 ? (
+          <ul className="mt-5 divide-y divide-[#F1F5F9] overflow-hidden rounded-xl border border-[#E2E8F0]">
+            {events.items.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-sm">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[#0A0A0A]">{payrollEventLabel[item.system_event] || item.system_event}</p>
+                  <p className="mt-0.5 text-[#64748B]">
+                    Código {item.external_code} · {item.time_format === "sexagesimal" ? "sexagesimal" : "centesimal"}
+                  </p>
+                </div>
+                <Button type="button" className={cn(moduleDangerClass, "h-10")} onClick={() => void removeEvent(item.id)}>
+                  <Trash2 className="h-4 w-4" />
+                  Excluir
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-[#64748B]">Nenhum evento configurado. Sem isso o arquivo da folha não é gerado.</p>
+        )}
+      </section>
       {notice ? <p className="text-sm text-[#64748B]" role="status">{notice}</p> : null}
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-      {consulting ? (
-        <section className={cn(moduleCardClass, "flex justify-center py-10")} role="status">
-          <Spinner label="Consultando os totais" className="h-8 w-8 text-[#1E8A3A]" />
-        </section>
-      ) : null}
-      {!consulting && !result && !error && canManage ? (
-        <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
-            <conceptIcon.employee className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-          </span>
-          <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum total consultado</p>
-          <p className="mt-1 text-sm text-[#71717A]">Escolha o mês e o ano e consulte para ver os funcionários.</p>
-        </div>
-      ) : null}
-      {result ? (
-        <section className={moduleCardClass}>
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-              <conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">Totais da folha</h2>
-              <p className="text-sm text-[#64748B]">{monthName(result.month)} de {result.year}</p>
-            </div>
-          </div>
-          {result.items.length === 0 ? (
-            <div className="px-2 py-10 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
-                <conceptIcon.employee className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-              </span>
-              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum funcionário</p>
-              <p className="mt-1 text-sm text-[#71717A]">Não há totais neste mês.</p>
-            </div>
-          ) : (
-            <>
-              <div className="mt-5 hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[720px] border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E2E8F0] text-left text-sm font-semibold text-[#64748B]">
-                      <th className="px-3 py-3 font-semibold">Funcionário</th>
-                      <th className="px-3 py-3 text-right font-semibold">H. trabalhadas</th>
-                      <th className="px-3 py-3 text-right font-semibold">H. extras</th>
-                      <th className="px-3 py-3 text-right font-semibold">Noturno</th>
-                      <th className="px-3 py-3 text-right font-semibold">H. faltantes</th>
-                      <th className="px-3 py-3 text-right font-semibold">Banco</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.items.map((item) => (
-                      <tr key={item.employee_id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FCF8] motion-reduce:transition-none">
-                        <td className="px-3 py-3">
-                          <span className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#086B35]" aria-hidden>
-                              {personInitials(item.full_name) || "?"}
-                            </span>
-                            <span className="font-semibold text-[#111827]">{item.full_name || "Não informado"}</span>
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-right font-medium tabular-nums text-[#111827]">{showMinutes(item.worked_minutes)}</td>
-                        <td className="px-3 py-3 text-right font-medium tabular-nums text-[#111827]">{showMinutes(item.overtime_minutes)}</td>
-                        <td className="px-3 py-3 text-right font-medium tabular-nums text-[#111827]">{showMinutes(item.night_additional_minutes)}</td>
-                        <td className={cn("px-3 py-3 text-right font-medium tabular-nums", item.shortage_minutes > 0 ? "text-[#C62828]" : "text-[#111827]")}>
-                          {showMinutes(item.shortage_minutes)}
-                          {item.shortage_minutes > 0 ? <span className="sr-only"> com falta</span> : null}
-                        </td>
-                        <td className={cn("px-3 py-3 text-right font-medium tabular-nums", item.balance_minutes < 0 ? "text-[#C62828]" : "text-[#111827]")}>
-                          {showSignedMinutes(item.balance_minutes)}
-                          {item.balance_minutes < 0 ? <span className="sr-only"> negativo</span> : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <ul className="mt-5 space-y-3 md:hidden">
-                {result.items.map((item) => (
-                  <li key={item.employee_id} className="rounded-[12px] border border-[#E2E8F0] p-4">
-                    <p className="flex items-center gap-3 font-semibold text-[#111827]">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#086B35]" aria-hidden>
-                        {personInitials(item.full_name) || "?"}
-                      </span>
-                      {item.full_name || "Não informado"}
-                    </p>
-                    <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                      <div>
-                        <dt className="text-[#64748B]">H. trabalhadas</dt>
-                        <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.worked_minutes)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[#64748B]">H. extras</dt>
-                        <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.overtime_minutes)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[#64748B]">Noturno</dt>
-                        <dd className="font-medium tabular-nums text-[#111827]">{showMinutes(item.night_additional_minutes)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[#64748B]">H. faltantes</dt>
-                        <dd className={cn("font-medium tabular-nums", item.shortage_minutes > 0 ? "text-[#C62828]" : "text-[#111827]")}>{showMinutes(item.shortage_minutes)}</dd>
-                      </div>
-                      <div className="col-span-2">
-                        <dt className="text-[#64748B]">Banco</dt>
-                        <dd className={cn("font-medium tabular-nums", item.balance_minutes < 0 ? "text-[#C62828]" : "text-[#111827]")}>{showSignedMinutes(item.balance_minutes)}</dd>
-                      </div>
-                    </dl>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </section>
-      ) : null}
     </div>
   )
 }

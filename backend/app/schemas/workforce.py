@@ -789,12 +789,19 @@ class DashboardOut(BaseModel):
 class PayrollTotalOut(BaseModel):
     employee_id: int
     full_name: str
+    cpf: str | None = None
+    registration_number: str | None = None
     punch_count: int
     worked_minutes: int
     overtime_minutes: int
     night_additional_minutes: int
     shortage_minutes: int
     balance_minutes: int
+    absence_days: int = 0
+    allowance_days: int = 0
+    vacation_days: int = 0
+    leave_days: int = 0
+    certificate_days: int = 0
 
 
 class PayrollOut(BaseModel):
@@ -803,12 +810,52 @@ class PayrollOut(BaseModel):
     items: list[PayrollTotalOut]
 
 
+PayrollSystemEvent = Literal[
+    "worked",
+    "overtime",
+    "night_additional",
+    "shortage",
+    "hour_bank_balance",
+    "absence_days",
+    "allowance_days",
+    "vacation_days",
+    "leave_days",
+    "certificate_days",
+]
+PayrollTimeFormat = Literal["centesimal", "sexagesimal"]
+
+
+class PayrollEventCreate(BaseModel):
+    system_event: PayrollSystemEvent
+    external_code: str = Field(min_length=1, max_length=32)
+    time_format: PayrollTimeFormat = "centesimal"
+    active: bool = True
+
+
+class PayrollEventUpdate(BaseModel):
+    system_event: PayrollSystemEvent | None = None
+    external_code: str | None = Field(default=None, min_length=1, max_length=32)
+    time_format: PayrollTimeFormat | None = None
+    active: bool | None = None
+
+
+class PayrollEventOut(BaseModel):
+    id: int
+    system_event: str
+    external_code: str
+    time_format: str
+    active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FiscalFileCreate(BaseModel):
     kind: Literal["afd", "aej", "payroll"]
     year: int | None = Field(default=None, ge=2000, le=2100)
     month: int | None = Field(default=None, ge=1, le=12)
     starts_on: date | None = None
     ends_on: date | None = None
+    time_format: PayrollTimeFormat | None = None
 
 
 class FiscalFileUpdate(BaseModel):

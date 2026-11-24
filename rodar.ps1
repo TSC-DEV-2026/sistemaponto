@@ -177,6 +177,52 @@ public static class DevJob {
 
     [DllImport("kernel32.dll")]
     public static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool CreateProcess(
+        string applicationName,
+        string commandLine,
+        IntPtr processAttributes,
+        IntPtr threadAttributes,
+        bool inheritHandles,
+        uint creationFlags,
+        IntPtr environment,
+        string currentDirectory,
+        ref STARTUPINFO startupInfo,
+        out PROCESS_INFORMATION processInformation);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool CloseHandle(IntPtr handle);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct STARTUPINFO {
+        public int cb;
+        public IntPtr lpReserved;
+        public IntPtr lpDesktop;
+        public string lpTitle;
+        public int dwX;
+        public int dwY;
+        public int dwXSize;
+        public int dwYSize;
+        public int dwXCountChars;
+        public int dwYCountChars;
+        public int dwFillAttribute;
+        public int dwFlags;
+        public short wShowWindow;
+        public short cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput;
+        public IntPtr hStdOutput;
+        public IntPtr hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PROCESS_INFORMATION {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public int dwProcessId;
+        public int dwThreadId;
+    }
 }
 "@
 
@@ -204,7 +250,41 @@ if (-not $configured) {
     exit 1
 }
 
-function Start-Dev($file, $arguments, $directory) {
+function Start-Dev($file, $arguments, $directory, [switch] $NewWindow, $WindowTitle) {
+    if ($NewWindow) {
+        $tail = ($arguments | ForEach-Object { $_ }) -join " "
+        $command = "`"$file`" $tail"
+        $startup = New-Object DevJob+STARTUPINFO
+        $startup.cb = [Runtime.InteropServices.Marshal]::SizeOf($startup)
+        $startup.lpTitle = $WindowTitle
+        $startup.dwFlags = 1
+        $startup.wShowWindow = 1
+        $created = New-Object DevJob+PROCESS_INFORMATION
+        $ok = [DevJob]::CreateProcess(
+            $file,
+            $command,
+            [IntPtr]::Zero,
+            [IntPtr]::Zero,
+            $false,
+            16,
+            [IntPtr]::Zero,
+            $directory,
+            [ref] $startup,
+            [ref] $created
+        )
+        if (-not $ok) {
+            throw "Não foi possível abrir o backend."
+        }
+        $process = [Diagnostics.Process]::GetProcessById($created.dwProcessId)
+        $assigned = [DevJob]::AssignProcessToJobObject($job, $created.hProcess)
+        [DevJob]::CloseHandle($created.hThread) | Out-Null
+        [DevJob]::CloseHandle($created.hProcess) | Out-Null
+        if (-not $assigned) {
+            Stop-Tree $process
+            throw "Não foi possível ligar o processo ao encerramento da janela."
+        }
+        return $process
+    }
     $process = Start-Process -FilePath $file -ArgumentList $arguments -WorkingDirectory $directory -PassThru -NoNewWindow
     $assigned = [DevJob]::AssignProcessToJobObject($job, $process.Handle)
     if (-not $assigned) {
@@ -214,18 +294,38 @@ function Start-Dev($file, $arguments, $directory) {
     return $process
 }
 
+function Start-Backend {
+    Start-Dev $python @("-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8003") (Join-Path $root "backend") -NewWindow -WindowTitle "Sistemaponto - backend"
+}
+
 $backend = $null
 $frontend = $null
 try {
-    $backend = Start-Dev $python @("-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8003") (Join-Path $root "backend")
+    $backend = Start-Backend
     $frontend = Start-Dev "$env:ComSpec" @("/c", "npm run dev") (Join-Path $root "frontend")
     Write-Host ""
     Write-Host "Backend: http://127.0.0.1:8003"
     Write-Host "Site:    http://localhost:5175"
     Write-Host ""
+    Write-Host "O backend fica em outra janela, e o log dele aparece lá."
+    Write-Host "Se essa janela fechar, ela abre de novo."
     Write-Host "Feche esta janela para encerrar os dois."
     Write-Host ""
-    while (-not $backend.HasExited -and -not $frontend.HasExited) {
+    while (-not $frontend.HasExited) {
+        if ($null -eq $backend -or $backend.HasExited) {
+            Write-Host "Backend encerrou. Abrindo de novo..."
+            Start-Sleep -Seconds 1
+            if ($frontend.HasExited) {
+                break
+            }
+            try {
+                $backend = Start-Backend
+            }
+            catch {
+                Write-Host $_.Exception.Message
+                $backend = $null
+            }
+        }
         Start-Sleep -Milliseconds 500
     }
 }
