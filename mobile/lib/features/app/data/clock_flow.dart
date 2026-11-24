@@ -66,7 +66,7 @@ class ClockFlow {
         continue;
       }
       try {
-        final bytes = await _jpeg(await file.readAsBytes());
+        final bytes = await _faceJpeg(await file.readAsBytes());
         await client.post('/api/v1/punches/faces', {
           'employee_id': row.employeeId,
           'occurred_at': row.occurredAt,
@@ -78,7 +78,8 @@ class ClockFlow {
         await store.dropPending(row.id);
         sent += 1;
       } on ApiException catch (error) {
-        if (error.statusCode == null) {
+        final status = error.statusCode;
+        if (status == null || status >= 500) {
           break;
         }
         await store.dropPending(row.id);
@@ -108,7 +109,7 @@ class ClockFlow {
   }
 
   Future<PunchResult> punchFace({required int employeeId, required String imagePath}) async {
-    final bytes = await _jpeg(await File(imagePath).readAsBytes());
+    final bytes = await _faceJpeg(await File(imagePath).readAsBytes());
     final occurred = DateTime.now().toUtc().toIso8601String();
     final eventId = _uuid.v4();
     try {
@@ -178,8 +179,28 @@ class ClockFlow {
   Future<String> _keepPhoto(String source, String eventId) async {
     final file = File(source);
     final target = File('${file.parent.path}/face_$eventId.jpg');
-    await target.writeAsBytes(await _jpeg(await file.readAsBytes()));
+    await target.writeAsBytes(await _faceJpeg(await file.readAsBytes()));
     return target.path;
+  }
+
+  Future<Uint8List> _faceJpeg(List<int> raw) async {
+    final decoded = img.decodeImage(Uint8List.fromList(raw));
+    if (decoded == null) {
+      throw const ApiException('A foto não foi aceita.');
+    }
+    final longest = decoded.width > decoded.height ? decoded.width : decoded.height;
+    final fitted = longest <= 640
+        ? decoded
+        : img.copyResize(
+            decoded,
+            width: decoded.width >= decoded.height
+                ? 640
+                : (decoded.width * 640 / longest).round(),
+            height: decoded.height > decoded.width
+                ? 640
+                : (decoded.height * 640 / longest).round(),
+          );
+    return Uint8List.fromList(img.encodeJpg(fitted, quality: 70));
   }
 
   Future<Uint8List> _jpeg(List<int> raw) async {
