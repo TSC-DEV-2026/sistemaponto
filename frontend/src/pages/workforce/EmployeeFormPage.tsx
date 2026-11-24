@@ -1,8 +1,10 @@
-import { FormEvent, useEffect, useState } from "react"
-import { Info, Save, type LucideIcon } from "lucide-react"
+import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
+import { ArrowLeft, History, Info, Save, Plus, Trash2, type LucideIcon } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
+import { ActionTip } from "@/components/ui/action-tip"
 import { BackLink } from "@/components/ui/back-link"
 import { Button } from "@/components/ui/button"
 import { CpfField } from "@/components/ui/cpf-field"
@@ -13,11 +15,12 @@ import { SiteSelect } from "@/components/ui/site-select"
 import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
 import { loadCategories } from "@/components/workforce/ClassificationFilter"
-import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleTextClass } from "@/components/workforce/module-visual"
+import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass, moduleTextClass } from "@/components/workforce/module-visual"
 import { CertificatePhotoField } from "@/components/workforce/TimeOffFields"
 import { createRecord, getRecord, listRecords, removeRecord, updateRecord, type Employee, type EmployeeCategory, type NamedRecord } from "@/services/workforce.service"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { formatCpf, onlyDigits } from "@/utils/digits"
 import { isoWeekday } from "@/pages/workforce/journey"
@@ -107,6 +110,152 @@ function movementPeriod(item: Movement) {
   return `${showDate(item.valid_from)} até ${end}${cycle}`
 }
 
+function SectionHeading({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+      <h2 className="text-[17px] font-bold text-[#111827]">{title}</h2>
+    </div>
+  )
+}
+
+function CurrentValueCard({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
+        <p className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</p>
+      </div>
+    </div>
+  )
+}
+
+function movementIcon(kind: string): LucideIcon {
+  return vigencyTargets.find((item) => item.kind === kind)?.icon || (kind === "category" ? conceptIcon.category : conceptIcon.employee)
+}
+
+function VigencyDeleteDialog({
+  item,
+  title,
+  period,
+  onClose,
+  onConfirm,
+}: {
+  item: Movement | null
+  title: string
+  period: string
+  onClose: () => void
+  onConfirm: () => Promise<void>
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const pendingRef = useRef(false)
+  const dismissRef = useRef(() => {})
+  const [pending, setPending] = useState(false)
+  const open = item !== null
+
+  function dismiss() {
+    if (pendingRef.current) return
+    onClose()
+  }
+
+  async function confirm() {
+    if (pendingRef.current) return
+    pendingRef.current = true
+    setPending(true)
+    try {
+      await onConfirm()
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
+  }
+
+  dismissRef.current = dismiss
+
+  useEffect(() => {
+    if (!open) return
+    confirmRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        dismissRef.current()
+        return
+      }
+      if (event.key !== "Tab" || !panelRef.current) return
+      const nodes = panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled])")
+      if (nodes.length === 0) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
+  if (!item) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) dismiss()
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="vigency-delete-title"
+        aria-describedby="vigency-delete-text"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+      >
+        <h2 id="vigency-delete-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+          Excluir {title}?
+        </h2>
+        <p id="vigency-delete-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+          Este registro sai do histórico.
+        </p>
+        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">
+          {title}
+          <span className="mt-1 block text-sm font-medium text-[#71717A]">{period}</span>
+        </p>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Voltar
+          </Button>
+          <Button ref={confirmRef} type="button" className={cn(moduleDangerClass, "h-11 px-4")} disabled={pending} onClick={() => void confirm()}>
+            <Trash2 className="h-4 w-4" aria-hidden />
+            {pending ? "Excluindo" : "Excluir"}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function MovementHistory({
   employeeId,
   kind,
@@ -122,9 +271,10 @@ function MovementHistory({
 }) {
   const [items, setItems] = useState<Movement[]>([])
   const [loading, setLoading] = useState(true)
-  const [pending, setPending] = useState<number | null>(null)
-  const [removing, setRemoving] = useState(false)
-  const [message, setMessage] = useState("")
+  const [pending, setPending] = useState<Movement | null>(null)
+  const Icon = movementIcon(kind)
+  const pendingTitle = pending ? movementTitle(pending, categoryNames) : ""
+  const pendingPeriod = pending ? movementPeriod(pending) : ""
 
   useEffect(() => {
     let active = true
@@ -133,10 +283,9 @@ function MovementHistory({
       .then((rows) => {
         if (!active) return
         setItems(rows)
-        setMessage("")
       })
       .catch((caught: unknown) => {
-        if (active) setMessage(caught instanceof Error ? caught.message : "Não foi possível carregar o histórico.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar o histórico.")
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -146,54 +295,68 @@ function MovementHistory({
     }
   }, [employeeId, kind, revision])
 
-  async function remove(vigencyId: number) {
-    setMessage("")
-    setRemoving(true)
+  async function remove() {
+    if (!pending) return
     try {
-      await removeRecord("/employee-vigencies", vigencyId)
-      setPending(null)
+      await removeRecord("/employee-vigencies", pending.id)
+    } catch {
+      // O interceptor já avisou o erro.
+      return
+    }
+    setPending(null)
+    try {
       setItems(await loadMovements(employeeId, kind))
       onChanged()
     } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : "Não foi possível excluir a movimentação.")
-    } finally {
-      setRemoving(false)
+      toastError(caught instanceof Error ? caught.message : "Não foi possível carregar o histórico.")
     }
   }
 
   if (loading) {
-    return <p className="text-sm text-[#64748B]">Carregando histórico</p>
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Spinner label="Carregando histórico" className="h-6 w-6 text-[#1E8A3A]" />
+      </div>
+    )
   }
-  if (!items.length && !message) return null
+  if (!items.length) return null
 
   return (
-    <div className="space-y-3 border-t border-[#F1F5F9] pt-5">
-      <h2 className="text-lg font-semibold text-[#0A0A0A]">Histórico</h2>
-      {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
-      <ul className="space-y-1.5">
-        {items.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-3 rounded-md bg-[#F4F1EA] px-3 py-2">
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium leading-5 text-[#3F3F46]">{movementTitle(item, categoryNames)}</span>
-              <span className="block truncate text-xs leading-5 text-[#64748B]">{movementPeriod(item)}</span>
-            </span>
-            {pending === item.id ? (
-              <span className="flex shrink-0 items-center gap-3">
-                <button type="button" className="text-sm font-semibold text-[#EF5350] disabled:opacity-60" disabled={removing} onClick={() => void remove(item.id)}>
-                  {removing ? "Excluindo" : "Excluir"}
-                </button>
-                <button type="button" className="text-sm font-semibold text-[#64748B]" disabled={removing} onClick={() => setPending(null)}>
-                  Cancelar
-                </button>
-              </span>
-            ) : (
-              <button type="button" className="shrink-0 text-sm font-semibold text-[#EF5350]" onClick={() => { setMessage(""); setPending(item.id) }}>
-                Excluir
-              </button>
-            )}
-          </li>
-        ))}
+    <div className="space-y-4 pt-2">
+      <SectionHeading icon={History} title="Histórico" />
+      <ul className="space-y-2">
+        {items.map((item) => {
+          const title = movementTitle(item, categoryNames)
+          return (
+            <li
+              key={item.id}
+              className="group/card flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)]"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-brand-ink">{title}</span>
+                  <span className="mt-[3px] block truncate text-sm text-brand-quiet">{movementPeriod(item)}</span>
+                </span>
+              </div>
+              <ActionTip label="Excluir">
+                <Button type="button" variant="outline" className={moduleDangerIconClass} aria-label={`Excluir ${title}`} onClick={() => setPending(item)}>
+                  <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                </Button>
+              </ActionTip>
+            </li>
+          )
+        })}
       </ul>
+      <VigencyDeleteDialog
+        item={pending}
+        title={pendingTitle}
+        period={pendingPeriod}
+        onClose={() => setPending(null)}
+        onConfirm={remove}
+      />
     </div>
   )
 }
@@ -205,7 +368,6 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
   const [validFrom, setValidFrom] = useState("")
   const [note, setNote] = useState("")
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState("")
   const [revision, setRevision] = useState(0)
   const selected = groups.find((item) => String(item.id) === classificationId)
   const categoryNames: Record<number, string> = {}
@@ -218,7 +380,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
         if (active) setGroups(page)
       })
       .catch(() => {
-        if (active) setMessage("Não foi possível carregar as categorias.")
+        if (active) toastError("Não foi possível carregar as categorias.")
       })
     return () => {
       active = false
@@ -227,18 +389,17 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
 
   async function save() {
     if (!classificationId) {
-      setMessage("Selecione a categoria.")
+      toastError("Selecione a categoria.")
       return
     }
     if (!valueId) {
-      setMessage("Selecione o valor.")
+      toastError("Selecione o valor.")
       return
     }
     if (!validFrom) {
-      setMessage("Informe a data de início.")
+      toastError("Informe a data de início.")
       return
     }
-    setMessage("")
     setSaving(true)
     try {
       await createRecord("/employee-vigencies", {
@@ -254,8 +415,8 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
       setNote("")
       setRevision((value) => value + 1)
       onSaved()
-    } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : "Não foi possível salvar a categoria.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setSaving(false)
     }
@@ -263,25 +424,22 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
 
   return (
     <section className={cn(moduleCardClass, "space-y-5")}>
-      <div>
-        <p className="text-[13px] text-[#52525B]">{current.length > 1 ? "Categorias atuais" : "Categoria atual"}</p>
-        {current.length > 0 ? (
-          <div className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
-            <ul className="space-y-1.5">
-              {[...current]
-                .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
-                .map((item) => (
-                  <li key={item.category_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
-                    {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
-                  </li>
-                ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
-        )}
-      </div>
-      {message ? <p className="text-sm text-destructive" role="alert">{message}</p> : null}
+      <SectionHeading icon={conceptIcon.category} title="Categorias" />
+      {current.length > 0 ? (
+        <div className="max-h-[11rem] space-y-2 overflow-y-auto">
+          {[...current]
+            .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
+            .map((item) => (
+              <CurrentValueCard key={item.category_id} icon={conceptIcon.category} label={item.name}>
+                {item.value_name?.trim() ? item.value_name : "Não informado"}
+              </CurrentValueCard>
+            ))}
+        </div>
+      ) : (
+        <CurrentValueCard icon={conceptIcon.category} label="Categoria atual">
+          Não informado
+        </CurrentValueCard>
+      )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="employee-classification">Categoria</Label>
@@ -323,7 +481,7 @@ function GroupAssignment({ employeeId, current, onSaved }: { employeeId: number;
         </div>
       </div>
       <Button type="button" className={modulePrimaryClass} disabled={saving} onClick={() => void save()}>
-        {saving ? <Spinner className="h-4 w-4" /> : null}
+        {saving ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
         Salvar categoria
       </Button>
       <MovementHistory employeeId={employeeId} kind="category" revision={revision} categoryNames={categoryNames} onChanged={onSaved} />
@@ -346,7 +504,6 @@ export function EmployeeFormPage() {
   const [faceFile, setFaceFile] = useState<File | null>(null)
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [hasFacePhoto, setHasFacePhoto] = useState(false)
-  const [error, setError] = useState("")
   const [profile, setProfile] = useState<Employee | null>(null)
   const [linkChoices, setLinkChoices] = useState<{ value: string; label: string; kind?: string; length?: number }[]>([])
   const [referenceId, setReferenceId] = useState("")
@@ -381,7 +538,7 @@ export function EmployeeFormPage() {
         setProfile(person)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
       })
     return () => {
       active = false
@@ -448,23 +605,22 @@ export function EmployeeFormPage() {
 
   async function saveLink() {
     if (id === null || !linkTarget) return
-    setError("")
     if (linkTarget.kind !== "status" && !referenceId) {
-      setError("Selecione o cadastro.")
+      toastError("Selecione o cadastro.")
       return
     }
     if (linkTarget.kind === "manager" && Number(referenceId) === id) {
-      setError("Escolha outro gestor.")
+      toastError("Escolha outro gestor.")
       return
     }
     if (!validFrom) {
-      setError("Informe a data de início.")
+      toastError("Informe a data de início.")
       return
     }
     if (scheduledJourney) {
       const day = Number(cycleDay)
       if (!cycleDay || day < 1 || day > sequenceLength) {
-        setError("Informe o dia da sequência.")
+        toastError("Informe o dia da sequência.")
         return
       }
     }
@@ -484,10 +640,16 @@ export function EmployeeFormPage() {
       setVigencyNote("")
       setCycleDay("")
       setCycleTouched(false)
+    } catch {
+      // O interceptor já avisou o erro.
+      setSavingLink(false)
+      return
+    }
+    try {
       setProfile(await getRecord<Employee>("/employees", id))
       setLinkRevision((value) => value + 1)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o vínculo.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
     } finally {
       setSavingLink(false)
     }
@@ -495,7 +657,6 @@ export function EmployeeFormPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     const body = {
       full_name: fullName.trim(),
       cpf: onlyDigits(cpf),
@@ -510,7 +671,7 @@ export function EmployeeFormPage() {
       try {
         Object.assign(body, { face_image: await readFaceImage(faceFile) })
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "A foto de referência não foi aceita.")
+        toastError(caught instanceof Error ? caught.message : "A foto de referência não foi aceita.")
         return
       }
     }
@@ -521,8 +682,8 @@ export function EmployeeFormPage() {
         await updateRecord<Employee>("/employees", id, body)
       }
       navigate("/staff?tab=employees")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -536,7 +697,6 @@ export function EmployeeFormPage() {
       <div className="w-full">
         <BackLink to={id === null ? "/staff?tab=employees" : `/employees/${id}`} appearance="detail" />
       </div>
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       {id !== null ? (
         <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
           {(
@@ -565,7 +725,6 @@ export function EmployeeFormPage() {
                   setReferenceId("")
                   setCycleDay("")
                   setCycleTouched(false)
-                  setError("")
                 }}
               >
                 <item.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -576,15 +735,7 @@ export function EmployeeFormPage() {
       ) : null}
       {id === null || tab === "data" ? (
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
-            <conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{id === null ? "Novo funcionário" : "Editar funcionário"}</h2>
-            <p className="text-sm text-[#64748B]">{id === null ? "Cadastro da ficha" : "Atualize a ficha"}</p>
-          </div>
-        </div>
+        <SectionHeading icon={conceptIcon.employee} title={id === null ? "Novo funcionário" : "Informações principais"} />
         {notice ? (
           <div className="flex items-start gap-3 rounded-xl border border-[rgba(30,138,58,0.16)] bg-[#EAF7EF] px-4 py-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
@@ -690,7 +841,7 @@ export function EmployeeFormPage() {
           </Label>
           <textarea id="note" className={cn(moduleTextClass, "min-h-[90px]")} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
-        <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+        <div className="flex justify-end pt-2">
           <Button type="submit" className={modulePrimaryClass}>
             <Save className="h-4 w-4" />
             Salvar
@@ -701,28 +852,25 @@ export function EmployeeFormPage() {
       {id !== null && tab === "category" && canEdit ? <GroupAssignment employeeId={id} current={profile?.categories || []} onSaved={() => { getRecord<Employee>("/employees", id).then(setProfile).catch(() => undefined) }} /> : null}
       {id !== null && linkTarget && canEdit ? (
         <section className={cn(moduleCardClass, "space-y-5")}>
+          <SectionHeading icon={linkTarget.icon} title={linkTarget.kind === "manager" ? "Gestores" : linkTarget.label} />
           {linkTarget.kind === "manager" ? (
-            <div>
-              <p className="text-[13px] text-[#52525B]">{(profile?.managers?.length || 0) > 1 ? "Gestores atuais" : "Gestor atual"}</p>
-              {(profile?.managers?.length || 0) === 0 ? (
-                <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">Não informado</p>
-              ) : (
-                <div className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
-                  <ul className="space-y-1.5">
-                    {(profile?.managers || []).map((item) => (
-                      <li key={item.vigency_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
-                        {item.name}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            (profile?.managers?.length || 0) === 0 ? (
+              <CurrentValueCard icon={linkTarget.icon} label="Gestor atual">
+                Não informado
+              </CurrentValueCard>
+            ) : (
+              <div className="max-h-[11rem] space-y-2 overflow-y-auto">
+                {(profile?.managers || []).map((item) => (
+                  <CurrentValueCard key={item.vigency_id} icon={linkTarget.icon} label="Gestor">
+                    {item.name}
+                  </CurrentValueCard>
+                ))}
+              </div>
+            )
           ) : (
-            <div>
-              <p className="text-[13px] text-[#52525B]">{linkTarget.label} atual</p>
-              <p className="mt-1 text-[15px] font-semibold text-[#0A0A0A]">{tabValue(linkTarget.kind, profile) || "Não informado"}</p>
-            </div>
+            <CurrentValueCard icon={linkTarget.icon} label={`${linkTarget.label} atual`}>
+              {tabValue(linkTarget.kind, profile) || "Não informado"}
+            </CurrentValueCard>
           )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {linkTarget.kind === "status" ? (
@@ -784,7 +932,7 @@ export function EmployeeFormPage() {
             </div>
           </div>
           <Button type="button" className={modulePrimaryClass} disabled={savingLink} onClick={() => void saveLink()}>
-            {savingLink ? <Spinner className="h-4 w-4" /> : null}
+            {savingLink ? <Spinner className="h-4 w-4" /> : linkTarget.kind === "manager" ? <Plus className="h-4 w-4" /> : <Save className="h-4 w-4" />}
             {linkTarget.kind === "manager" ? "Adicionar gestor" : `Salvar ${linkTarget.label.toLocaleLowerCase("pt-BR")}`}
           </Button>
           <MovementHistory

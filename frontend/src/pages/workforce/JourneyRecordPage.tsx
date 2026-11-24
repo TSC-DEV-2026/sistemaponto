@@ -18,6 +18,7 @@ import { moduleCardClass, moduleDangerIconClass, moduleFieldClass, moduleLabelCl
 import { createRecord, getRecord, listRecords, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { punchDay, showDuration } from "@/utils/labels"
 import { catalogs } from "@/pages/workforce/catalogs"
@@ -79,7 +80,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   const [openedKind, setOpenedKind] = useState<JourneyKind>("programada")
   const [anchors, setAnchors] = useState<AnchorDraft[]>([])
   const [loaded, setLoaded] = useState(mode === "new")
-  const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const lengthChanged = mode === "edit" && openedKind === "programada" && kind === "programada" && days.length !== openedLength
 
@@ -93,7 +93,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
     if (mode === "new") return
     let active = true
     setLoaded(false)
-    setError("")
     getRecord<NamedRecord>("/journeys", id)
       .then((row) => {
         if (!active) return
@@ -111,7 +110,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
       })
       .catch((caught: unknown) => {
         if (!active) return
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
         setLoaded(true)
       })
     return () => {
@@ -132,7 +131,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
       })
       .catch((caught: unknown) => {
         if (!active) return
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar quem está nesta jornada.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar quem está nesta jornada.")
       })
     return () => {
       active = false
@@ -145,28 +144,27 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     const trimmed = name.trim()
     if (!trimmed) {
-      setError("Informe o nome")
+      toastError("Informe o nome")
       return
     }
     if (kind === "programada") {
       const problem = programadaError(plainDays(days))
       if (problem) {
-        setError(problem)
+        toastError(problem)
         return
       }
     }
     if (kind === "carga") {
       const problem = weeklyError(weekly)
       if (problem) {
-        setError(problem)
+        toastError(problem)
         return
       }
     }
     if (lengthChanged && !validFrom) {
-      setError("Informe o início da nova sequência")
+      toastError("Informe o início da nova sequência")
       return
     }
     if (lengthChanged) {
@@ -175,7 +173,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
         return !item.cycleDay || cycle < 1 || cycle > days.length
       })
       if (missing) {
-        setError(`Informe o dia da sequência de ${missing.name}.`)
+        toastError(`Informe o dia da sequência de ${missing.name}.`)
         return
       }
     }
@@ -196,8 +194,8 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
       if (mode === "new") await createRecord("/journeys", body)
       else await updateRecord("/journeys", id, body)
       navigate(entry.backTo)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setSaving(false)
     }
@@ -207,14 +205,10 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={entry.backTo} appearance="detail" />
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : (
-          <section className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" role="status" aria-live="polite">
-            <Spinner label="Carregando a jornada" className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando a jornada</p>
-          </section>
-        )}
+        <section className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" role="status" aria-live="polite">
+          <Spinner label="Carregando a jornada" className="h-8 w-8 text-[#1E8A3A]" />
+          <p className="text-sm font-medium text-[#64748B]">Carregando a jornada</p>
+        </section>
       </div>
     )
   }
@@ -223,7 +217,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={entry.backTo} appearance="detail" />
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Informações da jornada</h2>
           <JourneySchedule name={name} note={note} kind={kind} days={plainDays(days)} weeklyMinutes={weeklyToMinutes(weekly)} flexible={flexible} />
@@ -236,7 +229,6 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to={entry.backTo} appearance="detail" />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>

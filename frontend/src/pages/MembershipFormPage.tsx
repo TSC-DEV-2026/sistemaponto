@@ -29,7 +29,6 @@ export function MembershipFormPage() {
   const [cpf, setCpf] = useState("")
   const [email, setEmail] = useState("")
   const [role, setRole] = useState("member")
-  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!roleName || isAdmin) return
@@ -38,7 +37,6 @@ export function MembershipFormPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       const created = await createMembership({
         fullName: fullName.trim(),
@@ -47,8 +45,8 @@ export function MembershipFormPage() {
         role,
       })
       navigate(`/memberships/${created.id}`)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível vincular.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -86,7 +84,6 @@ export function MembershipFormPage() {
             <Label className={moduleLabelClass} htmlFor="role">Papel</Label>
             <SiteSelect id="role" value={role} className="h-12" options={roleOptions} onChange={setRole} />
           </div>
-          {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
           <div className="flex justify-end pt-5">
             <Button type="submit" className={modulePrimaryClass}>
               <Save className="h-4 w-4" />

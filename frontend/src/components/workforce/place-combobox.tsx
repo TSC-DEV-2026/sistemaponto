@@ -211,7 +211,7 @@ export function PlaceCombobox({
               aria-activedescendant={rows[current] ? `${listId}-${current}` : undefined}
               value={query}
               placeholder={searchPlaceholder}
-              className={cn(authInputClass(false), "shadow-none hover:shadow-none focus:border-[#C5CDD6] focus:shadow-none hover:focus:border-[#C5CDD6] hover:focus:shadow-none")}
+              className={cn(authInputClass(), "shadow-none hover:shadow-none focus:border-[#C5CDD6] focus:shadow-none hover:focus:border-[#C5CDD6] hover:focus:shadow-none")}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={onInputKey}
             />

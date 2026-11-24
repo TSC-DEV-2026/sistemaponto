@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, paginationItems } from "@/components/ui/pagination"
 import { listRecords } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 
 export const pageSizes = [5, 10, 20]
@@ -186,7 +187,10 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
         setError("")
       })
       .catch((caught: unknown) => {
-        if (current === request.current) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        if (current !== request.current) return
+        const message = caught instanceof Error ? caught.message : "Não foi possível listar."
+        setError(message)
+        toastError(message)
       })
       .finally(() => {
         if (current === request.current) setLoading(false)
@@ -205,7 +209,6 @@ export function usePagedList<T>(path: string, filters: ListParams, enabled = tru
     total,
     loading,
     error,
-    setError,
     reload: () => setReload((current) => current + 1),
   }
 }

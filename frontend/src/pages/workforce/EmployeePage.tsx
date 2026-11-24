@@ -12,10 +12,7 @@ import { SlidingHighlight } from "@/components/ui/sliding-highlight"
 import { Spinner } from "@/components/ui/spinner"
 import { moduleDangerClass, moduleLabelClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { ListPager, usePagedList } from "@/components/workforce/list-controls"
-import { PunchLists } from "@/components/workforce/PunchDay"
-import { HourBankPanel } from "@/components/workforce/HourBankPanel"
-import { JourneySchedule } from "@/components/workforce/JourneySchedule"
-import { CalculationsPanel } from "@/components/workforce/TimeResultsPanel"
+import { EmployeePunchPanel } from "@/components/workforce/EmployeePunchPanel"
 import { DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   getRecord,
@@ -28,9 +25,9 @@ import {
   type TimeRequest,
   type Vigency,
 } from "@/services/workforce.service"
-import { resultNote } from "@/pages/workforce/journey"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
 import { formatCpf } from "@/utils/digits"
@@ -387,7 +384,7 @@ export function EmployeePage() {
   const events = usePagedList<Occurrence>("/occurrences", { employee_id: id, ...(eventKind ? { kind: eventKind } : {}) }, ready, saved)
   const inbox = usePagedList<TimeRequest>("/requests", { employee_id: id, ...(requestKind ? { kind: requestKind } : {}), ...(requestState ? { status: requestState } : {}) }, ready, saved)
   const trail = usePagedList<Audit>("/audits", { employee_id: id }, ready && canEdit, saved)
-  const [error, setError] = useState("")
+  const [loadFailed, setLoadFailed] = useState(false)
   const [fullName, setFullName] = useState("")
   const [cpf, setCpf] = useState("")
   const [email, setEmail] = useState("")
@@ -426,11 +423,12 @@ export function EmployeePage() {
   useEffect(() => {
     let active = true
     setEmployee(null)
-    setError("")
+    setLoadFailed(false)
     load()
       .catch((caught: unknown) => {
         if (active) {
-          setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+          setLoadFailed(true)
+          toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
         }
       })
     return () => {
@@ -439,12 +437,11 @@ export function EmployeePage() {
   }, [id])
 
   async function removeEmployee() {
-    setError("")
     try {
       await removeRecord("/employees", id)
       navigate("/staff?tab=employees")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -455,9 +452,7 @@ export function EmployeePage() {
     return (
       <div className={fichaFrameClass}>
         <BackLink to="/staff?tab=employees" appearance="detail" />
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : (
+        {loadFailed ? null : (
           <section className={cn(fichaCardClass, "flex min-h-[280px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
             <Spinner label="Carregando a ficha" className="h-8 w-8 text-[#1E8A3A]" />
             <p className="text-sm font-medium text-[#64748B]">Carregando a ficha</p>
@@ -485,9 +480,11 @@ export function EmployeePage() {
             <div className="flex flex-wrap items-center justify-end gap-2">
               <span className="text-sm text-[#111827]">Excluir {personName}?</span>
               <Button type="button" className={moduleDangerClass} onClick={removeEmployee}>
+                <Trash2 className="h-4 w-4" />
                 Excluir
               </Button>
               <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setConfirmDelete(false)}>
+                <X className="h-4 w-4" />
                 Cancelar
               </Button>
             </div>
@@ -541,6 +538,7 @@ export function EmployeePage() {
           </div>
         </div>
       </section>
+      <div className={cn(tab === "punch" ? "space-y-2" : "space-y-5")}>
       <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
         {tabs.map(([value, label, Icon]) => (
           <button
@@ -560,12 +558,11 @@ export function EmployeePage() {
           </button>
         ))}
       </SlidingHighlight>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div key={tab} className="motion-safe:animate-[ficha-fade_200ms_ease-out]">
       {tab === "data" ? (
         <div className="space-y-4">
           <section className={fichaCardClass}>
-            <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
+            <div className="mb-4 flex items-center gap-3">
               <FieldMark icon={conceptIcon.employee} />
               <h2 className="text-[17px] font-bold text-[#111827]">Informações principais</h2>
             </div>
@@ -588,7 +585,7 @@ export function EmployeePage() {
             <p className="mt-3 text-xs leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
           </section>
           <section className={fichaCardClass}>
-            <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
+            <div className="mb-4 flex items-center gap-3">
               <FieldMark icon={Settings} />
               <h2 className="text-[17px] font-bold text-[#111827]">Informações complementares</h2>
             </div>
@@ -609,7 +606,7 @@ export function EmployeePage() {
       {tab === "work" ? (
         <div className="space-y-4">
           <section className={fichaCardClass}>
-            <div className="mb-4 flex items-center gap-3 border-b border-[#EEF2EF] pb-4">
+            <div className="mb-4 flex items-center gap-3">
               <FieldMark icon={conceptIcon.job} />
               <h2 className="text-[17px] font-bold text-[#111827]">Trabalho</h2>
             </div>
@@ -635,73 +632,59 @@ export function EmployeePage() {
         </div>
       ) : null}
       {tab === "punch" ? (
-        <div className="space-y-4">
-          <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-            <h2 className="text-lg font-semibold text-brand-ink">Jornada prevista</h2>
-            <p className="mt-1 text-sm text-brand-quiet">Jornada vigente desta pessoa.</p>
-            {schedule ? (
-              <JourneySchedule
-                name={schedule.name}
-                note={schedule.note}
-                kind={schedule.kind}
-                days={schedule.days}
-                weeklyMinutes={schedule.weekly_minutes}
-                flexible={schedule.flexible}
-                cycleDay={journey?.cycle_day}
-              />
-            ) : (
-              <p className="mt-5 rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center text-sm text-brand-quiet">Nenhuma jornada vigente.</p>
-            )}
-          </section>
-          <CalculationsPanel employeeId={id} appearance="module" note={resultNote(schedule?.kind)} />
-          <HourBankPanel employeeId={id} canLaunch={false} usesBank={employee.hour_bank} appearance="module" />
-          <PunchLists employeeId={id} employees={[employee]} reloadKey={saved} appearance="module" />
-          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-            <h2 className="text-lg font-semibold text-brand-ink">Solicitações</h2>
-            <p className="mt-1 text-sm text-brand-quiet">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div className="min-w-0 space-y-2">
-                <Label className={moduleLabelClass} htmlFor="employee-request-kind">
-                  Tipo
-                </Label>
-                <SiteSelect id="employee-request-kind" value={requestKind} icon={FileText} options={[{ value: "", label: "Todos" }, ...Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setRequestKind} />
+        <EmployeePunchPanel
+          employeeId={id}
+          employee={employee}
+          schedule={schedule}
+          cycleDay={journey?.cycle_day}
+          reloadKey={saved}
+          requests={
+            <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+              <h2 className="text-lg font-semibold text-brand-ink">Solicitações</h2>
+              <p className="mt-1 text-sm text-brand-quiet">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="employee-request-kind">
+                    Tipo
+                  </Label>
+                  <SiteSelect id="employee-request-kind" value={requestKind} icon={FileText} options={[{ value: "", label: "Todos" }, ...Object.entries(requestKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setRequestKind} />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label className={moduleLabelClass} htmlFor="employee-request-status">
+                    Situação
+                  </Label>
+                  <SiteSelect id="employee-request-status" value={requestState} icon={Layers} options={[{ value: "", label: "Todos" }, ...Object.entries(requestStatusLabel).map(([value, label]) => ({ value, label }))]} onChange={setRequestState} />
+                </div>
               </div>
-              <div className="min-w-0 space-y-2">
-                <Label className={moduleLabelClass} htmlFor="employee-request-status">
-                  Situação
-                </Label>
-                <SiteSelect id="employee-request-status" value={requestState} icon={Layers} options={[{ value: "", label: "Todos" }, ...Object.entries(requestStatusLabel).map(([value, label]) => ({ value, label }))]} onChange={setRequestState} />
-              </div>
-            </div>
-            {inbox.error ? <p className="mt-4 text-sm text-destructive">{inbox.error}</p> : null}
-            {inbox.loading ? (
-              <ul className="mt-5">
-                <ListPlaceholder loading empty="Nenhuma solicitação." />
-              </ul>
-            ) : null}
-            {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
-                  <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
-                </span>
-                <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
-                <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
-              </div>
-            ) : null}
-            {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
-              <ul className="mt-5 flex flex-col gap-3">
-                {inbox.items.map((item) => (
-                  <EmployeeRequestCard key={item.id} item={item} person={employee.full_name} />
-                ))}
-              </ul>
-            ) : null}
-            {!inbox.loading && !inbox.error && inbox.total > 0 ? (
-              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
-                <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
-              </div>
-            ) : null}
-          </section>
-        </div>
+              {inbox.loading ? (
+                <ul className="mt-5">
+                  <ListPlaceholder loading empty="Nenhuma solicitação." />
+                </ul>
+              ) : null}
+              {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+                    <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+                  </span>
+                  <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
+                  <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
+                </div>
+              ) : null}
+              {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
+                <ul className="mt-5 flex flex-col gap-3">
+                  {inbox.items.map((item) => (
+                    <EmployeeRequestCard key={item.id} item={item} person={employee.full_name} />
+                  ))}
+                </ul>
+              ) : null}
+              {!inbox.loading && !inbox.error && inbox.total > 0 ? (
+                <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+                  <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
+                </div>
+              ) : null}
+            </section>
+          }
+        />
       ) : null}
       {tab === "events" ? (
         <div className="space-y-4">
@@ -716,7 +699,6 @@ export function EmployeePage() {
               </Label>
               <SiteSelect id="employee-event-kind" value={eventKind} icon={conceptIcon.occurrence} options={[{ value: "", label: "Todos" }, ...Object.entries(occurrenceKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setEventKind} />
             </div>
-            {events.error ? <p className="mt-4 text-sm text-destructive">{events.error}</p> : null}
             {events.loading ? (
               <ul className="mt-5">
                 <ListPlaceholder loading empty="Nenhuma ocorrência." />
@@ -766,7 +748,6 @@ export function EmployeePage() {
               </Label>
               <SiteSelect id="employee-vigency-kind" value={historyKind} icon={Layers} options={[{ value: "", label: "Todos" }, ...Object.entries(vigencyKindLabel).map(([value, label]) => ({ value, label }))]} onChange={setHistoryKind} />
             </div>
-            {history.error ? <p className="mt-4 text-sm text-destructive">{history.error}</p> : null}
             {history.loading ? (
               <ul className="mt-5">
                 <ListPlaceholder loading empty="Nenhuma vigência." />
@@ -797,7 +778,6 @@ export function EmployeePage() {
               <h2 className="text-lg font-semibold text-brand-ink">Auditoria</h2>
               <p className="mt-1 text-sm text-brand-quiet">Consulte as alterações registradas.</p>
             </div>
-            {trail.error ? <p className="mt-4 text-sm text-destructive">{trail.error}</p> : null}
             {trail.loading ? (
               <ul className="mt-5">
                 <ListPlaceholder loading empty="Nenhuma auditoria." />
@@ -826,6 +806,7 @@ export function EmployeePage() {
           </section>
         </div>
       ) : null}
+      </div>
       </div>
       <EmployeeNoteDialog text={noteOpen ? noteText : null} onClose={() => setNoteOpen(false)} />
     </div>

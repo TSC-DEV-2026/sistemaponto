@@ -1,4 +1,4 @@
-import { CalendarDays, Receipt, Wallet, type LucideIcon } from "lucide-react"
+import { CalendarDays, Receipt, Wallet, CreditCard, type LucideIcon } from "lucide-react"
 
 import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react"
@@ -15,6 +15,7 @@ import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { me } from "@/services/auth.service"
 import { createRecord, getDashboard, listRecords, updateRecord, type Charge, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import {
   chargeKindLabel,
@@ -86,7 +87,6 @@ function BillingPanel() {
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
   const [opened, setOpened] = useState(false)
   const [payingId, setPayingId] = useState<number | null>(null)
-  const [error, setError] = useState("")
   const billed = usePagedList<Charge>("/charges", {
     ...(chargeStatus ? { status: chargeStatus } : {}),
     ...(chargeKind ? { kind: chargeKind } : {}),
@@ -104,7 +104,7 @@ function BillingPanel() {
     setPlanLoaded(false)
     refreshPlan()
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
       })
       .finally(() => {
         if (active) setPlanLoaded(true)
@@ -135,15 +135,14 @@ function BillingPanel() {
   async function pay(id: number) {
     if (payingId !== null) return
     setPayingId(id)
-    setError("")
     try {
       await updateRecord("/charges", id, { paid: true })
       setSession(await me())
       await refreshPlan()
       billed.reload()
       plans.reload()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar o pagamento.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setPayingId(null)
     }
@@ -186,7 +185,6 @@ function BillingPanel() {
           <Label className={moduleLabelClass} htmlFor="plan-status">Situação</Label>
           <SiteSelect id="plan-status" value={planStatus} className="h-12" options={planStatusOptions} onChange={setPlanStatus} />
         </div>
-        {plans.error ? <p className="text-sm text-destructive" role="alert">{plans.error}</p> : null}
         <RecordList
           loading={plans.loading}
           emptyTitle="Nenhuma assinatura"
@@ -214,8 +212,6 @@ function BillingPanel() {
             <SiteSelect id="charge-kind" value={chargeKind} className="h-12" options={chargeKindOptions} onChange={setChargeKind} />
           </div>
         </div>
-        {billed.error ? <p className="text-sm text-destructive" role="alert">{billed.error}</p> : null}
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
         <RecordList
           loading={billed.loading}
           emptyTitle="Nenhuma cobrança"
@@ -228,6 +224,7 @@ function BillingPanel() {
               <span className="inline-flex h-11 items-center rounded-[10px] bg-[rgba(30,138,58,0.1)] px-3 text-sm font-semibold text-[#086B35]">Pago</span>
             ) : (
               <Button type="button" className={cn(modulePrimaryClass, "h-11 shrink-0")} pending={payingId === item.id} onClick={() => void pay(item.id)}>
+                <CreditCard className="h-4 w-4" />
                 Registrar pagamento
               </Button>
             ),
@@ -248,7 +245,6 @@ function ContractPanel() {
   const [loaded, setLoaded] = useState(false)
   const [capacity, setCapacity] = useState("10")
   const [method, setMethod] = useState("pix")
-  const [error, setError] = useState("")
   const edited = useRef(false)
 
   async function load() {
@@ -266,7 +262,7 @@ function ContractPanel() {
     setLoaded(false)
     load()
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar o plano.")
       })
       .finally(() => {
         if (active) setLoaded(true)
@@ -278,33 +274,31 @@ function ContractPanel() {
 
   async function contract(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       await createRecord<Subscription>("/subscriptions", { capacity: Number(capacity), payment_method: method })
       setSession(await me())
       await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível contratar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function changePlan(event: FormEvent) {
     event.preventDefault()
     if (!plan) return
-    setError("")
     const body: Record<string, unknown> = {}
     if (Number(capacity) !== plan.capacity) body.capacity = Number(capacity)
     if (method !== plan.payment_method) body.payment_method = method
     if (Object.keys(body).length === 0) {
-      setError("Informe a capacidade ou a forma de pagamento")
+      toastError("Informe a capacidade ou a forma de pagamento")
       return
     }
     try {
       await updateRecord<Subscription>("/subscriptions", plan.id, body)
       setSession(await me())
       await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível alterar o plano.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -322,7 +316,6 @@ function ContractPanel() {
             <SiteSelect id="method" value={method} className="h-12" options={methodOptions} onChange={(value) => { edited.current = true; setMethod(value) }} />
           </div>
         </div>
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit" className={modulePrimaryClass} disabled={!loaded}>
             <conceptIcon.plan className="h-4 w-4" />

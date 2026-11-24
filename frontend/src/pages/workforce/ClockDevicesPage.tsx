@@ -1,4 +1,4 @@
-import { MonitorSmartphone, ShieldOff } from "lucide-react"
+import { MonitorSmartphone, ShieldOff, X, QrCode, Check } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -9,6 +9,7 @@ import { moduleCardClass, moduleDangerClass, modulePrimaryClass, moduleQuietClas
 import { issueClockCode, listClockDevices, revokeClockDevice } from "@/services/clock-device.service"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import type { ClockDevice, ClockReleaseCode } from "@/types/api"
 import { cn } from "@/utils/cn"
 
@@ -29,7 +30,7 @@ export function ClockDevicesPage() {
   const [items, setItems] = useState<ClockDevice[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [failed, setFailed] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [issuing, setIssuing] = useState(false)
   const [code, setCode] = useState<ClockReleaseCode | null>(null)
@@ -45,7 +46,7 @@ export function ClockDevicesPage() {
     if (!canEdit) return
     const current = ++requestId.current
     setLoading(true)
-    setError("")
+    setFailed(false)
     listClockDevices(page, pageSize)
       .then((result) => {
         if (current !== requestId.current) return
@@ -56,7 +57,8 @@ export function ClockDevicesPage() {
         if (current !== requestId.current) return
         setItems([])
         setTotal(0)
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        setFailed(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
       .finally(() => {
         if (current === requestId.current) setLoading(false)
@@ -65,11 +67,10 @@ export function ClockDevicesPage() {
 
   async function generate() {
     setIssuing(true)
-    setError("")
     try {
       setCode(await issueClockCode())
-    } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o código.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setIssuing(false)
     }
@@ -77,13 +78,12 @@ export function ClockDevicesPage() {
 
   async function revoke(id: number) {
     setRevoking(true)
-    setError("")
     try {
       await revokeClockDevice(id)
       setPendingId(null)
       setReloadKey((current) => current + 1)
-    } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível revogar.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setRevoking(false)
     }
@@ -105,6 +105,7 @@ export function ClockDevicesPage() {
             </div>
           </div>
           <Button type="button" className={cn(modulePrimaryClass, "h-12 w-full shrink-0 sm:w-auto")} disabled={issuing} onClick={generate}>
+            <QrCode className="h-4 w-4" />
             {issuing ? "Gerando" : "Gerar código"}
           </Button>
         </div>
@@ -116,7 +117,6 @@ export function ClockDevicesPage() {
           </div>
         ) : null}
       </section>
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       <section className={moduleCardClass}>
         <h2 className="text-lg font-semibold text-[#0A0A0A]">Aparelhos desta organização</h2>
         {loading ? (
@@ -124,7 +124,7 @@ export function ClockDevicesPage() {
             <Spinner label="Carregando os aparelhos" className="h-8 w-8 text-[#1E8A3A]" />
           </div>
         ) : null}
-        {!loading && !error && items.length === 0 ? (
+        {!loading && !failed && items.length === 0 ? (
           <div className="px-2 py-10 text-center">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
               <MonitorSmartphone className="h-6 w-6" strokeWidth={1.75} aria-hidden />
@@ -144,9 +144,11 @@ export function ClockDevicesPage() {
                 {pendingId === item.id ? (
                   <span className="flex shrink-0 gap-2">
                     <Button type="button" className={moduleQuietClass} disabled={revoking} onClick={() => setPendingId(null)}>
+                      <X className="h-4 w-4" />
                       Cancelar
                     </Button>
                     <Button type="button" className={moduleDangerClass} disabled={revoking} onClick={() => revoke(item.id)}>
+                      <Check className="h-4 w-4" />
                       {revoking ? "Revogando" : "Confirmar"}
                     </Button>
                   </span>

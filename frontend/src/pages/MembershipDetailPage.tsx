@@ -1,4 +1,4 @@
-import { Save, Shield, Trash2 } from "lucide-react"
+import { Save, Shield, Trash2, X } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { moduleCardClass, moduleDangerClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { getMembership, removeMembership, updateMembership } from "@/services/membership.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { membershipRoleLabel } from "@/utils/labels"
 import type { Membership } from "@/types/api"
@@ -31,7 +32,6 @@ export function MembershipDetailPage() {
   const [role, setRole] = useState("member")
   const [loaded, setLoaded] = useState(false)
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!roleName || isAdmin) return
@@ -42,7 +42,6 @@ export function MembershipDetailPage() {
     if (!isAdmin) return
     let active = true
     setLoaded(false)
-    setError("")
     getMembership(id)
       .then((row) => {
         if (!active) return
@@ -52,7 +51,7 @@ export function MembershipDetailPage() {
       })
       .catch((caught: unknown) => {
         if (!active) return
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
         setLoaded(true)
       })
     return () => {
@@ -62,29 +61,27 @@ export function MembershipDetailPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       const saved = await updateMembership(id, role)
       setItem(saved)
       setRole(saved.role)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function onDelete() {
-    setError("")
     try {
       await removeMembership(id)
       navigate("/memberships")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   if (!isAdmin) return null
 
-  if (!loaded && !error) {
+  if (!loaded) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to="/memberships" appearance="detail" />
@@ -111,7 +108,6 @@ export function MembershipDetailPage() {
             <p className="text-sm text-[#64748B]">{item ? membershipRoleLabel[item.role] || item.role : "Acesso"}</p>
           </div>
         </div>
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
         {isAdmin && item ? (
           <ActionForm className="space-y-5" onSubmit={onSubmit}>
             <div className="space-y-2">
@@ -126,7 +122,10 @@ export function MembershipDetailPage() {
                     <Trash2 className="h-4 w-4" />
                     Excluir
                   </Button>
-                  <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setPending(false)}>Cancelar</Button>
+                  <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setPending(false)}>
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </Button>
                 </>
               ) : (
                 <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={() => setPending(true)}>

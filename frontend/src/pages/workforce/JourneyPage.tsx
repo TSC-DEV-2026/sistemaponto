@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react"
-import { CircleCheck, Clock, Layers, Minus, Pencil, Plus, Scale, Trash2 } from "lucide-react"
+import { CircleCheck, Clock, Layers, Minus, Pencil, Plus, Scale, Trash2, X } from "lucide-react"
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { ActionTip } from "@/components/ui/action-tip"
@@ -46,7 +46,6 @@ export function JourneyPage() {
 function ResultsSchedule() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [error, setError] = useState("")
 
   useEffect(() => {
     let active = true
@@ -55,7 +54,7 @@ function ResultsSchedule() {
         if (active) setEmployees(page.items)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
     return () => {
       active = false
@@ -64,7 +63,6 @@ function ResultsSchedule() {
 
   return (
     <div className="space-y-3">
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <CalculationsPanel employees={employees} heading={false} appearance="module" />
     </div>
   )
@@ -80,7 +78,6 @@ function BankScheduleList() {
   const [employeeId, setEmployeeId] = useState("")
   const [kind, setKind] = useState("")
   const [balance, setBalance] = useState<HourBank | null>(null)
-  const [balanceError, setBalanceError] = useState("")
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [removing, setRemoving] = useState(false)
   const entries = usePagedList<HourBankEntry>("/hour-bank-entries", {
@@ -126,21 +123,17 @@ function BankScheduleList() {
   useEffect(() => {
     if (!employeeId) {
       setBalance(null)
-      setBalanceError("")
       return
     }
     let active = true
     getHourBank(Number(employeeId))
       .then((row) => {
-        if (active) {
-          setBalance(row)
-          setBalanceError("")
-        }
+        if (active) setBalance(row)
       })
       .catch((caught: unknown) => {
         if (active) {
           setBalance(null)
-          setBalanceError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
+          toastError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
         }
       })
     return () => {
@@ -156,14 +149,20 @@ function BankScheduleList() {
     setRemoving(true)
     try {
       await removeRecord("/hour-bank-entries", id)
-      setPendingId(null)
-      entries.reload()
+    } catch {
+      // O interceptor já avisou o erro.
+      setRemoving(false)
+      return
+    }
+    setPendingId(null)
+    entries.reload()
+    try {
       if (employeeId) {
         const row = await getHourBank(Number(employeeId))
         setBalance(row)
       }
     } catch (caught: unknown) {
-      toastError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
     } finally {
       setRemoving(false)
     }
@@ -207,8 +206,6 @@ function BankScheduleList() {
           <BankBalance balance={balance} />
         </div>
       ) : null}
-      {balanceError ? <p className="mt-4 text-sm text-destructive">{balanceError}</p> : null}
-      {entries.error ? <p className="mt-4 text-sm text-destructive">{entries.error}</p> : null}
       {entries.items.length > 0 && !employeesReady ? (
         <ul className="mt-8">
           <ListPlaceholder loading empty="Nenhum lançamento." />
@@ -250,9 +247,11 @@ function BankScheduleList() {
                   pendingId === item.id ? (
                     <div className="flex shrink-0 items-center gap-2">
                       <Button type="button" className={moduleDangerClass} disabled={removing} onClick={() => removeEntry(item.id)}>
+                        <Trash2 className="h-4 w-4" />
                         Excluir
                       </Button>
                       <Button type="button" variant="outline" className={moduleQuietClass} disabled={removing} onClick={() => setPendingId(null)}>
+                        <X className="h-4 w-4" />
                         Cancelar
                       </Button>
                     </div>
@@ -292,7 +291,6 @@ export function PunchAdjustPage() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const navigate = useNavigate()
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!role || role === "admin" || role === "manager") return
@@ -306,7 +304,7 @@ export function PunchAdjustPage() {
         if (active) setEmployees(page.items)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
     return () => {
       active = false
@@ -316,7 +314,6 @@ export function PunchAdjustPage() {
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/timekeeping?tab=calculations" appearance="detail" />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <PunchCorrectionForm
         appearance="module"
         employees={employees}
@@ -354,7 +351,7 @@ export function HourBankEntryPage() {
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
-  const [error, setError] = useState("")
+  const [blocked, setBlocked] = useState(false)
   const [loading, setLoading] = useState(editing)
   const [pending, setPending] = useState(false)
 
@@ -370,7 +367,7 @@ export function HourBankEntryPage() {
         if (active) setEmployees(page.items.filter((item) => item.hour_bank))
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
     return () => {
       active = false
@@ -385,7 +382,8 @@ export function HourBankEntryPage() {
       .then((row) => {
         if (!active) return
         if (row.closing_id) {
-          setError("Altere este lançamento pelo fechamento.")
+          setBlocked(true)
+          toastError("Altere este lançamento pelo fechamento.")
           return
         }
         setEmployeeId(String(row.employee_id))
@@ -394,7 +392,9 @@ export function HourBankEntryPage() {
         setNote(row.note || "")
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        if (!active) return
+        setBlocked(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -405,9 +405,8 @@ export function HourBankEntryPage() {
   }, [editing, entryId])
 
   async function launch(kind: "credit" | "debit" | "balance" | "settlement") {
-    setError("")
     if (!employeeId) {
-      setError("Selecione o funcionário.")
+      toastError("Selecione o funcionário.")
       return
     }
     const body: Record<string, unknown> = {
@@ -418,7 +417,7 @@ export function HourBankEntryPage() {
     if (kind !== "settlement") {
       const amount = kind === "balance" ? signedDurationMinutes(minutes) : durationMinutes(minutes)
       if (amount === null) {
-        setError(kind === "balance" ? "Informe o saldo no formato 00:00. Use o sinal de menos para saldo negativo." : minutes.trim().startsWith("-") ? "Somar e diminuir não usam sinal. Para deixar o saldo neste valor, use Lançar saldo." : "Informe as horas no formato 00:00.")
+        toastError(kind === "balance" ? "Informe o saldo no formato 00:00. Use o sinal de menos para saldo negativo." : minutes.trim().startsWith("-") ? "Somar e diminuir não usam sinal. Para deixar o saldo neste valor, use Lançar saldo." : "Informe as horas no formato 00:00.")
         return
       }
       body.minutes = amount
@@ -431,19 +430,18 @@ export function HourBankEntryPage() {
         await createRecord("/hour-bank-entries", { ...body, employee_id: Number(employeeId) })
       }
       navigate("/timekeeping?tab=hour-bank")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível lançar.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setPending(false)
     }
   }
 
-  const locked = loading || Boolean(error && editing && !employeeId)
+  const locked = loading || Boolean(blocked && editing && !employeeId)
 
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/timekeeping?tab=hour-bank" appearance="detail" />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{editing ? "Editar lançamento" : "Novo lançamento"}</h2>

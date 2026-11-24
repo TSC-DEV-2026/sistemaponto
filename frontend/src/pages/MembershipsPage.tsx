@@ -11,6 +11,7 @@ import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleLabelClass, modulePrimaryClass } from "@/components/workforce/module-visual"
 import { listMemberships } from "@/services/membership.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { membershipRoleLabel } from "@/utils/labels"
 import type { Membership } from "@/types/api"
@@ -36,7 +37,7 @@ export function MembershipsPage() {
   const [items, setItems] = useState<Membership[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (!role || isAdmin) return
@@ -47,7 +48,7 @@ export function MembershipsPage() {
     if (!isAdmin) return
     const current = ++requestId.current
     setLoading(true)
-    setError("")
+    setFailed(false)
     listMemberships(page, pageSize, appliedRole || undefined)
       .then((result) => {
         if (current !== requestId.current) return
@@ -58,7 +59,8 @@ export function MembershipsPage() {
         if (current !== requestId.current) return
         setItems([])
         setTotal(0)
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        setFailed(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
       .finally(() => {
         if (current === requestId.current) setLoading(false)
@@ -106,7 +108,6 @@ export function MembershipsPage() {
           </Button>
         </div>
       </section>
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       <section className={moduleCardClass}>
         <h2 className="text-lg font-semibold text-[#0A0A0A]">Registros cadastrados</h2>
         {loading ? (
@@ -114,7 +115,7 @@ export function MembershipsPage() {
             <Spinner label="Carregando os acessos" className="h-8 w-8 text-[#1E8A3A]" />
           </div>
         ) : null}
-        {!loading && !error && items.length === 0 ? (
+        {!loading && !failed && items.length === 0 ? (
           <div className="px-2 py-10 text-center">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
               <Shield className="h-6 w-6" strokeWidth={1.75} aria-hidden />

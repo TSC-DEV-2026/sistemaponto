@@ -1,4 +1,4 @@
-import { Bell, Layers, ChevronRight, IdCard, KeyRound, Mail, Pencil, Save, Send, Shield, User, type LucideIcon } from "lucide-react"
+import { Bell, Layers, ChevronRight, IdCard, KeyRound, Mail, Pencil, Save, Send, Shield, User, X, type LucideIcon } from "lucide-react"
 import { FormEvent, useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 
@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { me, resendVerification, updateAccount } from "@/services/auth.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { formatCpf } from "@/utils/digits"
 
@@ -61,7 +62,6 @@ export function SettingsPage() {
   const [email, setEmail] = useState(user?.email || "")
   const [resendEmail, setResendEmail] = useState(user?.email || "")
   const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(Boolean(user))
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export function SettingsPage() {
       .catch((caught: unknown) => {
         if (active) {
           setLoaded(true)
-          setError(caught instanceof Error ? caught.message : "Não foi possível carregar a conta.")
+          toastError(caught instanceof Error ? caught.message : "Não foi possível carregar a conta.")
         }
       })
     return () => {
@@ -88,7 +88,6 @@ export function SettingsPage() {
 
   async function onSave(event: FormEvent) {
     event.preventDefault()
-    setError("")
     setMessage("")
     try {
       const saved = await updateAccount(name.trim(), email.trim())
@@ -97,20 +96,19 @@ export function SettingsPage() {
       setEmail(saved.email)
       setResendEmail(saved.email)
       setEditing(false)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function onResend(event: FormEvent) {
     event.preventDefault()
-    setError("")
     setMessage("")
     try {
       const result = await resendVerification(resendEmail.trim())
       setMessage(result.message)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível reenviar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -140,7 +138,6 @@ export function SettingsPage() {
                 setName(user.full_name || "")
                 setEmail(user.email || "")
                 setEditing(true)
-                setError("")
               }}
             >
               <Pencil className="h-4 w-4 text-[#1E8A3A]" />
@@ -174,9 +171,9 @@ export function SettingsPage() {
                   setName(user.full_name || "")
                   setEmail(user.email || "")
                   setEditing(false)
-                  setError("")
                 }}
               >
+                <X className="h-4 w-4" />
                 Cancelar
               </Button>
               <Button type="submit" className={modulePrimaryClass}>
@@ -193,7 +190,6 @@ export function SettingsPage() {
             <AccountFact icon={IdCard} label="CPF" value={shown(formatCpf(user.cpf || ""))} />
           </div>
         ) : null}
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       </section> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

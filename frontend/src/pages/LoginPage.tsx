@@ -18,20 +18,17 @@ export function LoginPage() {
   const [cpf, setCpf] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState(notice)
-  const [error, setError] = useState("")
-  const invalid = error.length > 0
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     setMessage("")
     try {
       const session = await login(onlyDigits(cpf), password)
       useAuthStore.getState().setSession(session)
       useAuthStore.getState().setReady(true)
       navigate(session.active_tenant ? "/" : "/select-tenant")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível entrar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -44,7 +41,7 @@ export function LoginPage() {
       ) : null}
 
       <ActionForm className="mt-8" onSubmit={onSubmit}>
-        <FieldBlock id="cpf" label="CPF" icon={User} invalid={invalid}>
+        <FieldBlock id="cpf" label="CPF" icon={User}>
           <CpfField
             id="cpf"
             name="username"
@@ -53,14 +50,12 @@ export function LoginPage() {
             value={cpf}
             onValueChange={setCpf}
             required
-            aria-invalid={invalid || undefined}
-            aria-describedby={invalid ? "login-error" : undefined}
-            className={authInputClass(invalid)}
+            className={authInputClass()}
           />
         </FieldBlock>
 
         <div className="mt-5 space-y-2">
-          <FieldBlock id="password" label="Senha" icon={Lock} invalid={invalid} password>
+          <FieldBlock id="password" label="Senha" icon={Lock} password>
             <PasswordField
               id="password"
               name="password"
@@ -69,16 +64,9 @@ export function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              aria-invalid={invalid || undefined}
-              aria-describedby={invalid ? "login-error" : undefined}
-              className={authInputClass(invalid, true)}
+              className={authInputClass(true)}
             />
           </FieldBlock>
-          {invalid ? (
-            <p id="login-error" className="text-sm text-brand-danger" role="alert">
-              {error}
-            </p>
-          ) : null}
           <Link
             to="/forgot-password"
             className="block text-right text-sm font-medium text-[#1E8A3A] transition-colors duration-150 hover:text-[#187432] hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"

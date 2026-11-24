@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Minus, Search, X } from "lucide-react"
+import { Check, ChevronDown, ChevronRight, Minus, Search, X, CheckCheck, Square } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -214,8 +214,14 @@ function CategoryDrawer({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} disabled={allMarked} onClick={() => onChange([...everyId])}>Marcar todos</Button>
-            <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} disabled={selected.length === 0} onClick={() => onChange([])}>Desmarcar todos</Button>
+            <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} disabled={allMarked} onClick={() => onChange([...everyId])}>
+              <CheckCheck className="h-4 w-4" />
+              Marcar todos
+            </Button>
+            <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} disabled={selected.length === 0} onClick={() => onChange([])}>
+              <Square className="h-4 w-4" />
+              Desmarcar todos
+            </Button>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
@@ -285,7 +291,10 @@ function CategoryDrawer({
           )}
         </div>
         <div className="flex justify-end border-t border-[#E2E8F0] px-5 py-4">
-          <Button type="button" className={modulePrimaryClass} onClick={onClose}>Concluir</Button>
+          <Button type="button" className={modulePrimaryClass} onClick={onClose}>
+            <Check className="h-4 w-4" />
+            Concluir
+          </Button>
         </div>
       </div>
     </div>,

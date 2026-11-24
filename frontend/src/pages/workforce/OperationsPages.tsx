@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, Search, Send, SlidersHorizontal, Trash2, Upload, X } from "lucide-react"
+import { ArrowLeft, ArrowLeftRight, Ban, Bell, Calendar, Check, CircleCheck, CircleX, Clock, Download, Eye, FileClock, FilePlus, FileText, Filter, Info, List, Loader2, Lock, Plus, Printer, QrCode, RotateCcw, ScanFace, Search, Send, SlidersHorizontal, Trash2, Upload, X, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { conceptIcon } from "@/utils/concept-icons"
 import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react"
@@ -98,7 +98,7 @@ export function TimeClockPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
+  const [failed, setFailed] = useState(false)
   const mine = employees.find((item) => item.person_id === personId) ?? null
   const method = mine?.clock_method || "simple"
   const card = method === "qr" || method === "face" || method === "simple" ? clockCards[method] : null
@@ -112,7 +112,9 @@ export function TimeClockPage() {
         if (active) setEmployees(page.items)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        if (!active) return
+        setFailed(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -123,20 +125,19 @@ export function TimeClockPage() {
   }, [tenantId])
 
   async function punchSimple(employeeId: number) {
-    setError("")
     setMessage("")
     try {
       await createRecord("/punches", { employee_id: employeeId, occurred_at: new Date().toISOString(), note: null })
       setMessage("Marcação registrada.")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   if (role === "admin") return null
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="w-full min-w-0 space-y-5">
       <div className="flex gap-3 rounded-xl border border-[rgba(30,138,58,0.07)] bg-[rgba(30,138,58,0.045)] px-4 py-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
         <p className="text-sm leading-6 text-[#1B2534]">{clockNote}</p>
@@ -164,14 +165,14 @@ export function TimeClockPage() {
               className="h-11 shrink-0 rounded-[10px] bg-brand-cta px-4 text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgba(30,138,58,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
               onClick={() => punchSimple(mine.id)}
             >
+              <Clock className="h-4 w-4" />
               Registrar
             </Button>
           ) : null}
         </article>
       ) : null}
-      {!loading && !mine && !error ? <p className="text-sm text-brand-muted">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p> : null}
+      {!loading && !mine && !failed ? <p className="text-sm text-brand-muted">O cadastro precisa estar ligado ao acesso para o funcionário marcar o próprio ponto.</p> : null}
       {message ? <p className="text-sm text-brand-muted">{message}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   )
 }
@@ -246,7 +247,6 @@ type RequestDecision = {
 function RequestDecisionDialog({
   target,
   note,
-  error,
   saving,
   onNote,
   onClose,
@@ -255,7 +255,6 @@ function RequestDecisionDialog({
 }: {
   target: RequestDecision | null
   note: string
-  error: string
   saving: boolean
   onNote: (value: string) => void
   onClose: () => void
@@ -420,13 +419,9 @@ function RequestDecisionDialog({
             onChange={(event) => onNote(event.target.value)}
           />
         </div>
-        {error ? (
-          <p className="mt-3 text-left text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={saving} onClick={onClose}>
+            {cancelling ? <ArrowLeft className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {cancelling ? "Voltar" : "Cancelar"}
           </Button>
           <Button
@@ -659,10 +654,8 @@ export function RequestsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [canRequest, setCanRequest] = useState(false)
   const [ownEmployeeId, setOwnEmployeeId] = useState<number | null>(null)
-  const [error, setError] = useState("")
   const [decision, setDecision] = useState<RequestDecision | null>(null)
   const [note, setNote] = useState("")
-  const [dialogError, setDialogError] = useState("")
   const [saving, setSaving] = useState(false)
   const openerRef = useRef<HTMLButtonElement | null>(null)
   const descriptionOpenerRef = useRef<HTMLButtonElement | null>(null)
@@ -694,7 +687,7 @@ export function RequestsPage() {
     let active = true
     load().catch((caught: unknown) => {
       if (active) {
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       }
     })
     return () => {
@@ -752,7 +745,6 @@ export function RequestsPage() {
     const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
     openerRef.current = opener
     setNote("")
-    setDialogError("")
     setDecision({
       id: item.id,
       action,
@@ -783,7 +775,6 @@ export function RequestsPage() {
     const ticket = ++flight.current
     busy.current = true
     setSaving(true)
-    setDialogError("")
     try {
       await updateRecord("/requests", current.id, { status: current.action, decision_note: text.trim() || null })
       if (ticket !== flight.current) {
@@ -792,11 +783,11 @@ export function RequestsPage() {
       setNote("")
       setDecision(null)
       inbox.reload()
-    } catch (caught) {
+    } catch {
+      // O interceptor já avisou o erro.
       if (ticket !== flight.current) {
         return
       }
-      setDialogError(caught instanceof Error ? caught.message : "Não foi possível decidir.")
       inbox.reload()
     } finally {
       if (ticket === flight.current) {
@@ -918,8 +909,6 @@ export function RequestsPage() {
         </div>
       </section>
       <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-        {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
-        {inbox.error ? <p className="mb-4 text-sm text-destructive">{inbox.error}</p> : null}
         {inbox.loading ? (
           <ul>
             <ListPlaceholder loading empty="Nenhuma solicitação." />
@@ -1054,7 +1043,6 @@ export function RequestsPage() {
       <RequestDecisionDialog
         target={decision}
         note={note}
-        error={dialogError}
         saving={saving}
         onNote={setNote}
         onClose={closeDecision}
@@ -1253,7 +1241,6 @@ export function ClosingsPage() {
         </div>
       </section>
       <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-        {periods.error ? <p className="px-4 py-3 text-sm text-destructive">{periods.error}</p> : null}
         {periods.loading && periods.items.length === 0 ? (
           <div className="flex justify-center px-6 py-12">
             <Spinner />
@@ -1624,8 +1611,14 @@ function ClosingReasonDialog({
           <textarea ref={reasonRef} id="closing-reason" className={cn(moduleTextClass, "min-h-[92px]")} maxLength={2000} value={reason} onChange={(event) => onReason(event.target.value)} />
         </div>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>Voltar</Button>
-          <Button type="button" className={modulePrimaryClass} onClick={() => confirm()} disabled={pending}>Confirmar</Button>
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          <Button type="button" className={modulePrimaryClass} onClick={() => confirm()} disabled={pending}>
+            <Check className="h-4 w-4" />
+            Confirmar
+          </Button>
         </div>
       </div>
     </div>,
@@ -1694,7 +1687,6 @@ export function NotificationsPage() {
   const [preferenceKind, setPreferenceKind] = useState("")
   const [noticeEmployee, setNoticeEmployee] = useState("")
   const [sent, setSent] = useState<number | null>(null)
-  const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(false)
   const noticeKinds = Object.entries(noticePhrase).map(([value, label]) => ({ value, label }))
   const notices = usePagedList<Notice>("/notices", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
@@ -1718,7 +1710,7 @@ export function NotificationsPage() {
       .catch((caught: unknown) => {
         if (active) {
           setLoaded(true)
-          setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+          toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
         }
       })
     return () => {
@@ -1741,18 +1733,16 @@ export function NotificationsPage() {
   }
 
   async function mark(id: number) {
-    setError("")
     try {
       await updateRecord("/notices", id, { read: true })
       notices.reload()
       notifyNoticesChanged()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível marcar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function setEnabled(kind: string, next: boolean) {
-    setError("")
     try {
       const row = preferences.find((item) => item.kind === kind)
       if (row) {
@@ -1761,13 +1751,12 @@ export function NotificationsPage() {
         await createRecord("/notice-preferences", { kind, enabled: false, channel: "both" })
       }
       await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o aviso.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function setChannel(kind: string, channel: (typeof noticeChannels)[number][0]) {
-    setError("")
     try {
       const row = preferenceRow(kind)
       if (row) {
@@ -1776,21 +1765,20 @@ export function NotificationsPage() {
         await createRecord("/notice-preferences", { kind, enabled: true, channel })
       }
       await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o aviso.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function sendDaily() {
-    setError("")
     try {
       const result = await createRecord<{ created: number }>("/notice-runs", {})
       setSent(result.created)
       notices.reload()
       notifyNoticesChanged()
       await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível enviar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -1841,7 +1829,6 @@ export function NotificationsPage() {
             onChange={setNoticeEmployee}
           />
         </div>
-        {notices.error ? <p className="text-sm text-destructive" role="alert">{notices.error}</p> : null}
         {notices.loading && notices.items.length === 0 && !notices.error ? (
           <div className="flex justify-center py-10" role="status">
             <Spinner label="Carregando as notificações" className="h-8 w-8 text-[#1E8A3A]" />
@@ -1864,7 +1851,10 @@ export function NotificationsPage() {
                 {item.read_at ? (
                   <span className="shrink-0 rounded-full bg-[#EAF7EF] px-2.5 py-1 text-xs font-semibold text-[#1E8A3A]">Lida</span>
                 ) : (
-                  <Button type="button" className={cn(moduleQuietClass, "h-10 shrink-0 px-3")} onClick={() => mark(item.id)}>Marcar lida</Button>
+                  <Button type="button" className={cn(moduleQuietClass, "h-10 shrink-0 px-3")} onClick={() => mark(item.id)}>
+                    <Check className="h-4 w-4" />
+                    Marcar lida
+                  </Button>
                 )}
               </li>
             ))}
@@ -1875,7 +1865,6 @@ export function NotificationsPage() {
             <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} tone="module" />
           </div>
         ) : null}
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       </section>
             ),
           },
@@ -1925,7 +1914,6 @@ export function NotificationsPage() {
             ))}
           </ul>
         )}
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       </section>
             ),
           },
@@ -2008,7 +1996,6 @@ export function ReportsPage() {
   const [result, setResult] = useState<Report | null>(null)
   const [applied, setApplied] = useState<ReportQuery | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!role || canRead) return
@@ -2037,7 +2024,7 @@ export function ReportsPage() {
       })
       .catch((caught: unknown) => {
         if (active) {
-          setError(caught instanceof Error ? caught.message : "Não foi possível listar os relatórios.")
+          toastError(caught instanceof Error ? caught.message : "Não foi possível listar os relatórios.")
         }
       })
       .finally(() => {
@@ -2053,7 +2040,6 @@ export function ReportsPage() {
     requestId.current = ticket
     const sameQuery = applied?.kind === next.kind && applied.startsOn === next.startsOn && applied.endsOn === next.endsOn && applied.employeeId === next.employeeId && applied.unitIds === next.unitIds && applied.teamIds === next.teamIds && applied.jobIds === next.jobIds && applied.journeyIds === next.journeyIds && applied.categoryIds === next.categoryIds && applied.situation === next.situation
     setLoading(true)
-    setError("")
     if (!sameQuery) {
       setApplied(null)
       setResult(null)
@@ -2067,7 +2053,7 @@ export function ReportsPage() {
       if (ticket !== requestId.current) return
       setApplied(null)
       setResult(null)
-      setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
     } finally {
       if (ticket === requestId.current) setLoading(false)
     }
@@ -2093,7 +2079,6 @@ export function ReportsPage() {
 
   async function printReport() {
     if (!applied) return
-    setError("")
     const employee = applied.employeeId ? Number(applied.employeeId) : undefined
     try {
       const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100, reportExtra(applied))
@@ -2123,7 +2108,7 @@ export function ReportsPage() {
       link.click()
       URL.revokeObjectURL(url)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível imprimir.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível imprimir.")
     }
   }
 
@@ -2179,7 +2164,6 @@ export function ReportsPage() {
         </div>
         ) : null}
       </ActionForm>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {result && applied ? (
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {(
@@ -2209,7 +2193,7 @@ export function ReportsPage() {
           <Spinner label="Consultando o relatório" className="h-8 w-8 text-[#1E8A3A]" />
         </div>
       ) : null}
-      {!loading && !result && !error ? (
+      {!loading && !result ? (
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
           <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum relatório consultado.</p>
           <p className="mt-1 text-sm text-[#71717A]">Escolha o período e consulte para ver os registros.</p>
@@ -2265,6 +2249,7 @@ export function ReportsPage() {
                   if (applied) void openPage(result.page - 1, applied)
                 }}
               >
+                <ChevronLeft className="h-4 w-4" />
                 Anterior
               </Button>
               <span className="text-sm text-[#71717A]">
@@ -2279,6 +2264,7 @@ export function ReportsPage() {
                   if (applied) void openPage(result.page + 1, applied)
                 }}
               >
+                <ChevronRight className="h-4 w-4" />
                 Próxima
               </Button>
             </div>
@@ -2411,7 +2397,6 @@ function AfdPanel() {
   const [afdFile, setAfdFile] = useState<File | null>(null)
   const [fileKey, setFileKey] = useState(0)
   const [imported, setImported] = useState<FiscalImport | null>(null)
-  const [error, setError] = useState("")
   const [generating, setGenerating] = useState(false)
   const [importing, setImporting] = useState(false)
   const importingLock = useRef(false)
@@ -2427,14 +2412,13 @@ function AfdPanel() {
   async function generateFile(event: FormEvent) {
     event.preventDefault()
     if (generating) return
-    setError("")
     setGenerating(true)
     try {
       const body = mode === "range" ? { kind, starts_on: startsOn, ends_on: endsOn || null } : { kind, year: Number(fileYear), month: Number(fileMonth) }
       await createRecord<FiscalFile>("/fiscal-files", body)
       files.reload()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setGenerating(false)
     }
@@ -2443,18 +2427,23 @@ function AfdPanel() {
   async function importAfd(file: File | null) {
     if (importingLock.current) return
     setAfdFile(file)
-    setError("")
     setImported(null)
     if (!file || !file.name.toLowerCase().endsWith(".txt")) {
-      setError("Selecione um arquivo .txt.")
+      toastError("Selecione um arquivo .txt.")
       return
     }
     importingLock.current = true
     setImporting(true)
     try {
-      const content = (await readTextFile(file)).trim()
+      let content = ""
+      try {
+        content = (await readTextFile(file)).trim()
+      } catch (caught) {
+        toastError(caught instanceof Error ? caught.message : "Não foi possível ler o arquivo.")
+        return
+      }
       if (!content) {
-        setError("O arquivo está vazio.")
+        toastError("O arquivo está vazio.")
         return
       }
       const outcome = await createRecord<FiscalImport>("/fiscal-files/imports", { content })
@@ -2462,8 +2451,8 @@ function AfdPanel() {
       setAfdFile(null)
       setFileKey((current) => current + 1)
       files.reload()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível importar.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       importingLock.current = false
       setImporting(false)
@@ -2559,7 +2548,6 @@ function AfdPanel() {
           </p>
         ) : null}
       </section>
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       <section className={moduleCardClass}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
@@ -2598,7 +2586,6 @@ function AfdPanel() {
             />
           </div>
         </div>
-        {files.error ? <p className="mt-4 text-sm text-destructive" role="alert">{files.error}</p> : null}
         {files.loading && files.items.length === 0 ? (
           <div className="flex justify-center py-10" role="status">
             <Spinner label="Carregando os arquivos" className="h-8 w-8 text-[#1E8A3A]" />
@@ -2651,14 +2638,12 @@ function PayrollTotalsPanel() {
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [result, setResult] = useState<Payroll | null>(null)
   const [notice, setNotice] = useState("")
-  const [error, setError] = useState("")
   const [consulting, setConsulting] = useState(false)
   const [generating, setGenerating] = useState(false)
 
   async function consult(yearValue: number, monthValue: number) {
     const current = ++requestId.current
     setConsulting(true)
-    setError("")
     setNotice("")
     setResult(null)
     try {
@@ -2668,7 +2653,7 @@ function PayrollTotalsPanel() {
     } catch (caught) {
       if (current !== requestId.current) return
       setResult(null)
-      setError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível consultar.")
     } finally {
       if (current === requestId.current) setConsulting(false)
     }
@@ -2681,14 +2666,13 @@ function PayrollTotalsPanel() {
 
   async function generatePayroll() {
     if (generating) return
-    setError("")
     setNotice("")
     setGenerating(true)
     try {
       await createRecord<FiscalFile>("/fiscal-files", { kind: "payroll", year: Number(year), month: Number(month) })
       setNotice("Arquivo gerado. Ele aparece na opção AFD.")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o arquivo.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setGenerating(false)
     }
@@ -2734,13 +2718,12 @@ function PayrollTotalsPanel() {
         <p className="text-sm text-[#64748B]">Consultar os totais fica com o administrador.</p>
       )}
       {notice ? <p className="text-sm text-[#64748B]" role="status">{notice}</p> : null}
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       {consulting ? (
         <section className={cn(moduleCardClass, "flex justify-center py-10")} role="status">
           <Spinner label="Consultando os totais" className="h-8 w-8 text-[#1E8A3A]" />
         </section>
       ) : null}
-      {!consulting && !result && !error && canManage ? (
+      {!consulting && !result && canManage ? (
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
             <conceptIcon.employee className="h-6 w-6" strokeWidth={1.75} aria-hidden />

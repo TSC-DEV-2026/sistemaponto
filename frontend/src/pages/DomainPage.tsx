@@ -11,7 +11,7 @@ export function DomainPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div>
         <h1 className="text-xl font-semibold">{item.label}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{item.lead}</p>

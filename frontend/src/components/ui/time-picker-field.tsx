@@ -1,4 +1,4 @@
-import { Clock } from "lucide-react"
+import { Check, Clock, X } from "lucide-react"
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent, type RefObject } from "react"
 import { createPortal } from "react-dom"
 
@@ -38,7 +38,6 @@ export function TimePickerField({
   required = false,
   disabled = false,
   readOnly = false,
-  error = false,
   inputLabel,
 }: {
   id: string
@@ -48,7 +47,6 @@ export function TimePickerField({
   required?: boolean
   disabled?: boolean
   readOnly?: boolean
-  error?: boolean
   inputLabel?: string
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -243,8 +241,7 @@ export function TimePickerField({
       <div
         className={cn(
           "flex h-12 min-w-0 items-center gap-2 rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 shadow-[0_3px_8px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-[#B8C3CF] hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]",
-          (open || error) && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
-          error && "border-brand-danger shadow-[0_0_0_3px_rgba(239,83,80,0.12)]",
+          open && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
           disabled && "cursor-not-allowed bg-brand-paper",
           readOnly && "bg-brand-paper",
         )}
@@ -310,10 +307,12 @@ export function TimePickerField({
             <ClockColumn label="Minutos" total={60} selected={minute} listRef={minuteListRef} onSelect={setMinute} onMove={move} />
           </div>
           <div className="mt-2.5 flex justify-end gap-1.5">
-            <button type="button" className="h-8 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-sm text-[#0A0A0A] transition-colors duration-150 hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30" onClick={cancel}>
+            <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-sm text-[#0A0A0A] transition-colors duration-150 hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30" onClick={cancel}>
+              <X className="h-3.5 w-3.5" aria-hidden />
               Cancelar
             </button>
-            <button type="button" className="h-8 rounded-lg bg-[#1E8A3A] px-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#219440] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-not-allowed disabled:opacity-40" disabled={hour === null || minute === null} onClick={confirm}>
+            <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1E8A3A] px-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#219440] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-not-allowed disabled:opacity-40" disabled={hour === null || minute === null} onClick={confirm}>
+              <Check className="h-3.5 w-3.5" aria-hidden />
               Confirmar
             </button>
           </div>

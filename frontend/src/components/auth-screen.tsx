@@ -18,7 +18,6 @@ type FieldProps = {
   id: string
   label: string
   icon: LucideIcon
-  invalid?: boolean
   password?: boolean
   children: ReactElement<{ className?: string }>
 }
@@ -32,13 +31,11 @@ export const authButtonClass =
 const passwordEyeClass =
   "[&_button]:text-[#94A3B8] [&_button:hover]:text-[#64748B] [&_button_svg]:h-[18px] [&_button_svg]:w-[18px] [&_button_svg]:stroke-[1.75] [&_button:focus-visible]:rounded-md [&_button:focus-visible]:outline-none [&_button:focus-visible]:ring-2 [&_button:focus-visible]:ring-[rgb(124_207_18/0.35)]"
 
-export function authInputClass(invalid: boolean, password = false) {
+export function authInputClass(password = false) {
   return cn(
     fieldClassName,
     password ? "!pr-[44px]" : "!pr-[14px]",
-    invalid
-      ? "border-brand-danger hover:border-brand-danger focus:border-brand-danger focus:shadow-[0_0_0_1px_rgba(239,83,80,0.12),0_6px_18px_rgba(239,83,80,0.10)] hover:focus:border-brand-danger"
-      : "hover:border-[#C5CDD6] focus:border-[#53bb7e] focus:shadow-[0_0_0_1px_rgba(50,149,92,0.22),0_6px_18px_rgba(50,149,92,0.16),0_10px_28px_rgba(80,186,130,0.18)] hover:focus:border-[#56ad7b]",
+    "hover:border-[#C5CDD6] focus:border-[#53bb7e] focus:shadow-[0_0_0_1px_rgba(50,149,92,0.22),0_6px_18px_rgba(50,149,92,0.16),0_10px_28px_rgba(80,186,130,0.18)] hover:focus:border-[#56ad7b]",
   )
 }
 
@@ -73,9 +70,9 @@ export function AuthScreen({ title, description, side = "right", children }: Aut
   )
 }
 
-export function FieldBlock({ id, label, icon: Icon, invalid = false, password = false, children }: FieldProps) {
+export function FieldBlock({ id, label, icon: Icon, password = false, children }: FieldProps) {
   const input = cloneElement(children, {
-    className: cn(authInputClass(invalid, password), children.props.className),
+    className: cn(authInputClass(password), children.props.className),
   })
 
   return (

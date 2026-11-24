@@ -1,4 +1,4 @@
-import { AlertTriangle, Bell, Calendar, CalendarOff, CheckCircle2, Clock, FilePlus2 } from "lucide-react"
+import { AlertTriangle, Bell, Calendar, CalendarOff, CheckCircle2, Clock, FilePlus2, Search } from "lucide-react"
 import { FormEvent, useEffect, useState, type ReactNode } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -16,6 +16,7 @@ import { fieldClass } from "@/components/workforce/CatalogPanel"
 import { moduleLabelClass } from "@/components/workforce/module-visual"
 import { getCalculations, type Employee, type TimeResult, type Calculations } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { resultNote } from "@/pages/workforce/journey"
 import { cn } from "@/utils/cn"
 import { punchDay, showDate, showDuration } from "@/utils/labels"
@@ -178,7 +179,6 @@ export function CalculationsPanel({
   const [endsOn, setEndsOn] = useState(returning && saved ? saved.endsOn : today)
   const [result, setResult] = useState<Calculations | null>(returning && saved ? saved.result : null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
   const [open, setOpen] = useState<{ day: string; mode: ApuracaoMode } | null>(null)
   const role = useAuthStore((state) => state.user?.role)
   const canAct = role === "admin" || role === "manager"
@@ -208,7 +208,6 @@ export function CalculationsPanel({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     if (appearance === "module") {
       setResult(null)
       setLoading(true)
@@ -229,7 +228,7 @@ export function CalculationsPanel({
       }
     } catch (caught) {
       setResult(null)
-      setError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
     } finally {
       if (appearance === "module") setLoading(false)
     }
@@ -256,7 +255,7 @@ export function CalculationsPanel({
         })
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
     }
   }
 
@@ -282,10 +281,10 @@ export function CalculationsPanel({
             <DatePickerField id="result-end" label="Até" value={endsOn} onChange={setEndsOn} required />
           </div>
           <Button type="submit" className="mt-5 h-12 w-full rounded-[10px] bg-brand-cta text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgba(30,138,58,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
+            <Search className="h-4 w-4" />
             Apurar
           </Button>
         </ActionForm>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {loading ? (
           <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-5 py-10">
             <Spinner />
@@ -336,9 +335,11 @@ export function CalculationsPanel({
             <input id="result-end" className={fieldClass} type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} required />
           </div>
         </div>
-        <Button type="submit">Apurar</Button>
+        <Button type="submit">
+          <Search className="h-4 w-4" />
+          Apurar
+        </Button>
       </ActionForm>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {result ? (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
           {visible.map((item) => (

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { Check, CircleCheck, Filter, Search, X } from "lucide-react"
+import { Check, CircleCheck, Filter, Search, X, Lock } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -239,19 +239,22 @@ export function ClosingFormPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              className={cn("inline-flex h-10 items-center gap-2 rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allMarked ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
+              className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allMarked ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
               disabled={!peopleReady || candidates.length === 0}
               aria-pressed={allMarked}
               onClick={() => setChosen((current) => [...new Set([...current, ...candidates.map((item) => item.id)])])}
             >
-              <span className={cn("flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border", allMarked ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
+              <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", allMarked ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
                 {allMarked ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
               </span>
               Selecionar todos do filtro ({candidates.length})
             </button>
-            <div className="flex items-center gap-4">
-              <button type="button" className={cn(moduleQuietClass, "h-10 px-3 disabled:cursor-not-allowed disabled:opacity-50")} disabled={!peopleReady || chosen.length === 0} onClick={() => setChosen([])}>Limpar seleção</button>
-              <p className="text-sm font-medium text-[#1E8A3A]">{chosen.length} selecionados</p>
+            <div className="flex shrink-0 flex-wrap items-center gap-3">
+              <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-10 shrink-0 whitespace-nowrap px-3")} disabled={!peopleReady || chosen.length === 0} onClick={() => setChosen([])}>
+                <X className="h-4 w-4 shrink-0" />
+                Limpar seleção
+              </Button>
+              <p className="whitespace-nowrap text-sm font-medium text-[#1E8A3A]">{chosen.length} selecionados</p>
             </div>
           </div>
           {filtersOpen ? (
@@ -309,6 +312,7 @@ export function ClosingFormPage() {
         </div>
         <div className="flex justify-end">
           <Button type="submit" className={modulePrimaryClass} disabled={confirming || !peopleReady}>
+            <Lock className="h-4 w-4" />
             Fechar período
           </Button>
         </div>

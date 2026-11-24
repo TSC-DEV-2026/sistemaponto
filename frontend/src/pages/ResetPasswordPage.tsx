@@ -7,6 +7,7 @@ import { ActionForm } from "@/components/ui/action-form"
 import { Button } from "@/components/ui/button"
 import { PasswordField } from "@/components/ui/password-field"
 import { resetPassword } from "@/services/auth.service"
+import { toastError } from "@/store/toast.store"
 
 const REDIRECT_SECONDS = 4
 
@@ -16,10 +17,8 @@ export function ResetPasswordPage() {
   const [token] = useState(() => params.get("token") || "")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
-  const [error, setError] = useState("")
   const [defined, setDefined] = useState(false)
   const [seconds, setSeconds] = useState(REDIRECT_SECONDS)
-  const invalid = error.length > 0
 
   if (token && window.location.search.includes("token=")) {
     window.history.replaceState({}, "", "/reset-password")
@@ -39,20 +38,19 @@ export function ResetPasswordPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     if (password !== confirm) {
-      setError("A confirmação não confere com a senha nova.")
+      toastError("A confirmação não confere com a senha nova.")
       return
     }
     if (!token) {
-      setError("Token ausente. Abra o link enviado por e-mail.")
+      toastError("Token ausente. Abra o link enviado por e-mail.")
       return
     }
     try {
       await resetPassword(token, password)
       setDefined(true)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível definir a senha.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -69,13 +67,12 @@ export function ResetPasswordPage() {
     <AuthScreen title="Definir senha" description="Escolha uma senha nova para continuar.">
       <ActionForm className="mt-8" onSubmit={onSubmit}>
         <div className="space-y-5">
-          <FieldBlock id="password" label="Senha nova" icon={Lock} invalid={invalid} password>
+          <FieldBlock id="password" label="Senha nova" icon={Lock} password>
             <PasswordField id="password" autoComplete="new-password" placeholder="Digite a senha nova" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
           </FieldBlock>
-          <FieldBlock id="confirm" label="Confirmar senha" icon={Lock} invalid={invalid} password>
+          <FieldBlock id="confirm" label="Confirmar senha" icon={Lock} password>
             <PasswordField id="confirm" autoComplete="new-password" placeholder="Confirme a senha nova" minLength={8} maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
           </FieldBlock>
-          {invalid ? <p className="text-sm text-brand-danger" role="alert">{error}</p> : null}
         </div>
         <Button type="submit" className={authButtonClass}>
           Salvar

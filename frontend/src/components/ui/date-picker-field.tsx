@@ -95,7 +95,6 @@ export function DatePickerField({
   onChange,
   required = false,
   disabled = false,
-  error = false,
   min,
   max,
   placeholder = "DD/MM/AAAA",
@@ -106,7 +105,6 @@ export function DatePickerField({
   onChange: (value: string) => void
   required?: boolean
   disabled?: boolean
-  error?: boolean
   min?: string
   max?: string
   placeholder?: string
@@ -249,8 +247,7 @@ export function DatePickerField({
       <div
         className={cn(
           "flex h-12 cursor-text items-center gap-2 rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 shadow-[0_3px_8px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-[#B8C3CF] hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]",
-          (open || error) && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
-          error && "border-brand-danger shadow-[0_0_0_3px_rgba(239,83,80,0.12)]",
+          open && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
           disabled && "pointer-events-none bg-brand-paper",
         )}
         onMouseDown={(event) => {

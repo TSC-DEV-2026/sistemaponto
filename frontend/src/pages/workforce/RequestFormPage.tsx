@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
-import { Calendar, Clock, FileText, MessageSquare, Plus, Trash2, type LucideIcon } from "lucide-react"
+import { Calendar, Clock, FileText, MessageSquare, Plus, Trash2, Send, type LucideIcon } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -15,6 +15,7 @@ import { momentsOf } from "@/components/workforce/PunchDay"
 import { CertificatePhotoField, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDraft } from "@/components/workforce/TimeOffFields"
 import { createRecord, listRecords, uploadCertificatePhoto, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { manualTimeOffKinds, requestKindLabel } from "@/utils/labels"
 
@@ -42,7 +43,6 @@ export function RequestFormPage() {
   const [allowed, setAllowed] = useState(false)
   const [blocked, setBlocked] = useState("")
   const [reasons, setReasons] = useState<NamedRecord[]>([])
-  const [error, setError] = useState("")
   const [flow, setFlow] = useState<"adjustment" | "absence">("adjustment")
   const [day, setDay] = useState("")
   const [times, setTimes] = useState(["", ""])
@@ -80,7 +80,7 @@ export function RequestFormPage() {
       .catch((caught: unknown) => {
         if (!active) return
         setAllowed(false)
-        setError(caught instanceof Error ? caught.message : "Não foi possível abrir a solicitação.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível abrir a solicitação.")
       })
       .finally(() => {
         if (active) setReady(true)
@@ -128,7 +128,6 @@ export function RequestFormPage() {
 
   async function requestAdjustment(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       await createRecord("/requests", {
         kind: "adjustment",
@@ -137,16 +136,21 @@ export function RequestFormPage() {
         reason_id: reasonId ? Number(reasonId) : null,
       })
       navigate("/requests")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível solicitar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function requestTimeOff(event: FormEvent) {
     event.preventDefault()
-    setError("")
+    let body: ReturnType<typeof timeOffBody>
     try {
-      const body = timeOffBody(offDraft, offKind)
+      body = timeOffBody(offDraft, offKind)
+    } catch (caught) {
+      toastError(caught instanceof Error ? caught.message : "Não foi possível solicitar.")
+      return
+    }
+    try {
       if (offKind === "certificate" && offDraft.photo) {
         body.photo_key = (await uploadCertificatePhoto(offDraft.photo)).key
       }
@@ -157,8 +161,8 @@ export function RequestFormPage() {
         reason_id: offReasonId ? Number(offReasonId) : null,
       })
       navigate("/requests")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível solicitar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -176,7 +180,6 @@ export function RequestFormPage() {
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/requests" appearance="detail" />
       {ready && blocked ? <p className="text-sm text-[#52525B]">{blocked}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {allowed ? (
         <>
           <section className={requestCardClass}>
@@ -307,6 +310,7 @@ export function RequestFormPage() {
               </section>
               <div className="flex justify-end">
                 <Button type="submit" className={modulePrimaryClass}>
+                  <Send className="h-4 w-4" />
                   {adjustment ? "Enviar ajuste" : "Enviar solicitação"}
                 </Button>
               </div>

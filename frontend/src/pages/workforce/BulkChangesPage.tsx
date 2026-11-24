@@ -16,6 +16,9 @@ import {
   Trash2,
   UserMinus,
   UserRound,
+  ListChecks,
+  Play,
+  X,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -34,6 +37,7 @@ import { OrganizationFilterFields, useOrganizationFilters } from "@/components/w
 import { createRecord, listRecords, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { isoWeekday } from "@/pages/workforce/journey"
 import { conceptIcon } from "@/utils/concept-icons"
@@ -201,7 +205,6 @@ export function BulkChangesPage() {
   const [personDraft, setPersonDraft] = useState("")
   const [person, setPerson] = useState("")
   const [choices, setChoices] = useState<Record<string, Choice[]>>({})
-  const [error, setError] = useState("")
   const [saved, setSaved] = useState(0)
   const [listed, setListed] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -236,7 +239,7 @@ export function BulkChangesPage() {
         if (active) setChoices({ ...Object.fromEntries(loaded), "/categories": groups })
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
       })
     return () => {
       active = false
@@ -306,7 +309,6 @@ export function BulkChangesPage() {
     setPerson("")
     setStep("operation")
     setScreen("wizard")
-    setError("")
   }
 
   function chooseOperation(next: OperationId) {
@@ -319,24 +321,21 @@ export function BulkChangesPage() {
       setNote("")
     }
     setOperationId(next)
-    setError("")
   }
 
   function goPeople() {
     if (!operationId) {
-      setError("Selecione a operação.")
+      toastError("Selecione a operação.")
       return
     }
-    setError("")
     setStep("people")
   }
 
   function goConfig() {
     if (selected.length === 0) {
-      setError("Selecione ao menos um funcionário.")
+      toastError("Selecione ao menos um funcionário.")
       return
     }
-    setError("")
     setStep("config")
   }
 
@@ -350,7 +349,6 @@ export function BulkChangesPage() {
   async function markFilter() {
     const key = queryKeyRef.current
     setMarking(true)
-    setError("")
     try {
       const first = await listRecords<Employee>("/employees", { page: 1, limit: 100, ...query })
       const picks = first.items.map((item) => ({ id: item.id, name: item.full_name || "Não informado" }))
@@ -366,7 +364,7 @@ export function BulkChangesPage() {
       })
       if (queryKeyRef.current === key) setAllFilterSelected(true)
     } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível marcar.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível marcar.")
     } finally {
       setMarking(false)
     }
@@ -381,28 +379,28 @@ export function BulkChangesPage() {
 
   function saveRule() {
     if (!operation) {
-      setError("Selecione a operação.")
+      toastError("Selecione a operação.")
       setStep("operation")
       return
     }
     if (selected.length === 0) {
-      setError("Selecione ao menos um funcionário.")
+      toastError("Selecione ao menos um funcionário.")
       setStep("people")
       return
     }
     if (operation.needsValue && !value) {
-      setError("Informe o novo valor.")
+      toastError("Informe o novo valor.")
       return
     }
     if (operation.needsDate && !validFrom) {
-      setError("Informe a vigência.")
+      toastError("Informe a vigência.")
       return
     }
     const chosen = operation.id === "journey" ? (choices["/journeys"] || []).find((item) => item.value === value) : undefined
     if (chosen?.kind === "programada") {
       const day = Number(cycleDay)
       if (!cycleDay || day < 1 || day > (chosen.length || 0)) {
-        setError("Informe o dia da sequência.")
+        toastError("Informe o dia da sequência.")
         return
       }
     }
@@ -419,7 +417,6 @@ export function BulkChangesPage() {
     setRules((current) => (editingId ? current.map((item) => (item.clientRuleId === editingId ? rule : item)) : [...current, rule]))
     setEditingId(null)
     setScreen("home")
-    setError("")
   }
 
   function leaveWizard() {
@@ -428,11 +425,9 @@ export function BulkChangesPage() {
       return
     }
     setScreen("home")
-    setError("")
   }
 
   function backStep() {
-    setError("")
     if (step === "config") setStep("people")
     else if (step === "people") setStep("operation")
     else leaveWizard()
@@ -448,10 +443,10 @@ export function BulkChangesPage() {
         await createRecord("/employees/changes", rulePayload(rule))
         doneIds.push(rule.clientRuleId)
         lines.push(ruleLine(rule))
-      } catch (caught) {
+      } catch {
+        // O interceptor já avisou o erro da regra.
         setRules(pending.filter((item) => !doneIds.includes(item.clientRuleId)))
         if (doneIds.length > 0) setSaved((current) => current + 1)
-        setError(`A regra ${index + 1} não foi aplicada. ${caught instanceof Error ? caught.message : "Não foi possível executar."} As regras anteriores desta execução já foram salvas. As seguintes continuam na lista.`)
         return
       }
     }
@@ -460,7 +455,6 @@ export function BulkChangesPage() {
     setRules([])
     setScreen("done")
     setConfirming(false)
-    setError("")
     setSaved((current) => current + 1)
   }
 
@@ -472,15 +466,11 @@ export function BulkChangesPage() {
       {screen === "home" && rules.length > 0 ? (
         <RulesHome
           rules={rules}
-          error={error}
           onAdd={() => begin({ editingId: null, operationId: "", people: [], value: "", validFrom: "", note: "", cycleDay: "" })}
           onEdit={(rule) => begin({ editingId: rule.clientRuleId, operationId: rule.operationId, people: rule.people, value: rule.value, validFrom: rule.validFrom, note: rule.note, cycleDay: rule.cycleDay })}
           onCopy={(rule) => begin({ editingId: null, operationId: rule.operationId, people: rule.people, value: rule.value, validFrom: rule.validFrom, note: rule.note, cycleDay: rule.cycleDay })}
           onRemove={(id) => setRules((current) => current.filter((item) => item.clientRuleId !== id))}
-          onReview={() => {
-            setError("")
-            setScreen("review")
-          }}
+          onReview={() => setScreen("review")}
         />
       ) : null}
       {screen === "wizard" ? (
@@ -554,7 +544,6 @@ export function BulkChangesPage() {
                   )
                 })}
               </div>
-              {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
               <div className="flex justify-end">
                 <Button type="button" className={modulePrimaryClass} disabled={!operationId} onClick={goPeople}>
                   Avançar
@@ -593,27 +582,29 @@ export function BulkChangesPage() {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <button
                   type="button"
-                  className={cn("inline-flex h-10 items-center gap-2 rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allFilterSelected ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
+                  className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allFilterSelected ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
                   disabled={list.total === 0 || marking}
                   aria-pressed={allFilterSelected}
                   onClick={() => void markFilter()}
                 >
-                  <span className={cn("flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border", allFilterSelected ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
+                  <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", allFilterSelected ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
                     {marking ? <Spinner label="Marcando os funcionários" className="h-3.5 w-3.5 text-[#1E8A3A]" /> : allFilterSelected ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
                   </span>
                   Selecionar todos do filtro ({list.total})
                 </button>
-                <div className="flex items-center gap-4">
-                  <button type="button" className={cn(moduleQuietClass, "h-10 px-3 disabled:cursor-not-allowed disabled:opacity-50")} disabled={selected.length === 0} onClick={() => { setSelected([]); setAllFilterSelected(false) }}>Limpar seleção</button>
-                  <p className="text-sm font-medium text-[#1E8A3A]">{selected.length} selecionados</p>
+                <div className="flex shrink-0 flex-wrap items-center gap-3">
+                  <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-10 shrink-0 whitespace-nowrap px-3")} disabled={selected.length === 0} onClick={() => { setSelected([]); setAllFilterSelected(false) }}>
+                    <X className="h-4 w-4 shrink-0" />
+                    Limpar seleção
+                  </Button>
+                  <p className="whitespace-nowrap text-sm font-medium text-[#1E8A3A]">{selected.length} selecionados</p>
                 </div>
               </div>
-              {list.error ? <p className="mt-4 text-sm text-destructive" role="alert">{list.error}</p> : null}
               {list.loading && !listed ? (
                 <div className="flex justify-center py-10" role="status">
                   <Spinner label="Carregando os funcionários" className="h-8 w-8 text-[#1E8A3A]" />
                 </div>
-              ) : list.items.length === 0 ? (
+              ) : list.items.length === 0 && !list.error ? (
                 <div className="px-2 py-10 text-center">
                   <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum funcionário</p>
                   <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
@@ -644,7 +635,6 @@ export function BulkChangesPage() {
                   <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} />
                 </div>
               ) : null}
-              {error ? <p className="mt-4 text-sm text-destructive" role="alert">{error}</p> : null}
               <div className="mt-5 flex flex-wrap justify-end gap-2">
                 <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} onClick={backStep}>
                   <ArrowLeft className="h-4 w-4" />
@@ -740,7 +730,6 @@ export function BulkChangesPage() {
                   </div>
                 ) : null}
               </div>
-              {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} onClick={backStep}>
                   <ArrowLeft className="h-4 w-4" />
@@ -762,13 +751,9 @@ export function BulkChangesPage() {
           distinctPeople={distinctPeople}
           sharedDate={sharedDate}
           expanded={expanded}
-          error={error}
           onToggle={(id) => setExpanded((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))}
           onBack={() => setScreen("home")}
-          onRun={() => {
-            setError("")
-            setConfirming(true)
-          }}
+          onRun={() => setConfirming(true)}
         />
       ) : null}
       {screen === "done" && result ? (
@@ -813,7 +798,6 @@ export function BulkChangesPage() {
         lines={rules.map(ruleLine)}
         notice="Cada regra é gravada na hora. Se uma falhar, as anteriores desta execução permanecem salvas e as seguintes ficam na lista."
         confirmLabel="Confirmar e executar"
-        error={error}
         onClose={() => setConfirming(false)}
         onConfirm={confirmRun}
       />
@@ -824,7 +808,6 @@ export function BulkChangesPage() {
         lines={[]}
         notice=""
         confirmLabel="Descartar"
-        error=""
         onClose={() => {
           setDiscarding(false)
           if (blocker.state === "blocked") blocker.reset()
@@ -837,7 +820,6 @@ export function BulkChangesPage() {
           setDiscarding(false)
           setScreen("home")
           setEditingId(null)
-          setError("")
         }}
       />
     </div>
@@ -898,7 +880,6 @@ function EmptyHome({ onStart }: { onStart: () => void }) {
 
 function RulesHome({
   rules,
-  error,
   onAdd,
   onEdit,
   onCopy,
@@ -906,7 +887,6 @@ function RulesHome({
   onReview,
 }: {
   rules: Rule[]
-  error: string
   onAdd: () => void
   onEdit: (rule: Rule) => void
   onCopy: (rule: Rule) => void
@@ -932,7 +912,6 @@ function RulesHome({
       </div>
       <div className="mt-5">
         <h3 className="text-lg font-semibold text-[#0A0A0A]">Regras configuradas ({rules.length})</h3>
-        {error ? <p className="mt-4 text-sm text-destructive" role="alert">{error}</p> : null}
         <ul className="mt-4 space-y-2">
           {rules.map((rule) => {
             const operation = operationOf(rule.operationId)
@@ -976,7 +955,10 @@ function RulesHome({
           <span>Você pode adicionar quantas regras forem necessárias antes de executar. Cada regra é gravada na hora.</span>
         </p>
         <div className="mt-5 flex justify-end">
-          <Button type="button" className={modulePrimaryClass} onClick={onReview}>Revisar e executar</Button>
+          <Button type="button" className={modulePrimaryClass} onClick={onReview}>
+            <ListChecks className="h-4 w-4" />
+            Revisar e executar
+          </Button>
         </div>
       </div>
     </section>
@@ -988,7 +970,6 @@ function ReviewScreen({
   distinctPeople,
   sharedDate,
   expanded,
-  error,
   onToggle,
   onBack,
   onRun,
@@ -997,7 +978,6 @@ function ReviewScreen({
   distinctPeople: number
   sharedDate: string
   expanded: string[]
-  error: string
   onToggle: (id: string) => void
   onBack: () => void
   onRun: () => void
@@ -1089,9 +1069,11 @@ function ReviewScreen({
         })}
       </ul>
       <p className="rounded-xl border border-[#F3D7A1] bg-[#FFF8EB] px-4 py-3 text-sm text-[#8A5A00]">Cada regra é gravada na hora. Se uma falhar, as anteriores desta execução permanecem salvas e as seguintes ficam na lista. Dentro de uma regra, se uma pessoa falhar, ninguém daquela regra é salvo.</p>
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
       <div className="flex justify-end">
-        <Button type="button" className={modulePrimaryClass} onClick={onRun}>Executar alterações</Button>
+        <Button type="button" className={modulePrimaryClass} onClick={onRun}>
+          <Play className="h-4 w-4" />
+          Executar alterações
+        </Button>
       </div>
       </section>
     </div>
@@ -1105,7 +1087,6 @@ function ConfirmDialog({
   lines,
   notice,
   confirmLabel,
-  error,
   onClose,
   onConfirm,
 }: {
@@ -1115,7 +1096,6 @@ function ConfirmDialog({
   lines: string[]
   notice: string
   confirmLabel: string
-  error: string
   onClose: () => void
   onConfirm: () => Promise<void>
 }) {
@@ -1195,10 +1175,15 @@ function ConfirmDialog({
             <span>{notice}</span>
           </p>
         ) : null}
-        {error ? <p className="mt-3 text-sm text-destructive" role="alert">{error}</p> : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={onClose} disabled={pending}>Cancelar</Button>
-          <Button ref={confirmRef} type="button" className={modulePrimaryClass} pending={pending} onClick={() => void confirm()}>{confirmLabel}</Button>
+          <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={onClose} disabled={pending}>
+            <X className="h-4 w-4" />
+            Cancelar
+          </Button>
+          <Button ref={confirmRef} type="button" className={modulePrimaryClass} pending={pending} onClick={() => void confirm()}>
+            {confirmLabel === "Descartar" ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+            {confirmLabel}
+          </Button>
         </div>
       </div>
     </div>,
