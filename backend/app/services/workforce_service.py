@@ -8,7 +8,20 @@ from app.core.billing import MAX_CAPACITY, MIN_CAPACITY, PRICE_CENTS, monthly_am
 from app.core.config import settings
 from app.core.cpf import normalize_cpf
 from app.core.duration import show_duration
-from app.core.fiscal_file import parse_afd, render_aej, render_afd, render_payroll
+from app.core.fiscal_file import (
+    AejAbsence,
+    AejEmployee,
+    AejPunch,
+    AfdPunch,
+    employer_from,
+    parse_afd,
+    payroll_lines,
+    pending,
+    render_aej,
+    render_afd,
+    render_payroll,
+)
+from app.core.payroll_events import PAYROLL_SYSTEM_EVENTS
 from app.core.hour_bank import add_months, balance_minutes_by_day, project_balance
 from app.core.journey_plan import (
     ORIGIN,
@@ -80,6 +93,7 @@ from app.models.workforce import (
     FaceEmbedding,
     FiscalFile,
     Holiday,
+    PayrollEvent,
     HourBankEntry,
     NoticeEmail,
     NoticePreference,
@@ -1586,31 +1600,74 @@ class WorkforceService:
         self._can_manage_period(scope)
         return self._row(FiscalFile, scope, row_id)
 
+    def list_payroll_events(self, scope: Scope, page: int, limit: int, equals: dict):
+        self._can_manage_period(scope)
+        return self.repo.list_rows(
+            PayrollEvent, scope.tenant_id, page=page, limit=limit, equals=equals, descending=False
+        )
+
+    def get_payroll_event(self, scope: Scope, row_id: int) -> PayrollEvent:
+        self._can_manage_period(scope)
+        return self._row(PayrollEvent, scope, row_id)
+
+    def create_payroll_event(self, scope: Scope, data: dict) -> PayrollEvent:
+        self._can_manage_period(scope)
+        payload = self._payroll_event_payload(scope, data, current=None)
+        return self.repo.add(PayrollEvent(tenant_id=scope.tenant_id, **payload))
+
+    def update_payroll_event(self, scope: Scope, row_id: int, data: dict) -> PayrollEvent:
+        self._can_manage_period(scope)
+        row = self.get_payroll_event(scope, row_id)
+        payload = self._payroll_event_payload(scope, data, current=row)
+        for key, value in payload.items():
+            setattr(row, key, value)
+        return self.repo.add(row)
+
+    def delete_payroll_event(self, scope: Scope, row_id: int) -> None:
+        self._can_manage_period(scope)
+        self.repo.delete(self.get_payroll_event(scope, row_id))
+
     def create_fiscal_file(self, scope: Scope, data: dict) -> FiscalFile:
         self._can_manage_period(scope)
         kind = data["kind"]
         start, end = self._closing_bounds(data)
         if (end - start).days + 1 > 366:
             raise AppError(400, "O arquivo aceita no máximo 366 dias")
-        if kind == "aej" and self.repo.closed_exact(scope.tenant_id, start, end) is None:
-            raise AppError(409, "A exportação de AEJ sai só de período fechado")
+        tenant = self.repo.get_tenant(scope.tenant_id)
+        employer = employer_from(getattr(tenant, "document", None), getattr(tenant, "name", None))
+        generated = self.clock()
         if kind == "afd":
-            content = render_afd(self._afd_rows(scope, start, end))
+            content = render_afd(
+                employer=employer,
+                starts_on=start,
+                ends_on=end,
+                generated_at=generated,
+                punches=self._afd_punches(scope, start, end),
+            )
         elif kind == "aej":
-            content = render_aej(self._aej_rows(scope, start, end))
+            employees, punches, absences = self._aej_payload(scope, start, end)
+            content = render_aej(
+                employer=employer,
+                starts_on=start,
+                ends_on=end,
+                generated_at=generated,
+                employees=employees,
+                punches=punches,
+                absences=absences,
+            )
         elif kind == "payroll":
+            events = self._active_payroll_events(scope)
+            if not events:
+                raise AppError(400, "Configure ao menos um evento da folha.")
+            time_format = data.get("time_format") or "centesimal"
+            if time_format not in {"centesimal", "sexagesimal"}:
+                raise AppError(400, "Formato de hora inválido.")
             content = render_payroll(
-                [
-                    (
-                        item["cpf"],
-                        item["worked_minutes"],
-                        item["overtime_minutes"],
-                        item["night_additional_minutes"],
-                        item["shortage_minutes"],
-                        item["balance_minutes"],
-                    )
-                    for item in self._payroll_items(scope, start, end)
-                ]
+                payroll_lines(
+                    items=self._payroll_items(scope, start, end),
+                    events=events,
+                    time_format=time_format,
+                )
             )
         else:
             raise AppError(400, "Tipo de arquivo inválido")
@@ -1624,7 +1681,7 @@ class WorkforceService:
                 valid=True,
                 invalidated_at=None,
                 created_by_person_id=scope.person_id,
-                created_at=self.clock(),
+                created_at=generated,
             )
         )
         self._audit(scope, None, "fiscal_file", row.id, None, kind, start)
@@ -2263,6 +2320,7 @@ class WorkforceService:
     def _payroll_item(self, scope: Scope, employee: Employee, starts_on: date, finish: date, counts: dict[int, int]) -> dict:
         punch_count = counts.get(employee.id, 0) if finish >= starts_on else 0
         worked = overtime = night = shortage = balance = 0
+        absence_days = allowance_days = vacation_days = leave_days = certificate_days = 0
         if finish >= starts_on and employee.admission_date <= finish:
             day_start = employee.admission_date if employee.admission_date > starts_on else starts_on
             for day in self._day_results(scope, employee, day_start, finish):
@@ -2270,72 +2328,271 @@ class WorkforceService:
                 overtime += day["overtime_minutes"]
                 night += day["night_additional_minutes"]
                 shortage += day["shortage_minutes"]
+                if day.get("absence"):
+                    absence_days += 1
+            for row in self.repo.occurrences_between(scope.tenant_id, employee.id, starts_on, finish):
+                span_start = row.starts_on if row.starts_on > starts_on else starts_on
+                span_end = row.ends_on if row.ends_on < finish else finish
+                if span_end < span_start:
+                    continue
+                days = (span_end - span_start).days + 1
+                if row.kind == "allowances":
+                    allowance_days += days
+                elif row.kind == "vacations":
+                    vacation_days += days
+                elif row.kind == "leaves":
+                    leave_days += days
+                elif row.kind == "certificates":
+                    certificate_days += days
             if employee.hour_bank:
                 balance = self._project_hour_bank(scope, employee, finish)["balance_minutes"]
         return {
             "employee_id": employee.id,
             "full_name": employee.full_name,
             "cpf": employee.cpf,
+            "registration_number": employee.registration_number,
             "punch_count": punch_count,
             "worked_minutes": worked,
             "overtime_minutes": overtime,
             "night_additional_minutes": night,
             "shortage_minutes": shortage,
             "balance_minutes": balance,
+            "absence_days": absence_days,
+            "allowance_days": allowance_days,
+            "vacation_days": vacation_days,
+            "leave_days": leave_days,
+            "certificate_days": certificate_days,
         }
 
-    def _afd_rows(self, scope: Scope, starts_on: date, ends_on: date) -> list[tuple[str, datetime]]:
+    def _payroll_event_payload(self, scope: Scope, data: dict, current: PayrollEvent | None) -> dict:
+        payload = {}
+        if current is None or "system_event" in data:
+            event = str(data.get("system_event") or "").strip()
+            if event not in PAYROLL_SYSTEM_EVENTS:
+                raise AppError(400, "Evento da folha inválido.")
+            payload["system_event"] = event
+        if current is None or "external_code" in data:
+            code = str(data.get("external_code") or "").strip()
+            if not code:
+                raise AppError(400, "Informe o código do evento.")
+            payload["external_code"] = code
+        if current is None or "time_format" in data:
+            fmt = str(data.get("time_format") or "centesimal").strip()
+            if fmt not in {"centesimal", "sexagesimal"}:
+                raise AppError(400, "Formato de hora inválido.")
+            payload["time_format"] = fmt
+        if current is None or "active" in data:
+            payload["active"] = True if current is None and "active" not in data else bool(data.get("active", True))
+        system_event = payload.get("system_event", None if current is None else current.system_event)
+        external_code = payload.get("external_code", None if current is None else current.external_code)
+        for row in self.repo.list_rows(PayrollEvent, scope.tenant_id, page=1, limit=200, equals={}, descending=False)[0]:
+            if current is not None and row.id == current.id:
+                continue
+            if row.system_event == system_event:
+                raise AppError(409, "Este evento da folha já está configurado.")
+            if row.external_code == external_code:
+                raise AppError(409, "Este código de evento já está em uso.")
+        return payload
+
+    def _active_payroll_events(self, scope: Scope) -> list[dict]:
+        rows, _total = self.repo.list_rows(
+            PayrollEvent, scope.tenant_id, page=1, limit=200, equals={"active": True}, descending=False
+        )
+        return [
+            {
+                "system_event": row.system_event,
+                "external_code": row.external_code,
+                "time_format": row.time_format,
+            }
+            for row in rows
+        ]
+
+    def _afd_punches(self, scope: Scope, starts_on: date, ends_on: date) -> list[AfdPunch]:
         punches = self._punches_in(scope, starts_on, ends_on)
         employees: dict[int, Employee | None] = {}
-        rows = []
+        rows: list[AfdPunch] = []
         for punch in punches:
             if punch.employee_id not in employees:
                 employees[punch.employee_id] = self.repo.get_row(Employee, scope.tenant_id, punch.employee_id)
             employee = employees[punch.employee_id]
             if employee is None:
                 continue
-            rows.append((employee.cpf, punch.occurred_at))
+            rows.append(
+                AfdPunch(
+                    cpf=employee.cpf,
+                    marked_at=punch.occurred_at,
+                    stored_at=punch.created_at or punch.occurred_at,
+                    collector=self._afd_collector(punch),
+                    offline=str(punch.channel or "") == "offline",
+                )
+            )
         return rows
 
-    def _aej_rows(self, scope: Scope, starts_on: date, ends_on: date):
+    def _afd_collector(self, punch: Punch) -> str:
+        source = str(punch.source or "")
+        if source in {"face", "qr"}:
+            return "01"
+        if source in {"employee", "admin", "manual", "approved_request", "afd"}:
+            return "02"
+        return "05"
+
+    def _aej_payload(self, scope: Scope, starts_on: date, ends_on: date):
         finish = ends_on if ends_on <= self.today() else self.today()
-        moments: dict[tuple[int, date], list[datetime]] = {}
+        punches_by_day: dict[tuple[int, date], list[Punch]] = {}
         for punch in self._punches_in(scope, starts_on, ends_on):
             local = punch.occurred_at.astimezone(BR).date()
-            moments.setdefault((punch.employee_id, local), []).append(punch.occurred_at)
-        rows = []
+            punches_by_day.setdefault((punch.employee_id, local), []).append(punch)
+        employees_out: list[AejEmployee] = []
+        punches_out: list[AejPunch] = []
+        absences_out: list[AejAbsence] = []
         page = 1
+        link_id = 0
         while True:
             employees, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
             for employee in employees:
                 if finish < starts_on or employee.admission_date > finish:
                     continue
+                link_id += 1
+                journey_code, journey_minutes, clocks = self._aej_journey(scope, employee, starts_on)
+                employees_out.append(
+                    AejEmployee(
+                        link_id=link_id,
+                        cpf=employee.cpf,
+                        name=employee.full_name,
+                        registration=employee.registration_number,
+                        journey_code=journey_code,
+                        journey_minutes=journey_minutes,
+                        clocks=clocks,
+                    )
+                )
                 day_start = employee.admission_date if employee.admission_date > starts_on else starts_on
                 for day in self._day_results(scope, employee, day_start, finish):
-                    punch_moments = moments.get((employee.id, day["work_date"]), [])
-                    if (
-                        not punch_moments
-                        and day["worked_minutes"] == 0
-                        and day["overtime_minutes"] == 0
-                        and day["night_additional_minutes"] == 0
-                        and day["shortage_minutes"] == 0
-                    ):
-                        continue
-                    rows.append(
-                        (
-                            employee.cpf,
-                            day["work_date"],
-                            day["worked_minutes"],
-                            day["overtime_minutes"],
-                            day["night_additional_minutes"],
-                            day["shortage_minutes"],
-                            punch_moments,
-                        )
+                    work_date = day["work_date"]
+                    day_punches = sorted(
+                        punches_by_day.get((employee.id, work_date), []),
+                        key=lambda item: item.occurred_at,
                     )
+                    pair = 0
+                    for index, punch in enumerate(day_punches):
+                        if index % 2 == 0:
+                            pair += 1
+                            mark_type = "E"
+                        else:
+                            mark_type = "S"
+                        punches_out.append(
+                            AejPunch(
+                                link_id=link_id,
+                                marked_at=punch.occurred_at,
+                                mark_type=mark_type,
+                                pair_seq=pair,
+                                source=self._aej_source(punch),
+                                journey_code=journey_code if mark_type == "E" and pair == 1 else None,
+                                reason="Inclusão manual" if self._aej_source(punch) == "I" else None,
+                            )
+                        )
+                    if day.get("absence"):
+                        absences_out.append(
+                            AejAbsence(link_id=link_id, kind="2", day=work_date, minutes=None, bank_move=None)
+                        )
+                    elif day.get("holiday") and not day.get("worked_minutes"):
+                        absences_out.append(
+                            AejAbsence(link_id=link_id, kind="4", day=work_date, minutes=None, bank_move=None)
+                        )
+                    elif not day.get("workday") and not day.get("worked_minutes"):
+                        absences_out.append(
+                            AejAbsence(link_id=link_id, kind="1", day=work_date, minutes=None, bank_move=None)
+                        )
+                    bank = int(day.get("bank_minutes") or 0)
+                    if employee.hour_bank and bank:
+                        absences_out.append(
+                            AejAbsence(
+                                link_id=link_id,
+                                kind="3",
+                                day=work_date,
+                                minutes=abs(bank),
+                                bank_move="1" if bank > 0 else "2",
+                            )
+                        )
             if page * 100 >= total or not employees:
                 break
             page += 1
-        return rows
+        return employees_out, punches_out, absences_out
+
+    def _aej_source(self, punch: Punch) -> str:
+        source = str(punch.source or "")
+        if source in {"face", "qr", "employee", "afd"}:
+            return "O"
+        if source in {"admin", "manual", "approved_request"}:
+            return "I"
+        return "T"
+
+    def _aej_journey(self, scope: Scope, employee: Employee, day: date) -> tuple[str | None, int, list[tuple[str, str]]]:
+        vigencies, _total = self.repo.list_rows(
+            EmployeeVigency,
+            scope.tenant_id,
+            page=1,
+            limit=200,
+            equals={"employee_id": employee.id, "kind": "journey"},
+            descending=False,
+        )
+        vigency = self._vigency_on(vigencies, day)
+        if vigency is None or vigency.reference_id is None:
+            return None, 0, [(pending(4), pending(4))]
+        journey = self.repo.get_row(Journey, scope.tenant_id, vigency.reference_id)
+        if journey is None:
+            return None, 0, [(pending(4), pending(4))]
+        presented = self._present_journey(scope, journey)
+        code = f"J{journey.id}"
+        clocks: list[tuple[str, str]] = []
+        minutes = 0
+        days = presented.get("days") if isinstance(presented, dict) else getattr(presented, "days", None)
+        for item in days or []:
+            off = item.get("off") if isinstance(item, dict) else getattr(item, "off", False)
+            if off:
+                continue
+            spans = item.get("spans") if isinstance(item, dict) else getattr(item, "spans", [])
+            for span in spans or []:
+                starts = span.get("starts_at") if isinstance(span, dict) else getattr(span, "starts_at", None)
+                ends = span.get("ends_at") if isinstance(span, dict) else getattr(span, "ends_at", None)
+                clocks.append((self._hhmm(starts), self._hhmm(ends)))
+                minutes += self._span_minutes(starts, ends)
+            break
+        if not clocks:
+            morning = clocks_of(
+                legacy_spec(
+                    getattr(journey, "morning_start", None),
+                    getattr(journey, "morning_end", None),
+                    getattr(journey, "afternoon_start", None),
+                    getattr(journey, "afternoon_end", None),
+                )
+            )
+            for start, end in ((morning[0], morning[1]), (morning[2], morning[3])):
+                if start and end:
+                    clocks.append((self._hhmm(start), self._hhmm(end)))
+                    minutes += self._span_minutes(start, end)
+        if not clocks:
+            clocks = [(pending(4), pending(4))]
+        return code, minutes, clocks
+
+    def _hhmm(self, value: str | None) -> str:
+        text = str(value or "").strip()
+        if len(text) >= 5 and text[2] == ":":
+            return f"{text[0:2]}{text[3:5]}"
+        return pending(4)
+
+    def _span_minutes(self, start: str | None, end: str | None) -> int:
+        try:
+            begin = self._hhmm(start)
+            finish = self._hhmm(end)
+            if "x" in begin or "x" in finish:
+                return 0
+            start_min = int(begin[0:2]) * 60 + int(begin[2:4])
+            end_min = int(finish[0:2]) * 60 + int(finish[2:4])
+            if end_min <= start_min:
+                end_min += 24 * 60
+            return end_min - start_min
+        except ValueError:
+            return 0
 
     def _punches_in(self, scope: Scope, starts_on: date, ends_on: date):
         finish = ends_on if ends_on <= self.today() else self.today()

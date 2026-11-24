@@ -435,6 +435,21 @@ class FiscalFile(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
+class PayrollEvent(Base):
+    __tablename__ = "payroll_events"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "system_event", name="uq_payroll_event_system"),
+        UniqueConstraint("tenant_id", "external_code", name="uq_payroll_event_code"),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    system_event = Column(String(64), nullable=False)
+    external_code = Column(String(32), nullable=False)
+    time_format = Column(String(16), nullable=False, default="centesimal")
+    active = Column(Boolean, nullable=False, default=True)
+
+
 class Audit(Base):
     __tablename__ = "audits"
 

@@ -195,9 +195,8 @@ export const navGroups: NavGroup[] = [
         staffOnly: true,
         lead: "Fora do fluxo cotidiano do funcionário.",
         sections: [
-          { title: "AFD", text: "Importação e exportação." },
-          { title: "AEJ", text: "Exportação." },
-          { title: "Folha de pagamento", text: "Exportação de totais." },
+          { title: "AFD / AEJ", text: "Importação de AFD e exportação de AFD e AEJ." },
+          { title: "Totais da folha", text: "Exportação de totais." },
         ],
       },
     ],

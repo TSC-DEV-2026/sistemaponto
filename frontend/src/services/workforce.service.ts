@@ -326,13 +326,28 @@ export type Payroll = {
   items: {
     employee_id: number
     full_name: string
+    cpf?: string | null
+    registration_number?: string | null
     punch_count: number
     worked_minutes: number
     overtime_minutes: number
     night_additional_minutes: number
     shortage_minutes: number
     balance_minutes: number
+    absence_days?: number
+    allowance_days?: number
+    vacation_days?: number
+    leave_days?: number
+    certificate_days?: number
   }[]
+}
+
+export type PayrollEvent = {
+  id: number
+  system_event: string
+  external_code: string
+  time_format: "centesimal" | "sexagesimal"
+  active: boolean
 }
 
 export type FiscalFile = {
