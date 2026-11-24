@@ -1,4 +1,4 @@
-import { Layers, FileText, Pencil, Save, Trash2, type LucideIcon } from "lucide-react"
+import { Layers, FileText, Pencil, Save, Trash2, X, type LucideIcon } from "lucide-react"
 import { FormEvent, useEffect, useState, type ReactNode } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 
@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { moduleCardClass, moduleDangerClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { getTenant, removeTenant, updateTenant } from "@/services/tenant.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { formatCnpj, onlyDigits } from "@/utils/digits"
 
@@ -37,7 +38,7 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
   const id = Number(params.id)
   const [name, setName] = useState("")
   const [document, setDocument] = useState("")
-  const [error, setError] = useState("")
+  const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const canEdit = isAdmin && activeId === id
@@ -45,6 +46,7 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
   useEffect(() => {
     let active = true
     setLoaded(false)
+    setFailed(false)
     getTenant(id)
       .then((row) => {
         if (!active) return
@@ -55,7 +57,8 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
       .catch((caught: unknown) => {
         if (!active) return
         setLoaded(true)
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        setFailed(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
       })
     return () => {
       active = false
@@ -63,31 +66,29 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
   }, [id])
 
   useEffect(() => {
-    if (mode === "edit" && loaded && !canEdit && !error) {
+    if (mode === "edit" && loaded && !canEdit && !failed) {
       navigate(`/tenants/${id}`, { replace: true })
     }
-  }, [mode, loaded, canEdit, error, id, navigate])
+  }, [mode, loaded, canEdit, failed, id, navigate])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       const saved = await updateTenant(id, name.trim(), onlyDigits(document))
       setName(saved.name)
       setDocument(formatCnpj(saved.document || ""))
       navigate(`/tenants/${id}`)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   async function onDelete() {
-    setError("")
     try {
       await removeTenant(id)
       navigate("/tenants")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -125,7 +126,6 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
               <Fact icon={FileText} label="CNPJ">{document ? document : <span className="font-medium text-[#94A3B8]">Não informado</span>}</Fact>
             </div>
             {!canEdit ? <p className="text-sm text-[#64748B]">Troque para esta organização para editá-la.</p> : null}
-            {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
           </>
         ) : (
           <ActionForm className="space-y-5" onSubmit={onSubmit}>
@@ -139,12 +139,14 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
                 <CnpjField id="document" className={moduleFieldClass} value={document} onValueChange={setDocument} placeholder="00.000.000/0000-00" />
               </div>
             </div>
-            {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
             {confirming ? (
               <div className="flex flex-col gap-3 rounded-xl border border-[#F3D7A1] bg-[#FFF8EB] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-[#8A5A00]">Excluir esta organização?</p>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setConfirming(false)}>Cancelar</Button>
+                  <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setConfirming(false)}>
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </Button>
                   <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={() => onDelete()}>
                     <Trash2 className="h-4 w-4" />
                     Excluir

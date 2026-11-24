@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 
 import { Spinner } from "@/components/ui/spinner"
 import { getHourBank, listRecords, type HourBank, type Punch } from "@/services/workforce.service"
+import { toastError } from "@/store/toast.store"
 import { showDuration } from "@/utils/labels"
 
 function when(value: string) {
@@ -14,12 +15,12 @@ export function OwnClockSummary({ employeeId, hourBank, showBank = true }: { emp
   const [bank, setBank] = useState<HourBank | null>(null)
   const [punches, setPunches] = useState<Punch[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let active = true
     setLoading(true)
-    setError("")
+    setFailed(false)
     const bankLoad = showBank && hourBank ? getHourBank(employeeId) : Promise.resolve(null)
     Promise.all([bankLoad, listRecords<Punch>("/punches", { employee_id: employeeId, page: 1, limit: 8 })])
       .then(([balance, page]) => {
@@ -28,7 +29,9 @@ export function OwnClockSummary({ employeeId, hourBank, showBank = true }: { emp
         setPunches(page.items)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        if (!active) return
+        setFailed(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -73,8 +76,7 @@ export function OwnClockSummary({ employeeId, hourBank, showBank = true }: { emp
       ) : null}
       <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
         <h2 className="text-base font-semibold text-[#0A0A0A]">Histórico de marcações</h2>
-        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
-        {punches.length === 0 ? <p className="mt-3 text-sm text-[#64748B]">Nenhuma marcação.</p> : null}
+        {punches.length === 0 && !failed ? <p className="mt-3 text-sm text-[#64748B]">Nenhuma marcação.</p> : null}
         {punches.length > 0 ? (
           <ul className="mt-3 divide-y divide-[#E7EBF0]">
             {punches.map((item) => (

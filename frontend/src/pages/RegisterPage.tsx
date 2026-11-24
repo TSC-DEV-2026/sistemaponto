@@ -19,12 +19,9 @@ export function RegisterPage() {
   const [email, setEmail] = useState("")
   const [companyName, setCompanyName] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const invalid = error.length > 0
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       const session = await register({
         fullName: fullName.trim(),
@@ -40,8 +37,8 @@ export function RegisterPage() {
       useAuthStore.getState().setSession(session)
       useAuthStore.getState().setReady(true)
       navigate("/")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível cadastrar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -49,22 +46,21 @@ export function RegisterPage() {
     <AuthScreen title="Criar conta" description="Crie sua conta para continuar." side="left">
       <ActionForm className="mt-8" onSubmit={onSubmit}>
         <div className="space-y-5">
-        <FieldBlock id="name" label="Nome" icon={User} invalid={invalid}>
+        <FieldBlock id="name" label="Nome" icon={User}>
           <Input id="name" autoComplete="name" placeholder="Digite seu nome" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
         </FieldBlock>
-        <FieldBlock id="cpf" label="CPF" icon={User} invalid={invalid}>
+        <FieldBlock id="cpf" label="CPF" icon={User}>
           <CpfField id="cpf" autoComplete="username" placeholder="Digite seu CPF" value={cpf} onValueChange={setCpf} required />
         </FieldBlock>
-        <FieldBlock id="email" label="E-mail" icon={Mail} invalid={invalid}>
+        <FieldBlock id="email" label="E-mail" icon={Mail}>
           <Input id="email" type="email" autoComplete="email" placeholder="Digite seu e-mail" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </FieldBlock>
-        <FieldBlock id="company" label="Organização" icon={Layers} invalid={invalid}>
+        <FieldBlock id="company" label="Organização" icon={Layers}>
           <Input id="company" autoComplete="organization" placeholder="Digite o nome da organização" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required />
         </FieldBlock>
-        <FieldBlock id="password" label="Senha" icon={Lock} invalid={invalid} password>
+        <FieldBlock id="password" label="Senha" icon={Lock} password>
           <PasswordField id="password" autoComplete="new-password" placeholder="Digite sua senha" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
         </FieldBlock>
-        {invalid ? <p className="text-sm text-brand-danger" role="alert">{error}</p> : null}
         </div>
         <Button type="submit" className={authButtonClass}>
           Cadastrar

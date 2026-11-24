@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 
 import { listRecords, type NamedRecord } from "@/services/workforce.service"
+import { toastError } from "@/store/toast.store"
 
 export type CategoryRecord = { id: number; name: string; values: NamedRecord[] }
 
@@ -42,7 +43,6 @@ export function CategoryFilter({
   onChange: (ids: number[]) => void
 }) {
   const [groups, setGroups] = useState<CategoryRecord[]>([])
-  const [error, setError] = useState("")
 
   useEffect(() => {
     let active = true
@@ -51,7 +51,7 @@ export function CategoryFilter({
         if (active) setGroups(loaded)
       })
       .catch(() => {
-        if (active) setError("Não foi possível carregar as categorias.")
+        if (active) toastError("Não foi possível carregar as categorias.")
       })
     return () => {
       active = false
@@ -62,7 +62,6 @@ export function CategoryFilter({
     onChange(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id])
   }
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>
   if (groups.length === 0) return null
 
   return (

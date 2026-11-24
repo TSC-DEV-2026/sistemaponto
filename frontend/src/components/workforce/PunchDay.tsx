@@ -1,4 +1,4 @@
-import { History, Trash2 } from "lucide-react"
+import { History, Trash2, Plus, Pencil } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -68,6 +68,7 @@ export function DayTimesFields({
           ))}
           {times.length < 20 ? (
             <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => onTimes([...times, ""])}>
+              <Plus className="h-4 w-4" />
               Incluir horário
             </Button>
           ) : null}
@@ -101,6 +102,7 @@ export function DayTimesFields({
         ))}
         {times.length < 20 ? (
           <Button type="button" variant="outline" size="sm" onClick={() => onTimes([...times, ""])}>
+            <Plus className="h-4 w-4" />
             Incluir horário
           </Button>
         ) : null}
@@ -223,6 +225,7 @@ export function PunchCorrectionForm({
       </div>
       {formId ? null : (
         <Button type="submit" className={module ? modulePrimaryClass : undefined} disabled={Boolean(blocked)}>
+          <Pencil className="h-4 w-4" />
           Corrigir o dia
         </Button>
       )}
@@ -253,14 +256,6 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
   const current = usePagedList<Punch>("/punches", { ...scope, valid: true }, true, reloadKey)
   const history = usePagedList<Punch>("/punches", { ...scope, valid: false }, true, reloadKey)
   const employeeName = employees ? (id: number) => employees.find((item) => item.id === id)?.full_name || String(id) : undefined
-
-  useEffect(() => {
-    if (current.error) toastError(current.error)
-  }, [current.error])
-
-  useEffect(() => {
-    if (history.error) toastError(history.error)
-  }, [history.error])
 
   if (appearance === "module") {
     return (

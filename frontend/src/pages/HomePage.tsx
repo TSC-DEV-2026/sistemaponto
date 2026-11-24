@@ -5,6 +5,7 @@ import { ChevronRight, type LucideIcon } from "lucide-react"
 import { OwnClockSummary } from "@/components/workforce/OwnClockSummary"
 import { getDashboard, listRecords, type Dashboard, type Employee, type Subscription } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
 import { showMoney, subscriptionStatusLabel } from "@/utils/labels"
@@ -81,9 +82,9 @@ function LoadingLine() {
   )
 }
 
-function MetricLine({ state, error, children }: { state: string; error: string; children: ReactNode }) {
+function MetricLine({ state, children }: { state: string; children: ReactNode }) {
   if (state === "error") {
-    return <p className="mt-1 text-sm leading-relaxed text-destructive">{error}</p>
+    return null
   }
   if (state !== "ready") {
     return <LoadingLine />
@@ -188,14 +189,12 @@ export function HomePage() {
   const days = tenant ? trialDaysLeft(tenant.trial_ends_at) : 0
   const [board, setBoard] = useState<Dashboard | null>(null)
   const [boardState, setBoardState] = useState("loading")
-  const [boardError, setBoardError] = useState("")
   const [plan, setPlan] = useState<Subscription | null>(null)
 
   useEffect(() => {
     if (member) return
     let active = true
     setBoardState("loading")
-    setBoardError("")
     getDashboard()
       .then((data) => {
         if (active) {
@@ -207,7 +206,7 @@ export function HomePage() {
         if (active) {
           setBoard(null)
           setBoardState("error")
-          setBoardError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+          toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
         }
       })
     return () => {
@@ -263,12 +262,12 @@ export function HomePage() {
       <div className="mx-auto max-w-[1240px]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <BoardCard tone={tones.green} icon={conceptIcon.employee} title="Hoje" href="/staff?tab=employees">
-            <MetricLine state={boardState} error={boardError}>
+            <MetricLine state={boardState}>
               {board ? `${board.active_employees} funcionários ativos.` : null}
             </MetricLine>
           </BoardCard>
           <BoardCard tone={tones.blue} icon={conceptIcon.point} title="Ponto" href="/timekeeping?tab=calculations">
-            <MetricLine state={boardState} error={boardError}>
+            <MetricLine state={boardState}>
               {board ? `${board.punches_today} marcações hoje. A apuração do período fica em Ponto.` : null}
             </MetricLine>
           </BoardCard>
@@ -278,7 +277,7 @@ export function HomePage() {
             title="Solicitações"
             href="/requests"
           >
-            <MetricLine state={boardState} error={boardError}>
+            <MetricLine state={boardState}>
               {board
                 ? `${pending} pendentes. ${board.pending_adjustments} ajustes, ${board.pending_allowances} abonos, ${board.pending_certificates} atestados, ${board.pending_leaves} afastamentos, ${board.pending_vacations} férias.`
                 : null}
@@ -290,7 +289,7 @@ export function HomePage() {
             title="Fechamento"
             href="/timekeeping?tab=closings"
           >
-            <MetricLine state={boardState} error={boardError}>
+            <MetricLine state={boardState}>
               {board ? `${board.open_closings} período(s) em conferência.` : null}
             </MetricLine>
           </BoardCard>
@@ -298,7 +297,6 @@ export function HomePage() {
             <div className="md:col-span-2">
               <BoardCard tone={tones.plan} icon={conceptIcon.plan} title="Plano" href="/plan?tab=subscriptions">
                 {planText ? <p className="mt-1 text-sm leading-relaxed text-brand-muted">{planText}</p> : <LoadingLine />}
-                {boardState === "error" ? <p className="mt-1 text-sm leading-relaxed text-destructive">{boardError}</p> : null}
               </BoardCard>
             </div>
           ) : null}

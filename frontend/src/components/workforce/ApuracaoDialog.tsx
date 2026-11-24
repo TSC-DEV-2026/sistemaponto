@@ -1,4 +1,4 @@
-import { Clock, X } from "lucide-react"
+import { Clock, X, Pencil, RotateCcw, Scale, Plus, Save } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -128,7 +128,7 @@ function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: numbe
             {reason ? ` Motivo: ${reason}.` : ""}
           </p>
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-10 shrink-0")} disabled={restoring || locked} onClick={() => void undo()}>
-            {restoring ? <Spinner className="h-4 w-4" /> : null}
+            {restoring ? <Spinner className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
             Desfazer ajuste
           </Button>
         </div>
@@ -333,6 +333,7 @@ export function ApuracaoDialog({
                 <span className="ml-2 font-semibold tabular-nums text-[#0A0A0A]">{showDuration(balance ?? 0)}</span>
               </p>
               <Button type="button" variant="outline" className="h-10" onClick={() => setDayOnly((current) => !current)}>
+                <Scale className="h-4 w-4" />
                 {dayOnly ? "Ver saldo acumulado" : "Ver saldo só deste dia"}
               </Button>
             </div>
@@ -405,18 +406,19 @@ export function ApuracaoDialog({
           <div className="mt-5 flex shrink-0 justify-end">
             {mode === "correct" ? (
               <Button type="submit" form="apuracao-correction" className={modulePrimaryClass} disabled={Boolean(lockMessage)}>
+                <Pencil className="h-4 w-4" />
                 Corrigir o dia
               </Button>
             ) : null}
             {mode === "absence" ? (
               <Button type="button" className={modulePrimaryClass} disabled={saving || Boolean(lockMessage)} onClick={() => void saveAbsence()}>
-                {saving ? <Spinner className="h-4 w-4" /> : null}
+                {saving ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 Lançar falta
               </Button>
             ) : null}
             {mode === "timeoff" ? (
               <Button type="button" className={modulePrimaryClass} disabled={saving || Boolean(lockMessage)} onClick={() => void saveTimeOff()}>
-                {saving ? <Spinner className="h-4 w-4" /> : null}
+                {saving ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
                 Salvar
               </Button>
             ) : null}

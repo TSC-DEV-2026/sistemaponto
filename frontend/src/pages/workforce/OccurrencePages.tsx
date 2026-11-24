@@ -1,4 +1,4 @@
-import { Calendar, Eye, FileText, MessageSquare, Pencil, Plus, Trash2, User, type LucideIcon } from "lucide-react"
+import { Calendar, Eye, FileText, MessageSquare, Pencil, Plus, Trash2, User, X, Save, type LucideIcon } from "lucide-react"
 import { FormEvent, useEffect, useState, type ReactNode } from "react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
@@ -20,6 +20,7 @@ import { DomainTabs } from "@/pages/workforce/EntityScreens"
 import { createRecord, getRecord, listRecords, removeRecord, updateRecord, uploadCertificatePhoto, type Employee, type NamedRecord, type Occurrence } from "@/services/workforce.service"
 import { canOperate } from "@/navigation"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
 import { absenceKinds, certificateText, isCertificateKind, isLeaveKind, isVacationKind, occurrenceKindLabel, occurrenceKindOf, occurrenceNewLabel, occurrenceTabLabel, periodText, punchOrigin, reasonKindForOccurrence, requestStatusClass } from "@/utils/labels"
@@ -84,13 +85,12 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   }
 
   async function remove(id: number) {
-    events.setError("")
     try {
       await removeRecord("/occurrences", id)
       setPending(null)
       events.reload()
-    } catch (caught) {
-      events.setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -113,7 +113,6 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
           onChange={setListEmployee}
         />
       </div>
-      {events.error ? <p className="mt-4 text-sm text-destructive">{events.error}</p> : null}
       {visible.length === 0 && !events.error ? (
         events.loading ? (
           <ul className="mt-8">
@@ -187,9 +186,11 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                       {pending === item.id ? (
                         <div className="flex flex-wrap items-center justify-center gap-2">
                           <Button type="button" className={moduleDangerClass} onClick={() => remove(item.id)}>
+                            <Trash2 className="h-4 w-4" />
                             Excluir
                           </Button>
                           <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                            <X className="h-4 w-4" />
                             Cancelar
                           </Button>
                         </div>
@@ -246,7 +247,6 @@ export function OccurrencesPage() {
   const canLaunch = canLaunchKind(role, kind)
   const actionLabel = occurrenceNewLabel[kind] || "Novo lançamento"
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [error, setError] = useState("")
 
   useEffect(() => {
     let active = true
@@ -255,7 +255,7 @@ export function OccurrencesPage() {
         if (active) setEmployees(page.items)
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
     return () => {
       active = false
@@ -264,7 +264,6 @@ export function OccurrencesPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <DomainTabs
         module
         title="Ocorrências"
@@ -318,7 +317,6 @@ export function OccurrenceEntryPage() {
   const [note, setNote] = useState("")
   const [draft, setDraft] = useState<TimeOffDraft>(emptyTimeOff)
   const [fileKey, setFileKey] = useState(0)
-  const [error, setError] = useState("")
   const locks = useDayLocks(employeeId ? Number(employeeId) : null)
   const spanStart = manual ? draft.startsOn : startsOn
   const spanEnd = manual ? (draft.mode === "hours" ? draft.startsOn : draft.endsOn || spanStart) : endsOn || spanStart
@@ -337,7 +335,6 @@ export function OccurrenceEntryPage() {
     setNote("")
     setDraft(emptyTimeOff())
     setFileKey((current) => current + 1)
-    setError("")
   }, [kind])
 
   useEffect(() => {
@@ -359,7 +356,7 @@ export function OccurrenceEntryPage() {
       .catch((caught: unknown) => {
         if (!active) return
         setReasonsReady(true)
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
     return () => {
       active = false
@@ -368,13 +365,18 @@ export function OccurrenceEntryPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     if (blocked) {
-      setError(blocked)
+      toastError(blocked)
+      return
+    }
+    let span: Record<string, unknown>
+    try {
+      span = manual ? timeOffBody(draft, kind) : { starts_on: startsOn, ends_on: endsOn || null }
+    } catch (caught) {
+      toastError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
       return
     }
     try {
-      const span: Record<string, unknown> = manual ? timeOffBody(draft, kind) : { starts_on: startsOn, ends_on: endsOn || null }
       if (manual && isCertificateKind(kind) && draft.photo) {
         span.photo_key = (await uploadCertificatePhoto(draft.photo)).key
       }
@@ -386,15 +388,14 @@ export function OccurrenceEntryPage() {
         note: note.trim() || null,
       })
       navigate(tabPath(kind))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to={tabPath(kind)} appearance="detail" />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
@@ -441,6 +442,7 @@ export function OccurrenceEntryPage() {
         </div>
         {blocked ? <p className="text-sm text-[#64748B]">{blocked}</p> : null}
         <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>
+          <Save className="h-4 w-4" />
           Salvar
         </Button>
       </ActionForm>
@@ -476,7 +478,6 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
   const [reasonName, setReasonName] = useState("")
   const [note, setNote] = useState("")
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
   const locks = useDayLocks(item?.employee_id ?? null)
   const numeric = Number(id)
   const blocked = item ? locks.lockRange(item.starts_on, item.ends_on || item.starts_on) : ""
@@ -488,12 +489,11 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
   useEffect(() => {
     if (!id || Number.isNaN(numeric)) {
       setLoading(false)
-      setError("Não foi possível abrir o lançamento.")
+      toastError("Não foi possível abrir o lançamento.")
       return
     }
     let active = true
     setLoading(true)
-    setError("")
     getRecord<Occurrence>("/occurrences", numeric)
       .then(async (row) => {
         if (!active) return
@@ -512,7 +512,7 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
       .catch((caught: unknown) => {
         if (!active) return
         setLoading(false)
-        setError(caught instanceof Error ? caught.message : "Não foi possível abrir o lançamento.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível abrir o lançamento.")
       })
     return () => {
       active = false
@@ -522,16 +522,15 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     if (!item) return
-    setError("")
     if (blocked) {
-      setError(blocked)
+      toastError(blocked)
       return
     }
     try {
       await updateRecord("/occurrences", item.id, { note: note.trim() || null })
       navigate(`/occurrences/${item.id}`)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -546,7 +545,6 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
           <Spinner />
         </section>
       ) : null}
-      {!loading && error && !item ? <p className="text-sm text-destructive">{error}</p> : null}
       {!loading && item && mode === "view" ? (
         <section className={moduleCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -588,9 +586,12 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
             <Label className={moduleLabelClass} htmlFor="occurrence-edit-note">Observação</Label>
             <textarea id="occurrence-edit-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
-          {blocked || error ? <p className={cn("text-sm", error && !blocked ? "text-destructive" : "text-[#64748B]")}>{blocked || error}</p> : null}
+          {blocked ? <p className="text-sm text-[#64748B]">{blocked}</p> : null}
           <div className="flex justify-end">
-            <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>Salvar</Button>
+            <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>
+              <Save className="h-4 w-4" />
+              Salvar
+            </Button>
           </div>
         </ActionForm>
       ) : null}

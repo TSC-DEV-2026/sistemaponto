@@ -1,5 +1,5 @@
 import { createContext, FormEvent, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { Calendar, ChevronDown, ChevronUp, CircleCheck, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, Search, Trash2, type LucideIcon } from "lucide-react"
+import { Calendar, ChevronDown, ChevronUp, CircleCheck, Clock, Eye, FileText, Pencil, Plus, QrCode, Save, Search, Trash2, X, type LucideIcon } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { canOperate } from "@/navigation"
@@ -24,6 +24,7 @@ import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldC
 import { FilterSelect, ListPager, ListSearch, usePagedList, type ListParams } from "@/components/workforce/list-controls"
 import { createRecord, getRecord, listQrCards, removeRecord, updateRecord, type Employee, type NamedRecord } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { formatCpf } from "@/utils/digits"
 import { clockMethodLabel, normKindLabel, reasonUseLabel, showDate, situationLabel } from "@/utils/labels"
@@ -115,7 +116,7 @@ function JourneySearch({ id, value, onChange, onSearch }: { id: string; value: s
             id={id}
             value={value}
             placeholder="Pesquisar"
-            className={cn(authInputClass(false), "!h-11")}
+            className={cn(authInputClass(), "!h-11")}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return
@@ -252,7 +253,7 @@ export function DomainTabs({
 
   return (
     <TabAction.Provider value={setAction}>
-      <div className={module || people || organization ? "w-full min-w-0 space-y-5" : "mx-auto max-w-3xl space-y-4"}>
+      <div className="w-full min-w-0 space-y-5">
         {module || people || organization || !lead ? null : <p className="text-sm text-muted-foreground">{lead}</p>}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <SlidingHighlight className={module || people || organization ? "inline-flex max-w-full flex-wrap rounded-xl bg-[#E7E8EA] p-1" : "flex flex-wrap gap-2"} role="tablist">
@@ -275,6 +276,7 @@ export function DomainTabs({
                 </button>
               ) : (
                 <Button key={tab.id} type="button" size="sm" variant={tab.id === current ? "default" : "outline"} onClick={() => setParams({ tab: tab.id })}>
+                  {tab.icon ? <tab.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : null}
                   {tab.label}
                 </Button>
               ),
@@ -363,13 +365,12 @@ export function RecordList<T extends Row>({
   }, [extra, canEdit, journey, newLabel, newTo, organization, people, setTabAction])
 
   async function onDelete(id: number) {
-    list.setError("")
     try {
       await removeRecord(path, id)
       setPending(null)
       list.reload()
-    } catch (caught) {
-      list.setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -464,7 +465,6 @@ export function RecordList<T extends Row>({
             </Button>
           </div>
         </section>
-        {list.error ? <p className="text-sm text-destructive">{list.error}</p> : null}
         <section className={moduleCardClass}>
           <h2 className="text-lg font-semibold text-[#0A0A0A]">Registros cadastrados</h2>
           {list.loading && rows.length === 0 && !list.error ? (
@@ -501,9 +501,11 @@ export function RecordList<T extends Row>({
                     <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
                       <span>Excluir {nameOf(item)}?</span>
                       <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
+                        <Trash2 className="h-4 w-4" />
                         Excluir
                       </Button>
                       <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                        <X className="h-4 w-4" />
                         Cancelar
                       </Button>
                     </div>
@@ -584,7 +586,6 @@ export function RecordList<T extends Row>({
           ))}
         </div>
       ) : null}
-      {list.error ? <p className={journey ? "mt-4 text-sm text-destructive" : "text-sm text-destructive"}>{list.error}</p> : null}
       <div className={people ? "overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "contents"}>
       {people ? (
         <div className="overflow-x-auto">
@@ -621,9 +622,11 @@ export function RecordList<T extends Row>({
                     <div className="inline-flex flex-wrap items-center justify-end gap-2">
                       <span className="text-sm text-[#0A0A0A]">Excluir {nameOf(item)}?</span>
                       <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
+                        <Trash2 className="h-4 w-4" />
                         Excluir
                       </Button>
                       <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                        <X className="h-4 w-4" />
                         Cancelar
                       </Button>
                     </div>
@@ -728,9 +731,11 @@ export function RecordList<T extends Row>({
                   <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
                     <span>Excluir {nameOf(item)}?</span>
                     <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
+                      <Trash2 className="h-4 w-4" />
                       Excluir
                     </Button>
                     <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                      <X className="h-4 w-4" />
                       Cancelar
                     </Button>
                   </div>
@@ -763,9 +768,11 @@ export function RecordList<T extends Row>({
                 <div className="flex items-center gap-2">
                   <span>Excluir {nameOf(item)}?</span>
                   <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(item.id)}>
+                    <Trash2 className="h-4 w-4" />
                     Excluir
                   </Button>
                   <Button type="button" size="sm" variant="outline" onClick={() => setPending(null)}>
+                    <X className="h-4 w-4" />
                     Cancelar
                   </Button>
                 </div>
@@ -822,11 +829,9 @@ function downloadPdf(bytes: Uint8Array<ArrayBuffer>, filename: string) {
 
 export function EmployeeList() {
   const [note, setNote] = useState("")
-  const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const printCards = useCallback(async () => {
     setNote("")
-    setError("")
     setBusy(true)
     try {
       const cards = await listQrCards()
@@ -836,7 +841,7 @@ export function EmployeeList() {
       }
       downloadPdf(qrCardsPdf(cards), "qr-codes.pdf")
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o PDF.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível gerar o PDF.")
     } finally {
       setBusy(false)
     }
@@ -853,7 +858,6 @@ export function EmployeeList() {
   return (
     <div className="space-y-3">
       {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <RecordList<Employee>
         path="/employees"
         filters={(query) => {
@@ -968,13 +972,12 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
   const rows = !sort ? list.items : [...list.items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR") * (sort.dir === "asc" ? 1 : -1))
 
   async function remove(item: NamedRecord) {
-    list.setError("")
     try {
       await removeRecord("/category-values", item.id)
       setPending(null)
       list.reload()
-    } catch (caught) {
-      list.setError(caught instanceof Error ? caught.message : "Não foi possível excluir o valor.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -983,7 +986,6 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
       <section className={moduleCardClass}>
         <PeopleSearch id="classification-values-search" value={query} placeholder="Pesquisar" onChange={setQuery} onSearch={list.reload} />
       </section>
-      {list.error ? <p className="text-sm text-destructive">{list.error}</p> : null}
       <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -1014,9 +1016,11 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
                       <div className="inline-flex flex-wrap items-center justify-end gap-2">
                         <span className="text-sm text-[#0A0A0A]">Excluir {item.name}?</span>
                         <Button type="button" className={moduleDangerClass} onClick={() => void remove(item)}>
+                          <Trash2 className="h-4 w-4" />
                           Excluir
                         </Button>
                         <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                          <X className="h-4 w-4" />
                           Cancelar
                         </Button>
                       </div>
@@ -1076,7 +1080,6 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
   const valueId = Number(params.valueId)
   const backTo = `/categories/${classificationId}`
   const [name, setName] = useState("")
-  const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(mode === "new")
 
   useEffect(() => {
@@ -1091,7 +1094,6 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
     if (mode === "new") return
     let active = true
     setLoaded(false)
-    setError("")
     getRecord<NamedRecord & { category_id?: number }>("/category-values", valueId)
       .then((row) => {
         if (!active) return
@@ -1104,7 +1106,7 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
       })
       .catch((caught: unknown) => {
         if (!active) return
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
         setLoaded(true)
       })
     return () => {
@@ -1114,23 +1116,22 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     const next = name.trim()
     if (!next) return
     try {
       if (mode === "new") await createRecord("/category-values", { category_id: classificationId, name: next })
       else await updateRecord("/category-values", valueId, { name: next })
       navigate(backTo)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
-  if (mode !== "new" && !loaded && !error) {
+  if (mode !== "new" && !loaded) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={backTo} appearance="detail" />
-        <section className={cn(moduleCardClass, "mx-auto flex min-h-[280px] w-full max-w-[680px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+        <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
           <Spinner label="Carregando o valor" className="h-8 w-8 text-[#1E8A3A]" />
           <p className="text-sm font-medium text-[#64748B]">Carregando o valor</p>
         </section>
@@ -1141,7 +1142,7 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to={backTo} appearance="detail" />
-      <section className={cn(moduleCardClass, "mx-auto w-full max-w-[680px] space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
+      <section className={cn(moduleCardClass, "w-full space-y-5")}>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
             <conceptIcon.category className="h-5 w-5" strokeWidth={1.75} />
@@ -1151,7 +1152,6 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
             <p className="text-sm text-[#64748B]">{mode === "view" ? "Valor" : mode === "new" ? "Informe o nome do valor." : "Atualize o nome do valor."}</p>
           </div>
         </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {mode === "view" ? (
           <RecordField icon={conceptIcon.category} label="Nome" wide>
             {name.trim() ? name : <EmptyMark />}
@@ -1185,7 +1185,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
   const [form, setForm] = useState<Record<string, string>>(() => blankForm(entry.fields))
   const [options, setOptions] = useState<Record<string, { value: string; label: string }[]>>({})
   const [title, setTitle] = useState(entry.newLabel)
-  const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(mode === "new")
   const [optionsReady, setOptionsReady] = useState(false)
 
@@ -1222,14 +1221,12 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       if (requestedKind && kindField?.options?.some((option) => option.value === requestedKind)) next.kind = requestedKind
       setForm(next)
       setTitle(entry.newLabel)
-      setError("")
       setLoaded(true)
       return () => {
         active = false
       }
     }
     setLoaded(false)
-    setError("")
     getRecord<NamedRecord>(entry.path, id)
       .then((row) => {
         if (!active) return
@@ -1248,7 +1245,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       })
       .catch((caught: unknown) => {
         if (!active) return
-        setError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
         setLoaded(true)
       })
     return () => {
@@ -1270,7 +1267,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     const body = bodyFrom(entry.fields, form, entry.kind)
     try {
       if (mode === "new") {
@@ -1279,8 +1275,8 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         await updateRecord(entry.path, id, body)
       }
       navigate(entry.backTo)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -1288,11 +1284,11 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     const Icon = catalog === "jobs" ? conceptIcon.job : conceptIcon.category
     const noun = catalog === "jobs" ? "função" : "categoria"
     const article = "a"
-    if (mode !== "new" && !loaded && !error) {
+    if (mode !== "new" && !loaded) {
       return (
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
-          <section className={cn(moduleCardClass, "mx-auto flex min-h-[280px] w-full max-w-[680px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
+          <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
             <Spinner label={`Carregando ${article} ${noun}`} className="h-8 w-8 text-[#1E8A3A]" />
             <p className="text-sm font-medium text-[#64748B]">Carregando {article} {noun}</p>
           </section>
@@ -1315,7 +1311,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
             </Button>
           ) : null}
         </div>
-        <section className={cn(moduleCardClass, valuesOnPage ? "w-full" : "mx-auto w-full max-w-[680px]", "space-y-5 transition-[border-color,box-shadow] duration-200 hover:border-[#D5DEE8] hover:shadow-[0_12px_28px_rgba(15,23,42,0.06)] motion-reduce:transition-none")}>
+        <section className={cn(moduleCardClass, "w-full space-y-5")}>
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
               <Icon className="h-5 w-5" strokeWidth={1.75} />
@@ -1325,7 +1321,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
               <p className="text-sm text-[#64748B]">{subtitle}</p>
             </div>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
             <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
           ) : (
@@ -1357,7 +1352,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
     const noun = catalog === "units" ? "empresa" : "equipe"
     const article = "a"
     const possession = "da"
-    if (mode !== "new" && !loaded && !error) {
+    if (mode !== "new" && !loaded) {
       return (
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
@@ -1383,7 +1378,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
               <p className="text-sm text-[#64748B]">{subtitle}</p>
             </div>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
             <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
           ) : (
@@ -1433,7 +1427,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
       reasons: { icon: conceptIcon.reason, noun: "motivo", article: "o", newLead: "Informe o nome e onde o motivo é usado.", editLead: "Atualize o motivo." },
     }[catalog]
     const Icon = meta.icon
-    if (mode !== "new" && !loaded && !error) {
+    if (mode !== "new" && !loaded) {
       return (
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
@@ -1564,7 +1558,6 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
               <p className="text-sm text-[#64748B]">{subtitle}</p>
             </div>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {mode === "view" ? (
             <RecordFacts fields={entry.fields} fallback={Icon} shown={shown} />
           ) : (

@@ -1,4 +1,4 @@
-import { Clock, Layers } from "lucide-react"
+import { Clock, Layers, Plus } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 
 import { ActionForm } from "@/components/ui/action-form"
@@ -18,6 +18,7 @@ import {
   type HourBank,
   type HourBankEntry,
 } from "@/services/workforce.service"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { durationMinutes, hourBankEffectLabel, hourBankEntryAmount, hourBankKindLabel, hourBankKindOrder, hourBankLaunchLabel, punchDay, showDate, showMinutes, showSignedMinutes, signedDurationMinutes } from "@/utils/labels"
 
@@ -73,12 +74,10 @@ export function HourBankPanel({
   const [selected, setSelected] = useState(employeeId ? String(employeeId) : "")
   const [balance, setBalance] = useState<HourBank | null>(null)
   const [entryKind, setEntryKind] = useState("")
-  const [saved, setSaved] = useState(0)
   const [kind, setKind] = useState("credit")
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
-  const [error, setError] = useState("")
   const chosenId = employeeId ?? (selected ? Number(selected) : 0)
   const person = employees?.find((item) => item.id === chosenId)
   const enabled = employees ? Boolean(person?.hour_bank) : usesBank
@@ -86,23 +85,22 @@ export function HourBankPanel({
     "/hour-bank-entries",
     { ...(chosenId ? { employee_id: chosenId } : {}), ...(entryKind ? { kind: entryKind } : {}) },
     chosenId > 0,
-    saved,
   )
 
-  async function load(nextId: number) {
+  async function loadBalance(nextId: number) {
     setBalance(await getHourBank(nextId))
-    setSaved((current) => current + 1)
   }
 
   useEffect(() => {
     if (!chosenId) {
+      setBalance(null)
       return
     }
     let active = true
-    load(chosenId).catch((caught: unknown) => {
+    loadBalance(chosenId).catch((caught: unknown) => {
       if (active) {
         setBalance(null)
-        setError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
       }
     })
     return () => {
@@ -112,7 +110,6 @@ export function HourBankPanel({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     const body: Record<string, unknown> = {
       employee_id: chosenId,
       kind,
@@ -122,18 +119,24 @@ export function HourBankPanel({
     if (kind !== "settlement") {
       const amount = kind === "balance" ? signedDurationMinutes(minutes) : durationMinutes(minutes)
       if (amount === null) {
-        setError(kind === "balance" ? "Informe o saldo no formato 00:00. Use o sinal de menos para saldo negativo." : minutes.trim().startsWith("-") ? "Somar e diminuir não usam sinal. Para deixar o saldo neste valor, use Lançar saldo." : "Informe as horas no formato 00:00.")
+        toastError(kind === "balance" ? "Informe o saldo no formato 00:00. Use o sinal de menos para saldo negativo." : minutes.trim().startsWith("-") ? "Somar e diminuir não usam sinal. Para deixar o saldo neste valor, use Lançar saldo." : "Informe as horas no formato 00:00.")
         return
       }
       body.minutes = amount
     }
     try {
       await createRecord("/hour-bank-entries", body)
-      setMinutes("")
-      setNote("")
-      await load(chosenId)
+    } catch {
+      // O interceptor já avisou o erro.
+      return
+    }
+    setMinutes("")
+    setNote("")
+    try {
+      await loadBalance(chosenId)
+      entries.reload()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível lançar.")
+      toastError(caught instanceof Error ? caught.message : "Não foi possível consultar o saldo.")
     }
   }
 
@@ -162,8 +165,6 @@ export function HourBankPanel({
             <BankBalance balance={balance} />
           </div>
         ) : null}
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-        {entries.error ? <p className="mt-4 text-sm text-destructive">{entries.error}</p> : null}
         {chosenId && entries.items.length === 0 && !entries.error ? (
           entries.loading ? (
             <ul className="mt-8">
@@ -221,7 +222,6 @@ export function HourBankPanel({
           {balance.warning ? <p className="mt-2">{balance.warning}</p> : null}
         </div>
       ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {canLaunch && chosenId && enabled ? (
         <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
           <div className="space-y-2">
@@ -246,7 +246,10 @@ export function HourBankPanel({
             <Label htmlFor="bank-note">Observação</Label>
             <textarea id="bank-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
-          <Button type="submit">Lançar</Button>
+          <Button type="submit">
+            <Plus className="h-4 w-4" />
+            Lançar
+          </Button>
         </ActionForm>
       ) : null}
       {chosenId ? (
@@ -258,7 +261,6 @@ export function HourBankPanel({
             options={hourBankKindOrder.map((value) => ({ value, label: hourBankKindLabel[value] }))}
             onChange={setEntryKind}
           />
-          {entries.error ? <p className="text-sm text-destructive">{entries.error}</p> : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {entries.items.map((item) => (
               <li key={item.id} className="px-4 py-3 text-sm">

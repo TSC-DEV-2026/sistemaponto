@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { PasswordField } from "@/components/ui/password-field"
 import { moduleCardClass, moduleFieldClass, moduleLabelClass, modulePrimaryClass } from "@/components/workforce/module-visual"
 import { changePassword } from "@/services/auth.service"
+import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 
 export function ChangePasswordPage() {
@@ -15,14 +16,12 @@ export function ChangePasswordPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     setMessage("")
     if (newPassword !== confirm) {
-      setError("A confirmação não confere com a senha nova.")
+      toastError("A confirmação não confere com a senha nova.")
       return
     }
     try {
@@ -31,8 +30,8 @@ export function ChangePasswordPage() {
       setNewPassword("")
       setConfirm("")
       setMessage("Senha alterada.")
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível trocar a senha.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -64,7 +63,6 @@ export function ChangePasswordPage() {
           </div>
         </div>
         {message ? <p className="text-sm text-[#1E8A3A]">{message}</p> : null}
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit" className={modulePrimaryClass}>
             <Save className="h-4 w-4" />

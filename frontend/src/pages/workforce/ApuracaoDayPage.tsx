@@ -7,6 +7,7 @@ import { ApuracaoDayDetails } from "@/components/workforce/apuracao-day"
 import { apuracaoDay } from "@/components/workforce/apuracao-session"
 import { getCalculations, type TimeResult } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 
 const backTo = "/timekeeping?tab=calculations"
 
@@ -30,7 +31,6 @@ export function ApuracaoDayPage() {
   const cached = readyContext ? apuracaoDay(tenantId, employeeId, startsOn, endsOn, workDate) : null
   const [item, setItem] = useState<TimeResult | null>(cached)
   const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">(cached ? "ready" : readyContext ? "loading" : "missing")
-  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!readyContext) {
@@ -41,13 +41,11 @@ export function ApuracaoDayPage() {
     const cached = apuracaoDay(tenantId, employeeId, startsOn, endsOn, workDate)
     if (cached) {
       setItem(cached)
-      setError("")
       setStatus("ready")
       return
     }
     let active = true
     setItem(null)
-    setError("")
     setStatus("loading")
     getCalculations(employeeId, workDate, workDate)
       .then((data) => {
@@ -62,7 +60,7 @@ export function ApuracaoDayPage() {
       })
       .catch((caught: unknown) => {
         if (!active) return
-        setError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
+        toastError(caught instanceof Error ? caught.message : "Não foi possível apurar.")
         setStatus("error")
       })
     return () => {
@@ -78,7 +76,6 @@ export function ApuracaoDayPage() {
           <Spinner label="Carregando a apuração" className="h-8 w-8 text-[#1E8A3A]" />
         </div>
       ) : null}
-      {status === "error" ? <p className="text-sm text-destructive">{error}</p> : null}
       {status === "missing" ? (
         <p className="rounded-xl border border-[#E4E4E7] bg-white px-5 py-4 text-sm text-brand-muted">
           O resultado desta apuração não está disponível. Volte à consulta para apurar de novo.

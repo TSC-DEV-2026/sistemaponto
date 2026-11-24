@@ -1,4 +1,4 @@
-import { Layers, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react"
+import { Layers, Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -12,6 +12,7 @@ import { ListPager } from "@/components/workforce/list-controls"
 import { moduleCardClass, moduleDangerClass, moduleDangerIconClass, moduleFieldClass, moduleIconClass, moduleLabelClass, modulePrimaryClass, moduleQuietClass } from "@/components/workforce/module-visual"
 import { listTenants, removeTenant } from "@/services/tenant.service"
 import { useAuthStore } from "@/store/auth.store"
+import { toastError } from "@/store/toast.store"
 import type { Tenant } from "@/types/api"
 import { cn } from "@/utils/cn"
 import { formatCnpj, onlyDigits } from "@/utils/digits"
@@ -35,7 +36,7 @@ export function TenantsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [query, setQuery] = useState("")
-  const [error, setError] = useState("")
+  const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
   const [pending, setPending] = useState<number | null>(null)
@@ -50,7 +51,7 @@ export function TenantsPage() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    setError("")
+    setFailed(false)
     async function loadAll() {
       const first = await listTenants(1, 100)
       const rows = [...first.items]
@@ -68,7 +69,8 @@ export function TenantsPage() {
       .catch((caught: unknown) => {
         if (!active) return
         setAll([])
-        setError(caught instanceof Error ? caught.message : "Não foi possível listar.")
+        setFailed(true)
+        toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -79,13 +81,12 @@ export function TenantsPage() {
   }, [reloadKey])
 
   async function onDelete(id: number) {
-    setError("")
     try {
       await removeTenant(id)
       setPending(null)
       setReloadKey((current) => current + 1)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível excluir.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -137,13 +138,12 @@ export function TenantsPage() {
             Pesquisar
           </Button>
         </div>
-        {error ? <p className="px-5 pt-4 text-sm text-destructive sm:px-6" role="alert">{error}</p> : null}
-        {loading && all.length === 0 && !error ? (
+        {loading && all.length === 0 && !failed ? (
           <div className="flex justify-center py-10" role="status">
             <Spinner label="Carregando as organizações" className="h-8 w-8 text-[#1E8A3A]" />
           </div>
         ) : null}
-        {!loading && !error && items.length === 0 ? (
+        {!loading && !failed && items.length === 0 ? (
           <div className="px-2 py-10 text-center">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
               <Layers className="h-6 w-6" strokeWidth={1.75} aria-hidden />
@@ -182,8 +182,14 @@ export function TenantsPage() {
                         {pending === item.id ? (
                           <div className="inline-flex flex-wrap items-center justify-end gap-2">
                             <span className="text-sm text-[#0A0A0A]">Excluir {item.name || "organização"}?</span>
-                            <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>Excluir</Button>
-                            <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>Cancelar</Button>
+                            <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
+                              <Trash2 className="h-4 w-4" />
+                              Excluir
+                            </Button>
+                            <Button type="button" variant="outline" className={moduleQuietClass} onClick={() => setPending(null)}>
+                              <X className="h-4 w-4" />
+                              Cancelar
+                            </Button>
                           </div>
                         ) : (
                           <div className="inline-flex justify-center gap-1.5">

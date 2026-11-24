@@ -20,7 +20,6 @@ export function TenantFormPage() {
   const isAdmin = roleName === "admin"
   const [name, setName] = useState("")
   const [document, setDocument] = useState("")
-  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!roleName || isAdmin) return
@@ -29,12 +28,11 @@ export function TenantFormPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setError("")
     try {
       const created = await createTenant(name.trim(), onlyDigits(document))
       navigate(`/tenants/${created.id}`)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível criar.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -64,7 +62,6 @@ export function TenantFormPage() {
               <CnpjField id="document" className={moduleFieldClass} value={document} onValueChange={setDocument} placeholder="00.000.000/0000-00" required />
             </div>
           </div>
-          {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
           <div className="flex justify-end">
             <Button type="submit" className={modulePrimaryClass}>
               <Plus className="h-4 w-4" />
