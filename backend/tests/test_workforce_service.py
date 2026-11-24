@@ -56,7 +56,12 @@ class Memory:
     def __init__(self, capacity: int) -> None:
         self.rows: list = []
         self.seq = 1
-        self.tenant = SimpleNamespace(id=1, employee_capacity=capacity)
+        self.tenant = SimpleNamespace(
+            id=1,
+            employee_capacity=capacity,
+            name="Empresa Teste",
+            document="12345678000199",
+        )
         self.memberships = [Membership(person_id=7, tenant_id=1, role="admin")]
         self.memberships[0].id = 1
 
@@ -2500,7 +2505,7 @@ def test_importacao_de_afd_cria_origem_propria_e_ignora_a_que_ja_existe():
     assert invalid.value.message == "Arquivo AFD inválido"
 
 
-def test_afd_sai_sem_fechamento_e_aej_so_de_periodo_fechado():
+def test_afd_e_aej_saem_sem_fechamento():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), employee_payload())
     workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0), "note": None})
@@ -2510,29 +2515,21 @@ def test_afd_sai_sem_fechamento_e_aej_so_de_periodo_fechado():
         {"kind": "afd", "starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6)},
     )
     assert exported.valid is True
-    assert "12345678901|2026-10-06T08:00:00-03:00" in exported.content
-    with pytest.raises(AppError) as open_period:
-        workforce.create_fiscal_file(
-            admin(),
-            {"kind": "aej", "starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6)},
-        )
-    assert open_period.value.message == "A exportação de AEJ sai só de período fechado"
-    opened = workforce.create_closing(
-        admin(),
-        {"starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6), "note": None},
-    )
-    workforce.update_closing(admin(), opened["id"], {"status": "closed", "note": None})
+    assert exported.content[9] == "1"
+    assert "7" in {line[9] for line in exported.content.splitlines() if len(line) > 9}
+    assert "12345678901" in exported.content or "012345678901" in exported.content
     archive = workforce.create_fiscal_file(
         admin(),
         {"kind": "aej", "starts_on": date(2026, 10, 6), "ends_on": date(2026, 10, 6)},
     )
-    assert archive.content.startswith("AEJ\n")
+    assert archive.content.startswith("01|")
+    assert "|002\r\n" in archive.content or archive.content.splitlines()[0].endswith("002")
     assert archive.valid is True
     brought = workforce.import_afd(
         admin(),
         "AFD\n12345678901|2026-10-06T12:00:00-03:00\n12345678901|2026-10-05T08:00:00-03:00\n",
     )
-    assert brought == {"created": 1, "ignored": 0, "blocked": 1}
+    assert brought == {"created": 2, "ignored": 0, "blocked": 0}
 
 
 def test_cancelar_ou_reabrir_faz_o_arquivo_deixar_de_valer():
@@ -2548,9 +2545,12 @@ def test_cancelar_ou_reabrir_faz_o_arquivo_deixar_de_valer():
     workforce.update_closing(admin(), opened["id"], {"status": "cancelled", "note": "Competência errada"})
     assert workforce.get_fiscal_file(admin(), october.id).valid is False
     assert workforce.get_fiscal_file(admin(), september.id).valid is True
+    workforce.create_payroll_event(
+        admin(),
+        {"system_event": "worked", "external_code": "101", "time_format": "centesimal", "active": True},
+    )
     fresh = workforce.create_fiscal_file(admin(), {"kind": "payroll", "year": 2026, "month": 10})
     assert fresh.valid is True
-    assert fresh.content.startswith("PAYROLL\n")
     workforce.update_closing(admin(), opened["id"], {"status": "open", "note": "Corrigir o ponto"})
     assert workforce.get_fiscal_file(admin(), fresh.id).valid is False
     with pytest.raises(AppError) as kept:
@@ -2563,7 +2563,7 @@ def test_totais_da_folha_levam_hora_extra_adicional_falta_e_saldo():
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
     work_journey(workforce, person["id"])
     mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
-    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True, "registration_number": "A10"})
     day = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))["items"][0]
     item = workforce.payroll(admin(), 2026, 10)["items"][0]
     assert item["worked_minutes"] == day["worked_minutes"]
@@ -2573,6 +2573,30 @@ def test_totais_da_folha_levam_hora_extra_adicional_falta_e_saldo():
     assert item["balance_minutes"] == workforce.hour_bank(admin(), person["id"])["balance_minutes"]
     assert item["punch_count"] == 4
     assert item["balance_minutes"] > 0
+    workforce.create_payroll_event(
+        admin(),
+        {
+            "system_event": "hour_bank_balance",
+            "external_code": "BH",
+            "time_format": "sexagesimal",
+            "active": True,
+        },
+    )
+    workforce.create_payroll_event(
+        admin(),
+        {"system_event": "worked", "external_code": "HT", "time_format": "centesimal", "active": True},
+    )
+    file = workforce.create_fiscal_file(admin(), {"kind": "payroll", "year": 2026, "month": 10})
+    assert "A10|BH|0.30" in file.content
+    assert "A10|HT|9.30" in file.content
+
+
+def test_folha_sem_evento_configurado_nao_gera_arquivo():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    with pytest.raises(AppError) as missing:
+        workforce.create_fiscal_file(admin(), {"kind": "payroll", "year": 2026, "month": 10})
+    assert missing.value.message == "Configure ao menos um evento da folha."
 
 
 def test_membro_nao_gera_arquivo_fiscal():

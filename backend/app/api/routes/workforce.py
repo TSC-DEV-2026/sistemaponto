@@ -71,6 +71,9 @@ from app.schemas.workforce import (
     OccurrenceCreate,
     OccurrenceOut,
     OccurrenceUpdate,
+    PayrollEventCreate,
+    PayrollEventOut,
+    PayrollEventUpdate,
     PayrollOut,
     ReportCatalogOut,
     ReportOut,
@@ -336,6 +339,7 @@ requests = APIRouter(prefix="/requests", tags=["requests"], dependencies=[Depend
 closings = APIRouter(prefix="/closings", tags=["closings"], dependencies=[Depends(require_use)])
 hour_bank_entries = APIRouter(prefix="/hour-bank-entries", tags=["hour-bank-entries"], dependencies=[Depends(require_use)])
 fiscal_files = APIRouter(prefix="/fiscal-files", tags=["fiscal-files"], dependencies=[Depends(require_use)])
+payroll_events = APIRouter(prefix="/payroll-events", tags=["payroll-events"], dependencies=[Depends(require_use)])
 notices = APIRouter(prefix="/notices", tags=["notices"])
 notice_preferences = APIRouter(prefix="/notice-preferences", tags=["notice-preferences"])
 notice_emails = APIRouter(prefix="/notice-emails", tags=["notice-emails"])
@@ -1157,6 +1161,62 @@ def payroll_totals(
     return json_data(dump_one(service.payroll(as_scope(actor), year, month), PayrollOut, None))
 
 
+@payroll_events.get("", summary="Listar eventos da folha")
+def list_payroll_events(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    items, total = service.list_payroll_events(
+        as_scope(actor), page, limit, read_filters(request, ("system_event", "external_code", "active"))
+    )
+    return json_data(dump_page(items, total, page, limit, PayrollEventOut, fields))
+
+
+@payroll_events.get("/{row_id}", summary="Detalhe do evento da folha")
+def get_payroll_event(
+    row_id: int,
+    fields: str | None = Query(default=None, max_length=500),
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_payroll_event(as_scope(actor), row_id), PayrollEventOut, fields))
+
+
+@payroll_events.post("", status_code=201, summary="Criar evento da folha")
+def create_payroll_event(
+    body: PayrollEventCreate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.create_payroll_event(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, PayrollEventOut, None), status_code=201)
+
+
+@payroll_events.put("/{row_id}", summary="Atualizar evento da folha")
+def update_payroll_event(
+    row_id: int,
+    body: PayrollEventUpdate,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    row = service.update_payroll_event(as_scope(actor), row_id, body.model_dump(exclude_unset=True))
+    return json_data(dump_one(row, PayrollEventOut, None))
+
+
+@payroll_events.delete("/{row_id}", summary="Excluir evento da folha")
+def delete_payroll_event(
+    row_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    service.delete_payroll_event(as_scope(actor), row_id)
+    return json_data(None)
+
+
 @reads.get("/calculations", summary="Apuração do período")
 def calculations(
     employee_id: int = Query(),
@@ -1510,6 +1570,7 @@ routers.extend(
         closings,
         hour_bank_entries,
         fiscal_files,
+        payroll_events,
         notices,
         notice_preferences,
         notice_emails,
