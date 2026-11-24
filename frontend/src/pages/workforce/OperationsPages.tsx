@@ -2579,7 +2579,6 @@ function PayrollTotalsPanel() {
   async function generatePayroll(event: FormEvent) {
     event.preventDefault()
     if (generating) return
-    setError("")
     setNotice("")
     setGenerating(true)
     try {
@@ -2590,8 +2589,8 @@ function PayrollTotalsPanel() {
       const file = await createRecord<FiscalFile>("/fiscal-files", body)
       downloadFiscalFile(file)
       setNotice("Download iniciado.")
-    } catch (caught) {
-      
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setGenerating(false)
     }
@@ -2600,7 +2599,6 @@ function PayrollTotalsPanel() {
   async function saveEvent(event: FormEvent) {
     event.preventDefault()
     if (savingEvent) return
-    setError("")
     setSavingEvent(true)
     try {
       await createRecord<PayrollEvent>("/payroll-events", {
@@ -2617,20 +2615,19 @@ function PayrollTotalsPanel() {
         setSystemEvent(remaining[0])
       }
       events.reload()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível salvar o evento.")
+    } catch {
+      // O interceptor já avisou o erro.
     } finally {
       setSavingEvent(false)
     }
   }
 
   async function removeEvent(id: number) {
-    setError("")
     try {
       await removeRecord("/payroll-events", id)
       events.reload()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível excluir o evento.")
+    } catch {
+      // O interceptor já avisou o erro.
     }
   }
 
@@ -2761,7 +2758,6 @@ function PayrollTotalsPanel() {
         )}
       </section>
       {notice ? <p className="text-sm text-[#64748B]" role="status">{notice}</p> : null}
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
     </div>
   )
 }
