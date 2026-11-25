@@ -645,6 +645,36 @@ class WorkforceRepository:
             .all()
         )
 
+    def list_punches(
+        self,
+        tenant_id: int,
+        *,
+        page: int,
+        limit: int,
+        equals: dict,
+        occurred_from: datetime | None = None,
+        occurred_to: datetime | None = None,
+        descending: bool = True,
+        employee_ids: list[int] | None = None,
+    ):
+        if employee_ids is not None and len(employee_ids) == 0:
+            return [], 0
+        query = self.db.query(Punch).filter(Punch.tenant_id == tenant_id)
+        if employee_ids is not None:
+            query = query.filter(Punch.employee_id.in_(employee_ids))
+        query = _apply_filters(query, Punch, equals)
+        if occurred_from is not None:
+            query = query.filter(Punch.occurred_at >= occurred_from)
+        if occurred_to is not None:
+            query = query.filter(Punch.occurred_at < occurred_to)
+        total = query.count()
+        if descending:
+            order = (Punch.occurred_at.desc(), Punch.id.desc())
+        else:
+            order = (Punch.occurred_at.asc(), Punch.id.asc())
+        items = query.order_by(*order).offset((page - 1) * limit).limit(limit).all()
+        return items, total
+
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime) -> list[Punch]:
         return (
             self.db.query(Punch)

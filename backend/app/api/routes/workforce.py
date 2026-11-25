@@ -543,8 +543,12 @@ def delete_vigency(
     return json_data(None)
 
 
-@punches.get("", summary="Listar marcações", description="Filtros: employee_id, valid.")
-@searchable("employee_id", "valid")
+@punches.get(
+    "",
+    summary="Listar marcações",
+    description="Filtros: employee_id, valid, starts_on, ends_on. starts_on e ends_on são datas (AAAA-MM-DD) do intervalo inclusivo.",
+)
+@searchable("employee_id", "valid", "starts_on", "ends_on")
 def list_punches(
     request: Request,
     page: int = Query(1, ge=1),
@@ -553,7 +557,12 @@ def list_punches(
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    items, total = service.list_punches(as_scope(actor), page, limit, read_filters(request, ("employee_id", "valid")))
+    items, total = service.list_punches(
+        as_scope(actor),
+        page,
+        limit,
+        read_filters(request, ("employee_id", "valid", "starts_on", "ends_on")),
+    )
     return json_data(dump_page(items, total, page, limit, PunchOut, fields))
 
 

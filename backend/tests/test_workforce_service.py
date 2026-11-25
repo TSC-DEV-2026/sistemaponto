@@ -462,6 +462,36 @@ class Memory:
         found.sort(key=lambda item: (item.occurred_at, item.id))
         return found
 
+    def list_punches(
+        self,
+        tenant_id: int,
+        *,
+        page: int,
+        limit: int,
+        equals: dict,
+        occurred_from: datetime | None = None,
+        occurred_to: datetime | None = None,
+        descending: bool = True,
+        employee_ids: list[int] | None = None,
+    ):
+        if employee_ids is not None and len(employee_ids) == 0:
+            return [], 0
+        found = []
+        for row in self._of(Punch, tenant_id):
+            if employee_ids is not None and row.employee_id not in employee_ids:
+                continue
+            if not all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
+                continue
+            if occurred_from is not None and row.occurred_at < occurred_from:
+                continue
+            if occurred_to is not None and row.occurred_at >= occurred_to:
+                continue
+            found.append(row)
+        found.sort(key=lambda item: (item.occurred_at, item.id), reverse=descending)
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
+
     def valid_punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime):
         found = [
             row
@@ -2512,6 +2542,27 @@ def test_gestor_fecha_intervalo_e_membro_nao():
         )
     assert member.value.status_code == 403
     assert overlap.value.status_code == 409
+
+
+def test_lista_de_marcacoes_filtra_pelo_intervalo_do_dia():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), employee_payload())
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 5), "note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 6), "note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(12, 0, 6), "note": None})
+    workforce.create_punch(admin(), {"employee_id": person["id"], "occurred_at": at(8, 0, 7), "note": None})
+    day, total = workforce.list_punches(
+        admin(),
+        1,
+        20,
+        {"employee_id": person["id"], "starts_on": "2026-10-06", "ends_on": "2026-10-06"},
+    )
+    assert total == 2
+    assert [row.occurred_at.astimezone(BR).date() for row in day] == [date(2026, 10, 6), date(2026, 10, 6)]
+    with pytest.raises(AppError) as invalid:
+        workforce.list_punches(admin(), 1, 20, {"starts_on": "2026-10-08", "ends_on": "2026-10-06"})
+    assert invalid.value.status_code == 400
+    assert invalid.value.message == "Intervalo inválido"
 
 
 def test_importacao_de_afd_cria_origem_propria_e_ignora_a_que_ja_existe():
