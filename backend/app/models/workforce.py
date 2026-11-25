@@ -6,11 +6,13 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 
 from app.db.base import Base
@@ -190,6 +192,10 @@ class Employee(Base):
 
 class EmployeeVigency(Base):
     __tablename__ = "employee_vigencies"
+    __table_args__ = (
+        Index("ix_employee_vigencies_employee_kind_dates", "employee_id", "kind", "valid_from", "valid_to"),
+        Index("ix_employee_vigencies_tenant_kind_reference", "tenant_id", "kind", "reference_id"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -206,6 +212,15 @@ class EmployeeVigency(Base):
 
 class Punch(Base):
     __tablename__ = "punches"
+    __table_args__ = (
+        Index("ix_punches_tenant_employee_occurred", "tenant_id", "employee_id", "occurred_at"),
+        Index(
+            "ix_punches_tenant_occurred_valid",
+            "tenant_id",
+            "occurred_at",
+            postgresql_where=text("valid IS TRUE"),
+        ),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -242,6 +257,9 @@ class FaceEmbedding(Base):
 
 class Occurrence(Base):
     __tablename__ = "occurrences"
+    __table_args__ = (
+        Index("ix_occurrences_tenant_employee_period", "tenant_id", "employee_id", "starts_on", "ends_on"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -313,6 +331,9 @@ class RequestEvent(Base):
 
 class HourBankEntry(Base):
     __tablename__ = "hour_bank_entries"
+    __table_args__ = (
+        Index("ix_hour_bank_entries_tenant_employee_on", "tenant_id", "employee_id", "entry_on"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -329,6 +350,9 @@ class HourBankEntry(Base):
 
 class Closing(Base):
     __tablename__ = "closings"
+    __table_args__ = (
+        Index("ix_closings_tenant_status_period", "tenant_id", "status", "starts_on", "ends_on"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -408,6 +432,14 @@ class NoticeEmail(Base):
 
 class Notice(Base):
     __tablename__ = "notices"
+    __table_args__ = (
+        Index(
+            "ix_notices_tenant_person_unread",
+            "tenant_id",
+            "person_id",
+            postgresql_where=text("read_at IS NULL"),
+        ),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
