@@ -2052,19 +2052,13 @@ export function ReportsPage() {
     if (!applied) return
     const employee = applied.employeeId ? Number(applied.employeeId) : undefined
     try {
-      const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100, reportExtra(applied))
-      const items = [...first.items]
-      const pageCount = Math.max(1, Math.ceil(first.total / first.limit))
-      for (let page = 2; page <= pageCount; page += 1) {
-        const next = await getReport(applied.kind, applied.startsOn, applied.endsOn, page, employee, 100, reportExtra(applied))
-        items.push(...next.items)
-      }
+      const first = await getReport(applied.kind, applied.startsOn, applied.endsOn, 1, employee, 100, reportExtra(applied), true)
       const bytes = reportPdf({
         name: first.name,
         from: showDate(first.starts_on),
         until: showDate(first.ends_on),
-        total: first.total,
-        items: items.map((item) => ({
+        total: first.items.length,
+        items: first.items.map((item) => ({
           occurredOn: showDate(item.occurred_on),
           title: item.title,
           fullName: item.full_name || "",
@@ -2142,7 +2136,7 @@ export function ReportsPage() {
               [FileText, "Tipo", result.name],
               [Calendar, result.starts_on === result.ends_on ? "Dia" : "Período", result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`],
               [conceptIcon.employee, "Funcionário", consultedPerson(applied, result.items)],
-              [List, "Registros encontrados", String(result.total)],
+              [List, "Pessoas na consulta", String(result.total)],
             ] as const
           ).map(([Icon, label, value]) => (
             <div key={label} className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-glow bg-brand-wash px-4 py-3 shadow-[0_8px_22px_rgb(var(--brand-cta)/0.1)]">
@@ -2177,7 +2171,7 @@ export function ReportsPage() {
               <h2 className="text-lg font-semibold text-ui-ink">
                 {result.name} · {result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`}
               </h2>
-              <p className="text-sm text-brand-quiet">{result.total === 0 ? "Nenhum registro encontrado" : `${result.total} registros encontrados`}</p>
+              <p className="text-sm text-brand-quiet">{result.total === 0 ? "Nenhuma pessoa encontrada" : result.total === 1 ? "1 pessoa nesta página de consulta" : `${result.total} pessoas na consulta`}</p>
             </div>
             <Button type="button" variant="outline" className={cn(moduleQuietClass, "hover:border-brand-cta/35 hover:bg-brand-cta/6 hover:text-brand-ink-strong")} disabled={!applied} onClick={printReport}>
               <Printer className="h-4 w-4" aria-hidden />

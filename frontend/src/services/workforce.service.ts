@@ -568,6 +568,7 @@ export function getReport(
   employeeId?: number,
   limit = 20,
   extra?: Record<string, string>,
+  exportAll = false,
 ) {
   return read<Report>(() =>
     api.get<ApiResponse<Report>>("/reports", {
@@ -578,6 +579,7 @@ export function getReport(
         page,
         limit,
         employee_id: employeeId,
+        ...(exportAll ? { export: true } : {}),
         ...extra,
       },
     }),

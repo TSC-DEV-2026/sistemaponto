@@ -872,11 +872,25 @@ def get_closing(
     fields: str | None = Query(default=None, max_length=500),
     page: int | None = Query(default=None, ge=1),
     limit: int | None = Query(default=None, ge=1, le=100),
-    part: str | None = Query(default=None, pattern="^(people|banks|sheets)$"),
+    part: str | None = Query(default=None, pattern="^(people|banks|bank_roster|sheets)$"),
+    employee_id: int | None = Query(default=None, ge=1),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    return json_data(dump_one(service.get_closing(as_scope(actor), row_id, page=page, limit=limit, part=part), ClosingOut, fields))
+    return json_data(
+        dump_one(
+            service.get_closing(
+                as_scope(actor),
+                row_id,
+                page=page,
+                limit=limit,
+                part=part,
+                employee_id=employee_id,
+            ),
+            ClosingOut,
+            fields,
+        )
+    )
 
 
 @closings.post("", status_code=201, summary="Abrir período")
@@ -1303,7 +1317,7 @@ def report_catalog(
 @reads.get(
     "/reports",
     summary="Relatório analítico do período",
-    description="No relatório de funcionários, starts_on é o dia e ends_on repete esse dia. Empresa, equipe, função, jornada e valor de categoria aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam.",
+    description="No relatório de funcionários, starts_on é o dia e ends_on repete esse dia. Empresa, equipe, função, jornada e valor de categoria aceitam vários ids separados por vírgula. A situação aceita ativo ou desligado. Cada linha usa a vigência do dia dela. Os filtros se somam. A página escolhe pessoas antes de apurar; export=true devolve o período completo numa consulta.",
 )
 @searchable(
     "full_name",
@@ -1327,6 +1341,7 @@ def reports(
     norm_id: str | None = Query(default=None, max_length=500, description="Ids de norma separados por vírgula"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
+    export: bool = Query(default=False, description="Gera o relatório completo numa consulta"),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
@@ -1351,7 +1366,9 @@ def reports(
     ):
         if value:
             filters[name] = value
-    result = service.report(as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit, filters)
+    result = service.report(
+        as_scope(actor), kind, starts_on, ends_on, employee_id, page, limit, filters, export=export
+    )
     return json_data(dump_one(result, ReportOut, None))
 
 

@@ -1484,7 +1484,16 @@ class WorkforceService:
         events = self.repo.closing_events_for([row.id for row in rows])
         return [self._closing_out(row, events.get(row.id, [])) for row in rows], total
 
-    def get_closing(self, scope: Scope, row_id: int, *, page: int | None = None, limit: int | None = None, part: str | None = None) -> dict:
+    def get_closing(
+        self,
+        scope: Scope,
+        row_id: int,
+        *,
+        page: int | None = None,
+        limit: int | None = None,
+        part: str | None = None,
+        employee_id: int | None = None,
+    ) -> dict:
         self._known(scope)
         row = self._row(Closing, scope, row_id)
         events = self.repo.closing_events_for([row.id]).get(row.id, [])
@@ -1494,24 +1503,52 @@ class WorkforceService:
             return payload
         outer = self._scratch_scope()
         try:
+            if part == "bank_roster":
+                roster, total = self._closing_roster_page(scope, row, page=1, limit=10_000, hour_bank=True)
+                payload["banks"] = [
+                    {
+                        "employee_id": employee.id,
+                        "full_name": employee.full_name,
+                        "registration_number": employee.registration_number,
+                        "balance_minutes": None,
+                        "entries": [],
+                    }
+                    for employee in roster
+                ]
+                payload["people_total"] = total
+                return payload
             if part == "banks":
-                _people, banks, total = self._closing_statement(scope, row, include_people=False)
+                current = page or 1
+                size = limit or 20
+                _people, banks, total = self._closing_statement(
+                    scope,
+                    row,
+                    page=current,
+                    limit=size,
+                    include_people=False,
+                    employee_id=employee_id,
+                )
                 payload["banks"] = banks
                 payload["people_total"] = total
                 return payload
             if part == "people":
                 current = page or 1
                 size = limit or 20
-                people, _banks, total = self._closing_statement(scope, row, page=current, limit=size, with_days=False, include_banks=False)
+                people, _banks, total = self._closing_statement(
+                    scope, row, page=current, limit=size, with_days=False, include_banks=False
+                )
                 payload["people"] = people
                 payload["people_total"] = total
                 return payload
             if part == "sheets":
-                people, _banks, total = self._closing_statement(scope, row, include_banks=False)
+                # Caminho próprio de exportação: calcula o período uma vez para o PDF.
+                people, _banks, total = self._closing_sheets(scope, row)
                 payload["people"] = people
                 payload["people_total"] = total
                 return payload
-            people, banks, total = self._closing_statement(scope, row)
+            current = page or 1
+            size = limit or 20
+            people, banks, total = self._closing_statement(scope, row, page=current, limit=size)
             payload["people"] = people
             payload["banks"] = banks
             payload["people_total"] = total
@@ -1896,6 +1933,8 @@ class WorkforceService:
         page: int,
         limit: int,
         filters: dict | None = None,
+        *,
+        export: bool = False,
     ) -> dict:
         self._can_manage_period(scope)
         if kind == "people":
@@ -1911,44 +1950,102 @@ class WorkforceService:
             raise AppError(400, "O relatório aceita no máximo 366 dias")
         outer = self._scratch_scope()
         try:
-            lines = self._report_lines(scope, kind, starts_on, ends_on, employee_id, filters or {})
-            start = (page - 1) * limit
+            chosen = dict(filters or {})
+            people, places, situation, category_values = self._report_people_filtered(
+                scope, kind, starts_on, ends_on, employee_id, chosen
+            )
+            total_people = len(people)
+            if export:
+                page_people = people
+                current = 1
+                size = total_people or 1
+            else:
+                current = page
+                size = limit
+                start = (current - 1) * size
+                page_people = people[start : start + size]
+            include_closings = employee_id is None and (export or current == 1)
+            lines = self._report_lines_for(
+                scope,
+                kind,
+                starts_on,
+                ends_on,
+                page_people,
+                chosen,
+                places,
+                situation,
+                category_values,
+                include_closings=include_closings,
+            )
             return {
                 "kind": kind,
                 "name": name,
                 "starts_on": starts_on,
                 "ends_on": ends_on,
-                "items": lines[start : start + limit],
-                "total": len(lines),
-                "page": page,
-                "limit": limit,
+                "items": lines,
+                "total": total_people,
+                "page": current,
+                "limit": size,
             }
         finally:
             self._end_scratch(outer)
 
-    def _report_lines(
+    def _report_people_filtered(
         self,
         scope: Scope,
         kind: str,
         starts_on: date,
         ends_on: date,
         employee_id: int | None,
-        filters: dict | None = None,
-    ) -> list[dict]:
-        chosen = dict(filters or {})
-        category_values = self._id_list(chosen.pop("category_value_id", None))
-        chosen.pop("category_id", None)
-        places, situation = self._place_sets(chosen)
+        filters: dict,
+    ) -> tuple[list[Employee], dict[str, set[int]], str | None, list[int]]:
+        category_values = self._id_list(filters.pop("category_value_id", None))
+        filters.pop("category_id", None)
+        places, situation = self._place_sets(filters)
+        matched = self._place_people(scope, starts_on, ends_on, places, situation)
+        if category_values:
+            by_category = self._category_value_ids(scope, category_values, starts_on)
+            if ends_on != starts_on:
+                cursor = starts_on + timedelta(days=1)
+                while cursor <= ends_on:
+                    by_category |= self._category_value_ids(scope, category_values, cursor)
+                    cursor += timedelta(days=1)
+            matched = by_category if matched is None else matched & by_category
+        people = self._report_people(scope, employee_id, matched)
         if kind == "employees":
-            lines = self._employee_lines(scope, starts_on, employee_id, chosen)
+            if "full_name" in filters:
+                needle = str(filters["full_name"]).casefold()
+                people = [person for person in people if needle in person.full_name.casefold()]
+            if "cpf" in filters:
+                digits = normalize_cpf(str(filters["cpf"]))
+                people = [person for person in people if person.cpf == digits]
+            if "person_id" in filters:
+                person_id = int(filters["person_id"])
+                people = [person for person in people if person.person_id == person_id]
+        return people, places, situation, category_values
+
+    def _report_lines_for(
+        self,
+        scope: Scope,
+        kind: str,
+        starts_on: date,
+        ends_on: date,
+        people: list[Employee],
+        filters: dict,
+        places: dict[str, set[int]],
+        situation: str | None,
+        category_values: list[int],
+        *,
+        include_closings: bool = False,
+    ) -> list[dict]:
+        if kind == "employees":
+            lines = self._employee_lines_for(scope, starts_on, people, filters)
         else:
-            lines = self._kind_lines(scope, kind, starts_on, ends_on, employee_id)
+            lines = self._kind_lines_for(
+                scope, kind, starts_on, ends_on, people, include_closings=include_closings
+            )
         if places or situation:
-            lines = [
-                line
-                for line in lines
-                if self._on_places(line.get("employee_id"), line["occurred_on"], places, situation)
-            ]
+            lines = self._filter_lines_places(lines, places, situation)
         if category_values:
             matched: dict[date, set[int]] = {}
             kept = []
@@ -1961,28 +2058,27 @@ class WorkforceService:
             lines = kept
         return sorted(lines, key=lambda item: (item["occurred_on"], item["full_name"] or "", item["title"], item["detail"]))
 
-    def _kind_lines(
+    def _kind_lines_for(
         self,
         scope: Scope,
         kind: str,
         starts_on: date,
         ends_on: date,
-        employee_id: int | None,
+        people: list[Employee],
+        *,
+        include_closings: bool = False,
     ) -> list[dict]:
-        people = self._report_people(scope, employee_id)
         if kind == "punch":
-            lines = self._punch_lines(scope, people, starts_on, ends_on)
-        elif kind == "journey":
-            lines = self._journey_lines(scope, people, starts_on, ends_on)
-        elif kind == "hour_bank":
-            lines = self._bank_lines(scope, people, starts_on, ends_on)
-        elif kind == "occurrence":
-            lines = self._occurrence_lines(scope, people, starts_on, ends_on)
-        elif kind == "marking":
-            lines = self._marking_lines(scope, people, starts_on, ends_on)
-        else:
-            lines = self._management_lines(scope, people, starts_on, ends_on, employee_id is None)
-        return lines
+            return self._punch_lines(scope, people, starts_on, ends_on)
+        if kind == "journey":
+            return self._journey_lines(scope, people, starts_on, ends_on)
+        if kind == "hour_bank":
+            return self._bank_lines(scope, people, starts_on, ends_on)
+        if kind == "occurrence":
+            return self._occurrence_lines(scope, people, starts_on, ends_on)
+        if kind == "marking":
+            return self._marking_lines(scope, people, starts_on, ends_on)
+        return self._management_lines(scope, people, starts_on, ends_on, include_closings)
 
     def _place_sets(self, filters: dict) -> tuple[dict[str, set[int]], str | None]:
         found: dict[str, set[int]] = {}
@@ -2005,16 +2101,70 @@ class WorkforceService:
             raise AppError(400, "Situação inválida")
         return found, situation or None
 
+    def _place_people(
+        self,
+        scope: Scope,
+        starts_on: date,
+        ends_on: date,
+        places: dict[str, set[int]],
+        situation: str | None,
+    ) -> set[int] | None:
+        matched: set[int] | None = None
+        for kind, ids in places.items():
+            found = self.repo.employee_ids_overlapping(
+                scope.tenant_id, kind, starts_on, ends_on, reference_ids=ids
+            )
+            matched = found if matched is None else matched & found
+        if situation is not None:
+            found = self.repo.employee_ids_overlapping(
+                scope.tenant_id, "status", starts_on, ends_on, label=situation
+            )
+            matched = found if matched is None else matched & found
+        return matched
+
+    def _filter_lines_places(
+        self,
+        lines: list[dict],
+        places: dict[str, set[int]],
+        situation: str | None,
+    ) -> list[dict]:
+        if not lines:
+            return []
+        by_day: dict[date, list[dict]] = {}
+        for line in lines:
+            by_day.setdefault(line["occurred_on"], []).append(line)
+        kept: list[dict] = []
+        for day, day_lines in by_day.items():
+            ids = [line["employee_id"] for line in day_lines if line.get("employee_id") is not None]
+            labels = self.repo.labels_on(ids, day)
+            for line in day_lines:
+                employee_id = line.get("employee_id")
+                if employee_id is None:
+                    continue
+                current = labels.get(employee_id, {})
+                if any(
+                    current.get(kind) is None or current[kind].reference_id not in ids_set
+                    for kind, ids_set in places.items()
+                ):
+                    continue
+                if situation is not None:
+                    status = current.get("status")
+                    if status is None or status.label != situation:
+                        continue
+                kept.append(line)
+        return kept
+
     def _on_places(self, employee_id: int | None, day: date, places: dict[str, set[int]], situation: str | None = None) -> bool:
         if employee_id is None:
             return False
+        labels = self.repo.labels_on([employee_id], day).get(employee_id, {})
         for kind, ids in places.items():
-            current = self.repo.applicable(employee_id, kind, day)
+            current = labels.get(kind)
             if current is None or current.reference_id not in ids:
                 return False
         if situation is None:
             return True
-        current = self.repo.applicable(employee_id, "status", day)
+        current = labels.get("status")
         return current is not None and current.label == situation
 
     def _marking_lines(self, scope: Scope, people: list[Employee], starts_on: date, ends_on: date) -> list[dict]:
@@ -2036,17 +2186,28 @@ class WorkforceService:
                 )
         return lines
 
-    def _report_people(self, scope: Scope, employee_id: int | None) -> list[Employee]:
+    def _report_people(
+        self,
+        scope: Scope,
+        employee_id: int | None,
+        matched: set[int] | None = None,
+    ) -> list[Employee]:
         ids = self._visible_ids(scope)
         if employee_id is not None:
             self._visible(scope, employee_id)
             ids = [employee_id]
+        if matched is not None:
+            if ids is None:
+                ids = list(matched)
+            else:
+                ids = [item for item in ids if item in matched]
         people: list[Employee] = []
         page = 1
         while True:
             rows, total = self.repo.list_employees(scope.tenant_id, ids=ids, page=page, limit=100, equals={})
             people.extend(rows)
             if not rows or page * 100 >= total:
+                people.sort(key=lambda item: (item.full_name.casefold(), item.id))
                 return people
             page += 1
 
@@ -3779,22 +3940,7 @@ class WorkforceService:
             cards[employee_id] = items
         return cards
 
-    def _employee_lines(self, scope: Scope, day: date, employee_id: int | None, filters: dict) -> list[dict]:
-        chosen = dict(filters)
-        chosen.pop("category_id", None)
-        matched = self._vigency_matches(scope, chosen, day)
-        people = self._report_people(scope, employee_id)
-        if matched is not None:
-            people = [person for person in people if person.id in matched]
-        if "full_name" in chosen:
-            needle = str(chosen["full_name"]).casefold()
-            people = [person for person in people if needle in person.full_name.casefold()]
-        if "cpf" in chosen:
-            digits = normalize_cpf(str(chosen["cpf"]))
-            people = [person for person in people if person.cpf == digits]
-        if "person_id" in chosen:
-            person_id = int(chosen["person_id"])
-            people = [person for person in people if person.person_id == person_id]
+    def _employee_lines_for(self, scope: Scope, day: date, people: list[Employee], filters: dict) -> list[dict]:
         labels = self.repo.labels_on([person.id for person in people], day)
         return [
             {
@@ -4386,7 +4532,7 @@ class WorkforceService:
         wrote = self._apply_closing_launch(scope, row, employee, when, kind, note, data.get("minutes"))
         if kind == "settlement" and not wrote:
             raise AppError(409, "O saldo já está zerado")
-        return self.get_closing(scope, row.id, part="banks")
+        return self.get_closing(scope, row.id, part="banks", employee_id=employee.id, page=1, limit=1)
 
     def settle_closing_banks(self, scope: Scope, row_id: int, data: dict) -> dict:
         self._can_manage_period(scope)
@@ -4399,17 +4545,29 @@ class WorkforceService:
         when = row.ends_on if row.ends_on <= self.today() else self.today()
         if when < row.starts_on:
             raise AppError(400, "O período ainda não começou")
-        targets = [employee for employee in self._closing_roster(scope, row, when) if employee.hour_bank]
-        if not targets:
-            raise AppError(409, "Ninguém neste fechamento usa banco de horas")
-        wrote = False
-        for employee in targets:
-            self._can_launch(scope, employee)
-            if self._apply_closing_launch(scope, row, employee, when, "settlement", note, None):
-                wrote = True
-        if not wrote:
-            raise AppError(409, "O saldo já está zerado")
-        return self.get_closing(scope, row.id, part="banks")
+        outer = self._scratch_scope()
+        try:
+            wrote = False
+            page = 1
+            total = 0
+            while True:
+                targets, total = self._closing_roster_page(scope, row, page=page, limit=50, hour_bank=True)
+                if not targets and page == 1:
+                    raise AppError(409, "Ninguém neste fechamento usa banco de horas")
+                if not targets:
+                    break
+                for employee in targets:
+                    self._can_launch(scope, employee)
+                    if self._apply_closing_launch(scope, row, employee, when, "settlement", note, None):
+                        wrote = True
+                if page * 50 >= total:
+                    break
+                page += 1
+            if not wrote:
+                raise AppError(409, "O saldo já está zerado")
+            return self.get_closing(scope, row.id, part="banks", page=1, limit=max(total, 1))
+        finally:
+            self._end_scratch(outer)
 
     def _apply_closing_launch(self, scope: Scope, row: Closing, employee: Employee, when: date, kind: str, note: str, raw) -> bool:
         previous = [
@@ -4484,28 +4642,37 @@ class WorkforceService:
         for item in previous:
             self.repo.delete(item)
         self._audit(scope, employee.id, "hour_bank", row.id, kind, None, when)
-        return self.get_closing(scope, row.id, part="banks")
+        return self.get_closing(scope, row.id, part="banks", employee_id=employee.id, page=1, limit=1)
 
-    def _closing_roster(self, scope: Scope, row: Closing, finish: date) -> list[Employee]:
-        members = set(self.repo.member_ids(row.id))
-        found: list[Employee] = []
-        page = 1
-        while True:
-            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
-            for employee in rows:
-                if members and employee.id not in members:
-                    continue
-                if employee.admission_date > finish:
-                    continue
-                day_start = employee.admission_date if employee.admission_date > row.starts_on else row.starts_on
-                if day_start > finish:
-                    continue
-                found.append(employee)
-            if page * 100 >= total or not rows:
-                break
-            page += 1
-        found.sort(key=lambda item: item.full_name.casefold())
-        return found
+    def _closing_finish(self, row: Closing) -> date | None:
+        finish = row.ends_on if row.ends_on <= self.today() else self.today()
+        if finish < row.starts_on:
+            return None
+        return finish
+
+    def _closing_roster_page(
+        self,
+        scope: Scope,
+        row: Closing,
+        *,
+        page: int,
+        limit: int,
+        hour_bank: bool | None = None,
+        employee_id: int | None = None,
+    ) -> tuple[list[Employee], int]:
+        finish = self._closing_finish(row)
+        if finish is None:
+            return [], 0
+        return self.repo.list_closing_members(
+            scope.tenant_id,
+            row.id,
+            page=page,
+            limit=limit,
+            finish=finish,
+            starts_on=row.starts_on,
+            hour_bank=hour_bank,
+            employee_id=employee_id,
+        )
 
     def _closing_person(self, scope: Scope, row: Closing, employee: Employee, finish: date, *, with_days: bool) -> tuple[dict, dict | None]:
         day_start = employee.admission_date if employee.admission_date > row.starts_on else row.starts_on
@@ -4604,29 +4771,50 @@ class WorkforceService:
         with_days: bool = True,
         include_people: bool = True,
         include_banks: bool = True,
+        employee_id: int | None = None,
     ) -> tuple[list[dict], list[dict], int]:
-        finish = row.ends_on if row.ends_on <= self.today() else self.today()
-        if finish < row.starts_on:
+        finish = self._closing_finish(row)
+        if finish is None:
             return [], [], 0
-        roster = self._closing_roster(scope, row, finish)
-        chosen = roster
-        if page is not None and limit is not None:
-            start = (page - 1) * limit
-            chosen = roster[start : start + limit]
+        current = page or 1
+        size = limit or 20
         people: list[dict] = []
         banks: list[dict] = []
         if include_people:
-            for employee in chosen:
+            roster, total = self._closing_roster_page(scope, row, page=current, limit=size, employee_id=employee_id)
+            for employee in roster:
                 person, bank = self._closing_person(scope, row, employee, finish, with_days=with_days)
                 people.append(person)
                 if include_banks and bank is not None:
                     banks.append(bank)
-        elif include_banks:
+            return people, banks, total
+        if include_banks:
+            roster, total = self._closing_roster_page(
+                scope, row, page=current, limit=size, hour_bank=True, employee_id=employee_id
+            )
             for employee in roster:
-                if not employee.hour_bank:
-                    continue
                 banks.append(self._closing_bank_row(scope, row, employee, finish))
-        return people, banks, len(roster)
+            return people, banks, total
+        return people, banks, 0
+
+    def _closing_sheets(self, scope: Scope, row: Closing) -> tuple[list[dict], list[dict], int]:
+        finish = self._closing_finish(row)
+        if finish is None:
+            return [], [], 0
+        people: list[dict] = []
+        page = 1
+        total = 0
+        while True:
+            roster, total = self._closing_roster_page(scope, row, page=page, limit=50)
+            if not roster:
+                break
+            for employee in roster:
+                person, _bank = self._closing_person(scope, row, employee, finish, with_days=True)
+                people.append(person)
+            if page * 50 >= total:
+                break
+            page += 1
+        return people, [], total
 
     def _closing_launch(
         self,
