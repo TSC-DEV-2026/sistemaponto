@@ -112,7 +112,7 @@ export function DayTimesFields({
 }
 
 export function PunchCorrectionForm({
-  employees,
+  employees = [],
   employeeId,
   onSaved,
   appearance = "plain",
@@ -191,12 +191,12 @@ export function PunchCorrectionForm({
   return (
     <ActionForm id={formId} className={formId ? "space-y-5" : module ? cn(moduleCardClass, "space-y-5") : "grid gap-3 rounded-md border border-border bg-card p-3"} onSubmit={onSubmit}>
       <p className={module ? "text-sm leading-6 text-brand-muted" : "text-sm text-muted-foreground"}>A correção substitui as marcações que valem neste dia. Outra correção substitui a anterior. O registro original pode ser restaurado em Ver detalhes.</p>
-      {employees ? (
+      {employeeId == null ? (
         <div className="space-y-2">
           <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-employee">
             Funcionário
           </Label>
-          <EmployeeCombobox id="correction-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
+          <EmployeeCombobox id="correction-employee" value={selected} employees={employees} emptyLabel="Selecione" required onChange={setSelected} />
         </div>
       ) : null}
       <DayTimesFields dayId="correction-day" day={chosenDay} times={times} onDay={setDay} onTimes={setTimes} tone={module ? "module" : "plain"} lockDay={Boolean(fixedDay)} />
@@ -249,13 +249,13 @@ function punchExtra(item: Punch) {
   return bits.join(" · ")
 }
 
-export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }: { employeeId?: number; employees?: Employee[]; reloadKey?: number; appearance?: "module" }) {
+export function PunchLists({ employeeId, employees = [], reloadKey = 0, appearance }: { employeeId?: number; employees?: Employee[]; reloadKey?: number; appearance?: "module" }) {
   const [person, setPerson] = useState(employeeId ? String(employeeId) : "")
   const chosen = employeeId ?? (person ? Number(person) : undefined)
   const scope = chosen ? { employee_id: chosen } : {}
   const current = usePagedList<Punch>("/punches", { ...scope, valid: true }, true, reloadKey)
   const history = usePagedList<Punch>("/punches", { ...scope, valid: false }, true, reloadKey)
-  const employeeName = employees ? (id: number) => employees.find((item) => item.id === id)?.full_name || String(id) : undefined
+  const employeeName = employees.length > 0 ? (id: number) => employees.find((item) => item.id === id)?.full_name || String(id) : undefined
 
   if (appearance === "module") {
     return (
@@ -270,7 +270,7 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
               <Label className="text-sm font-semibold text-ui-heading" htmlFor="punch-employee">
                 Funcionário
               </Label>
-              <EmployeeCombobox id="punch-employee" value={person} employees={employees || []} extendSearch={(employees || []).length >= 100} onChange={setPerson} />
+              <EmployeeCombobox id="punch-employee" value={person} employees={employees} onChange={setPerson} />
             </div>
           )}
           <h3 className="mt-6 text-sm font-semibold text-brand-ink">Marcações que valem</h3>
@@ -299,7 +299,7 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
       {employeeId ? null : (
         <div className="space-y-2">
           <Label htmlFor="punch-employee">Funcionário</Label>
-          <EmployeeCombobox id="punch-employee" value={person} employees={employees || []} emptyLabel="Todos" extendSearch={(employees || []).length >= 100} onChange={setPerson} />
+          <EmployeeCombobox id="punch-employee" value={person} employees={employees} emptyLabel="Todos" onChange={setPerson} />
         </div>
       )}
       <PunchGroup title="Marcações que valem" empty="Nenhuma marcação válida." loading={current.loading} punches={current.items} employeeName={employeeName} />

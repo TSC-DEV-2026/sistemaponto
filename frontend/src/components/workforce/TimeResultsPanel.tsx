@@ -160,7 +160,7 @@ function ResultadoApuracao({
 
 export function CalculationsPanel({
   employeeId,
-  employees,
+  employees = [],
   heading = true,
   appearance,
   note,
@@ -268,12 +268,12 @@ export function CalculationsPanel({
             <p className="mt-1 text-sm text-brand-quiet">Consulte as horas apuradas.</p>
             <p className="mt-2 text-sm leading-6 text-brand-muted">{note || resultNote()}</p>
           </div>
-          {employees ? (
+          {employeeId == null ? (
             <div className="mt-[18px] space-y-2">
               <Label className="font-semibold text-brand-ink" htmlFor="result-employee">
                 Funcionário
               </Label>
-              <EmployeeCombobox id="result-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
+              <EmployeeCombobox id="result-employee" value={selected} employees={employees} emptyLabel="Selecione" required onChange={setSelected} />
             </div>
           ) : null}
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -319,10 +319,10 @@ export function CalculationsPanel({
       {heading ? <h2 className="text-sm font-medium">Apurações</h2> : null}
       <p className="text-sm text-muted-foreground">{note || resultNote()}</p>
       <ActionForm className="grid gap-3 rounded-md border border-border bg-card p-3" onSubmit={onSubmit}>
-        {employees ? (
+        {employeeId == null ? (
           <div className="space-y-2">
             <Label htmlFor="result-employee">Funcionário</Label>
-            <EmployeeCombobox id="result-employee" value={selected} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setSelected} />
+            <EmployeeCombobox id="result-employee" value={selected} employees={employees} emptyLabel="Selecione" required onChange={setSelected} />
           </div>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">

@@ -5,33 +5,29 @@ import { toastError } from "@/store/toast.store"
 
 export type CategoryRecord = { id: number; name: string; values: NamedRecord[] }
 
-export async function loadCategories() {
-  const first = await listRecords<NamedRecord>("/categories", { page: 1, limit: 100 })
+async function loadPages<T>(path: string, params: Record<string, string | number> = {}) {
+  const first = await listRecords<T>(path, { page: 1, limit: 100, ...params })
   const rows = [...first.items]
   const pages = Math.ceil(first.total / 100)
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await listRecords<NamedRecord>("/categories", { page, limit: 100 })
-    rows.push(...next.items)
-  }
-  const loaded: CategoryRecord[] = []
-  for (const item of rows) {
-    const valuesPage = await listRecords<NamedRecord>("/category-values", {
-      page: 1,
-      limit: 100,
-      category_id: item.id,
-    })
-    const values = [...valuesPage.items]
-    const valuePages = Math.ceil(valuesPage.total / 100)
-    for (let page = 2; page <= valuePages; page += 1) {
-      const next = await listRecords<NamedRecord>("/category-values", {
-        page,
-        limit: 100,
+  if (pages <= 1) return rows
+  const rest = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, index) => listRecords<T>(path, { page: index + 2, limit: 100, ...params })),
+  )
+  for (const page of rest) rows.push(...page.items)
+  return rows
+}
+
+export async function loadCategories() {
+  const rows = await loadPages<NamedRecord>("/categories", { fields: "id,name" })
+  const loaded = await Promise.all(
+    rows.map(async (item) => {
+      const values = await loadPages<NamedRecord>("/category-values", {
         category_id: item.id,
+        fields: "id,name,category_id",
       })
-      values.push(...next.items)
-    }
-    loaded.push({ id: item.id, name: item.name, values })
-  }
+      return { id: item.id, name: item.name, values }
+    }),
+  )
   return loaded
 }
 

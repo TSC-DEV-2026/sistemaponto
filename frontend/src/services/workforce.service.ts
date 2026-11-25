@@ -458,6 +458,12 @@ export function notifyNoticesChanged() {
   window.dispatchEvent(new Event("notices-changed"))
 }
 
+export function unreadNoticeCount() {
+  return read<{ total: number }>(() => api.get<ApiResponse<{ total: number }>>("/notices/unread-count"))
+}
+
+export const employeePickFields = "id,full_name,cpf,registration_number,person_id,clock_method"
+
 export function listRecords<T>(path: string, params?: Record<string, string | number | boolean | undefined>) {
   return read<Page<T>>(() => api.get<ApiResponse<Page<T>>>(path, { params }))
 }

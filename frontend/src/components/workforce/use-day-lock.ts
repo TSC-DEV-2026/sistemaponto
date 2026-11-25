@@ -36,8 +36,20 @@ export function useDayLocks(employeeId: number | null) {
     }
     let active = true
     Promise.all([
-      listRecords<Closing>("/closings", { page: 1, limit: 100, status: "closed" }),
-      listRecords<TimeRequest>("/requests", { page: 1, limit: 100, employee_id: employeeId, status: "pending" }),
+      listRecords<Closing>("/closings", {
+        page: 1,
+        limit: 100,
+        status: "closed",
+        employee_id: employeeId,
+        fields: "id,starts_on,ends_on,status",
+      }),
+      listRecords<TimeRequest>("/requests", {
+        page: 1,
+        limit: 100,
+        employee_id: employeeId,
+        status: "pending",
+        fields: "id,status,starts_on,ends_on,occurred_at",
+      }),
     ])
       .then(([closed, pending]) => {
         if (!active) return

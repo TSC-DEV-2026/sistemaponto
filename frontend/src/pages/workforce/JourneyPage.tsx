@@ -19,7 +19,7 @@ import { PunchCorrectionForm } from "@/components/workforce/PunchDay"
 import { CalculationsPanel } from "@/components/workforce/TimeResultsPanel"
 import { DomainTabs, TabAction } from "@/pages/workforce/EntityScreens"
 import { ClosingsPage } from "@/pages/workforce/OperationsPages"
-import { createRecord, getHourBank, getRecord, listRecords, removeRecord, updateRecord, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
+import { createRecord, employeePickFields, getHourBank, getRecord, removeRecord, updateRecord, type Employee, type HourBank, type HourBankEntry } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { toastError } from "@/store/toast.store"
 import { canonicalTab } from "@/route-slugs"
@@ -44,26 +44,9 @@ export function JourneyPage() {
 }
 
 function ResultsSchedule() {
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
-  const [employees, setEmployees] = useState<Employee[]>([])
-
-  useEffect(() => {
-    let active = true
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
-      .then((page) => {
-        if (active) setEmployees(page.items)
-      })
-      .catch((caught: unknown) => {
-        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
-
   return (
     <div className="space-y-3">
-      <CalculationsPanel employees={employees} heading={false} appearance="module" />
+      <CalculationsPanel heading={false} appearance="module" />
     </div>
   )
 }
@@ -71,10 +54,7 @@ function ResultsSchedule() {
 function BankScheduleList() {
   const role = useAuthStore((state) => state.user?.role)
   const canLaunch = role === "admin" || role === "manager"
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const setTabAction = useContext(TabAction)
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [employeesReady, setEmployeesReady] = useState(false)
   const [employeeId, setEmployeeId] = useState("")
   const [kind, setKind] = useState("")
   const [balance, setBalance] = useState<HourBank | null>(null)
@@ -102,25 +82,6 @@ function BankScheduleList() {
   }, [canLaunch, setTabAction])
 
   useEffect(() => {
-    let active = true
-    setEmployeesReady(false)
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
-      .then((page) => {
-        if (!active) return
-        setEmployees(page.items)
-        setEmployeesReady(true)
-      })
-      .catch(() => {
-        if (!active) return
-        setEmployees([])
-        setEmployeesReady(true)
-      })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
-
-  useEffect(() => {
     if (!employeeId) {
       setBalance(null)
       return
@@ -142,7 +103,7 @@ function BankScheduleList() {
   }, [employeeId])
 
   function nameOf(id: number) {
-    return employees.find((item) => item.id === id)?.full_name || "Não informado"
+    return String(id)
   }
 
   async function removeEntry(id: number) {
@@ -182,9 +143,7 @@ function BankScheduleList() {
           <EmployeeCombobox
             id="bank-schedule-employee"
             value={employeeId}
-            employees={employees}
             emptyLabel="Todos"
-            extendSearch={employees.length >= 100}
             onChange={setEmployeeId}
           />
         </div>
@@ -206,11 +165,6 @@ function BankScheduleList() {
           <BankBalance balance={balance} />
         </div>
       ) : null}
-      {entries.items.length > 0 && !employeesReady ? (
-        <ul className="mt-8">
-          <ListPlaceholder loading empty="Nenhum lançamento." />
-        </ul>
-      ) : null}
       {entries.items.length === 0 && !entries.error ? (
         entries.loading ? (
           <ul className="mt-8">
@@ -226,7 +180,7 @@ function BankScheduleList() {
           </div>
         )
       ) : null}
-      {entries.items.length > 0 && employeesReady ? (
+      {entries.items.length > 0 ? (
         <ul className="mt-5 divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line">
           {entries.items.map((item) => {
             const person = nameOf(item.employee_id)
@@ -277,7 +231,7 @@ function BankScheduleList() {
           })}
         </ul>
       ) : null}
-      {entries.total > 0 && employeesReady ? (
+      {entries.total > 0 ? (
         <div className="mt-4 border-t border-ui-panel pt-4">
           <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} tone="module" />
         </div>
@@ -288,35 +242,18 @@ function BankScheduleList() {
 
 export function PunchAdjustPage() {
   const role = useAuthStore((state) => state.user?.role)
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const navigate = useNavigate()
-  const [employees, setEmployees] = useState<Employee[]>([])
 
   useEffect(() => {
     if (!role || role === "admin" || role === "manager") return
     navigate("/timekeeping?tab=calculations", { replace: true })
   }, [role, navigate])
 
-  useEffect(() => {
-    let active = true
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
-      .then((page) => {
-        if (active) setEmployees(page.items)
-      })
-      .catch((caught: unknown) => {
-        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
-
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/timekeeping?tab=calculations" appearance="detail" />
       <PunchCorrectionForm
         appearance="module"
-        employees={employees}
         onSaved={async () => {
           navigate("/timekeeping?tab=calculations")
         }}
@@ -340,14 +277,13 @@ function entryMinutesInput(entry: HourBankEntry) {
 
 export function HourBankEntryPage() {
   const role = useAuthStore((state) => state.user?.role)
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const navigate = useNavigate()
   const params = useParams()
   const entryId = params.id ? Number(params.id) : 0
   const editing = Number.isInteger(entryId) && entryId > 0
   const canLaunch = role === "admin" || role === "manager"
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [employeeId, setEmployeeId] = useState("")
+  const [employeeName, setEmployeeName] = useState("")
   const [minutes, setMinutes] = useState("")
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
@@ -361,25 +297,11 @@ export function HourBankEntryPage() {
   }, [role, canLaunch, navigate])
 
   useEffect(() => {
-    let active = true
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
-      .then((page) => {
-        if (active) setEmployees(page.items.filter((item) => item.hour_bank))
-      })
-      .catch((caught: unknown) => {
-        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
-
-  useEffect(() => {
     if (!editing) return
     let active = true
     setLoading(true)
     getRecord<HourBankEntry>("/hour-bank-entries", entryId)
-      .then((row) => {
+      .then(async (row) => {
         if (!active) return
         if (row.closing_id) {
           setBlocked(true)
@@ -390,6 +312,12 @@ export function HourBankEntryPage() {
         setEntryOn(row.entry_on)
         setMinutes(entryMinutesInput(row))
         setNote(row.note || "")
+        try {
+          const person = await getRecord<Employee>("/employees", row.employee_id, { fields: employeePickFields })
+          if (active) setEmployeeName(person.full_name || "")
+        } catch {
+          if (active) setEmployeeName("")
+        }
       })
       .catch((caught: unknown) => {
         if (!active) return
@@ -452,9 +380,9 @@ export function HourBankEntryPage() {
             Funcionário
           </Label>
           {editing ? (
-            <input id="entry-employee" className={moduleFieldClass} value={employees.find((item) => String(item.id) === employeeId)?.full_name || "Não informado"} readOnly />
+            <input id="entry-employee" className={moduleFieldClass} value={employeeName || "Não informado"} readOnly />
           ) : (
-            <EmployeeCombobox id="entry-employee" value={employeeId} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setEmployeeId} />
+            <EmployeeCombobox id="entry-employee" value={employeeId} emptyLabel="Selecione" required onChange={setEmployeeId} />
           )}
         </div>
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">

@@ -60,7 +60,7 @@ export function BankBalance({ balance }: { balance: HourBank }) {
 
 export function HourBankPanel({
   employeeId,
-  employees,
+  employees = [],
   canLaunch,
   usesBank = false,
   appearance,
@@ -79,8 +79,8 @@ export function HourBankPanel({
   const [entryOn, setEntryOn] = useState(punchDay(new Date().toISOString()))
   const [note, setNote] = useState("")
   const chosenId = employeeId ?? (selected ? Number(selected) : 0)
-  const person = employees?.find((item) => item.id === chosenId)
-  const enabled = employees ? Boolean(person?.hour_bank) : usesBank
+  const person = employees.find((item) => item.id === chosenId)
+  const enabled = employees.length > 0 ? Boolean(person?.hour_bank) : usesBank
   const entries = usePagedList<HourBankEntry>(
     "/hour-bank-entries",
     { ...(chosenId ? { employee_id: chosenId } : {}), ...(entryKind ? { kind: entryKind } : {}) },
@@ -206,10 +206,10 @@ export function HourBankPanel({
       <p className="text-sm text-muted-foreground">
         O saldo é contínuo e não tem limite. O prazo é de 6 meses e, neste corte, só avisa quando vai expirar. O lançamento soma horas ao saldo ou diminui o saldo.
       </p>
-      {employees ? (
+      {employeeId == null ? (
         <div className="space-y-2">
           <Label htmlFor="bank-employee">Funcionário</Label>
-          <EmployeeCombobox id="bank-employee" value={selected} employees={employees} emptyLabel="Selecione" extendSearch={employees.length >= 100} onChange={setSelected} />
+          <EmployeeCombobox id="bank-employee" value={selected} employees={employees} emptyLabel="Selecione" onChange={setSelected} />
         </div>
       ) : null}
       {chosenId && !enabled ? <p className="text-sm text-muted-foreground">Este funcionário não usa banco de horas.</p> : null}

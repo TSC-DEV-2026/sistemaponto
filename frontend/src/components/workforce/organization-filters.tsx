@@ -32,13 +32,16 @@ function mergeRecords(current: NamedRecord[], extra: NamedRecord[]) {
 }
 
 async function loadAll(path: string, params: Record<string, string | number> = {}) {
-  const first = await listRecords<NamedRecord>(path, { page: 1, limit: 100, ...params })
+  const first = await listRecords<NamedRecord>(path, { page: 1, limit: 100, fields: "id,name,unit_id", ...params })
   const items = [...first.items]
   const pages = Math.ceil(first.total / 100)
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await listRecords<NamedRecord>(path, { page, limit: 100, ...params })
-    items.push(...next.items)
-  }
+  if (pages <= 1) return items
+  const rest = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, index) =>
+      listRecords<NamedRecord>(path, { page: index + 2, limit: 100, fields: "id,name,unit_id", ...params }),
+    ),
+  )
+  for (const page of rest) items.push(...page.items)
   return items
 }
 
@@ -64,10 +67,10 @@ export function useOrganizationFilters(enabled: boolean) {
     let active = true
     setReady(false)
     Promise.all([
-      listRecords<NamedRecord>("/units", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/teams", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/jobs", { page: 1, limit: 100 }),
-      listRecords<NamedRecord>("/journeys", { page: 1, limit: 100 }),
+      listRecords<NamedRecord>("/units", { page: 1, limit: 100, fields: "id,name" }),
+      listRecords<NamedRecord>("/teams", { page: 1, limit: 100, fields: "id,name,unit_id" }),
+      listRecords<NamedRecord>("/jobs", { page: 1, limit: 100, fields: "id,name" }),
+      listRecords<NamedRecord>("/journeys", { page: 1, limit: 100, fields: "id,name" }),
       loadCategories(),
     ])
       .then(([unitPage, teamPage, jobPage, journeyPage, categoryRows]) => {

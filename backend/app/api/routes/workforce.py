@@ -8,6 +8,7 @@ from app.api.dependencies.services import get_workforce_service
 from app.api.responses import json_data
 from app.api.serialization import dump_one, dump_page
 from app.core.exceptions import AppError
+from app.core.fields import parse_fields
 from app.models.workforce import (
     Category,
     CategoryValue,
@@ -402,7 +403,17 @@ def list_employees(
             ),
         ),
     )
-    return json_data(dump_page(service.employees_out(items), total, page, limit, EmployeeOut, fields))
+    requested = parse_fields(fields)
+    lean = requested is not None and set(requested) <= {
+        "id",
+        "full_name",
+        "cpf",
+        "registration_number",
+        "person_id",
+        "clock_method",
+    }
+    payload = service.employees_lean(items) if lean else service.employees_out(items)
+    return json_data(dump_page(payload, total, page, limit, EmployeeOut, fields))
 
 
 @employees.post(
@@ -785,8 +796,12 @@ def delete_request(
     raise AppError(409, "A solicitação permanece no histórico.")
 
 
-@closings.get("", summary="Listar fechamentos", description="Filtros: year, month, status.")
-@searchable("year", "month", "status")
+@closings.get(
+    "",
+    summary="Listar fechamentos",
+    description="Filtros: year, month, status, employee_id. employee_id limita aos fechamentos que cobrem a pessoa (empresa inteira ou membro).",
+)
+@searchable("year", "month", "status", "employee_id")
 def list_closings(
     request: Request,
     page: int = Query(1, ge=1),
@@ -796,7 +811,7 @@ def list_closings(
     service: WorkforceService = Depends(get_workforce_service),
 ):
     items, total = service.list_closings(
-        as_scope(actor), page, limit, read_filters(request, ("year", "month", "status"))
+        as_scope(actor), page, limit, read_filters(request, ("year", "month", "status", "employee_id"))
     )
     return json_data(dump_page(items, total, page, limit, ClosingOut, fields))
 
@@ -925,6 +940,14 @@ def list_notices(
 ):
     items, total = service.list_notices(as_scope(actor), page, limit, read_filters(request, ("employee_id",)))
     return json_data(dump_page(items, total, page, limit, NoticeOut, fields))
+
+
+@notices.get("/unread-count", summary="Contagem de avisos não lidos da pessoa logada")
+def unread_notice_count(
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data({"total": service.count_unread_notices(as_scope(actor))})
 
 
 @notices.get("/{row_id}", summary="Detalhe da notificação")
