@@ -43,12 +43,12 @@ export function TenantFormPage() {
       <BackLink to="/tenants" appearance="detail" />
       <section className={cn(moduleCardClass, "w-full space-y-5")}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Layers className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Nova organização</h2>
-            <p className="text-sm text-[#64748B]">Informe o nome e o CNPJ.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Nova organização</h2>
+            <p className="text-sm text-ui-slate">Informe o nome e o CNPJ.</p>
           </div>
         </div>
         <ActionForm className="space-y-5" onSubmit={onSubmit}>

@@ -169,7 +169,7 @@ function BankScheduleList() {
   }
 
   return (
-    <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+    <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
       <div>
         <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
         <p className="mt-1 text-sm text-brand-quiet">Consulte os lançamentos do banco.</p>
@@ -217,17 +217,17 @@ function BankScheduleList() {
             <ListPlaceholder loading empty="Nenhum lançamento." />
           </ul>
         ) : (
-          <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+          <div className="mt-5 rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
               <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum lançamento.</p>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#52525B]">Selecione um funcionário e, se desejar, um tipo para visualizar os registros do banco de horas.</p>
+            <p className="mt-4 text-[15px] font-semibold text-ui-ink">Nenhum lançamento.</p>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-brand-muted">Selecione um funcionário e, se desejar, um tipo para visualizar os registros do banco de horas.</p>
           </div>
         )
       ) : null}
       {entries.items.length > 0 && employeesReady ? (
-        <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+        <ul className="mt-5 divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line">
           {entries.items.map((item) => {
             const person = nameOf(item.employee_id)
             const summary = `${person} · ${showDate(item.entry_on)} · ${hourBankKindLabel[item.kind] || item.kind} · ${hourBankEntryAmount(item.kind, item.minutes, item.effect)}`
@@ -236,7 +236,7 @@ function BankScheduleList() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{summary}</p>
                   {item.effect || item.note ? (
-                    <p className="mt-0.5 truncate text-[#64748B]">
+                    <p className="mt-0.5 truncate text-ui-slate">
                       {item.effect ? hourBankEffectLabel[item.effect] || item.effect : ""}
                       {item.effect && item.note ? " · " : ""}
                       {item.note || ""}
@@ -278,7 +278,7 @@ function BankScheduleList() {
         </ul>
       ) : null}
       {entries.total > 0 && employeesReady ? (
-        <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+        <div className="mt-4 border-t border-ui-panel pt-4">
           <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} tone="module" />
         </div>
       ) : null}
@@ -444,8 +444,8 @@ export function HourBankEntryPage() {
       <BackLink to="/timekeeping?tab=hour-bank" appearance="detail" />
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{editing ? "Editar lançamento" : "Novo lançamento"}</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Some, diminua, lance o saldo ou quite o saldo.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-ui-ink-strong">{editing ? "Editar lançamento" : "Novo lançamento"}</h2>
+          <p className="mt-1 text-sm text-ui-slate">Some, diminua, lance o saldo ou quite o saldo.</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="entry-employee">

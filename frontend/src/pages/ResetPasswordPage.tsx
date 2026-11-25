@@ -92,19 +92,19 @@ function PasswordDefined({ seconds }: { seconds: number }) {
     <div className="mt-8 flex flex-col items-center">
       <div
         className="flex h-[168px] w-[168px] items-center justify-center rounded-full"
-        style={{ background: `conic-gradient(#18944B ${turn}deg, #E7EBF0 0deg)` }}
+        style={{ background: `conic-gradient(rgb(var(--brand-auth)) ${turn}deg, rgb(var(--ui-line-hair)) 0deg)` }}
         aria-hidden
       >
         <div className="flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white">
-          <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-[#E9FAF4] shadow-[0_12px_30px_rgba(24,148,75,0.14)]">
-            <Mail className="h-[58px] w-[58px] text-[#18944B]" strokeWidth={1.5} />
+          <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-brand-soft shadow-[0_12px_30px_rgb(var(--brand-auth)/0.14)]">
+            <Mail className="h-[58px] w-[58px] text-brand-auth" strokeWidth={1.5} />
           </div>
         </div>
       </div>
-      <p className="mt-7 text-[64px] font-bold leading-none tabular-nums tracking-tight text-[#1B2534]" aria-hidden>
+      <p className="mt-7 text-[64px] font-bold leading-none tabular-nums tracking-tight text-ui-heading" aria-hidden>
         {seconds}
       </p>
-      <p className="mt-2 text-sm font-medium text-[#6E747F]" aria-hidden>
+      <p className="mt-2 text-sm font-medium text-ui-body" aria-hidden>
         {unit}
       </p>
       <p className="sr-only" role="status" aria-live="polite">

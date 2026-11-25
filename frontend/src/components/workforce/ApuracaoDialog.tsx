@@ -114,7 +114,7 @@ function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: numbe
 
   if (!items) {
     return (
-      <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-4 py-10" role="status" aria-live="polite">
+      <div className="flex justify-center rounded-xl border border-ui-line-soft bg-white px-4 py-10" role="status" aria-live="polite">
         <Spinner />
       </div>
     )
@@ -122,8 +122,8 @@ function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: numbe
   return (
     <div className="space-y-3">
       {adjusted ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-[#F4E7C3] bg-[#FFF8E8] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#7A5B12]">
+        <div className="flex flex-col gap-3 rounded-xl border border-warn-glow bg-warn-wash px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-warn-deep">
             Este dia foi ajustado. As marcações abaixo substituem o que a pessoa registrou.
             {reason ? ` Motivo: ${reason}.` : ""}
           </p>
@@ -134,17 +134,17 @@ function DayPunches({ employeeId, day, locked, onRestored }: { employeeId: numbe
         </div>
       ) : null}
       {current.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#E4E4E7] px-4 py-8 text-center text-sm text-[#71717A]">Nenhuma marcação neste dia.</p>
+        <p className="rounded-xl border border-dashed border-ui-line-soft px-4 py-8 text-center text-sm text-brand-quiet">Nenhuma marcação neste dia.</p>
       ) : (
-    <ul className="divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E4E4E7] bg-white">
+    <ul className="divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line-soft bg-white">
       {current.map((item) => (
         <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(30,138,58,0.10)] text-[#1E8A3A]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-brand-cta/10 text-brand-cta">
             <Clock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold tabular-nums text-[#0A0A0A]">{showClock(item.occurred_at)}</span>
-            <span className="mt-0.5 block text-xs text-[#64748B]">
+            <span className="block text-sm font-semibold tabular-nums text-ui-ink">{showClock(item.occurred_at)}</span>
+            <span className="mt-0.5 block text-xs text-ui-slate">
               {punchOrigin(item.source)}
               {item.channel === "online" ? " · Online" : item.channel === "offline" ? " · Offline" : ""}
             </span>
@@ -289,25 +289,25 @@ export function ApuracaoDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby="apuracao-dialog-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)]">
+      <div role="dialog" aria-modal="true" aria-labelledby="apuracao-dialog-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)]">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <h2 id="apuracao-dialog-title" className="text-xl font-bold tracking-tight text-[#0A0A0A]">{dialogTitle[mode]}</h2>
-            <p className="mt-0.5 text-sm text-[#64748B]">{longDate(item.work_date)}</p>
+            <h2 id="apuracao-dialog-title" className="text-xl font-bold tracking-tight text-ui-ink">{dialogTitle[mode]}</h2>
+            <p className="mt-0.5 text-sm text-ui-slate">{longDate(item.work_date)}</p>
           </div>
-          <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#0A0A0A] transition-colors duration-200 hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
+          <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ui-ink transition-colors duration-200 hover:bg-ui-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
             <X className="h-5 w-5" strokeWidth={2.5} aria-hidden />
           </button>
         </div>
         <div className="-mx-5 mt-3 min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
           {mode === "details" ? (
             <div className="flex justify-center">
-            <SlidingHighlight className="inline-flex max-w-full rounded-xl bg-[#E7E8EA] p-1" role="tablist" aria-label="Detalhe do dia">
+            <SlidingHighlight className="inline-flex max-w-full rounded-xl bg-ui-line-muted p-1" role="tablist" aria-label="Detalhe do dia">
               {detailTabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -315,7 +315,7 @@ export function ApuracaoDialog({
                   role="tab"
                   aria-selected={detailTab === tab.id}
                   data-slide-active={detailTab === tab.id ? "true" : undefined}
-                  className={cn("relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none", detailTab === tab.id ? "text-[#1E8A3A]" : "text-[#52525B] hover:text-[#0A0A0A]")}
+                  className={cn("relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none", detailTab === tab.id ? "text-brand-cta" : "text-brand-muted hover:text-ui-ink")}
                   onClick={() => setDetailTab(tab.id)}
                 >
                   {tab.label}
@@ -327,10 +327,10 @@ export function ApuracaoDialog({
           {mode === "details" && detailTab === "punches" ? <DayPunches employeeId={employeeId} day={day} locked={Boolean(lockMessage)} onRestored={onSaved} /> : null}
           {mode === "details" && detailTab === "hours" ? <ApuracaoDayDetails item={item} /> : null}
           {mode === "details" && detailTab === "hours" && item.balance_minutes != null ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E4E7] px-4 py-3">
-              <p className="text-sm text-[#52525B]">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ui-line-soft px-4 py-3">
+              <p className="text-sm text-brand-muted">
                 {dayOnly ? "Saldo deste dia" : "Saldo acumulado até este dia"}
-                <span className="ml-2 font-semibold tabular-nums text-[#0A0A0A]">{showDuration(balance ?? 0)}</span>
+                <span className="ml-2 font-semibold tabular-nums text-ui-ink">{showDuration(balance ?? 0)}</span>
               </p>
               <Button type="button" variant="outline" className="h-10" onClick={() => setDayOnly((current) => !current)}>
                 <Scale className="h-4 w-4" />

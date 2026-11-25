@@ -240,8 +240,8 @@ export function TimePickerField({
       ) : null}
       <div
         className={cn(
-          "flex h-12 min-w-0 items-center gap-2 rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 shadow-[0_3px_8px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-[#B8C3CF] hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]",
-          open && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
+          "flex h-12 min-w-0 items-center gap-2 rounded-[10px] border border-ui-line-input bg-white px-3.5 shadow-[0_3px_8px_rgb(var(--ui-shadow)/0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-ui-line-input-hover hover:shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.05)]",
+          open && "border-brand-cta shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.1)]",
           disabled && "cursor-not-allowed bg-brand-paper",
           readOnly && "bg-brand-paper",
         )}
@@ -267,7 +267,7 @@ export function TimePickerField({
           aria-expanded={open}
           aria-controls={listId}
           aria-required={required || undefined}
-          className="min-w-0 flex-1 bg-transparent text-sm text-[#0A0A0A] outline-none placeholder:text-[#9CA3AF] disabled:text-[#71717A]"
+          className="min-w-0 flex-1 bg-transparent text-sm text-ui-ink outline-none placeholder:text-brand-placeholder disabled:text-brand-quiet"
           onClick={() => {
             if (!locked) reveal(null, null)
           }}
@@ -277,7 +277,7 @@ export function TimePickerField({
         />
         <button
           type="button"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[rgba(30,138,58,0.08)] text-[#1E8A3A] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-brand-cta/8 text-brand-cta transition-colors duration-150 hover:bg-brand-cta/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 disabled:cursor-not-allowed disabled:bg-ui-paper disabled:text-brand-quiet"
           data-clock
           aria-label="Escolher horário"
           disabled={locked}
@@ -296,7 +296,7 @@ export function TimePickerField({
           role="dialog"
           aria-label="Selecionar horário"
           className={cn(
-            "fixed z-[60] w-[188px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#E4E4E7] bg-white p-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
+            "fixed z-[60] w-[188px] max-w-[calc(100vw-2rem)] rounded-xl border border-ui-line-soft bg-white p-2.5 shadow-[0_10px_28px_rgb(var(--ui-shadow)/0.08)]",
             open ? "site-select-in" : "pointer-events-none site-select-out",
           )}
           style={{ left: spot.left, top: spot.top, transform: above ? "translateY(-100%)" : undefined }}
@@ -307,11 +307,11 @@ export function TimePickerField({
             <ClockColumn label="Minutos" total={60} selected={minute} listRef={minuteListRef} onSelect={setMinute} onMove={move} />
           </div>
           <div className="mt-2.5 flex justify-end gap-1.5">
-            <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-sm text-[#0A0A0A] transition-colors duration-150 hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30" onClick={cancel}>
+            <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-ui-line bg-white px-2.5 text-sm text-ui-ink transition-colors duration-150 hover:bg-ui-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30" onClick={cancel}>
               <X className="h-3.5 w-3.5" aria-hidden />
               Cancelar
             </button>
-            <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1E8A3A] px-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#219440] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-not-allowed disabled:opacity-40" disabled={hour === null || minute === null} onClick={confirm}>
+            <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-brand-cta px-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-brand-cta-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 disabled:cursor-not-allowed disabled:opacity-40" disabled={hour === null || minute === null} onClick={confirm}>
               <Check className="h-3.5 w-3.5" aria-hidden />
               Confirmar
             </button>
@@ -341,7 +341,7 @@ function ClockColumn({
   return (
     <div className="min-w-0">
       <div ref={listRef} role="listbox" aria-label={label} className="max-h-40 overflow-y-auto">
-        <p className="sticky top-0 z-10 bg-white pb-1 text-center text-xs font-semibold text-[#52525B]">{label}</p>
+        <p className="sticky top-0 z-10 bg-white pb-1 text-center text-xs font-semibold text-brand-muted">{label}</p>
         {Array.from({ length: total }, (_, index) => {
           const chosen = selected === index
           return (
@@ -353,7 +353,7 @@ function ClockColumn({
               aria-selected={chosen}
               className={cn(
                 "flex h-8 w-full items-center justify-center rounded-lg text-sm transition-colors duration-150",
-                chosen ? "bg-[#1E8A3A] font-semibold text-white" : "text-[#0A0A0A] hover:bg-[rgba(30,138,58,0.08)] hover:text-[#187432]",
+                chosen ? "bg-brand-cta font-semibold text-white" : "text-ui-ink hover:bg-brand-cta/8 hover:text-brand-cta-deep",
               )}
               onClick={() => onSelect(index)}
               onKeyDown={(event) => onMove(event, index, total, onSelect, listRef.current)}

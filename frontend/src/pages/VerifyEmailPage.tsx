@@ -44,15 +44,15 @@ export function VerifyEmailPage() {
     <AuthScreen title="Verificar e-mail" description="Confirme o endereço para continuar.">
       {token ? (
         <div className="mt-8 space-y-4 text-center">
-          {message ? <p className="text-sm leading-6 text-[#6E747F]" role="status">{message}</p> : null}
-          {!message && !failed ? <p className="text-sm leading-6 text-[#6E747F]">Confirmando o link…</p> : null}
+          {message ? <p className="text-sm leading-6 text-ui-body" role="status">{message}</p> : null}
+          {!message && !failed ? <p className="text-sm leading-6 text-ui-body">Confirmando o link…</p> : null}
         </div>
       ) : (
         <ActionForm className="mt-8" onSubmit={onSubmit}>
           <FieldBlock id="email" label="E-mail" icon={Mail}>
             <Input id="email" type="email" autoComplete="email" placeholder="Digite seu e-mail" value={email} onChange={(event) => setEmail(event.target.value)} required />
           </FieldBlock>
-          {message ? <p className="mt-4 text-sm leading-6 text-[#6E747F]" role="status">{message}</p> : null}
+          {message ? <p className="mt-4 text-sm leading-6 text-ui-body" role="status">{message}</p> : null}
           <Button type="submit" className={authButtonClass}>
             Reenviar
             <ArrowRight className="h-4 w-4" aria-hidden />

@@ -19,17 +19,17 @@ import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
 import { manualTimeOffKinds, requestKindLabel } from "@/utils/labels"
 
-const requestCardClass = "rounded-[14px] border border-[#E2E8F0] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6"
+const requestCardClass = "rounded-[14px] border border-ui-line bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6"
 
 function CardHeading({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text?: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta">
         <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </span>
       <div className="min-w-0">
-        <h2 className="text-base font-semibold leading-5 text-[#0A0A0A]">{title}</h2>
-        {text ? <p className="mt-0.5 text-sm leading-5 text-[#71717A]">{text}</p> : null}
+        <h2 className="text-base font-semibold leading-5 text-ui-ink">{title}</h2>
+        {text ? <p className="mt-0.5 text-sm leading-5 text-brand-quiet">{text}</p> : null}
       </div>
     </div>
   )
@@ -179,7 +179,7 @@ export function RequestFormPage() {
   return (
     <div className="w-full min-w-0 space-y-5">
       <BackLink to="/requests" appearance="detail" />
-      {ready && blocked ? <p className="text-sm text-[#52525B]">{blocked}</p> : null}
+      {ready && blocked ? <p className="text-sm text-brand-muted">{blocked}</p> : null}
       {allowed ? (
         <>
           <section className={requestCardClass}>
@@ -350,20 +350,20 @@ function TypeChoice({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "flex h-full min-w-0 items-center gap-3 rounded-xl border px-4 py-4 text-left transition-[transform,border-color,background-color,box-shadow] duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
-        selected ? "border-[#1E8A3A] bg-[#F5FBF7] shadow-[0_8px_24px_rgba(30,138,58,0.08)]" : "border-[#E2E8F0] bg-white hover:border-[rgba(30,138,58,0.35)] hover:shadow-[0_8px_20px_rgba(15,23,42,0.06)]",
+        "flex h-full min-w-0 items-center gap-3 rounded-xl border px-4 py-4 text-left transition-[transform,border-color,background-color,box-shadow] duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        selected ? "border-brand-cta bg-brand-soft shadow-[0_8px_24px_rgb(var(--brand-cta)/0.08)]" : "border-ui-line bg-white hover:border-brand-cta/35 hover:shadow-[0_8px_20px_rgb(var(--ui-shadow)/0.06)]",
       )}
       onClick={onSelect}
     >
-      <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border", selected ? "border-[#1E8A3A] bg-[#1E8A3A]" : "border-[#D4D4D8] bg-white")}>
+      <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border", selected ? "border-brand-cta bg-brand-cta" : "border-ui-line-soft bg-white")}>
         {selected ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
       </span>
-      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", selected ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]" : "bg-[#F4F4F5] text-[#71717A]")}>
+      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", selected ? "bg-brand-cta/12 text-brand-cta" : "bg-ui-paper text-brand-quiet")}>
         <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-[#0A0A0A]">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-5 text-[#71717A]">{text}</span>
+        <span className="block text-sm font-semibold text-ui-ink">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-5 text-brand-quiet">{text}</span>
       </span>
     </button>
   )

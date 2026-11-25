@@ -96,12 +96,12 @@ export function ClockDevicesPage() {
       <section className={moduleCardClass}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <MonitorSmartphone className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">Liberar aparelho</h2>
-              <p className="text-sm text-[#64748B]">O código vale 10 minutos e uma vez. A senha da conta não vai para o aparelho.</p>
+              <h2 className="text-lg font-semibold text-ui-ink">Liberar aparelho</h2>
+              <p className="text-sm text-ui-slate">O código vale 10 minutos e uma vez. A senha da conta não vai para o aparelho.</p>
             </div>
           </div>
           <Button type="button" className={cn(modulePrimaryClass, "h-12 w-full shrink-0 sm:w-auto")} disabled={issuing} onClick={generate}>
@@ -110,36 +110,36 @@ export function ClockDevicesPage() {
           </Button>
         </div>
         {code ? (
-          <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-[#F7FCF9] px-4 py-5 text-center">
-            <p className="text-sm text-[#64748B]">Digite no aparelho</p>
-            <p className="mt-2 font-mono text-3xl font-semibold tracking-[0.2em] text-[#0A0A0A]">{code.code}</p>
-            <p className="mt-2 text-sm text-[#64748B]">Válido até {when(code.expires_at)}</p>
+          <div className="mt-5 rounded-xl border border-ui-line bg-brand-soft-alt px-4 py-5 text-center">
+            <p className="text-sm text-ui-slate">Digite no aparelho</p>
+            <p className="mt-2 font-mono text-3xl font-semibold tracking-[0.2em] text-ui-ink">{code.code}</p>
+            <p className="mt-2 text-sm text-ui-slate">Válido até {when(code.expires_at)}</p>
           </div>
         ) : null}
       </section>
       <section className={moduleCardClass}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Aparelhos desta organização</h2>
+        <h2 className="text-lg font-semibold text-ui-ink">Aparelhos desta organização</h2>
         {loading ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando os aparelhos" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando os aparelhos" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : null}
         {!loading && !failed && items.length === 0 ? (
           <div className="px-2 py-10 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
               <MonitorSmartphone className="h-6 w-6" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum aparelho</p>
-            <p className="mt-1 text-sm text-[#71717A]">Gere um código e confirme no aparelho.</p>
+            <p className="mt-4 text-[15px] font-semibold text-ui-ink">Nenhum aparelho</p>
+            <p className="mt-1 text-sm text-brand-quiet">Gere um código e confirme no aparelho.</p>
           </div>
         ) : null}
         {!loading && items.length > 0 ? (
           <ul className="mt-4 space-y-2">
             {items.map((item) => (
-              <li key={item.id} className="flex min-h-16 min-w-0 flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 sm:flex-row sm:items-center">
+              <li key={item.id} className="flex min-h-16 min-w-0 flex-col gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 sm:flex-row sm:items-center">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold text-[#0A0A0A]">{item.public_id}</span>
-                  <span className="mt-[3px] block truncate text-sm text-[#64748B]">Liberado em {when(item.created_at)}</span>
+                  <span className="block truncate font-semibold text-ui-ink">{item.public_id}</span>
+                  <span className="mt-[3px] block truncate text-sm text-ui-slate">Liberado em {when(item.created_at)}</span>
                 </span>
                 {pendingId === item.id ? (
                   <span className="flex shrink-0 gap-2">
@@ -163,7 +163,7 @@ export function ClockDevicesPage() {
           </ul>
         ) : null}
         {!loading && total > 0 ? (
-          <div className="mt-4 border-t border-[#F1F5F9] pt-4">
+          <div className="mt-4 border-t border-ui-wash pt-4">
             <ListPager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={(size) => { setPage(1); setPageSize(size) }} />
           </div>
         ) : null}

@@ -56,10 +56,10 @@ const tabs = [
   ["history", "Histórico", History],
 ] as const
 
-const fichaCardClass = "w-full min-w-0 rounded-[16px] border border-[#E6EBE8] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_rgba(16,24,40,0.06)] lg:p-6"
+const fichaCardClass = "w-full min-w-0 rounded-[16px] border border-brand-field bg-white p-5 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04),0_10px_28px_rgb(var(--ui-shadow-alt)/0.06)] lg:p-6"
 const fichaFrameClass = "w-full min-w-0 space-y-5"
 function EmptyMark() {
-  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+  return <span className="font-medium text-ui-slate-soft">Não informado</span>
 }
 
 function shown(value: string) {
@@ -68,7 +68,7 @@ function shown(value: string) {
 
 function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+    <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
       <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
     </span>
   )
@@ -76,11 +76,11 @@ function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
 
 function FieldTile({ icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none">
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)] transition-[border-color,box-shadow] duration-200 hover:border-brand-mist hover:shadow-[0_4px_12px_rgb(var(--ui-shadow-alt)/0.05)] motion-reduce:transition-none">
       <FieldMark icon={icon} />
       <div className="min-w-0">
-        <dt className="text-xs leading-4 text-[#64748B]">{label}</dt>
-        <dd className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</dd>
+        <dt className="text-xs leading-4 text-ui-slate">{label}</dt>
+        <dd className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-ui-ink-strong [overflow-wrap:anywhere]">{children}</dd>
       </div>
     </div>
   )
@@ -89,17 +89,17 @@ function FieldTile({ icon, label, children }: { icon: LucideIcon; label: string;
 function CategoryTile({ items }: { items: { category_id: number; name: string; value_name: string }[] }) {
   const rows = [...items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"))
   return (
-    <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none md:col-span-2">
+    <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)] transition-[border-color,box-shadow] duration-200 hover:border-brand-mist hover:shadow-[0_4px_12px_rgb(var(--ui-shadow-alt)/0.05)] motion-reduce:transition-none md:col-span-2">
               <FieldMark icon={conceptIcon.category} />
       <div className="min-w-0 flex-1">
-        <dt className="text-xs leading-4 text-[#64748B]">Categorias</dt>
+        <dt className="text-xs leading-4 text-ui-slate">Categorias</dt>
         {rows.length === 0 ? (
-          <dd className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]"><EmptyMark /></dd>
+          <dd className="mt-0.5 text-[15px] font-semibold leading-5 text-ui-ink-strong"><EmptyMark /></dd>
         ) : (
-          <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
+          <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-ui-line-strong bg-white p-1.5">
             <ul className="space-y-1.5">
               {rows.map((item) => (
-                <li key={item.category_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+                <li key={item.category_id} className="truncate rounded-md bg-warn-cream px-3 py-2 text-sm font-medium leading-5 text-ui-zinc">
                   {item.name}: {item.value_name?.trim() ? item.value_name : "Não informado"}
                 </li>
               ))}
@@ -121,14 +121,14 @@ function ManagerTile({ managers }: { managers: { vigency_id: number; name: strin
     )
   }
   return (
-    <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none">
+    <div className="flex min-h-[66px] min-w-0 items-start gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)] transition-[border-color,box-shadow] duration-200 hover:border-brand-mist hover:shadow-[0_4px_12px_rgb(var(--ui-shadow-alt)/0.05)] motion-reduce:transition-none">
       <FieldMark icon={conceptIcon.manager} />
       <div className="min-w-0 flex-1">
-        <dt className="text-xs leading-4 text-[#64748B]">Gestores</dt>
-        <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-[#D5DEE8] bg-white p-1.5">
+        <dt className="text-xs leading-4 text-ui-slate">Gestores</dt>
+        <dd className="mt-2 h-[7.75rem] overflow-y-auto rounded-md border border-ui-line-strong bg-white p-1.5">
           <ul className="space-y-1.5">
             {rows.map((item) => (
-              <li key={item.vigency_id} className="truncate rounded-md bg-[#F4F1EA] px-3 py-2 text-sm font-medium leading-5 text-[#3F3F46]">
+              <li key={item.vigency_id} className="truncate rounded-md bg-warn-cream px-3 py-2 text-sm font-medium leading-5 text-ui-zinc">
                 {item.name}
               </li>
             ))}
@@ -187,7 +187,7 @@ function EmployeeRequestCard({ item, person }: { item: TimeRequest; person: stri
   const description = [lead + detail, certificate, item.note || ""].filter((part) => part.trim()).join("\n")
 
   return (
-    <li className="min-w-0 overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
+    <li className="min-w-0 overflow-hidden rounded-[14px] border border-ui-line-soft bg-white px-4 py-3.5 shadow-[0_6px_18px_rgb(var(--ui-shadow)/0.04)]">
       <div className="flex flex-col gap-3 lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <RequestPerson person={person} kindLabel={kindLabel} />
@@ -203,13 +203,13 @@ function EmployeeRequestCard({ item, person }: { item: TimeRequest; person: stri
         <div className="w-[22%] min-w-0 shrink-0 pr-4">
           <RequestPerson person={person} kindLabel={kindLabel} />
         </div>
-        <div className="min-w-0 flex-1 overflow-hidden border-l border-[#F0F0F2] px-4">
+        <div className="min-w-0 flex-1 overflow-hidden border-l border-ui-panel px-4">
           <RequestDetail lead={lead} detail={detail} certificate={certificate} notePreview={notePreview} truncated={truncated} photo={item.photo_url} pendingNote={pendingNote} onOpen={() => setOpen(true)} />
         </div>
-        <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">
+        <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-ui-panel px-4">
           <RequestOrigin />
         </div>
-        <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">
+        <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-ui-panel px-4">
           <RequestHistory history={history} />
         </div>
         <div className="shrink-0 pl-4">
@@ -224,12 +224,12 @@ function EmployeeRequestCard({ item, person }: { item: TimeRequest; person: stri
 function RequestPerson({ person, kindLabel }: { person: string; kindLabel: string }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.12)] text-sm font-semibold text-[#146C2E]">{requestInitials(person) || "?"}</span>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-cta/12 text-sm font-semibold text-brand-ink-strong">{requestInitials(person) || "?"}</span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-[#0A0A0A]" title={person}>
+        <span className="block truncate text-sm font-semibold text-ui-ink" title={person}>
           {person}
         </span>
-        <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{kindLabel}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-brand-quiet">{kindLabel}</span>
       </span>
     </div>
   )
@@ -260,15 +260,15 @@ function RequestDetail({
 }) {
   return (
     <div className="flex min-w-0 items-start gap-2">
-      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
       <div className="min-w-0 flex-1 overflow-hidden">
-        <p className="min-w-0 text-sm leading-5 text-[#52525B] [overflow-wrap:anywhere]">
-          {lead ? <span className="text-[#71717A]">{lead}</span> : null}
+        <p className="min-w-0 text-sm leading-5 text-brand-muted [overflow-wrap:anywhere]">
+          {lead ? <span className="text-brand-quiet">{lead}</span> : null}
           {detail}
           {certificate ? ` · ${certificate}` : ""}
           {notePreview ? ` ${notePreview}` : ""}
           {truncated ? (
-            <button type="button" className="ml-1 inline text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" onClick={onOpen}>
+            <button type="button" className="ml-1 inline text-[13px] font-semibold text-brand-cta underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none" onClick={onOpen}>
               Ver mais
             </button>
           ) : photo ? (
@@ -278,7 +278,7 @@ function RequestDetail({
             </>
           ) : null}
         </p>
-        {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
+        {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-brand-quiet">{pendingNote}</p> : null}
       </div>
     </div>
   )
@@ -287,10 +287,10 @@ function RequestDetail({
 function RequestOrigin() {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <FileText className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+      <FileText className="h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
       <div className="min-w-0">
-        <p className="text-[11px] text-[#94A3B8]">Origem</p>
-        <p className="truncate text-sm text-[#52525B]">solicitação</p>
+        <p className="text-[11px] text-ui-slate-soft">Origem</p>
+        <p className="truncate text-sm text-brand-muted">solicitação</p>
       </div>
     </div>
   )
@@ -299,8 +299,8 @@ function RequestOrigin() {
 function RequestHistory({ history }: { history: string }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-      <p className="min-w-0 truncate text-sm text-[#52525B]" title={history || undefined}>
+      <ArrowLeftRight className="h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
+      <p className="min-w-0 truncate text-sm text-brand-muted" title={history || undefined}>
         {history}
       </p>
     </div>
@@ -338,24 +338,24 @@ function EmployeeNoteDialog({ text, title = "Observação", onClose }: { text: s
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose()
         }
       }}
     >
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="employee-note-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)]">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="employee-note-title" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)]">
         <div className="flex items-start justify-between gap-3">
-          <h2 id="employee-note-title" className="text-lg font-semibold text-[#111827]">
+          <h2 id="employee-note-title" className="text-lg font-semibold text-ui-ink-strong">
             {title}
           </h2>
-          <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
+          <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ui-slate transition-colors duration-200 hover:bg-ui-paper hover:text-ui-ink-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-[#111827] [overflow-wrap:anywhere]">{text}</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-ui-ink-strong [overflow-wrap:anywhere]">{text}</p>
         </div>
       </div>
     </div>,
@@ -454,8 +454,8 @@ export function EmployeePage() {
         <BackLink to="/staff?tab=employees" appearance="detail" />
         {loadFailed ? null : (
           <section className={cn(fichaCardClass, "flex min-h-[280px] flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-            <Spinner label="Carregando a ficha" className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando a ficha</p>
+            <Spinner label="Carregando a ficha" className="h-8 w-8 text-brand-cta" />
+            <p className="text-sm font-medium text-ui-slate">Carregando a ficha</p>
           </section>
         )}
       </div>
@@ -478,7 +478,7 @@ export function EmployeePage() {
         {canEdit ? (
           confirmDelete ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <span className="text-sm text-[#111827]">Excluir {personName}?</span>
+              <span className="text-sm text-ui-ink-strong">Excluir {personName}?</span>
               <Button type="button" className={moduleDangerClass} onClick={removeEmployee}>
                 <Trash2 className="h-4 w-4" />
                 Excluir
@@ -490,13 +490,13 @@ export function EmployeePage() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-[#E2E8F0] bg-white px-3.5 text-sm font-semibold text-[#111827] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
+              <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-ui-line bg-white px-3.5 text-sm font-semibold text-ui-ink-strong shadow-[0_2px_6px_rgb(var(--ui-shadow)/0.04)] transition-[background-color,border-color,color] duration-200 hover:border-brand-cta/25 hover:bg-brand-tint hover:text-brand-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none">
                 <Link to={`/employees/${id}/edit`}>
                   <Pencil className="h-4 w-4" strokeWidth={1.75} />
                   Editar
                 </Link>
               </Button>
-              <Button type="button" variant="outline" className="h-10 gap-2 rounded-[10px] border-[rgba(239,83,80,0.35)] bg-white px-3.5 text-sm font-semibold text-[#EF5350] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color] duration-200 hover:bg-[rgba(239,83,80,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EF5350]/30 motion-reduce:transition-none" onClick={() => setConfirmDelete(true)}>
+              <Button type="button" variant="outline" className="h-10 gap-2 rounded-[10px] border-[rgb(var(--danger)/0.35)] bg-white px-3.5 text-sm font-semibold text-danger shadow-[0_2px_6px_rgb(var(--ui-shadow)/0.04)] transition-[background-color,border-color] duration-200 hover:bg-[rgb(var(--danger)/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/30 motion-reduce:transition-none" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                 Excluir
               </Button>
@@ -504,34 +504,34 @@ export function EmployeePage() {
           )
         ) : null}
       </div>
-      <section className="relative min-h-[120px] w-full min-w-0 overflow-hidden rounded-[16px] border border-[#D7E8DC] bg-[linear-gradient(105deg,#F7FCF8_0%,#E7F6EC_46%,#D4EFD9_100%)] px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_rgba(16,24,40,0.06)] md:px-6">
+      <section className="relative min-h-[120px] w-full min-w-0 overflow-hidden rounded-[16px] border border-brand-field bg-[linear-gradient(105deg,rgb(var(--brand-soft-alt))_0%,rgb(var(--brand-wash))_46%,rgb(var(--brand-field-mid))_100%)] px-5 py-5 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04),0_10px_28px_rgb(var(--ui-shadow-alt)/0.06)] md:px-6">
         <span className="pointer-events-none absolute right-8 top-1/2 hidden h-[72px] w-[72px] -translate-y-1/2 md:block" aria-hidden>
-          <span className="absolute left-1/2 top-1/2 h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#8ED4A8_0%,rgba(142,212,168,0.45)_38%,rgba(142,212,168,0)_72%)] blur-xl" />
-          <span className="absolute left-1/2 top-1/2 h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#7DCAA0_0%,rgba(125,202,160,0.35)_55%,rgba(125,202,160,0)_78%)] blur-md" />
-          <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#E7F6EC] text-[#1E8A3A] shadow-[0_0_28px_rgba(30,138,58,0.22)]">
+          <span className="absolute left-1/2 top-1/2 h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--brand-glow))_0%,rgb(var(--brand-glow)/0.45)_38%,rgb(var(--brand-glow)/0)_72%)] blur-xl" />
+          <span className="absolute left-1/2 top-1/2 h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--brand-leaf))_0%,rgb(var(--brand-leaf)/0.35)_55%,rgb(var(--brand-leaf)/0)_78%)] blur-md" />
+          <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-wash text-brand-cta shadow-[0_0_28px_rgb(var(--brand-cta)/0.22)]">
             <conceptIcon.employee className="h-8 w-8" strokeWidth={1.75} />
           </span>
         </span>
         <div className="relative flex min-w-0 items-center gap-4 md:pr-36">
-          <span className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-full border-2 border-[#BFE6CB] bg-[#DDF3E4] text-[22px] font-bold text-[#086B35]" aria-hidden>
+          <span className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-full border-2 border-brand-leaf-border bg-brand-leaf-fill text-[22px] font-bold text-brand-ink-deep" aria-hidden>
             {personInitials}
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="break-words text-[22px] font-bold leading-none text-[#111827]">{personName}</h2>
-              <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full border bg-white px-2.5 text-[13px] font-semibold leading-none shadow-[0_1px_4px_rgba(16,24,40,0.06)]", employee.situation === "active" ? "border-[#8ED4A8] text-[#086B35]" : "border-[#E2E8F0] text-[#475569]")}>
-                <span className={cn("h-1.5 w-1.5 rounded-full", employee.situation === "active" ? "bg-[#1E8A3A]" : "bg-[#94A3B8]")} aria-hidden />
+              <h2 className="break-words text-[22px] font-bold leading-none text-ui-ink-strong">{personName}</h2>
+              <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full border bg-white px-2.5 text-[13px] font-semibold leading-none shadow-[0_1px_4px_rgb(var(--ui-shadow-alt)/0.06)]", employee.situation === "active" ? "border-brand-glow text-brand-ink-deep" : "border-ui-line text-ui-slate-mid")}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", employee.situation === "active" ? "bg-brand-cta" : "bg-ui-slate-soft")} aria-hidden />
                 {situation}
               </span>
             </div>
-            <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm leading-5 text-[#64748B]">
+            <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm leading-5 text-ui-slate">
               <span className="inline-flex items-center gap-1.5">
-                <ClockIcon className="h-4 w-4 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
+                <ClockIcon className="h-4 w-4 text-brand-cta" strokeWidth={1.75} aria-hidden />
                 {clockLabel ? clockLabel : "Não informado"}
               </span>
               <span aria-hidden>·</span>
               <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
+                <CalendarDays className="h-4 w-4 text-brand-cta" strokeWidth={1.75} aria-hidden />
                 {employee.admission_date ? `Admissão em ${showDate(employee.admission_date)}` : "Admissão não informada"}
               </span>
             </p>
@@ -539,7 +539,7 @@ export function EmployeePage() {
         </div>
       </section>
       <div className={cn(tab === "punch" ? "space-y-2" : "space-y-5")}>
-      <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
+      <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-ui-line-muted p-1" role="tablist">
         {tabs.map(([value, label, Icon]) => (
           <button
             key={value}
@@ -564,7 +564,7 @@ export function EmployeePage() {
           <section className={fichaCardClass}>
             <div className="mb-4 flex items-center gap-3">
               <FieldMark icon={conceptIcon.employee} />
-              <h2 className="text-[17px] font-bold text-[#111827]">Informações principais</h2>
+              <h2 className="text-[17px] font-bold text-ui-ink-strong">Informações principais</h2>
             </div>
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
               <FieldTile icon={conceptIcon.employee} label="Nome">{shown(fullName)}</FieldTile>
@@ -582,19 +582,19 @@ export function EmployeePage() {
                 ) : null}
               </FieldTile>
             </dl>
-            <p className="mt-3 text-xs leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
+            <p className="mt-3 text-xs leading-5 text-ui-slate">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
           </section>
           <section className={fichaCardClass}>
             <div className="mb-4 flex items-center gap-3">
               <FieldMark icon={Settings} />
-              <h2 className="text-[17px] font-bold text-[#111827]">Informações complementares</h2>
+              <h2 className="text-[17px] font-bold text-ui-ink-strong">Informações complementares</h2>
             </div>
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
               <FieldTile icon={conceptIcon.hourBank} label="Banco de horas">{hourBank ? "Usa banco de horas." : "Não usa banco de horas."}</FieldTile>
               <FieldTile icon={FileText} label="Observação">
                 <span className={cn("block whitespace-pre-wrap", noteLong && "line-clamp-3")}>{noteText ? noteText : <EmptyMark />}</span>
                 {noteLong ? (
-                  <button type="button" className="mt-1 text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" onClick={() => setNoteOpen(true)}>
+                  <button type="button" className="mt-1 text-[13px] font-semibold text-brand-cta underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none" onClick={() => setNoteOpen(true)}>
                     Ver mais
                   </button>
                 ) : null}
@@ -608,7 +608,7 @@ export function EmployeePage() {
           <section className={fichaCardClass}>
             <div className="mb-4 flex items-center gap-3">
               <FieldMark icon={conceptIcon.job} />
-              <h2 className="text-[17px] font-bold text-[#111827]">Trabalho</h2>
+              <h2 className="text-[17px] font-bold text-ui-ink-strong">Trabalho</h2>
             </div>
             <dl className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-x-4">
               {(
@@ -627,7 +627,7 @@ export function EmployeePage() {
               <ManagerTile managers={employee.managers || []} />
               <CategoryTile items={employee.categories || []} />
             </dl>
-            <p className="mt-4 text-sm text-[#64748B]">A empresa acompanha a equipe.</p>
+            <p className="mt-4 text-sm text-ui-slate">A empresa acompanha a equipe.</p>
           </section>
         </div>
       ) : null}
@@ -639,7 +639,7 @@ export function EmployeePage() {
           cycleDay={journey?.cycle_day}
           reloadKey={saved}
           requests={
-            <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+            <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
               <h2 className="text-lg font-semibold text-brand-ink">Solicitações</h2>
               <p className="mt-1 text-sm text-brand-quiet">Uma solicitação pendente não altera estas marcações. A origem da aprovação é solicitação.</p>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -663,11 +663,11 @@ export function EmployeePage() {
               ) : null}
               {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+                  <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-brand-cta/10 text-brand-cta">
                     <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
                   </span>
-                  <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
-                  <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
+                  <p className="mt-4 text-[17px] font-semibold text-ui-ink">Nenhuma solicitação.</p>
+                  <p className="mt-1 text-sm text-brand-quiet">Quando houver solicitações, elas aparecerão aqui.</p>
                 </div>
               ) : null}
               {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
@@ -678,7 +678,7 @@ export function EmployeePage() {
                 </ul>
               ) : null}
               {!inbox.loading && !inbox.error && inbox.total > 0 ? (
-                <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+                <div className="mt-4 border-t border-ui-panel pt-4">
                   <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
                 </div>
               ) : null}
@@ -688,7 +688,7 @@ export function EmployeePage() {
       ) : null}
       {tab === "events" ? (
         <div className="space-y-4">
-          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+          <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
             <div>
               <h2 className="text-lg font-semibold text-brand-ink">Ocorrências</h2>
               <p className="mt-1 text-sm text-brand-quiet">Consulte as ocorrências deste funcionário.</p>
@@ -705,12 +705,12 @@ export function EmployeePage() {
               </ul>
             ) : null}
             {!events.loading && !events.error && events.items.length === 0 ? (
-              <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-                <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma ocorrência.</p>
+              <div className="mt-5 rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+                <p className="text-[15px] font-semibold text-ui-ink">Nenhuma ocorrência.</p>
               </div>
             ) : null}
             {!events.loading && events.items.length > 0 ? (
-              <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+              <ul className="mt-5 divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line">
                 {events.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
                     {occurrenceKindText(item.kind)} · {periodText(item)} · {punchOrigin(item.source)}
@@ -728,7 +728,7 @@ export function EmployeePage() {
               </ul>
             ) : null}
             {!events.loading && !events.error && events.total > 0 ? (
-              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+              <div className="mt-4 border-t border-ui-panel pt-4">
                 <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} tone="module" />
               </div>
             ) : null}
@@ -737,7 +737,7 @@ export function EmployeePage() {
       ) : null}
       {tab === "history" ? (
         <div className="space-y-4">
-          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+          <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
             <div>
               <h2 className="text-lg font-semibold text-brand-ink">Vigências</h2>
               <p className="mt-1 text-sm text-brand-quiet">Consulte os vínculos deste funcionário.</p>
@@ -754,12 +754,12 @@ export function EmployeePage() {
               </ul>
             ) : null}
             {!history.loading && !history.error && history.items.length === 0 ? (
-              <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-                <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma vigência.</p>
+              <div className="mt-5 rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+                <p className="text-[15px] font-semibold text-ui-ink">Nenhuma vigência.</p>
               </div>
             ) : null}
             {!history.loading && history.items.length > 0 ? (
-              <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+              <ul className="mt-5 divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line">
                 {history.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
                     {item.kind === "category" ? `${item.category_id ? classificationNames[item.category_id] || "Categoria" : "Categoria"}: ${item.label}` : `${vigencyKindLabel[item.kind] || item.kind}: ${situationLabel[item.label] || item.label}`} · {showDate(item.valid_from)} até {item.valid_to ? showDate(item.valid_to) : "atual"}{item.kind === "journey" && item.cycle_day ? ` · dia ${item.cycle_day} da sequência` : ""}
@@ -768,12 +768,12 @@ export function EmployeePage() {
               </ul>
             ) : null}
             {!history.loading && !history.error && history.total > 0 ? (
-              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+              <div className="mt-4 border-t border-ui-panel pt-4">
                 <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} tone="module" />
               </div>
             ) : null}
           </section>
-          <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+          <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
             <div>
               <h2 className="text-lg font-semibold text-brand-ink">Auditoria</h2>
               <p className="mt-1 text-sm text-brand-quiet">Consulte as alterações registradas.</p>
@@ -784,12 +784,12 @@ export function EmployeePage() {
               </ul>
             ) : null}
             {!trail.loading && !trail.error && trail.items.length === 0 ? (
-              <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-                <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma auditoria.</p>
+              <div className="mt-5 rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+                <p className="text-[15px] font-semibold text-ui-ink">Nenhuma auditoria.</p>
               </div>
             ) : null}
             {!trail.loading && trail.items.length > 0 ? (
-              <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+              <ul className="mt-5 divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line">
                 {trail.items.map((item) => (
                   <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
                     {showDateTime(item.created_at)} · pessoa {item.person_id} · {item.action}
@@ -799,7 +799,7 @@ export function EmployeePage() {
               </ul>
             ) : null}
             {!trail.loading && !trail.error && trail.total > 0 ? (
-              <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+              <div className="mt-4 border-t border-ui-panel pt-4">
                 <ListPager page={trail.page} pageSize={trail.pageSize} total={trail.total} onPage={trail.setPage} onPageSize={trail.setPageSize} tone="module" />
               </div>
             ) : null}

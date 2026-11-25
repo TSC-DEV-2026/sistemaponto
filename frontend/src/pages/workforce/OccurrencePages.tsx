@@ -95,7 +95,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   }
 
   return (
-    <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+    <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
       <div>
         <h2 className="text-lg font-semibold text-brand-ink">{label}</h2>
         <p className="mt-1 text-sm text-brand-quiet">Consulte os lançamentos registrados.</p>
@@ -119,21 +119,21 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
             <ListPlaceholder loading empty={`Nenhum registro de ${label.toLocaleLowerCase("pt-BR")}.`} />
           </ul>
         ) : (
-          <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+          <div className="mt-5 rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
               <conceptIcon.occurrence className="h-6 w-6" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">{`Nenhum registro de ${label.toLocaleLowerCase("pt-BR")}.`}</p>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#52525B]">
+            <p className="mt-4 text-[15px] font-semibold text-ui-ink">{`Nenhum registro de ${label.toLocaleLowerCase("pt-BR")}.`}</p>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-brand-muted">
               {canLaunch ? `Use ${actionLabel} para lançar, ou escolha um funcionário no filtro.` : "Nada encontrado para este tipo e este filtro."}
             </p>
           </div>
         )
       ) : null}
       {visible.length > 0 ? (
-        <div className="mt-5 min-w-0 overflow-hidden rounded-xl border border-[#E2E8F0]">
+        <div className="mt-5 min-w-0 overflow-hidden rounded-xl border border-ui-line">
           <table className="w-full table-fixed text-left text-sm">
-            <thead className="bg-[#F7F7F8] text-xs text-[#71717A]">
+            <thead className="bg-ui-paper text-xs text-brand-quiet">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Funcionário</th>
                 <th className="px-4 py-2.5 font-medium">Período</th>
@@ -151,34 +151,34 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
                 const motive = reasonOf(item.reason_id)
                 const approved = item.source === "approved_request"
                 return (
-                  <tr key={item.id} className="border-t border-[#F0F0F2]">
-                    <td className="overflow-hidden px-4 py-2.5 align-middle font-medium text-[#0A0A0A]">
+                  <tr key={item.id} className="border-t border-ui-panel">
+                    <td className="overflow-hidden px-4 py-2.5 align-middle font-medium text-ui-ink">
                       <span className="block truncate" title={person}>
                         {person}
                       </span>
                     </td>
-                    <td className="overflow-hidden px-4 py-2.5 align-middle text-[#52525B]">
+                    <td className="overflow-hidden px-4 py-2.5 align-middle text-brand-muted">
                       <span className="block truncate">{periodText(item)}</span>
                     </td>
-                    <td className="overflow-hidden px-4 py-2.5 align-middle text-[#52525B]">
+                    <td className="overflow-hidden px-4 py-2.5 align-middle text-brand-muted">
                       <span className="block truncate" title={motive}>
                         {motive}
                       </span>
                     </td>
-                    <td className="overflow-hidden px-4 py-2.5 align-middle text-[#52525B]">
+                    <td className="overflow-hidden px-4 py-2.5 align-middle text-brand-muted">
                       <span className="block truncate" title={note || undefined}>
                         {note || "Nenhuma observação informada."}
                       </span>
-                      {item.warning ? <span className="mt-0.5 block truncate text-xs text-[#C2410C]" title={item.warning}>{item.warning}</span> : null}
+                      {item.warning ? <span className="mt-0.5 block truncate text-xs text-warn-brown" title={item.warning}>{item.warning}</span> : null}
                       {item.photo_url ? (
                         <span className="mt-0.5 block">
-                          <DocumentLink href={item.photo_url} className="text-xs font-semibold text-[#1E8A3A] underline-offset-2 hover:underline" />
+                          <DocumentLink href={item.photo_url} className="text-xs font-semibold text-brand-cta underline-offset-2 hover:underline" />
                         </span>
                       ) : null}
                     </td>
                     <td className="px-4 py-2.5 align-middle">
-                      <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", approved ? requestStatusClass("approved") : "bg-[#F4F4F5] text-[#52525B]")}>
-                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", approved ? "bg-[#1E8A3A]" : "bg-[#A1A1AA]")} aria-hidden />
+                      <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", approved ? requestStatusClass("approved") : "bg-ui-paper text-brand-muted")}>
+                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", approved ? "bg-brand-cta" : "bg-ui-zinc-soft")} aria-hidden />
                         {approved ? "Solicitação aprovada" : punchOrigin(item.source)}
                       </span>
                     </td>
@@ -230,7 +230,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
         </div>
       ) : null}
       {events.total > 0 ? (
-        <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+        <div className="mt-4 border-t border-ui-panel pt-4">
           <ListPager page={events.page} pageSize={events.pageSize} total={events.total} onPage={events.setPage} onPageSize={events.setPageSize} tone="module" />
         </div>
       ) : null}
@@ -398,8 +398,8 @@ export function OccurrenceEntryPage() {
       <BackLink to={tabPath(kind)} appearance="detail" />
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
-          <p className="mt-1 text-sm text-[#64748B]">{occurrenceKindOf(kind) === "absences" ? "Informe o funcionário e o dia." : manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
+          <h2 className="text-2xl font-bold tracking-tight text-ui-ink-strong">{occurrenceNewLabel[kind] || "Novo lançamento"}</h2>
+          <p className="mt-1 text-sm text-ui-slate">{occurrenceKindOf(kind) === "absences" ? "Informe o funcionário e o dia." : manual ? "Origem manual. O funcionário pede este tipo em Solicitações." : "Informe o funcionário e o período."}</p>
         </div>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="occurrence-employee">
@@ -440,7 +440,7 @@ export function OccurrenceEntryPage() {
           </Label>
           <textarea id="occurrence-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
-        {blocked ? <p className="text-sm text-[#64748B]">{blocked}</p> : null}
+        {blocked ? <p className="text-sm text-ui-slate">{blocked}</p> : null}
         <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>
           <Save className="h-4 w-4" />
           Salvar
@@ -451,18 +451,18 @@ export function OccurrenceEntryPage() {
 }
 
 function missing() {
-  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+  return <span className="font-medium text-ui-slate-soft">Não informado</span>
 }
 
 function DetailTile({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]">
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta">
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </span>
       <div className="min-w-0">
-        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
-        <div className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</div>
+        <p className="text-xs leading-4 text-ui-slate">{label}</p>
+        <div className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-ui-ink-strong [overflow-wrap:anywhere]">{children}</div>
       </div>
     </div>
   )
@@ -548,7 +548,7 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
       {!loading && item && mode === "view" ? (
         <section className={moduleCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-2xl font-bold tracking-tight text-[#111827]">{occurrenceKindLabel[kind] || occurrenceTabLabel[kind] || "Ocorrência"}</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-ui-ink-strong">{occurrenceKindLabel[kind] || occurrenceTabLabel[kind] || "Ocorrência"}</h2>
             {canEdit ? (
               <Button asChild variant="outline" className={cn(moduleQuietClass, "h-11 px-4")}>
                 <Link to={`/occurrences/${item.id}/edit`}>
@@ -560,33 +560,33 @@ export function OccurrenceRecordPage({ mode }: { mode: "view" | "edit" }) {
           </div>
           <dl className="mt-5 grid gap-3 sm:grid-cols-2">
             <DetailTile icon={User} label="Funcionário">{employeeName ? employeeName : missing()}</DetailTile>
-            <DetailTile icon={Calendar} label="Período">{periodText(item) === "Sem período informado" ? <span className="font-medium text-[#94A3B8]">Sem período informado</span> : periodText(item)}</DetailTile>
+            <DetailTile icon={Calendar} label="Período">{periodText(item) === "Sem período informado" ? <span className="font-medium text-ui-slate-soft">Sem período informado</span> : periodText(item)}</DetailTile>
             <DetailTile icon={FileText} label="Motivo">{item.reason_id ? reasonName || missing() : missing()}</DetailTile>
             <DetailTile icon={conceptIcon.situation} label="Origem">{item.source === "approved_request" ? "Solicitação aprovada" : punchOrigin(item.source)}</DetailTile>
-            <DetailTile icon={MessageSquare} label="Observação">{item.note?.trim() ? item.note : <span className="font-medium text-[#94A3B8]">Nenhuma observação informada.</span>}</DetailTile>
+            <DetailTile icon={MessageSquare} label="Observação">{item.note?.trim() ? item.note : <span className="font-medium text-ui-slate-soft">Nenhuma observação informada.</span>}</DetailTile>
             {isCertificateKind(kind) ? (
               <>
                 <DetailTile icon={FileText} label="CID">{item.cid?.trim() ? item.cid : missing()}</DetailTile>
                 <DetailTile icon={FileText} label="CRM">{item.crm?.trim() ? item.crm : missing()}</DetailTile>
                 <DetailTile icon={User} label="Nome do médico">{item.doctor_name?.trim() ? item.doctor_name : missing()}</DetailTile>
-                <DetailTile icon={FileText} label="Foto do atestado">{item.photo_url ? <DocumentLink href={item.photo_url} className="font-semibold text-[#1E8A3A] underline-offset-2 hover:underline" /> : missing()}</DetailTile>
+                <DetailTile icon={FileText} label="Foto do atestado">{item.photo_url ? <DocumentLink href={item.photo_url} className="font-semibold text-brand-cta underline-offset-2 hover:underline" /> : missing()}</DetailTile>
               </>
             ) : null}
           </dl>
-          {item.warning ? <p className="mt-4 text-sm text-[#C2410C]">{item.warning}</p> : null}
+          {item.warning ? <p className="mt-4 text-sm text-warn-brown">{item.warning}</p> : null}
         </section>
       ) : null}
       {!loading && item && mode === "edit" ? (
         <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Editar observação</h2>
-            <p className="mt-1 text-sm text-[#64748B]">{[employeeName, periodText(item)].filter(Boolean).join(" · ")}</p>
+            <h2 className="text-2xl font-bold tracking-tight text-ui-ink-strong">Editar observação</h2>
+            <p className="mt-1 text-sm text-ui-slate">{[employeeName, periodText(item)].filter(Boolean).join(" · ")}</p>
           </div>
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor="occurrence-edit-note">Observação</Label>
             <textarea id="occurrence-edit-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
-          {blocked ? <p className="text-sm text-[#64748B]">{blocked}</p> : null}
+          {blocked ? <p className="text-sm text-ui-slate">{blocked}</p> : null}
           <div className="flex justify-end">
             <Button type="submit" className={modulePrimaryClass} disabled={Boolean(blocked)}>
               <Save className="h-4 w-4" />

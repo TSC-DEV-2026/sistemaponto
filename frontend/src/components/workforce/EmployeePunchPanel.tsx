@@ -27,7 +27,7 @@ function JourneyBlock({
   cycleDay?: number | null
 }) {
   return (
-    <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+    <section className="w-full rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
       <h2 className="text-lg font-semibold text-brand-ink">Jornada prevista</h2>
       <p className="mt-1 text-sm text-brand-quiet">Jornada vigente desta pessoa.</p>
       {schedule ? (
@@ -41,7 +41,7 @@ function JourneyBlock({
           cycleDay={cycleDay}
         />
       ) : (
-        <p className="mt-5 rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center text-sm text-brand-quiet">Nenhuma jornada vigente.</p>
+        <p className="mt-5 rounded-xl border border-dashed border-ui-line-soft px-4 py-6 text-center text-sm text-brand-quiet">Nenhuma jornada vigente.</p>
       )}
     </section>
   )
@@ -56,7 +56,7 @@ function PunchSideNav({
 }) {
   return (
     <nav
-      className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto rounded-xl border border-[#E4E4E7] bg-white p-2 shadow-[0_8px_24px_rgba(15,23,42,0.04)] md:w-[220px] md:flex-col md:overflow-visible"
+      className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto rounded-xl border border-ui-line-soft bg-white p-2 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] md:w-[220px] md:flex-col md:overflow-visible"
       aria-label="Seções do ponto"
     >
       {sections.map((item) => {
@@ -70,8 +70,8 @@ function PunchSideNav({
             className={cn(
               "inline-flex h-11 shrink-0 items-center gap-2.5 rounded-lg px-3.5 text-sm font-semibold transition-[background-color,color] duration-150 motion-reduce:transition-none md:w-full",
               active
-                ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]"
-                : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#111827]",
+                ? "bg-brand-cta/12 text-brand-cta"
+                : "text-ui-slate hover:bg-ui-paper hover:text-ui-ink-strong",
             )}
             onClick={() => onChange(item.value)}
           >

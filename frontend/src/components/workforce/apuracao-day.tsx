@@ -33,13 +33,13 @@ export function calendarParts(iso: string) {
 }
 
 export const dayIconClass =
-  "group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] shadow-none transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EDF6EF] hover:text-[#1E8A3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+  "group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-ui-line bg-white text-ui-slate shadow-none transition-[background-color,border-color,color] duration-200 hover:border-brand-cta/25 hover:bg-brand-tint hover:text-brand-cta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
 
 export function DayIconButton({ label, disabled = false, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" className={cn(dayIconClass, disabled && "pointer-events-none")} disabled={disabled} aria-label={label} onClick={onClick}>
       {children}
-      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#E2E8F0] bg-white px-2 py-1 text-xs font-medium text-[#0A0A0A] opacity-0 shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-ui-line bg-white px-2 py-1 text-xs font-medium text-ui-ink opacity-0 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.08)] transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
         {label}
       </span>
     </button>
@@ -76,10 +76,10 @@ function situationIcon(label: string): LucideIcon {
 }
 
 function situationTone(label: string) {
-  if (label === "Falta") return "bg-[#FDECEC] text-[#C62828]"
-  if (label === "Jornada cumprida") return "bg-[rgba(30,138,58,0.10)] text-[#187432]"
-  if (label === "Sem jornada") return "bg-[#E7E8EA] text-[#64748B]"
-  return "bg-[#FFF6D8] text-[#8A5A00]"
+  if (label === "Falta") return "bg-danger-wash text-danger-ink"
+  if (label === "Jornada cumprida") return "bg-brand-cta/10 text-brand-cta-deep"
+  if (label === "Sem jornada") return "bg-ui-line-muted text-ui-slate"
+  return "bg-warn-chip text-warn-ink"
 }
 
 export function SituationBadge({ item }: { item: TimeResult }) {
@@ -109,8 +109,8 @@ export function SituationBadge({ item }: { item: TimeResult }) {
 function Metric({ label, value, alert = false }: { label: string; value: string; alert?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="truncate text-xs text-[#52525B]">{label}</p>
-      <p className={cn("mt-0.5 truncate text-sm font-semibold tabular-nums text-[#0A0A0A]", alert && "text-[#C62828]")}>{value}</p>
+      <p className="truncate text-xs text-brand-muted">{label}</p>
+      <p className={cn("mt-0.5 truncate text-sm font-semibold tabular-nums text-ui-ink", alert && "text-danger-ink")}>{value}</p>
     </div>
   )
 }
@@ -140,12 +140,12 @@ export function ApuracaoDaySummary({
   const date = calendarParts(item.work_date)
   const showBank = balance != null
   return (
-    <article className="rounded-xl border border-[#E4E8E6] bg-[#F7F8F7] px-3 py-2.5">
+    <article className="rounded-xl border border-brand-field bg-brand-soft px-3 py-2.5">
       <div className="flex items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-white" aria-hidden>
-          <span className="text-[10px] font-semibold tracking-[0.08em] text-[#187432]">{date.week}</span>
-          <span className="text-lg font-bold leading-none tabular-nums text-[#0A0A0A]">{date.day}</span>
-          <span className="text-[10px] font-semibold tracking-[0.08em] text-[#187432]">{date.month}</span>
+          <span className="text-[10px] font-semibold tracking-[0.08em] text-brand-cta-deep">{date.week}</span>
+          <span className="text-lg font-bold leading-none tabular-nums text-ui-ink">{date.day}</span>
+          <span className="text-[10px] font-semibold tracking-[0.08em] text-brand-cta-deep">{date.month}</span>
         </div>
         <div className="flex w-48 shrink-0 justify-center">
           <StatusPill item={item} />
@@ -184,9 +184,9 @@ const detailRows = (item: TimeResult) =>
 
 export function ApuracaoDayDetails({ item }: { item: TimeResult }) {
   return (
-    <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+    <section className="w-full rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-2xl font-bold tracking-tight text-[#111827]">{showDate(item.work_date)}</h3>
+        <h3 className="text-2xl font-bold tracking-tight text-ui-ink-strong">{showDate(item.work_date)}</h3>
         <SituationBadge item={item} />
       </div>
       <h4 className="mt-5 text-base font-semibold text-brand-ink">Demonstrativo de horas</h4>
@@ -200,11 +200,11 @@ export function ApuracaoDayDetails({ item }: { item: TimeResult }) {
         </thead>
         <tbody>
           {detailRows(item).map(([label, value, alert]) => (
-            <tr key={label} className="border-t border-[#F0F0F2]">
-              <th scope="row" className="py-3 pr-4 text-left font-normal text-[#52525B]">
+            <tr key={label} className="border-t border-ui-panel">
+              <th scope="row" className="py-3 pr-4 text-left font-normal text-brand-muted">
                 {label}
               </th>
-              <td className={cn("py-3 text-right font-semibold tabular-nums text-[#0A0A0A]", alert && "text-[#C62828]")}>{value}</td>
+              <td className={cn("py-3 text-right font-semibold tabular-nums text-ui-ink", alert && "text-danger-ink")}>{value}</td>
             </tr>
           ))}
         </tbody>

@@ -98,7 +98,7 @@ export function TenantSwitcher() {
         ref={trigger}
         type="button"
         className={cn(
-          "profile-trigger inline-flex max-w-full items-center gap-2 rounded-full border border-[#E7EBF0] bg-white py-1 pl-1 pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40 sm:pr-3",
+          "profile-trigger inline-flex max-w-full items-center gap-2 rounded-full border border-ui-line-hair bg-white py-1 pl-1 pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40 sm:pr-3",
           phase === "open" && "profile-trigger-open",
         )}
         aria-haspopup="menu"
@@ -107,7 +107,7 @@ export function TenantSwitcher() {
         aria-label={`Organização, ${currentName}`}
         onClick={() => (phase === "open" ? hideMenu() : setPhase("open"))}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E7F6EE] text-[#1E8A3A]" aria-hidden>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-wash text-brand-cta" aria-hidden>
           <Layers className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <span className="hidden max-w-[140px] truncate text-[13px] font-medium text-brand-ink sm:block">{currentName}</span>
@@ -119,7 +119,7 @@ export function TenantSwitcher() {
           role="menu"
           aria-label="Organização"
           data-state={phase === "open" ? "open" : "closing"}
-          className="profile-menu absolute right-0 z-30 mt-2 w-[270px] max-w-[calc(100vw-3rem)] origin-top-right rounded-[14px] border border-[#E7EBF0] bg-white p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.09),0_22px_48px_rgba(15,23,42,0.06)]"
+          className="profile-menu absolute right-0 z-30 mt-2 w-[270px] max-w-[calc(100vw-3rem)] origin-top-right rounded-[14px] border border-ui-line-hair bg-white p-1.5 shadow-[0_12px_28px_rgb(var(--ui-shadow)/0.09),0_22px_48px_rgb(var(--ui-shadow)/0.06)]"
           onKeyDown={onMenuKey}
           onAnimationEnd={onMenuAnimationEnd}
         >
@@ -127,7 +127,7 @@ export function TenantSwitcher() {
             <p className="text-xs font-medium text-brand-quiet">Organização</p>
             <p className="mt-0.5 truncate text-sm font-semibold text-brand-ink">{currentName}</p>
           </div>
-          <div className="mx-2 my-1 h-px bg-[#E7EBF0]" />
+          <div className="mx-2 my-1 h-px bg-ui-line-hair" />
           {tenants.map((tenant) => {
             const selected = tenant.id === activeTenant?.id
             return (
@@ -141,7 +141,7 @@ export function TenantSwitcher() {
               >
                 <Layers className="profile-item-icon h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
                 <span className="min-w-0 flex-1 truncate">{tenant.name}</span>
-                {selected ? <Check className="h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden /> : null}
+                {selected ? <Check className="h-4 w-4 shrink-0 text-brand-cta" strokeWidth={1.75} aria-hidden /> : null}
               </button>
             )
           })}

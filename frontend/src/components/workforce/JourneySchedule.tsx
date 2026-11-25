@@ -5,7 +5,7 @@ import { dayCaption, journeyKindLabel, type JourneyDay } from "@/pages/workforce
 import { showDuration } from "@/utils/labels"
 
 function EmptyMark() {
-  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+  return <span className="font-medium text-ui-slate-soft">Não informado</span>
 }
 
 function InfoTile({
@@ -18,7 +18,7 @@ function InfoTile({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-[#E4E4E7] bg-white px-4 py-4">
+    <div className="rounded-xl border border-ui-line-soft bg-white px-4 py-4">
       <p className="flex items-center gap-2 text-sm text-brand-muted">
         <Icon className="h-4 w-4 text-brand-cta" strokeWidth={1.75} aria-hidden />
         {label}
@@ -63,7 +63,7 @@ export function JourneySchedule({
           </div>
         ) : null}
         {resolved === "livre" ? (
-          <p className="mt-4 rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-sm text-brand-quiet">Não há dia nem horário. O tempo marcado é o tempo a receber.</p>
+          <p className="mt-4 rounded-xl border border-dashed border-ui-line-soft px-4 py-6 text-sm text-brand-quiet">Não há dia nem horário. O tempo marcado é o tempo a receber.</p>
         ) : null}
         {resolved === "programada" ? (
           <>
@@ -75,7 +75,7 @@ export function JourneySchedule({
             </dl>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {sequence.map((day, index) => (
-                <div key={`${index}-${day.off}`} className="rounded-xl border border-[#E4E4E7] bg-white px-4 py-4">
+                <div key={`${index}-${day.off}`} className="rounded-xl border border-ui-line-soft bg-white px-4 py-4">
                   <p className="text-xs font-semibold text-brand-cta">
                     {String(index + 1).padStart(2, "0")} · {day.off ? "Folga" : "Trabalho"}
                   </p>

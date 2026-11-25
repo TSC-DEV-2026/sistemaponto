@@ -86,8 +86,8 @@ export function MembershipDetailPage() {
       <div className="w-full min-w-0 space-y-5">
         <BackLink to="/memberships" appearance="detail" />
         <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status">
-          <Spinner label="Carregando o acesso" className="h-8 w-8 text-[#1E8A3A]" />
-          <p className="text-sm font-medium text-[#64748B]">Carregando o acesso</p>
+          <Spinner label="Carregando o acesso" className="h-8 w-8 text-brand-cta" />
+          <p className="text-sm font-medium text-ui-slate">Carregando o acesso</p>
         </section>
       </div>
     )
@@ -100,12 +100,12 @@ export function MembershipDetailPage() {
       <BackLink to="/memberships" appearance="detail" />
       <section className={cn(moduleCardClass, "w-full space-y-5")}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Shield className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{name}</h2>
-            <p className="text-sm text-[#64748B]">{item ? membershipRoleLabel[item.role] || item.role : "Acesso"}</p>
+            <h2 className="text-lg font-semibold text-ui-ink">{name}</h2>
+            <p className="text-sm text-ui-slate">{item ? membershipRoleLabel[item.role] || item.role : "Acesso"}</p>
           </div>
         </div>
         {isAdmin && item ? (
@@ -117,7 +117,7 @@ export function MembershipDetailPage() {
             <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-end">
               {pending ? (
                 <>
-                  <span className="text-sm text-[#0A0A0A]">Excluir {name}?</span>
+                  <span className="text-sm text-ui-ink">Excluir {name}?</span>
                   <Button type="button" className={cn(moduleDangerClass, "h-11 px-4")} onClick={() => void onDelete()}>
                     <Trash2 className="h-4 w-4" />
                     Excluir
@@ -140,13 +140,13 @@ export function MembershipDetailPage() {
             </div>
           </ActionForm>
         ) : item ? (
-          <div className="flex min-h-[66px] items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+          <div className="flex min-h-[66px] items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)]">
+            <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
               <Shield className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <p className="text-xs leading-4 text-[#64748B]">Papel</p>
-              <p className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]">{membershipRoleLabel[item.role] || item.role || "Não informado"}</p>
+              <p className="text-xs leading-4 text-ui-slate">Papel</p>
+              <p className="mt-0.5 text-[15px] font-semibold leading-5 text-ui-ink-strong">{membershipRoleLabel[item.role] || item.role || "Não informado"}</p>
             </div>
           </div>
         ) : null}

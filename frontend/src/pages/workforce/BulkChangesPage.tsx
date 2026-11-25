@@ -43,7 +43,7 @@ import { isoWeekday } from "@/pages/workforce/journey"
 import { conceptIcon } from "@/utils/concept-icons"
 import { clockMethodLabel, showDate } from "@/utils/labels"
 
-const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
+const detailBackClass = "group h-10 w-fit gap-2 rounded-[10px] border-ui-line-input bg-white px-3.5 text-sm font-semibold text-ui-ink shadow-[0_2px_6px_rgb(var(--ui-shadow)/0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-brand-cta hover:bg-brand-cta/10 hover:shadow-[0_4px_12px_rgb(var(--brand-cta)/0.16)] active:bg-brand-cta/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30"
 
 const catalog = [
   { id: "category", kind: "category", title: "Alterar categoria", description: "Define o valor de uma categoria para os funcionários.", valueName: "Novo valor", icon: conceptIcon.category, path: "", needsValue: true, needsDate: true, fixedLabel: "" },
@@ -476,17 +476,17 @@ export function BulkChangesPage() {
       {screen === "wizard" ? (
         <div className="w-full min-w-0 space-y-5">
           <Button type="button" variant="outline" className={detailBackClass} onClick={backStep}>
-            <ArrowLeft className="h-4 w-4 text-[#1E8A3A] transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
+            <ArrowLeft className="h-4 w-4 text-brand-cta transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
             Voltar
           </Button>
           <section className={cn(moduleCardClass, "space-y-5")}>
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Layers className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">{editingId ? "Editar regra" : "Nova regra"}</h2>
-              <p className="text-sm text-[#64748B]">Defina a operação, selecione os funcionários e configure a alteração.</p>
+              <h2 className="text-lg font-semibold text-ui-ink">{editingId ? "Editar regra" : "Nova regra"}</h2>
+              <p className="text-sm text-ui-slate">Defina a operação, selecione os funcionários e configure a alteração.</p>
             </div>
           </div>
           <ol className="grid grid-cols-3" aria-label="Etapas da regra">
@@ -496,7 +496,7 @@ export function BulkChangesPage() {
               const active = index === current
               return (
                 <li key={item.id} className="relative flex flex-col items-center">
-                  {index < steps.length - 1 ? <span className={cn("absolute left-1/2 top-4 h-0.5 w-full -translate-y-1/2", index < current ? "bg-[#1E8A3A]" : "bg-[#C5CED8]")} aria-hidden /> : null}
+                  {index < steps.length - 1 ? <span className={cn("absolute left-1/2 top-4 h-0.5 w-full -translate-y-1/2", index < current ? "bg-brand-cta" : "bg-ui-line-chip")} aria-hidden /> : null}
                   <button
                     type="button"
                     className="relative z-10 flex flex-col items-center gap-2 bg-transparent text-center"
@@ -505,10 +505,10 @@ export function BulkChangesPage() {
                       if (done) setStep(item.id)
                     }}
                   >
-                    <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold", active || done ? "bg-[#1E8A3A] text-white" : "bg-[#E7E8EA] text-[#94A3B8]")}>
+                    <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold", active || done ? "bg-brand-cta text-white" : "bg-ui-line-muted text-ui-slate-soft")}>
                       {done ? <Check className="h-4 w-4" strokeWidth={2.75} /> : index + 1}
                     </span>
-                    <span className={cn("text-xs font-medium sm:text-sm", active ? "text-[#1E8A3A]" : done ? "text-[#0A0A0A]" : "text-[#94A3B8]")}>{item.label}</span>
+                    <span className={cn("text-xs font-medium sm:text-sm", active ? "text-brand-cta" : done ? "text-ui-ink" : "text-ui-slate-soft")}>{item.label}</span>
                   </button>
                 </li>
               )
@@ -516,7 +516,7 @@ export function BulkChangesPage() {
           </ol>
           {step === "operation" ? (
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-[#0A0A0A]">Qual operação deseja realizar?</h3>
+              <h3 className="text-lg font-semibold text-ui-ink">Qual operação deseja realizar?</h3>
               <div className="space-y-2" role="radiogroup" aria-label="Operação">
                 {catalog.map((item) => {
                   const Icon = item.icon
@@ -527,17 +527,17 @@ export function BulkChangesPage() {
                       type="button"
                       role="radio"
                       aria-checked={picked}
-                      className={cn("flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors", picked ? "border-[#1E8A3A] bg-[#EAF7EF]" : "border-[#E2E8F0] bg-white hover:border-[#8ED4A8]")}
+                      className={cn("flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors", picked ? "border-brand-cta bg-brand-tint" : "border-ui-line bg-white hover:border-brand-glow")}
                       onClick={() => chooseOperation(item.id)}
                     >
-                      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", item.id === "dismissed" ? "bg-[#FEF2F2] text-[#E11D48]" : "bg-[#EAF7EF] text-[#1E8A3A]")}>
+                      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", item.id === "dismissed" ? "bg-danger-soft text-danger-rose" : "bg-brand-tint text-brand-cta")}>
                         <Icon className="h-5 w-5" strokeWidth={1.75} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-[#0A0A0A]">{item.title}</span>
-                        <span className="mt-0.5 block text-sm text-[#64748B]">{item.description}</span>
+                        <span className="block font-semibold text-ui-ink">{item.title}</span>
+                        <span className="mt-0.5 block text-sm text-ui-slate">{item.description}</span>
                       </span>
-                      <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border", picked ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
+                      <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border", picked ? "border-brand-cta bg-brand-cta text-white" : "border-ui-line-strong bg-white")}>
                         {picked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
                       </span>
                     </button>
@@ -554,15 +554,15 @@ export function BulkChangesPage() {
           ) : null}
           {step === "people" ? (
             <div>
-              <h3 className="text-lg font-semibold text-[#0A0A0A]">Selecionar funcionários</h3>
+              <h3 className="text-lg font-semibold text-ui-ink">Selecionar funcionários</h3>
               <div className="mt-5 space-y-2">
                 <Label className={moduleLabelClass} htmlFor="bulk-person">Pesquisar</Label>
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
                   <Input id="bulk-person" value={personDraft} placeholder="Pesquisar por nome, CPF ou matrícula" className={cn(moduleFieldClass, "pl-10 pr-12")} onChange={(event) => setPersonDraft(event.target.value)} />
                   <button
                     type="button"
-                    className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+                    className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-brand-cta/10 text-brand-cta" : "text-ui-slate hover:bg-ui-paper hover:text-ui-ink")}
                     aria-expanded={filtersOpen}
                     aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
                     onClick={() => setFiltersOpen((current) => !current)}
@@ -572,8 +572,8 @@ export function BulkChangesPage() {
                 </div>
               </div>
               {filtersOpen ? (
-              <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                <h4 className="text-sm font-semibold text-[#0A0A0A]">Filtros</h4>
+              <div className="mt-4 rounded-xl border border-ui-line bg-ui-canvas p-4">
+                <h4 className="text-sm font-semibold text-ui-ink">Filtros</h4>
                 <div className="mt-4">
                   <OrganizationFilterFields idPrefix="bulk" filters={places} />
                 </div>
@@ -582,13 +582,13 @@ export function BulkChangesPage() {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <button
                   type="button"
-                  className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allFilterSelected ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
+                  className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allFilterSelected ? "border-brand-cta bg-brand-tint text-brand-cta" : "border-ui-line bg-white text-ui-ink hover:border-brand-glow hover:bg-brand-soft-alt active:bg-brand-tint")}
                   disabled={list.total === 0 || marking}
                   aria-pressed={allFilterSelected}
                   onClick={() => void markFilter()}
                 >
-                  <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", allFilterSelected ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
-                    {marking ? <Spinner label="Marcando os funcionários" className="h-3.5 w-3.5 text-[#1E8A3A]" /> : allFilterSelected ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
+                  <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", allFilterSelected ? "border-brand-cta bg-brand-cta text-white" : "border-ui-line-strong bg-white")}>
+                    {marking ? <Spinner label="Marcando os funcionários" className="h-3.5 w-3.5 text-brand-cta" /> : allFilterSelected ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
                   </span>
                   Selecionar todos do filtro ({list.total})
                 </button>
@@ -597,33 +597,33 @@ export function BulkChangesPage() {
                     <X className="h-4 w-4 shrink-0" />
                     Limpar seleção
                   </Button>
-                  <p className="whitespace-nowrap text-sm font-medium text-[#1E8A3A]">{selected.length} selecionados</p>
+                  <p className="whitespace-nowrap text-sm font-medium text-brand-cta">{selected.length} selecionados</p>
                 </div>
               </div>
               {list.loading && !listed ? (
                 <div className="flex justify-center py-10" role="status">
-                  <Spinner label="Carregando os funcionários" className="h-8 w-8 text-[#1E8A3A]" />
+                  <Spinner label="Carregando os funcionários" className="h-8 w-8 text-brand-cta" />
                 </div>
               ) : list.items.length === 0 && !list.error ? (
                 <div className="px-2 py-10 text-center">
-                  <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum funcionário</p>
-                  <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+                  <p className="text-[15px] font-semibold text-ui-ink">Nenhum funcionário</p>
+                  <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
                 </div>
               ) : (
                 <ul className="mt-4 space-y-2">
                   {list.items.map((item) => (
                     <li key={item.id}>
-                      <label htmlFor={`bulk-person-${item.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", selectedIds.has(item.id) ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
+                      <label htmlFor={`bulk-person-${item.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", selectedIds.has(item.id) ? "border-brand-glow bg-brand-soft-alt" : "border-ui-line bg-white")}>
                         <span className="relative h-[22px] w-[22px] shrink-0">
                           <input id={`bulk-person-${item.id}`} type="checkbox" className="peer sr-only" checked={selectedIds.has(item.id)} onChange={() => toggle(item)} />
-                          <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
+                          <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-ui-line-strong bg-white peer-checked:border-brand-cta peer-checked:bg-brand-cta peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.16)]">
                             <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
                           </span>
                         </span>
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#1E8A3A]">{initials(item.full_name || "")}</span>
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-tint text-xs font-semibold text-brand-cta">{initials(item.full_name || "")}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold text-[#0A0A0A]">{item.full_name || "Não informado"}</span>
-                          <span className="mt-0.5 block truncate text-sm text-[#64748B]">{employeeDetail(item)}</span>
+                          <span className="block truncate font-semibold text-ui-ink">{item.full_name || "Não informado"}</span>
+                          <span className="mt-0.5 block truncate text-sm text-ui-slate">{employeeDetail(item)}</span>
                         </span>
                       </label>
                     </li>
@@ -631,7 +631,7 @@ export function BulkChangesPage() {
                 </ul>
               )}
               {list.total > 0 ? (
-                <div className="mt-4 border-t border-[#F1F5F9] pt-4">
+                <div className="mt-4 border-t border-ui-wash pt-4">
                   <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} />
                 </div>
               ) : null}
@@ -649,20 +649,20 @@ export function BulkChangesPage() {
           ) : null}
           {step === "config" && operation ? (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-[#0A0A0A]">Configurar alteração</h3>
+              <h3 className="text-lg font-semibold text-ui-ink">Configurar alteração</h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]">{(() => { const Icon = operation.icon; return <Icon className="h-4 w-4" strokeWidth={1.75} /> })()}</span>
+                <div className="flex items-center gap-3 rounded-xl border border-ui-line bg-ui-canvas px-4 py-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand-cta">{(() => { const Icon = operation.icon; return <Icon className="h-4 w-4" strokeWidth={1.75} /> })()}</span>
                   <span>
-                    <span className="block text-sm text-[#64748B]">Operação</span>
-                    <span className="mt-0.5 block font-semibold text-[#0A0A0A]">{operation.title}</span>
+                    <span className="block text-sm text-ui-slate">Operação</span>
+                    <span className="mt-0.5 block font-semibold text-ui-ink">{operation.title}</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><conceptIcon.employee className="h-4 w-4" strokeWidth={1.75} /></span>
+                <div className="flex items-center gap-3 rounded-xl border border-ui-line bg-ui-canvas px-4 py-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand-cta"><conceptIcon.employee className="h-4 w-4" strokeWidth={1.75} /></span>
                   <span>
-                    <span className="block text-sm text-[#64748B]">Funcionários</span>
-                    <span className="mt-0.5 block font-semibold text-[#0A0A0A]">{peopleCount(selected.length)} selecionados</span>
+                    <span className="block text-sm text-ui-slate">Funcionários</span>
+                    <span className="mt-0.5 block font-semibold text-ui-ink">{peopleCount(selected.length)} selecionados</span>
                   </span>
                 </div>
               </div>
@@ -720,7 +720,7 @@ export function BulkChangesPage() {
                         setCycleTouched(true)
                       }}
                     />
-                    <p className="text-sm text-[#64748B]">Na programada de sete dias, a sugestão é o dia da semana da vigência. Você pode escolher outro.</p>
+                    <p className="text-sm text-ui-slate">Na programada de sete dias, a sugestão é o dia da semana da vigência. Você pode escolher outro.</p>
                   </div>
                 ) : null}
                 {operation.needsDate ? (
@@ -760,24 +760,24 @@ export function BulkChangesPage() {
         <section className={moduleCardClass}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
                 <Check className="h-5 w-5" strokeWidth={1.75} />
               </span>
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0A0A0A]">Alterações executadas</h2>
-                <p className="text-sm text-[#64748B]">{result.rules === 1 ? "1 regra executada" : `${result.rules} regras executadas`} · {peopleCount(result.employees)} distintos.</p>
+                <h2 className="text-lg font-semibold text-ui-ink">Alterações executadas</h2>
+                <p className="text-sm text-ui-slate">{result.rules === 1 ? "1 regra executada" : `${result.rules} regras executadas`} · {peopleCount(result.employees)} distintos.</p>
               </div>
             </div>
           </div>
           <div className="mt-5">
-            <h3 className="text-lg font-semibold text-[#0A0A0A]">Regras executadas</h3>
+            <h3 className="text-lg font-semibold text-ui-ink">Regras executadas</h3>
             <ul className="mt-4 space-y-2">
               {result.lines.map((line, index) => {
                 const [title, detail] = line.split(" — ")
                 return (
-                  <li key={`${index}-${line}`} className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-3">
-                    <span className="block font-semibold text-[#0A0A0A]">{title}</span>
-                    {detail ? <span className="mt-0.5 block text-sm text-[#64748B]">{detail}</span> : null}
+                  <li key={`${index}-${line}`} className="rounded-xl border border-ui-line bg-white px-4 py-3">
+                    <span className="block font-semibold text-ui-ink">{title}</span>
+                    {detail ? <span className="mt-0.5 block text-sm text-ui-slate">{detail}</span> : null}
                   </li>
                 )
               })}
@@ -830,39 +830,39 @@ function EmptyHome({ onStart }: { onStart: () => void }) {
   return (
     <section className={cn(moduleCardClass, "space-y-5")}>
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
           <Layers className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">Operações em massa</h2>
-          <p className="text-sm text-[#64748B]">Configure múltiplas regras e execute todas de uma só vez.</p>
+          <h2 className="text-lg font-semibold text-ui-ink">Operações em massa</h2>
+          <p className="text-sm text-ui-slate">Configure múltiplas regras e execute todas de uma só vez.</p>
         </div>
       </div>
-      <div className="grid items-center gap-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 sm:grid-cols-[1.4fr_auto] sm:p-5">
+      <div className="grid items-center gap-4 rounded-xl border border-ui-line bg-ui-canvas p-4 sm:grid-cols-[1.4fr_auto] sm:p-5">
         <div>
-          <h3 className="text-base font-semibold text-[#0A0A0A]">Configure várias alterações de forma sequencial</h3>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-[#64748B]">Adicione uma regra por vez, selecione os funcionários, configure cada alteração e execute todas ao final.</p>
+          <h3 className="text-base font-semibold text-ui-ink">Configure várias alterações de forma sequencial</h3>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-ui-slate">Adicione uma regra por vez, selecione os funcionários, configure cada alteração e execute todas ao final.</p>
         </div>
-        <div className="hidden w-40 rounded-xl border border-[#E2E8F0] bg-white p-3.5 sm:block" aria-hidden>
-          <span className="block h-2 w-16 rounded-full bg-[rgba(30,138,58,0.18)]" />
-          <span className="mt-3 flex items-center gap-2 text-sm text-[#0A0A0A]"><Check className="h-3.5 w-3.5 text-[#1E8A3A]" strokeWidth={2.75} /> Regra</span>
-          <span className="mt-2 flex items-center gap-2 text-sm text-[#0A0A0A]"><Check className="h-3.5 w-3.5 text-[#1E8A3A]" strokeWidth={2.75} /> Regra</span>
-          <span className="mt-2 flex items-center gap-2 text-sm text-[#94A3B8]"><span className="h-3.5 w-3.5 rounded-full border border-[#D5DCE3]" /> Regra</span>
+        <div className="hidden w-40 rounded-xl border border-ui-line bg-white p-3.5 sm:block" aria-hidden>
+          <span className="block h-2 w-16 rounded-full bg-brand-cta/18" />
+          <span className="mt-3 flex items-center gap-2 text-sm text-ui-ink"><Check className="h-3.5 w-3.5 text-brand-cta" strokeWidth={2.75} /> Regra</span>
+          <span className="mt-2 flex items-center gap-2 text-sm text-ui-ink"><Check className="h-3.5 w-3.5 text-brand-cta" strokeWidth={2.75} /> Regra</span>
+          <span className="mt-2 flex items-center gap-2 text-sm text-ui-slate-soft"><span className="h-3.5 w-3.5 rounded-full border border-ui-line-strong" /> Regra</span>
         </div>
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-[#0A0A0A]">Como funciona</h3>
+        <h3 className="text-lg font-semibold text-ui-ink">Como funciona</h3>
         <ol className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-4">
           {howItWorks.map((item, index) => {
             const Icon = item.icon
             return (
               <li key={item.title} className="relative text-center">
-                {index < howItWorks.length - 1 ? <span className="absolute left-[calc(50%+26px)] right-[calc(-50%+26px)] top-5 hidden h-px bg-[#E2E8F0] sm:block" aria-hidden /> : null}
-                <span className="relative mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+                {index < howItWorks.length - 1 ? <span className="absolute left-[calc(50%+26px)] right-[calc(-50%+26px)] top-5 hidden h-px bg-ui-line sm:block" aria-hidden /> : null}
+                <span className="relative mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta">
                   <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </span>
-                <p className="mt-3 text-sm font-semibold text-[#0A0A0A]">{index + 1}. {item.title}</p>
-                <p className="mt-1 text-sm leading-5 text-[#64748B]">{item.text}</p>
+                <p className="mt-3 text-sm font-semibold text-ui-ink">{index + 1}. {item.title}</p>
+                <p className="mt-1 text-sm leading-5 text-ui-slate">{item.text}</p>
               </li>
             )
           })}
@@ -897,12 +897,12 @@ function RulesHome({
     <section className={moduleCardClass}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Layers className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Operações em massa</h2>
-            <p className="text-sm text-[#64748B]">Configure as regras que serão executadas.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Operações em massa</h2>
+            <p className="text-sm text-ui-slate">Configure as regras que serão executadas.</p>
           </div>
         </div>
         <Button type="button" className={cn(modulePrimaryClass, "w-full shrink-0 sm:w-auto")} onClick={onAdd}>
@@ -911,19 +911,19 @@ function RulesHome({
         </Button>
       </div>
       <div className="mt-5">
-        <h3 className="text-lg font-semibold text-[#0A0A0A]">Regras configuradas ({rules.length})</h3>
+        <h3 className="text-lg font-semibold text-ui-ink">Regras configuradas ({rules.length})</h3>
         <ul className="mt-4 space-y-2">
           {rules.map((rule) => {
             const operation = operationOf(rule.operationId)
             const Icon = operation.icon
             return (
-              <li key={rule.clientRuleId} className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3">
-                <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", rule.operationId === "dismissed" ? "bg-[#FEF2F2] text-[#E11D48]" : "bg-[#EAF7EF] text-[#1E8A3A]")}>
+              <li key={rule.clientRuleId} className="flex items-center gap-3 rounded-xl border border-ui-line bg-white px-4 py-3">
+                <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", rule.operationId === "dismissed" ? "bg-danger-soft text-danger-rose" : "bg-brand-tint text-brand-cta")}>
                   <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-[#0A0A0A]">{operation.title}</span>
-                  <span className="mt-0.5 block text-sm text-[#64748B]">
+                  <span className="block font-semibold text-ui-ink">{operation.title}</span>
+                  <span className="mt-0.5 block text-sm text-ui-slate">
                     {peopleCount(rule.people.length)}
                     {operation.needsDate ? ` · Vigência: ${showDate(rule.validFrom)}` : " · Sem período informado."}
                     {rule.valueLabel ? ` · ${rule.valueLabel}` : ""}
@@ -950,7 +950,7 @@ function RulesHome({
             )
           })}
         </ul>
-        <p className="mt-4 flex gap-2 rounded-xl bg-[#EAF7EF] px-4 py-3 text-sm leading-6 text-[#3F6B4C]">
+        <p className="mt-4 flex gap-2 rounded-xl bg-brand-tint px-4 py-3 text-sm leading-6 text-brand-nav">
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>Você pode adicionar quantas regras forem necessárias antes de executar. Cada regra é gravada na hora.</span>
         </p>
@@ -985,40 +985,40 @@ function ReviewScreen({
   return (
     <div className="w-full min-w-0 space-y-5">
       <Button type="button" variant="outline" className={detailBackClass} onClick={onBack}>
-        <ArrowLeft className="h-4 w-4 text-[#1E8A3A] transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
+        <ArrowLeft className="h-4 w-4 text-brand-cta transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
         Voltar
       </Button>
       <section className={cn(moduleCardClass, "space-y-5")}>
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
           <Layers className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">Revisar e executar</h2>
-          <p className="text-sm text-[#64748B]">Confira todas as regras configuradas antes de executar as alterações.</p>
+          <h2 className="text-lg font-semibold text-ui-ink">Revisar e executar</h2>
+          <p className="text-sm text-ui-slate">Confira todas as regras configuradas antes de executar as alterações.</p>
         </div>
       </div>
       <div className={cn("grid grid-cols-1 gap-3", sharedDate ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-        <article className="flex items-center gap-3 rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><Layers className="h-5 w-5" strokeWidth={1.75} /></span>
+        <article className="flex items-center gap-3 rounded-[14px] border border-ui-line bg-white px-4 py-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand-cta"><Layers className="h-5 w-5" strokeWidth={1.75} /></span>
           <span>
-            <span className="block text-sm text-[#64748B]">Total de regras</span>
-            <span className="mt-0.5 block text-xl font-semibold text-[#0A0A0A]">{rules.length}</span>
+            <span className="block text-sm text-ui-slate">Total de regras</span>
+            <span className="mt-0.5 block text-xl font-semibold text-ui-ink">{rules.length}</span>
           </span>
         </article>
-        <article className="flex items-center gap-3 rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} /></span>
+        <article className="flex items-center gap-3 rounded-[14px] border border-ui-line bg-white px-4 py-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand-cta"><conceptIcon.employee className="h-5 w-5" strokeWidth={1.75} /></span>
           <span>
-            <span className="block text-sm text-[#64748B]">Total de funcionários</span>
-            <span className="mt-0.5 block text-xl font-semibold text-[#0A0A0A]">{distinctPeople}</span>
+            <span className="block text-sm text-ui-slate">Total de funcionários</span>
+            <span className="mt-0.5 block text-xl font-semibold text-ui-ink">{distinctPeople}</span>
           </span>
         </article>
         {sharedDate ? (
-          <article className="flex items-center gap-3 rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]"><CalendarDays className="h-5 w-5" strokeWidth={1.75} /></span>
+          <article className="flex items-center gap-3 rounded-[14px] border border-ui-line bg-white px-4 py-4">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand-cta"><CalendarDays className="h-5 w-5" strokeWidth={1.75} /></span>
             <span>
-              <span className="block text-sm text-[#64748B]">Vigência</span>
-              <span className="mt-0.5 block text-xl font-semibold text-[#0A0A0A]">{showDate(sharedDate)}</span>
+              <span className="block text-sm text-ui-slate">Vigência</span>
+              <span className="mt-0.5 block text-xl font-semibold text-ui-ink">{showDate(sharedDate)}</span>
             </span>
           </article>
         ) : null}
@@ -1029,38 +1029,38 @@ function ReviewScreen({
           const Icon = operation.icon
           const open = expanded.includes(rule.clientRuleId)
           return (
-            <li key={rule.clientRuleId} className="rounded-xl border border-[#E2E8F0] bg-white">
+            <li key={rule.clientRuleId} className="rounded-xl border border-ui-line bg-white">
               <button type="button" className="flex w-full items-center gap-3 px-4 py-3 text-left" aria-expanded={open} onClick={() => onToggle(rule.clientRuleId)}>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF7EF] text-[#1E8A3A]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand-cta">
                   <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-[#0A0A0A]">{operation.title}</span>
-                  <span className="mt-0.5 block text-sm text-[#64748B]">{peopleCount(rule.people.length)}{operation.needsDate ? ` · Vigência: ${showDate(rule.validFrom)}` : ""}</span>
+                  <span className="block font-semibold text-ui-ink">{operation.title}</span>
+                  <span className="mt-0.5 block text-sm text-ui-slate">{peopleCount(rule.people.length)}{operation.needsDate ? ` · Vigência: ${showDate(rule.validFrom)}` : ""}</span>
                 </span>
-                <ChevronDown className={cn("h-4 w-4 text-[#64748B] transition-transform", open && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 text-ui-slate transition-transform", open && "rotate-180")} />
               </button>
               {open ? (
-                <dl className="grid gap-3 border-t border-[#F1F5F9] px-4 py-4 sm:grid-cols-2">
+                <dl className="grid gap-3 border-t border-ui-wash px-4 py-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-sm text-[#64748B]">Operação</dt>
-                    <dd className="mt-1 font-medium text-[#0A0A0A]">{operation.title}</dd>
+                    <dt className="text-sm text-ui-slate">Operação</dt>
+                    <dd className="mt-1 font-medium text-ui-ink">{operation.title}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-[#64748B]">Novo valor</dt>
-                    <dd className="mt-1 font-medium text-[#0A0A0A]">{rule.valueLabel || "Não informado"}</dd>
+                    <dt className="text-sm text-ui-slate">Novo valor</dt>
+                    <dd className="mt-1 font-medium text-ui-ink">{rule.valueLabel || "Não informado"}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-[#64748B]">Vigência</dt>
-                    <dd className="mt-1 font-medium text-[#0A0A0A]">{operation.needsDate ? showDate(rule.validFrom) : "Sem período informado."}{rule.cycleDay ? ` · Dia ${rule.cycleDay} da sequência` : ""}</dd>
+                    <dt className="text-sm text-ui-slate">Vigência</dt>
+                    <dd className="mt-1 font-medium text-ui-ink">{operation.needsDate ? showDate(rule.validFrom) : "Sem período informado."}{rule.cycleDay ? ` · Dia ${rule.cycleDay} da sequência` : ""}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-[#64748B]">Observação</dt>
-                    <dd className="mt-1 font-medium text-[#0A0A0A]">{rule.note.trim() || "Nenhuma observação informada."}</dd>
+                    <dt className="text-sm text-ui-slate">Observação</dt>
+                    <dd className="mt-1 font-medium text-ui-ink">{rule.note.trim() || "Nenhuma observação informada."}</dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-sm text-[#64748B]">Funcionários</dt>
-                    <dd className="mt-1 font-medium text-[#0A0A0A]">{rule.people.map((item) => item.name).join(", ")}</dd>
+                    <dt className="text-sm text-ui-slate">Funcionários</dt>
+                    <dd className="mt-1 font-medium text-ui-ink">{rule.people.map((item) => item.name).join(", ")}</dd>
                   </div>
                 </dl>
               ) : null}
@@ -1068,7 +1068,7 @@ function ReviewScreen({
           )
         })}
       </ul>
-      <p className="rounded-xl border border-[#F3D7A1] bg-[#FFF8EB] px-4 py-3 text-sm text-[#8A5A00]">Cada regra é gravada na hora. Se uma falhar, as anteriores desta execução permanecem salvas e as seguintes ficam na lista. Dentro de uma regra, se uma pessoa falhar, ninguém daquela regra é salvo.</p>
+      <p className="rounded-xl border border-warn-glow bg-warn-wash px-4 py-3 text-sm text-warn-ink">Cada regra é gravada na hora. Se uma falhar, as anteriores desta execução permanecem salvas e as seguintes ficam na lista. Dentro de uma regra, se uma pessoa falhar, ninguém daquela regra é salvo.</p>
       <div className="flex justify-end">
         <Button type="button" className={modulePrimaryClass} onClick={onRun}>
           <Play className="h-4 w-4" />
@@ -1140,37 +1140,37 @@ function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target !== event.currentTarget || Date.now() - openedAt.current < 400 || pendingRef.current) return
         onClose()
       }}
     >
-      <div role="alertdialog" aria-modal="true" aria-labelledby="bulk-confirm-title" aria-describedby="bulk-confirm-text" className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="bulk-confirm-title" aria-describedby="bulk-confirm-text" className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7">
         <div className="flex flex-col items-center text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.12)]" aria-hidden>
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E8A3A] text-white shadow-[0_8px_18px_rgba(30,138,58,0.28)]">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/12" aria-hidden>
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-cta text-white shadow-[0_8px_18px_rgb(var(--brand-cta)/0.28)]">
               <Check className="h-5 w-5" strokeWidth={2.5} />
             </span>
           </span>
-          <h2 id="bulk-confirm-title" className="mt-4 text-lg font-semibold text-[#0A0A0A]">{title}</h2>
-          <p id="bulk-confirm-text" className="mt-1 text-sm leading-6 text-[#64748B]">{text}</p>
+          <h2 id="bulk-confirm-title" className="mt-4 text-lg font-semibold text-ui-ink">{title}</h2>
+          <p id="bulk-confirm-text" className="mt-1 text-sm leading-6 text-ui-slate">{text}</p>
         </div>
         {lines.length > 0 ? (
           <ul className="mt-5 max-h-52 space-y-2 overflow-y-auto">
             {lines.map((line, index) => {
               const [title, detail] = line.split(" — ")
               return (
-                <li key={`${index}-${line}`} className="rounded-xl border border-[#E2E8F0] bg-[#E7E8EA] px-4 py-3">
-                  <span className="block text-sm font-semibold text-[#0A0A0A]">{title}</span>
-                  {detail ? <span className="mt-0.5 block text-sm text-[#64748B]">{detail}</span> : null}
+                <li key={`${index}-${line}`} className="rounded-xl border border-ui-line bg-ui-line-muted px-4 py-3">
+                  <span className="block text-sm font-semibold text-ui-ink">{title}</span>
+                  {detail ? <span className="mt-0.5 block text-sm text-ui-slate">{detail}</span> : null}
                 </li>
               )
             })}
           </ul>
         ) : null}
         {notice ? (
-          <p className="mt-4 flex gap-2 rounded-xl border border-[#F3D7A1] bg-[#FFF8EB] px-4 py-3 text-sm leading-6 text-[#8A5A00]">
+          <p className="mt-4 flex gap-2 rounded-xl border border-warn-glow bg-warn-wash px-4 py-3 text-sm leading-6 text-warn-ink">
             <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>{notice}</span>
           </p>

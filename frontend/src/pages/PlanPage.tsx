@@ -158,9 +158,9 @@ function BillingPanel() {
   if (!opened) {
     return (
       <section className={moduleCardClass}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Plano em vigor</h2>
+        <h2 className="text-lg font-semibold text-ui-ink">Plano em vigor</h2>
         <div className="flex justify-center py-10" role="status">
-          <Spinner label="Carregando o plano" className="h-8 w-8 text-[#1E8A3A]" />
+          <Spinner label="Carregando o plano" className="h-8 w-8 text-brand-cta" />
         </div>
       </section>
     )
@@ -180,7 +180,7 @@ function BillingPanel() {
       </section>
 
       <section className={cn(moduleCardClass, "space-y-4")}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Assinaturas</h2>
+        <h2 className="text-lg font-semibold text-ui-ink">Assinaturas</h2>
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="plan-status">Situação</Label>
           <SiteSelect id="plan-status" value={planStatus} className="h-12" options={planStatusOptions} onChange={setPlanStatus} />
@@ -201,7 +201,7 @@ function BillingPanel() {
       </section>
 
       <section className={cn(moduleCardClass, "space-y-4")}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Cobranças</h2>
+        <h2 className="text-lg font-semibold text-ui-ink">Cobranças</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor="charge-status">Situação</Label>
@@ -221,7 +221,7 @@ function BillingPanel() {
             title: `${chargeKindLabel[item.kind] || item.kind} · ${showMoney(item.amount_cents)}`,
             detail: `${paymentMethodLabel[item.payment_method] || item.payment_method} · Vence em ${showDate(item.due_on)} · ${chargeStatusLabel[item.status] || item.status} · ${showDate(item.period_start)} a ${showDate(item.period_end)}`,
             action: item.status === "paid" ? (
-              <span className="inline-flex h-11 items-center rounded-[10px] bg-[rgba(30,138,58,0.1)] px-3 text-sm font-semibold text-[#086B35]">Pago</span>
+              <span className="inline-flex h-11 items-center rounded-[10px] bg-brand-cta/10 px-3 text-sm font-semibold text-brand-ink-deep">Pago</span>
             ) : (
               <Button type="button" className={cn(modulePrimaryClass, "h-11 shrink-0")} pending={payingId === item.id} onClick={() => void pay(item.id)}>
                 <CreditCard className="h-4 w-4" />
@@ -330,12 +330,12 @@ function ContractPanel() {
 function CardHeading({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
         <Icon className="h-5 w-5" strokeWidth={1.75} />
       </span>
       <div className="min-w-0">
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">{title}</h2>
-        {subtitle ? <p className="text-sm text-[#64748B]">{subtitle}</p> : null}
+        <h2 className="text-lg font-semibold text-ui-ink">{title}</h2>
+        {subtitle ? <p className="text-sm text-ui-slate">{subtitle}</p> : null}
       </div>
     </div>
   )
@@ -343,13 +343,13 @@ function CardHeading({ icon: Icon, title, subtitle }: { icon: LucideIcon; title:
 
 function Fact({ icon: Icon, label, value, wide = false }: { icon: LucideIcon; label: string; value: ReactNode; wide?: boolean }) {
   return (
-    <div className={cn("flex min-h-[66px] items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]", wide && "sm:col-span-2")}>
-      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+    <div className={cn("flex min-h-[66px] items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)]", wide && "sm:col-span-2")}>
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
       </span>
       <div className="min-w-0">
-        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
-        <p className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]">{value}</p>
+        <p className="text-xs leading-4 text-ui-slate">{label}</p>
+        <p className="mt-0.5 text-[15px] font-semibold leading-5 text-ui-ink-strong">{value}</p>
       </div>
     </div>
   )
@@ -369,25 +369,25 @@ function RecordList({
   if (loading) {
     return (
       <div className="flex justify-center py-10" role="status">
-        <Spinner label={`Carregando ${emptyTitle.toLocaleLowerCase("pt-BR")}`} className="h-8 w-8 text-[#1E8A3A]" />
+        <Spinner label={`Carregando ${emptyTitle.toLocaleLowerCase("pt-BR")}`} className="h-8 w-8 text-brand-cta" />
       </div>
     )
   }
   if (items.length === 0) {
     return (
       <div className="px-2 py-10 text-center">
-        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
           <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
         </span>
-        <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">{emptyTitle}</p>
-        <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+        <p className="mt-4 text-[15px] font-semibold text-ui-ink">{emptyTitle}</p>
+        <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
       </div>
     )
   }
   return (
     <ul className="space-y-2">
       {items.map((item) => (
-        <li key={item.id} className="flex min-h-16 flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035)] sm:flex-row sm:items-center">
+        <li key={item.id} className="flex min-h-16 flex-col gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035)] sm:flex-row sm:items-center">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
             <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
           </span>

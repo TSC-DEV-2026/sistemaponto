@@ -205,9 +205,9 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={entry.backTo} appearance="detail" />
-        <section className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" role="status" aria-live="polite">
-          <Spinner label="Carregando a jornada" className="h-8 w-8 text-[#1E8A3A]" />
-          <p className="text-sm font-medium text-[#64748B]">Carregando a jornada</p>
+        <section className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]" role="status" aria-live="polite">
+          <Spinner label="Carregando a jornada" className="h-8 w-8 text-brand-cta" />
+          <p className="text-sm font-medium text-ui-slate">Carregando a jornada</p>
         </section>
       </div>
     )
@@ -217,8 +217,8 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={entry.backTo} appearance="detail" />
-        <section className="w-full rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
-          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Informações da jornada</h2>
+        <section className="w-full rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
+          <h2 className="text-2xl font-bold tracking-tight text-ui-ink-strong">Informações da jornada</h2>
           <JourneySchedule name={name} note={note} kind={kind} days={plainDays(days)} weeklyMinutes={weeklyToMinutes(weekly)} flexible={flexible} />
         </section>
       </div>
@@ -231,12 +231,12 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
       <BackLink to={entry.backTo} appearance="detail" />
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Clock className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{mode === "new" ? entry.newLabel : entry.editTitle}</h2>
-            <p className="text-sm text-[#64748B]">{mode === "new" ? "Escolha o tipo e monte a jornada." : "O conteúdo novo vale a partir da data. A apuração anterior permanece."}</p>
+            <h2 className="text-lg font-semibold text-ui-ink">{mode === "new" ? entry.newLabel : entry.editTitle}</h2>
+            <p className="text-sm text-ui-slate">{mode === "new" ? "Escolha o tipo e monte a jornada." : "O conteúdo novo vale a partir da data. A apuração anterior permanece."}</p>
           </div>
         </div>
         <div className="space-y-2">
@@ -253,14 +253,14 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
               if (value === "programada" || value === "carga" || value === "livre") setKind(value)
             }}
           />
-          <p className="text-sm text-[#64748B]">{lead}</p>
+          <p className="text-sm text-ui-slate">{lead}</p>
         </div>
         {kind === "programada" ? (
           <div className="space-y-3">
             {days.map((day, index) => (
-              <section key={day.id} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <section key={day.id} className="rounded-xl border border-ui-line bg-ui-canvas p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-base font-semibold text-[#0A0A0A]">Dia {index + 1}</h3>
+                  <h3 className="text-base font-semibold text-ui-ink">Dia {index + 1}</h3>
                   <div className="flex items-center gap-2">
                     <SiteSelect
                       id={`journey-day-${day.id}`}
@@ -276,7 +276,7 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
                     </ActionTip>
                   </div>
                 </div>
-                {day.off ? <p className="mt-3 text-sm text-[#64748B]">Folga não tem horário.</p> : (
+                {day.off ? <p className="mt-3 text-sm text-ui-slate">Folga não tem horário.</p> : (
                   <div className="mt-4 space-y-3">
                     {day.spans.map((span, spanIndex) => (
                       <div key={span.id} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -311,18 +311,18 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor="journey-weekly">Total da semana</Label>
             <DurationField id="journey-weekly" className={moduleFieldClass} value={weekly} onValueChange={setWeekly} required />
-            <p className="text-sm text-[#64748B]">A semana corre de segunda a domingo. Exemplo: 44:00.</p>
+            <p className="text-sm text-ui-slate">A semana corre de segunda a domingo. Exemplo: 44:00.</p>
           </div>
         ) : null}
         {lengthChanged ? (
-          <section className="space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4">
+          <section className="space-y-3 rounded-xl border border-ui-line bg-white p-4">
             <div>
-              <h3 className="text-base font-semibold text-[#0A0A0A]">Dia da sequência</h3>
-              <p className="mt-1 text-sm text-[#64748B]">A quantidade de dias mudou. Informe em qual dia da nova sequência cai a data de cada pessoa.</p>
+              <h3 className="text-base font-semibold text-ui-ink">Dia da sequência</h3>
+              <p className="mt-1 text-sm text-ui-slate">A quantidade de dias mudou. Informe em qual dia da nova sequência cai a data de cada pessoa.</p>
             </div>
-            {anchors.length === 0 ? <p className="text-sm text-[#64748B]">Ninguém está nesta jornada hoje.</p> : anchors.map((person) => (
+            {anchors.length === 0 ? <p className="text-sm text-ui-slate">Ninguém está nesta jornada hoje.</p> : anchors.map((person) => (
               <div key={person.employeeId} className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:items-center">
-                <p className="text-sm font-medium text-[#0A0A0A]">{person.name}</p>
+                <p className="text-sm font-medium text-ui-ink">{person.name}</p>
                 <SiteSelect
                   id={`journey-anchor-${person.employeeId}`}
                   value={person.cycleDay}
@@ -340,14 +340,14 @@ export function JourneyRecordPage({ mode }: { mode: "new" | "edit" | "view" }) {
           </section>
         ) : null}
         {mode === "edit" ? (
-          <p className="text-sm text-[#64748B]">A nova jornada vale nos dias em aberto. Um período fechado permanece como estava.</p>
+          <p className="text-sm text-ui-slate">A nova jornada vale nos dias em aberto. Um período fechado permanece como estava.</p>
         ) : null}
         {lengthChanged ? <DatePickerField id="journey-from" label="Início da nova sequência" value={validFrom} required onChange={setValidFrom} /> : null}
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="journey-note">Observação</Label>
           <textarea id="journey-note" className={moduleTextClass} value={note} onChange={(event) => setNote(event.target.value)} />
         </div>
-        <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+        <div className="flex justify-end border-t border-ui-wash pt-5">
           <Button type="submit" className={modulePrimaryClass} disabled={saving}>
             <Save className="h-4 w-4" />
             Salvar

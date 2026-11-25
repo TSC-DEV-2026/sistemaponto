@@ -134,31 +134,31 @@ export function TimeClockPage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <div className="flex gap-3 rounded-xl border border-[rgba(30,138,58,0.07)] bg-[rgba(30,138,58,0.045)] px-4 py-4">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
-        <p className="text-sm leading-6 text-[#1B2534]">{clockNote}</p>
+      <div className="flex gap-3 rounded-xl border border-brand-cta/7 bg-brand-cta/5 px-4 py-4">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-cta" strokeWidth={1.75} aria-hidden />
+        <p className="text-sm leading-6 text-ui-heading">{clockNote}</p>
       </div>
       {loading ? (
-        <div className="flex justify-center rounded-[14px] border border-[#E2E8F0] bg-white px-5 py-10">
+        <div className="flex justify-center rounded-[14px] border border-ui-line bg-white px-5 py-10">
           <Spinner />
         </div>
       ) : null}
       {!loading && mine ? (
-        <article className="flex flex-col gap-4 rounded-[14px] border border-[#E2E8F0] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#C5CDD6] hover:shadow-[0_10px_24px_rgba(15,23,42,0.06)] motion-reduce:transition-none sm:flex-row sm:items-center sm:p-6">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+        <article className="flex flex-col gap-4 rounded-[14px] border border-ui-line bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] transition-[border-color,box-shadow] duration-200 hover:border-ui-line-hover hover:shadow-[0_10px_24px_rgb(var(--ui-shadow)/0.06)] motion-reduce:transition-none sm:flex-row sm:items-center sm:p-6">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-cta/8 text-brand-cta">
             <Icon className="h-8 w-8" strokeWidth={1.75} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-[#0A0A0A]">{card?.title || clockMethodLabel[method] || method}</h2>
-            <p className="mt-1 text-sm text-[#52525B]">{mine.full_name}</p>
-            <p className="mt-1 text-sm leading-6 text-[#52525B]">
+            <h2 className="text-base font-semibold text-ui-ink">{card?.title || clockMethodLabel[method] || method}</h2>
+            <p className="mt-1 text-sm text-brand-muted">{mine.full_name}</p>
+            <p className="mt-1 text-sm leading-6 text-brand-muted">
               {card?.text || "Este tipo de registro é feito no aplicativo, com a câmera."}
             </p>
           </div>
           {method === "simple" ? (
             <Button
               type="button"
-              className="h-11 shrink-0 rounded-[10px] bg-brand-cta px-4 text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgba(30,138,58,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+              className="h-11 shrink-0 rounded-[10px] bg-brand-cta px-4 text-white shadow-[0_8px_20px_rgb(var(--brand-cta)/0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgb(var(--brand-cta)/0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none"
               onClick={() => punchSimple(mine.id)}
             >
               <Clock className="h-4 w-4" />
@@ -191,44 +191,44 @@ const requestTabs = [
     label: "Pendente",
     description: "Aguardando aprovação",
     icon: FileClock,
-    iconWrap: "bg-[#FFF1E0] text-[#C2410C]",
-    badge: "bg-[#FFF1E0] text-[#C2410C]",
-    idle: "hover:border-[rgba(249,168,37,0.45)] hover:bg-[#FFF8EE] hover:shadow-[0_10px_24px_rgba(249,168,37,0.14)]",
-    selected: "border-[#F9A825] bg-[#FFF8EE] shadow-[0_8px_24px_rgba(249,168,37,0.12)] hover:shadow-[0_12px_28px_rgba(249,168,37,0.16)]",
-    ring: "focus-visible:ring-[#F9A825]/40",
+    iconWrap: "bg-warn-soft text-warn-brown",
+    badge: "bg-warn-soft text-warn-brown",
+    idle: "hover:border-[rgba(249,168,37,0.45)] hover:bg-warn-tint hover:shadow-[0_10px_24px_rgba(249,168,37,0.14)]",
+    selected: "border-warn bg-warn-tint shadow-[0_8px_24px_rgba(249,168,37,0.12)] hover:shadow-[0_12px_28px_rgba(249,168,37,0.16)]",
+    ring: "focus-visible:ring-warn/40",
   },
   {
     id: "approved",
     label: "Aprovada",
     description: "Ajustes aplicados",
     icon: CircleCheck,
-    iconWrap: "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]",
-    badge: "bg-[rgba(30,138,58,0.12)] text-[#146C2E]",
-    idle: "hover:border-[rgba(30,138,58,0.35)] hover:bg-[#F7FCF8] hover:shadow-[0_10px_24px_rgba(30,138,58,0.1)]",
-    selected: "border-[#1E8A3A] bg-[#F5FBF7] shadow-[0_8px_24px_rgba(30,138,58,0.08)] hover:shadow-[0_12px_28px_rgba(30,138,58,0.12)]",
-    ring: "focus-visible:ring-[#1E8A3A]/35",
+    iconWrap: "bg-brand-cta/12 text-brand-cta",
+    badge: "bg-brand-cta/12 text-brand-ink-strong",
+    idle: "hover:border-brand-cta/35 hover:bg-brand-soft-alt hover:shadow-[0_10px_24px_rgb(var(--brand-cta)/0.1)]",
+    selected: "border-brand-cta bg-brand-soft shadow-[0_8px_24px_rgb(var(--brand-cta)/0.08)] hover:shadow-[0_12px_28px_rgb(var(--brand-cta)/0.12)]",
+    ring: "focus-visible:ring-brand-cta/35",
   },
   {
     id: "rejected",
     label: "Recusada",
     description: "Não foi aprovada",
     icon: CircleX,
-    iconWrap: "bg-[rgba(220,38,38,0.12)] text-[#DC2626]",
-    badge: "bg-[rgba(220,38,38,0.12)] text-[#B91C1C]",
-    idle: "hover:border-[rgba(220,38,38,0.35)] hover:bg-[#FFF8F8] hover:shadow-[0_10px_24px_rgba(220,38,38,0.1)]",
-    selected: "border-[#DC2626] bg-[#FFF6F6] shadow-[0_8px_24px_rgba(220,38,38,0.08)] hover:shadow-[0_12px_28px_rgba(220,38,38,0.12)]",
-    ring: "focus-visible:ring-[#DC2626]/35",
+    iconWrap: "bg-[rgb(var(--danger-strong)/0.12)] text-danger-strong",
+    badge: "bg-[rgb(var(--danger-strong)/0.12)] text-danger-deep",
+    idle: "hover:border-[rgb(var(--danger-strong)/0.35)] hover:bg-danger-tint hover:shadow-[0_10px_24px_rgb(var(--danger-strong)/0.1)]",
+    selected: "border-danger-strong bg-danger-mist shadow-[0_8px_24px_rgb(var(--danger-strong)/0.08)] hover:shadow-[0_12px_28px_rgb(var(--danger-strong)/0.12)]",
+    ring: "focus-visible:ring-danger-strong/35",
   },
   {
     id: "cancelled",
     label: "Cancelada",
     description: "Solicitação cancelada",
     icon: Ban,
-    iconWrap: "bg-[#F1F5F9] text-[#64748B]",
-    badge: "bg-[#F1F5F9] text-[#475569]",
-    idle: "hover:border-[#CBD5E1] hover:bg-[#F8FAFC] hover:shadow-[0_10px_24px_rgba(100,116,139,0.12)]",
-    selected: "border-[#64748B] bg-[#F8FAFC] shadow-[0_8px_24px_rgba(100,116,139,0.1)] hover:shadow-[0_12px_28px_rgba(100,116,139,0.14)]",
-    ring: "focus-visible:ring-[#64748B]/35",
+    iconWrap: "bg-ui-wash text-ui-slate",
+    badge: "bg-ui-wash text-ui-slate-mid",
+    idle: "hover:border-ui-line hover:bg-ui-canvas hover:shadow-[0_10px_24px_rgba(100,116,139,0.12)]",
+    selected: "border-ui-slate bg-ui-canvas shadow-[0_8px_24px_rgba(100,116,139,0.1)] hover:shadow-[0_12px_28px_rgba(100,116,139,0.14)]",
+    ring: "focus-visible:ring-ui-slate/35",
   },
 ] as const
 
@@ -346,7 +346,7 @@ function RequestDecisionDialog({
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
+        "fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
         present ? "opacity-100" : "opacity-0",
       )}
       onMouseDown={(event) => {
@@ -363,7 +363,7 @@ function RequestDecisionDialog({
         aria-describedby="request-decision-text request-decision-who"
         aria-busy={saving || undefined}
         className={cn(
-          "w-full max-w-[480px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] transition-[opacity,transform] duration-200 sm:p-7 motion-reduce:transition-none",
+          "w-full max-w-[480px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] transition-[opacity,transform] duration-200 sm:p-7 motion-reduce:transition-none",
           present ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0",
         )}
       >
@@ -372,18 +372,18 @@ function RequestDecisionDialog({
             className={cn(
               "flex h-14 w-14 items-center justify-center rounded-full",
               approving
-                ? "bg-[rgba(30,138,58,0.12)] text-[#1E8A3A] shadow-[0_0_0_8px_rgba(30,138,58,0.06)]"
+                ? "bg-brand-cta/12 text-brand-cta shadow-[0_0_0_8px_rgb(var(--brand-cta)/0.06)]"
                 : cancelling
-                  ? "bg-[#F1F5F9] text-[#64748B] shadow-[0_0_0_8px_rgba(100,116,139,0.08)]"
-                  : "bg-[rgba(239,83,80,0.12)] text-[#EF5350] shadow-[0_0_0_8px_rgba(239,83,80,0.06)]",
+                  ? "bg-ui-wash text-ui-slate shadow-[0_0_0_8px_rgba(100,116,139,0.08)]"
+                  : "bg-[rgb(var(--danger)/0.12)] text-danger shadow-[0_0_0_8px_rgb(var(--danger)/0.06)]",
             )}
           >
             <Icon className="h-7 w-7" strokeWidth={1.75} aria-hidden />
           </span>
-          <h2 id="request-decision-title" className="mt-4 text-xl font-semibold tracking-tight text-[#0A0A0A]">
+          <h2 id="request-decision-title" className="mt-4 text-xl font-semibold tracking-tight text-ui-ink">
             {approving ? "Aprovar solicitação?" : cancelling ? "Cancelar solicitação?" : "Recusar solicitação?"}
           </h2>
-          <p id="request-decision-text" className="mt-1.5 max-w-sm text-sm leading-6 text-[#71717A]">
+          <p id="request-decision-text" className="mt-1.5 max-w-sm text-sm leading-6 text-brand-quiet">
             {cancelling
               ? "A solicitação deixa de seguir para aprovação. O ponto não muda."
               : approving && view.kind === "adjustment"
@@ -393,36 +393,36 @@ function RequestDecisionDialog({
                   : "A solicitação será recusada."}
           </p>
         </div>
-        <div id="request-decision-who" className="mt-5 rounded-xl bg-[#E7E8EA] px-4 py-3 text-left">
-          <p className="truncate text-sm font-semibold text-[#0A0A0A]" title={view.person}>
+        <div id="request-decision-who" className="mt-5 rounded-xl bg-ui-line-muted px-4 py-3 text-left">
+          <p className="truncate text-sm font-semibold text-ui-ink" title={view.person}>
             {view.person}
           </p>
-          <p className="mt-0.5 text-[13px] text-[#71717A]">{view.kindLabel}</p>
+          <p className="mt-0.5 text-[13px] text-brand-quiet">{view.kindLabel}</p>
         </div>
         <div className="mt-5 space-y-2 text-left">
           <div className="flex items-baseline justify-between gap-3">
             <Label className={moduleLabelClass} htmlFor="request-decision-note">
               {cancelling ? "Observação" : "Observação da decisão"}
             </Label>
-            <span className="text-xs text-[#94A3B8]">Opcional</span>
+            <span className="text-xs text-ui-slate-soft">Opcional</span>
           </div>
           <textarea
             ref={noteRef}
             id="request-decision-note"
-            className={cn(moduleTextClass, "min-h-[92px] bg-[#FAFBFC] shadow-none focus:shadow-[0_0_0_3px_rgba(30,138,58,0.12)]")}
+            className={cn(moduleTextClass, "min-h-[92px] bg-ui-canvas-soft shadow-none focus:shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.12)]")}
             maxLength={2000}
             value={note}
             onChange={(event) => onNote(event.target.value)}
           />
         </div>
-        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[#F1F5F9] pt-5">
+        <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-ui-wash pt-5">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={saving} onClick={onClose}>
             {cancelling ? <ArrowLeft className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {cancelling ? "Voltar" : "Cancelar"}
           </Button>
           <Button
             type="button"
-            className={approving ? modulePrimaryClass : cancelling ? "h-11 rounded-[10px] bg-[#334155] px-4 text-white shadow-[0_8px_20px_rgba(51,65,85,0.28)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#1E293B] hover:shadow-[0_10px_24px_rgba(51,65,85,0.34)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#334155]/35 motion-reduce:transition-none motion-reduce:active:translate-y-0" : cn(moduleDangerClass, "h-11 px-4")}
+            className={approving ? modulePrimaryClass : cancelling ? "h-11 rounded-[10px] bg-ui-slate-deep px-4 text-white shadow-[0_8px_20px_rgba(51,65,85,0.28)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-ui-slate-deep hover:shadow-[0_10px_24px_rgba(51,65,85,0.34)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-slate-deep/35 motion-reduce:transition-none motion-reduce:active:translate-y-0" : cn(moduleDangerClass, "h-11 px-4")}
             onClick={() => onConfirm()}
           >
             {approving ? <CircleCheck className="h-4 w-4" aria-hidden /> : cancelling ? <Ban className="h-4 w-4" aria-hidden /> : <CircleX className="h-4 w-4" aria-hidden />}
@@ -483,15 +483,15 @@ function ClampedRequestText({
   const notePreview = truncated ? noteText.slice(0, requestPreviewLimit) : noteText
 
   return (
-    <p className="min-w-0 text-sm leading-5 text-[#52525B] [overflow-wrap:anywhere]">
-      {lead ? <span className="text-[#71717A]">{lead}</span> : null}
+    <p className="min-w-0 text-sm leading-5 text-brand-muted [overflow-wrap:anywhere]">
+      {lead ? <span className="text-brand-quiet">{lead}</span> : null}
       {detail}
       {extra ? ` · ${extra}` : ""}
       {notePreview ? ` ${notePreview}` : ""}
       {truncated ? (
         <button
           type="button"
-          className="ml-1 inline text-[13px] font-semibold text-[#1E8A3A] underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+          className="ml-1 inline text-[13px] font-semibold text-brand-cta underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none"
           onClick={(event) => onOpen(event.currentTarget)}
         >
           Ver mais
@@ -591,7 +591,7 @@ function RequestDescriptionDialog({ target, onClose, onRest }: { target: Request
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
+        "fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 transition-opacity duration-200 sm:items-center motion-reduce:transition-none",
         present ? "opacity-100" : "opacity-0",
       )}
       onMouseDown={(event) => {
@@ -606,18 +606,18 @@ function RequestDescriptionDialog({ target, onClose, onRest }: { target: Request
         aria-modal="true"
         aria-labelledby="request-description-title"
         className={cn(
-          "flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] transition-[opacity,transform] duration-200 motion-reduce:transition-none",
+          "flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] transition-[opacity,transform] duration-200 motion-reduce:transition-none",
           present ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0",
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          <h2 id="request-description-title" className="text-lg font-semibold text-[#0A0A0A]">
+          <h2 id="request-description-title" className="text-lg font-semibold text-ui-ink">
             Descrição completa
           </h2>
           <button
             ref={closeButtonRef}
             type="button"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#0A0A0A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ui-slate transition-colors duration-200 hover:bg-ui-paper hover:text-ui-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none"
             aria-label="Fechar"
             onClick={onClose}
           >
@@ -625,7 +625,7 @@ function RequestDescriptionDialog({ target, onClose, onRest }: { target: Request
           </button>
         </div>
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-[#1B2534] [overflow-wrap:anywhere]">{view.text}</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-ui-heading [overflow-wrap:anywhere]">{view.text}</p>
           {view.photo ? (
             <p className="mt-4">
               <DocumentLink href={view.photo} />
@@ -832,7 +832,7 @@ export function RequestsPage() {
                 className={cn(
                   "flex min-h-[94px] w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-[transform,background-color,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
                   tab.ring,
-                  selected ? tab.selected : cn("border-[#E4E4E7] bg-white shadow-[0_6px_18px_rgba(15,23,42,0.05)]", tab.idle),
+                  selected ? tab.selected : cn("border-ui-line-soft bg-white shadow-[0_6px_18px_rgb(var(--ui-shadow)/0.05)]", tab.idle),
                 )}
                 onClick={() => setStatus(tab.id)}
               >
@@ -840,8 +840,8 @@ export function RequestsPage() {
                   <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-[#0A0A0A]">{tab.label}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{tab.description}</span>
+                  <span className="block truncate text-[15px] font-semibold text-ui-ink">{tab.label}</span>
+                  <span className="mt-0.5 block truncate text-[13px] text-brand-quiet">{tab.description}</span>
                 </span>
                 {waiting ? (
                   <span className={cn("inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full", tab.badge)} role="status" aria-label="Carregando">
@@ -854,15 +854,15 @@ export function RequestsPage() {
             )
           })}
       </div>
-      <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+      <section className="rounded-[14px] border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta">
               <Filter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </span>
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-[#0A0A0A]">Filtros</h2>
-              <p className="text-sm text-[#71717A]">Refine a exibição das solicitações</p>
+              <h2 className="text-base font-semibold text-ui-ink">Filtros</h2>
+              <p className="text-sm text-brand-quiet">Refine a exibição das solicitações</p>
             </div>
           </div>
           {canRequest ? (
@@ -904,7 +904,7 @@ export function RequestsPage() {
           </div>
         </div>
       </section>
-      <section className="rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+      <section className="rounded-[14px] border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
         {inbox.loading ? (
           <ul>
             <ListPlaceholder loading empty="Nenhuma solicitação." />
@@ -912,11 +912,11 @@ export function RequestsPage() {
         ) : null}
         {!inbox.loading && !inbox.error && inbox.items.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+            <span className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-brand-cta/10 text-brand-cta">
               <FileText className="h-8 w-8" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma solicitação.</p>
-            <p className="mt-1 text-sm text-[#71717A]">Quando houver solicitações, elas aparecerão aqui.</p>
+            <p className="mt-4 text-[17px] font-semibold text-ui-ink">Nenhuma solicitação.</p>
+            <p className="mt-1 text-sm text-brand-quiet">Quando houver solicitações, elas aparecerão aqui.</p>
           </div>
         ) : null}
         {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
@@ -942,40 +942,40 @@ export function RequestsPage() {
               )
               const personBlock = () => (
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.12)] text-sm font-semibold text-[#146C2E]">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-cta/12 text-sm font-semibold text-brand-ink-strong">
                     {personInitials(person) || "?"}
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[#0A0A0A]" title={person}>
+                    <span className="block truncate text-sm font-semibold text-ui-ink" title={person}>
                       {person}
                     </span>
-                    <span className="mt-0.5 block truncate text-[13px] text-[#71717A]">{kindLabel}</span>
+                    <span className="mt-0.5 block truncate text-[13px] text-brand-quiet">{kindLabel}</span>
                   </span>
                 </div>
               )
               const detailBlock = () => (
                 <div className="flex min-w-0 items-start gap-2">
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
                   <div className="min-w-0 flex-1 overflow-hidden">
                     <ClampedRequestText lead={lead} detail={detail} extra={certificate} note={item.note || ""} photo={item.photo_url} onOpen={(opener) => openDescription(descriptionText, item.photo_url, opener)} />
-                    {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{pendingNote}</p> : null}
-                    {ownNote ? <p className="mt-1 break-words text-xs leading-5 text-[#71717A]">{ownNote}</p> : null}
+                    {pendingNote ? <p className="mt-1 break-words text-xs leading-5 text-brand-quiet">{pendingNote}</p> : null}
+                    {ownNote ? <p className="mt-1 break-words text-xs leading-5 text-brand-quiet">{ownNote}</p> : null}
                   </div>
                 </div>
               )
               const originBlock = () => (
                 <div className="flex min-w-0 items-center gap-2">
-                  <FileText className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                  <FileText className="h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
                   <div className="min-w-0">
-                    <p className="text-[11px] text-[#94A3B8]">Origem</p>
-                    <p className="truncate text-sm text-[#52525B]">{origin}</p>
+                    <p className="text-[11px] text-ui-slate-soft">Origem</p>
+                    <p className="truncate text-sm text-brand-muted">{origin}</p>
                   </div>
                 </div>
               )
               const historyBlock = () => (
                 <div className="flex min-w-0 items-center gap-2">
-                  <ArrowLeftRight className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
-                  <p className="min-w-0 truncate text-sm text-[#52525B]" title={history || undefined}>
+                  <ArrowLeftRight className="h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
+                  <p className="min-w-0 truncate text-sm text-brand-muted" title={history || undefined}>
                     {history}
                   </p>
                 </div>
@@ -983,7 +983,7 @@ export function RequestsPage() {
               return (
                 <li
                   key={item.id}
-                  className="min-w-0 overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#D4D4D8] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                  className="min-w-0 overflow-hidden rounded-[14px] border border-ui-line-soft bg-white px-4 py-3.5 shadow-[0_6px_18px_rgb(var(--ui-shadow)/0.04)] transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-ui-line-soft hover:shadow-[0_10px_24px_rgb(var(--ui-shadow)/0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 >
                   <div className="flex flex-col gap-3 lg:hidden">
                     <div className="flex items-center justify-between gap-3">
@@ -998,9 +998,9 @@ export function RequestsPage() {
                   </div>
                   <div className="hidden min-w-0 items-center lg:flex">
                     <div className="w-[22%] min-w-0 shrink-0 pr-4">{personBlock()}</div>
-                    <div className="min-w-0 flex-1 overflow-hidden border-l border-[#F0F0F2] px-4">{detailBlock()}</div>
-                    <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">{originBlock()}</div>
-                    <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-[#F0F0F2] px-4">{historyBlock()}</div>
+                    <div className="min-w-0 flex-1 overflow-hidden border-l border-ui-panel px-4">{detailBlock()}</div>
+                    <div className="w-[12%] min-w-0 shrink-0 overflow-hidden border-l border-ui-panel px-4">{originBlock()}</div>
+                    <div className="w-[17%] min-w-0 shrink-0 overflow-hidden border-l border-ui-panel px-4">{historyBlock()}</div>
                     <div className="shrink-0 pl-4">{statusBadge()}</div>
                   </div>
                   {mayDecide(item) || mayCancel(item) ? (
@@ -1031,7 +1031,7 @@ export function RequestsPage() {
           </ul>
         ) : null}
         {!inbox.loading && !inbox.error && inbox.total > 0 ? (
-          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+          <div className="mt-4 border-t border-ui-panel pt-4">
             <ListPager page={inbox.page} pageSize={inbox.pageSize} total={inbox.total} onPage={inbox.setPage} onPageSize={inbox.setPageSize} tone="module" />
           </div>
         ) : null}
@@ -1053,9 +1053,9 @@ export function RequestsPage() {
 const ClosingIcon = conceptIcon.closing
 
 function closingStatusClass(status: string) {
-  if (status === "closed") return "bg-[rgba(30,138,58,0.14)] text-[#146C2E]"
-  if (status === "open") return "bg-[#FFF1E0] text-[#C2410C]"
-  return "bg-[#F1F5F9] text-[#475569]"
+  if (status === "closed") return "bg-brand-cta/14 text-brand-ink-strong"
+  if (status === "open") return "bg-warn-soft text-warn-brown"
+  return "bg-ui-wash text-ui-slate-mid"
 }
 
 function ClosingActions({
@@ -1192,7 +1192,7 @@ export function ClosingsPage() {
   function sortButton(key: "period" | "status" | "history", label: string) {
     const active = sort?.key === key
     return (
-      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#64748B] transition-colors duration-200 hover:text-[#334155]" onClick={() => toggleSort(key)}>
+      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ui-slate transition-colors duration-200 hover:text-ui-slate-deep" onClick={() => toggleSort(key)}>
         {label}
         <SortArrows active={active} dir={sort?.dir ?? "asc"} />
       </button>
@@ -1236,7 +1236,7 @@ export function ClosingsPage() {
           </div>
         </div>
       </section>
-      <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-[14px] border border-ui-line bg-white shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]">
         {periods.loading && periods.items.length === 0 ? (
           <div className="flex justify-center px-6 py-12">
             <Spinner />
@@ -1244,22 +1244,22 @@ export function ClosingsPage() {
         ) : null}
         {showEmpty ? (
           <div className="px-6 py-12 text-center">
-            <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#F1F5F9] text-[#64748B]">
+            <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-ui-wash text-ui-slate">
               <ClosingIcon className="h-8 w-8" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhum fechamento encontrado</p>
-            <p className="mt-1 text-sm text-[#71717A]">Não há períodos de fechamento com os filtros selecionados.</p>
+            <p className="mt-4 text-[17px] font-semibold text-ui-ink">Nenhum fechamento encontrado</p>
+            <p className="mt-1 text-sm text-brand-quiet">Não há períodos de fechamento com os filtros selecionados.</p>
           </div>
         ) : null}
         {periods.items.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-[#F1F5F9]">
+                <tr className="border-b border-ui-wash">
                   <th className="px-4 py-3 text-left font-semibold">{sortButton("period", "Período")}</th>
                   <th className="px-4 py-3 text-left font-semibold">{sortButton("status", "Situação")}</th>
                   <th className="px-4 py-3 text-left font-semibold">{sortButton("history", "Histórico")}</th>
-                  {canManage ? <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-[#64748B]">Ações</th> : null}
+                  {canManage ? <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-ui-slate">Ações</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -1267,13 +1267,13 @@ export function ClosingsPage() {
                   const steps = item.events.map((event) => closingEventLabel[event.kind] || event.kind)
                   const motive = [...item.events].reverse().find((event) => event.note?.trim())?.note?.trim() || ""
                   return (
-                    <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                    <tr key={item.id} className="border-b border-ui-wash transition-colors duration-200 last:border-b-0 hover:bg-brand-soft-alt motion-reduce:transition-none">
                       <td className="px-4 py-3 align-middle">
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                             <ClosingIcon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                           </span>
-                          <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">
+                          <span className="block truncate font-semibold leading-5 text-ui-ink">
                             {showDate(item.starts_on)} a {showDate(item.ends_on)}
                           </span>
                         </div>
@@ -1284,10 +1284,10 @@ export function ClosingsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span className={cn("block text-sm leading-5", steps.length > 0 ? "text-[#334155]" : "text-[#94A3B8]")}>
+                        <span className={cn("block text-sm leading-5", steps.length > 0 ? "text-ui-slate-deep" : "text-ui-slate-soft")}>
                           {steps.length > 0 ? steps.join(" → ") : "Sem histórico informado"}
                         </span>
-                        {motive ? <span className="mt-0.5 block text-sm leading-5 text-[#64748B]">{motive}</span> : null}
+                        {motive ? <span className="mt-0.5 block text-sm leading-5 text-ui-slate">{motive}</span> : null}
                       </td>
                       {canManage ? (
                         <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">
@@ -1313,7 +1313,7 @@ export function ClosingsPage() {
           </div>
         ) : null}
         {!periods.loading && !periods.error && periods.total > 0 ? (
-          <div className="border-t border-[#F1F5F9] px-4 py-3">
+          <div className="border-t border-ui-wash px-4 py-3">
             <ListPager page={periods.page} pageSize={periods.pageSize} total={periods.total} onPage={periods.setPage} onPageSize={periods.setPageSize} tone="module" />
           </div>
         ) : null}
@@ -1452,7 +1452,7 @@ function ClosingDeleteDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) dismiss()
       }}
@@ -1463,15 +1463,15 @@ function ClosingDeleteDialog({
         aria-modal="true"
         aria-labelledby="closing-delete-title"
         aria-describedby="closing-delete-text"
-        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7"
       >
-        <h2 id="closing-delete-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+        <h2 id="closing-delete-title" className="text-xl font-semibold tracking-tight text-ui-ink">
           Excluir este fechamento?
         </h2>
-        <p id="closing-delete-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+        <p id="closing-delete-text" className="mt-2 text-sm leading-6 text-brand-quiet">
           Este período sai da lista.
         </p>
-        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">
+        <p className="mt-4 rounded-xl bg-ui-line-muted px-4 py-3 text-sm font-semibold text-ui-ink">
           {showDate(item.starts_on)} a {showDate(item.ends_on)}
         </p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
@@ -1581,7 +1581,7 @@ function ClosingReasonDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) dismiss()
       }}
@@ -1591,17 +1591,17 @@ function ClosingReasonDialog({
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="closing-reason-title"
-        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7"
       >
-        <h2 id="closing-reason-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+        <h2 id="closing-reason-title" className="text-xl font-semibold tracking-tight text-ui-ink">
           {reopening ? "Reabrir este período?" : "Cancelar este fechamento?"}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-[#71717A]">
+        <p className="mt-2 text-sm leading-6 text-brand-quiet">
           {reopening
             ? "O período volta a aberto. Marcação, ajuste, ocorrência, vigência e banco podem ser lançados de novo. O arquivo fiscal deste período deixa de valer."
             : "Os dias das pessoas voltam a aceitar lançamento. O arquivo fiscal deste período deixa de valer."}
         </p>
-        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{ask.period}</p>
+        <p className="mt-4 rounded-xl bg-ui-line-muted px-4 py-3 text-sm font-semibold text-ui-ink">{ask.period}</p>
         <div className="mt-4 space-y-2">
           <Label className={moduleLabelClass} htmlFor="closing-reason">Observação</Label>
           <textarea ref={reasonRef} id="closing-reason" className={cn(moduleTextClass, "min-h-[92px]")} maxLength={2000} value={reason} onChange={(event) => onReason(event.target.value)} />
@@ -1658,13 +1658,13 @@ const noticeChannels = [
 
 function NoticeChannel({ value, onChange }: { value: (typeof noticeChannels)[number][0]; onChange: (next: (typeof noticeChannels)[number][0]) => void }) {
   return (
-    <span className="inline-flex shrink-0 rounded-lg bg-[#E7E8EA] p-0.5" role="group" aria-label="Canal">
+    <span className="inline-flex shrink-0 rounded-lg bg-ui-line-muted p-0.5" role="group" aria-label="Canal">
       {noticeChannels.map(([id, label]) => (
         <button
           key={id}
           type="button"
           aria-pressed={value === id}
-          className={cn("h-8 rounded-md px-2.5 text-xs font-medium", value === id ? "bg-white text-[#146C2E] shadow-[0_1px_2px_rgba(15,23,42,0.08)]" : "text-[#52525B]")}
+          className={cn("h-8 rounded-md px-2.5 text-xs font-medium", value === id ? "bg-white text-brand-ink-strong shadow-[0_1px_2px_rgb(var(--ui-shadow)/0.08)]" : "text-brand-muted")}
           onClick={() => onChange(id)}
         >
           {label}
@@ -1795,12 +1795,12 @@ export function NotificationsPage() {
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Bell className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">Avisos</h2>
-              <p className="text-sm text-[#64748B]">Avisos recebidos nesta conta.</p>
+              <h2 className="text-lg font-semibold text-ui-ink">Avisos</h2>
+              <p className="text-sm text-ui-slate">Avisos recebidos nesta conta.</p>
             </div>
           </div>
           {canSend ? (
@@ -1810,7 +1810,7 @@ export function NotificationsPage() {
             </Button>
           ) : null}
         </div>
-        {sent !== null ? <p className="text-sm font-medium text-[#1E8A3A]">{sent} avisos enviados.</p> : null}
+        {sent !== null ? <p className="text-sm font-medium text-brand-cta">{sent} avisos enviados.</p> : null}
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="notice-employee">Funcionário</Label>
           <SiteSelect
@@ -1827,25 +1827,25 @@ export function NotificationsPage() {
         </div>
         {notices.loading && notices.items.length === 0 && !notices.error ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando as notificações" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando as notificações" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : null}
         {!notices.loading && !notices.error && notices.items.length === 0 ? (
           <div className="px-2 py-10 text-center">
-            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhuma notificação</p>
-            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+            <p className="text-[15px] font-semibold text-ui-ink">Nenhuma notificação</p>
+            <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
           </div>
         ) : null}
         {notices.items.length > 0 ? (
           <ul className="space-y-2">
             {notices.items.map((item) => (
-              <li key={item.id} className="flex min-h-16 flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <li key={item.id} className="flex min-h-16 flex-col gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium leading-5 text-[#0A0A0A]">{item.body || "Não informado"}</span>
-                  <span className="mt-0.5 block text-sm text-[#64748B]">{showDateTime(item.created_at)}</span>
+                  <span className="block text-sm font-medium leading-5 text-ui-ink">{item.body || "Não informado"}</span>
+                  <span className="mt-0.5 block text-sm text-ui-slate">{showDateTime(item.created_at)}</span>
                 </span>
                 {item.read_at ? (
-                  <span className="shrink-0 rounded-full bg-[#EAF7EF] px-2.5 py-1 text-xs font-semibold text-[#1E8A3A]">Lida</span>
+                  <span className="shrink-0 rounded-full bg-brand-tint px-2.5 py-1 text-xs font-semibold text-brand-cta">Lida</span>
                 ) : (
                   <Button type="button" className={cn(moduleQuietClass, "h-10 shrink-0 px-3")} onClick={() => mark(item.id)}>
                     <Check className="h-4 w-4" />
@@ -1857,7 +1857,7 @@ export function NotificationsPage() {
           </ul>
         ) : null}
         {notices.total > 0 ? (
-          <div className="border-t border-[#F1F5F9] pt-4">
+          <div className="border-t border-ui-wash pt-4">
             <ListPager page={notices.page} pageSize={notices.pageSize} total={notices.total} onPage={notices.setPage} onPageSize={notices.setPageSize} tone="module" />
           </div>
         ) : null}
@@ -1871,12 +1871,12 @@ export function NotificationsPage() {
             panel: (
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <SlidersHorizontal className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Preferências</h2>
-            <p className="text-sm text-[#64748B]">Escolha os avisos e o canal: sistema, e-mail ou os dois.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Preferências</h2>
+            <p className="text-sm text-ui-slate">Escolha os avisos e o canal: sistema, e-mail ou os dois.</p>
           </div>
         </div>
         <div className="space-y-2">
@@ -1885,25 +1885,25 @@ export function NotificationsPage() {
         </div>
         {!loaded ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando os avisos" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando os avisos" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : visibleNotices.length === 0 ? (
           <div className="px-2 py-10 text-center">
-            <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum aviso</p>
-            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+            <p className="text-[15px] font-semibold text-ui-ink">Nenhum aviso</p>
+            <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
           </div>
         ) : (
           <ul className="space-y-2">
             {visibleNotices.map(([kind, phrase]) => (
-              <li key={kind} className={cn("flex min-h-16 flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between", enabled(kind) ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
+              <li key={kind} className={cn("flex min-h-16 flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between", enabled(kind) ? "border-brand-glow bg-brand-soft-alt" : "border-ui-line bg-white")}>
                 <label htmlFor={`notice-${kind}`} className="flex min-w-0 cursor-pointer items-center gap-3">
                   <span className="relative h-[22px] w-[22px] shrink-0">
                     <input id={`notice-${kind}`} type="checkbox" className="peer sr-only" checked={enabled(kind)} onChange={(event) => void setEnabled(kind, event.target.checked)} />
-                    <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
+                    <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-ui-line-strong bg-white peer-checked:border-brand-cta peer-checked:bg-brand-cta peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.16)]">
                       <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
                     </span>
                   </span>
-                  <span className="min-w-0 text-sm font-medium leading-5 text-[#0A0A0A]">{phrase}</span>
+                  <span className="min-w-0 text-sm font-medium leading-5 text-ui-ink">{phrase}</span>
                 </label>
                 {enabled(kind) ? <NoticeChannel value={channelOf(kind)} onChange={(next) => void setChannel(kind, next)} /> : null}
               </li>
@@ -2115,7 +2115,7 @@ export function ReportsPage() {
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={consult}>
+      <ActionForm className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6" onSubmit={consult}>
         <div className={cn("grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:items-end", kind === "employees" ? "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]" : "xl:grid-cols-[minmax(180px,1.5fr)_minmax(140px,0.95fr)_minmax(140px,0.95fr)_minmax(180px,1.15fr)_auto]")}>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="report-kind">
@@ -2143,10 +2143,10 @@ export function ReportsPage() {
           </Button>
         </div>
         <div className="mt-5 flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-[#0A0A0A]">Filtros</p>
+          <p className="text-sm font-medium text-ui-ink">Filtros</p>
           <button
             type="button"
-            className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+            className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-brand-cta/10 text-brand-cta" : "text-ui-slate hover:bg-ui-paper hover:text-ui-ink")}
             aria-expanded={filtersOpen}
             aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
             onClick={() => setFiltersOpen((current) => !current)}
@@ -2155,7 +2155,7 @@ export function ReportsPage() {
           </button>
         </div>
         {filtersOpen ? (
-        <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+        <div className="mt-4 rounded-xl border border-ui-line bg-ui-canvas p-4">
           <OrganizationFilterFields idPrefix="report" filters={places} />
         </div>
         ) : null}
@@ -2170,13 +2170,13 @@ export function ReportsPage() {
               [List, "Registros encontrados", String(result.total)],
             ] as const
           ).map(([Icon, label, value]) => (
-            <div key={label} className="flex min-w-0 items-center gap-3 rounded-xl border border-[#8ED4A8] bg-[#E7F6EC] px-4 py-3 shadow-[0_8px_22px_rgba(30,138,58,0.1)]">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#B7D7C3] bg-white text-[#146C2E]">
+            <div key={label} className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-glow bg-brand-wash px-4 py-3 shadow-[0_8px_22px_rgb(var(--brand-cta)/0.1)]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-brand-edge bg-white text-brand-ink-strong">
                 <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-xs font-medium text-[#3F6B4E]">{label}</span>
-                <span className="mt-0.5 block truncate text-sm font-semibold text-[#0A0A0A]" title={value}>
+                <span className="block text-xs font-medium text-brand-nav">{label}</span>
+                <span className="mt-0.5 block truncate text-sm font-semibold text-ui-ink" title={value}>
                   {value}
                 </span>
               </span>
@@ -2185,47 +2185,47 @@ export function ReportsPage() {
         </div>
       ) : null}
       {loading && !result ? (
-        <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-5 py-10" role="status" aria-live="polite">
-          <Spinner label="Consultando o relatório" className="h-8 w-8 text-[#1E8A3A]" />
+        <div className="flex justify-center rounded-xl border border-ui-line-soft bg-white px-5 py-10" role="status" aria-live="polite">
+          <Spinner label="Consultando o relatório" className="h-8 w-8 text-brand-cta" />
         </div>
       ) : null}
       {!loading && !result ? (
-        <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-          <p className="text-[15px] font-semibold text-[#0A0A0A]">Nenhum relatório consultado.</p>
-          <p className="mt-1 text-sm text-[#71717A]">Escolha o período e consulte para ver os registros.</p>
+        <div className="rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+          <p className="text-[15px] font-semibold text-ui-ink">Nenhum relatório consultado.</p>
+          <p className="mt-1 text-sm text-brand-quiet">Escolha o período e consulte para ver os registros.</p>
         </div>
       ) : null}
       {result ? (
         <section className="space-y-4" aria-busy={loading || undefined}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">
+              <h2 className="text-lg font-semibold text-ui-ink">
                 {result.name} · {result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`}
               </h2>
-              <p className="text-sm text-[#71717A]">{result.total === 0 ? "Nenhum registro encontrado" : `${result.total} registros encontrados`}</p>
+              <p className="text-sm text-brand-quiet">{result.total === 0 ? "Nenhum registro encontrado" : `${result.total} registros encontrados`}</p>
             </div>
-            <Button type="button" variant="outline" className={cn(moduleQuietClass, "hover:border-[rgba(30,138,58,0.35)] hover:bg-[rgba(30,138,58,0.06)] hover:text-[#146C2E]")} disabled={!applied} onClick={printReport}>
+            <Button type="button" variant="outline" className={cn(moduleQuietClass, "hover:border-brand-cta/35 hover:bg-brand-cta/6 hover:text-brand-ink-strong")} disabled={!applied} onClick={printReport}>
               <Printer className="h-4 w-4" aria-hidden />
               Imprimir
             </Button>
           </div>
           {result.total === 0 ? (
-            <div className="rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <div className="rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
                 <FileText className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </span>
-              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum registro encontrado</p>
-              <p className="mt-1 text-sm text-[#71717A]">A consulta terminou sem registros neste período.</p>
+              <p className="mt-4 text-[15px] font-semibold text-ui-ink">Nenhum registro encontrado</p>
+              <p className="mt-1 text-sm text-brand-quiet">A consulta terminou sem registros neste período.</p>
             </div>
           ) : (
             <div className="space-y-5">
               {groups.map((group) => (
-                <section key={group.date} className="overflow-hidden rounded-xl border border-[#B7D7C3] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.07)]">
-                  <h3 className="flex items-center gap-2 border-b border-[#B7D7C3] bg-[#D7F0E1] px-4 py-2.5 text-sm font-semibold text-[#146C2E]">
+                <section key={group.date} className="overflow-hidden rounded-xl border border-brand-edge bg-white shadow-[0_8px_22px_rgb(var(--ui-shadow)/0.07)]">
+                  <h3 className="flex items-center gap-2 border-b border-brand-edge bg-brand-mist px-4 py-2.5 text-sm font-semibold text-brand-ink-strong">
                     <Calendar className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     {showDate(group.date)}
                   </h3>
-                  <ul className="divide-y divide-[#F0F0F2]">
+                  <ul className="divide-y divide-[rgb(var(--ui-panel))]">
                     {group.items.map((item, index) => (
                       <ReportResultRow key={`${group.date}-${item.employee_id ?? "organização"}-${item.title}-${item.detail}-${index}`} item={item} kind={result.kind} />
                     ))}
@@ -2248,7 +2248,7 @@ export function ReportsPage() {
                 <ChevronLeft className="h-4 w-4" />
                 Anterior
               </Button>
-              <span className="text-sm text-[#71717A]">
+              <span className="text-sm text-brand-quiet">
                 Página {result.page} de {pages}
               </span>
               <Button
@@ -2275,9 +2275,9 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
   if (kind === "marking") {
     const state = item.detail.startsWith("vale") ? "Vale" : "Deixou de valer"
     return (
-      <li className="min-w-0 px-4 py-3 text-sm transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none">
-        <p className="font-medium text-[#0A0A0A]">{item.full_name || "Não informado"}</p>
-        <p className="mt-1 text-[#52525B]">{showDate(item.occurred_on)} · {item.title} · {state}</p>
+      <li className="min-w-0 px-4 py-3 text-sm transition-colors duration-[180ms] hover:bg-brand-soft-alt motion-reduce:transition-none">
+        <p className="font-medium text-ui-ink">{item.full_name || "Não informado"}</p>
+        <p className="mt-1 text-brand-muted">{showDate(item.occurred_on)} · {item.title} · {state}</p>
       </li>
     )
   }
@@ -2293,15 +2293,15 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
         ["adicional noturno", showDuration(night)],
       ] as const
       return (
-        <li className="flex min-w-0 flex-col gap-2 px-4 py-3 transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex min-w-0 items-center gap-2 text-sm text-[#0A0A0A]">
-            <conceptIcon.employee className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+        <li className="flex min-w-0 flex-col gap-2 px-4 py-3 transition-colors duration-[180ms] hover:bg-brand-soft-alt motion-reduce:transition-none sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex min-w-0 items-center gap-2 text-sm text-ui-ink">
+            <conceptIcon.employee className="h-4 w-4 shrink-0 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
             <span className="truncate">
               {item.title}
               {item.full_name ? <span className="font-medium"> · {item.full_name}</span> : null}
             </span>
           </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#52525B]">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-brand-muted">
             {metrics.map(([label, value], metricIndex) => (
               <span key={label} className="inline-flex items-center gap-2">
                 {metricIndex > 0 ? <span aria-hidden>|</span> : null}
@@ -2311,7 +2311,7 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
               </span>
             ))}
             <span aria-hidden>|</span>
-            <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", shortage > 0 ? "bg-[rgba(239,83,80,0.14)] text-[#C62828]" : "bg-[#F4F4F5] text-[#52525B]")}>
+            <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", shortage > 0 ? "bg-[rgb(var(--danger)/0.14)] text-danger-ink" : "bg-ui-paper text-brand-muted")}>
               H. faltantes {showDuration(shortage)}
             </span>
           </span>
@@ -2320,9 +2320,9 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
     }
   }
   return (
-    <li className="min-w-0 px-4 py-3 text-sm transition-colors duration-[180ms] hover:bg-[#F7FCF8] motion-reduce:transition-none">
-      <p className="font-medium text-[#0A0A0A]">{item.full_name || item.title}</p>
-      <p className="mt-1 text-[#52525B] [overflow-wrap:anywhere]">{item.full_name ? `${item.title} · ${item.detail}` : item.detail}</p>
+    <li className="min-w-0 px-4 py-3 text-sm transition-colors duration-[180ms] hover:bg-brand-soft-alt motion-reduce:transition-none">
+      <p className="font-medium text-ui-ink">{item.full_name || item.title}</p>
+      <p className="mt-1 text-brand-muted [overflow-wrap:anywhere]">{item.full_name ? `${item.title} · ${item.detail}` : item.detail}</p>
     </li>
   )
 }
@@ -2441,7 +2441,7 @@ function AfdPanel() {
   }
 
   if (!canManage) {
-    return <p className="text-sm text-[#64748B]">Gerar, importar e baixar o arquivo fica com o administrador e o gestor.</p>
+    return <p className="text-sm text-ui-slate">Gerar, importar e baixar o arquivo fica com o administrador e o gestor.</p>
   }
 
   const fileHint = kind === "aej" ? "Arquivo da jornada. Sai de qualquer período." : "Arquivo com as marcações. Sai de qualquer período."
@@ -2450,12 +2450,12 @@ function AfdPanel() {
     <div className="w-full min-w-0 space-y-4">
       <section className={moduleCardClass}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <FilePlus className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Gerar arquivo</h2>
-            <p className="text-sm text-[#64748B]">{fileHint}</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Gerar arquivo</h2>
+            <p className="text-sm text-ui-slate">{fileHint}</p>
           </div>
         </div>
         <ActionForm className="mt-4" onSubmit={generateFile}>
@@ -2503,12 +2503,12 @@ function AfdPanel() {
       </section>
       <section className={moduleCardClass}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Upload className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Importar AFD</h2>
-            <p className="text-sm text-[#64748B]">A marcação entra com origem AFD. Se já existir no mesmo instante, só ela é ignorada e as demais seguem.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Importar AFD</h2>
+            <p className="text-sm text-ui-slate">A marcação entra com origem AFD. Se já existir no mesmo instante, só ela é ignorada e as demais seguem.</p>
           </div>
         </div>
         <div className="mt-4 space-y-2">
@@ -2517,14 +2517,14 @@ function AfdPanel() {
             <CertificatePhotoField id="afd-file" fileKey={fileKey} photo={afdFile} accept=".txt,text/plain" emptyLabel="Arraste ou selecione o arquivo" hint="Arquivo .txt" onChange={(file) => void importAfd(file)} />
           </div>
           {importing ? (
-            <p className="flex items-center gap-2 text-sm text-[#64748B]" role="status">
-              <Spinner className="h-4 w-4 text-[#1E8A3A]" />
+            <p className="flex items-center gap-2 text-sm text-ui-slate" role="status">
+              <Spinner className="h-4 w-4 text-brand-cta" />
               Importando
             </p>
           ) : null}
         </div>
         {imported ? (
-          <p className="mt-4 text-sm text-[#64748B]">
+          <p className="mt-4 text-sm text-ui-slate">
             {imported.created} criadas, {imported.ignored} já existiam e foram ignoradas, {imported.blocked} não entraram.
           </p>
         ) : null}
@@ -2632,19 +2632,19 @@ function PayrollTotalsPanel() {
   }
 
   if (!canManage) {
-    return <p className="text-sm text-[#64748B]">Gerar o arquivo da folha fica com o administrador e o gestor.</p>
+    return <p className="text-sm text-ui-slate">Gerar o arquivo da folha fica com o administrador e o gestor.</p>
   }
 
   return (
     <div className="w-full min-w-0 space-y-4">
       <section className={moduleCardClass}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Download className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Gerar arquivo</h2>
-            <p className="text-sm text-[#64748B]">Escolha o mês civil ou um intervalo de datas e baixe o arquivo com os eventos configurados.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Gerar arquivo</h2>
+            <p className="text-sm text-ui-slate">Escolha o mês civil ou um intervalo de datas e baixe o arquivo com os eventos configurados.</p>
           </div>
         </div>
         <ActionForm className="mt-4 space-y-4" onSubmit={generatePayroll}>
@@ -2688,12 +2688,12 @@ function PayrollTotalsPanel() {
       </section>
       <section className={moduleCardClass}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <SlidersHorizontal className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Eventos da folha</h2>
-            <p className="text-sm text-[#64748B]">Cadastre quantos eventos precisar. No arquivo, cada pessoa gera uma linha por evento em que tiver valor.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Eventos da folha</h2>
+            <p className="text-sm text-ui-slate">Cadastre quantos eventos precisar. No arquivo, cada pessoa gera uma linha por evento em que tiver valor.</p>
           </div>
         </div>
         <ActionForm className="mt-4 space-y-4" onSubmit={saveEvent}>
@@ -2737,12 +2737,12 @@ function PayrollTotalsPanel() {
           </div>
         </ActionForm>
         {events.items.length > 0 ? (
-          <ul className="mt-5 divide-y divide-[#F1F5F9] overflow-hidden rounded-xl border border-[#E2E8F0]">
+          <ul className="mt-5 divide-y divide-[rgb(var(--ui-wash))] overflow-hidden rounded-xl border border-ui-line">
             {events.items.map((item) => (
               <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-sm">
                 <div className="min-w-0">
-                  <p className="font-semibold text-[#0A0A0A]">{payrollEventLabel[item.system_event] || item.system_event}</p>
-                  <p className="mt-0.5 text-[#64748B]">
+                  <p className="font-semibold text-ui-ink">{payrollEventLabel[item.system_event] || item.system_event}</p>
+                  <p className="mt-0.5 text-ui-slate">
                     Código {item.external_code} · {item.time_format === "sexagesimal" ? "sexagesimal" : "centesimal"}
                   </p>
                 </div>
@@ -2754,10 +2754,10 @@ function PayrollTotalsPanel() {
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-[#64748B]">Nenhum evento configurado. Sem isso o arquivo da folha não é gerado.</p>
+          <p className="mt-4 text-sm text-ui-slate">Nenhum evento configurado. Sem isso o arquivo da folha não é gerado.</p>
         )}
       </section>
-      {notice ? <p className="text-sm text-[#64748B]" role="status">{notice}</p> : null}
+      {notice ? <p className="text-sm text-ui-slate" role="status">{notice}</p> : null}
     </div>
   )
 }

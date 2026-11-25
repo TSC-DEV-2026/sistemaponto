@@ -39,24 +39,24 @@ function registration(value: string | null) {
 }
 
 function EmptyMark() {
-  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+  return <span className="font-medium text-ui-slate-soft">Não informado</span>
 }
 
 function closingStatusClass(status: string) {
-  if (status === "closed") return "bg-[rgba(30,138,58,0.14)] text-[#146C2E]"
-  if (status === "open") return "bg-[#FFF1E0] text-[#C2410C]"
-  return "bg-[#F1F5F9] text-[#475569]"
+  if (status === "closed") return "bg-brand-cta/14 text-brand-ink-strong"
+  if (status === "open") return "bg-warn-soft text-warn-brown"
+  return "bg-ui-wash text-ui-slate-mid"
 }
 
 function DetailTile({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]">
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta">
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </span>
       <div className="min-w-0">
-        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
-        <div className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</div>
+        <p className="text-xs leading-4 text-ui-slate">{label}</p>
+        <div className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-ui-ink-strong [overflow-wrap:anywhere]">{children}</div>
       </div>
     </div>
   )
@@ -94,8 +94,8 @@ function launchAmount(entry: ClosingBankEntry) {
 }
 
 function balanceTone(value: number | null | undefined) {
-  if (typeof value !== "number" || value === 0) return "text-[#64748B]"
-  return value < 0 ? "text-[#C62828]" : "text-[#146C2E]"
+  if (typeof value !== "number" || value === 0) return "text-ui-slate"
+  return value < 0 ? "text-danger-ink" : "text-brand-ink-strong"
 }
 
 function launchInput(entry: ClosingBankEntry) {
@@ -167,7 +167,7 @@ function BankLaunchDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !pending) onClose()
       }}
@@ -178,15 +178,15 @@ function BankLaunchDialog({
         aria-modal="true"
         aria-labelledby="bank-rule-title"
         aria-describedby="bank-rule-text"
-        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7"
       >
-        <h2 id="bank-rule-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+        <h2 id="bank-rule-title" className="text-xl font-semibold tracking-tight text-ui-ink">
           Tem certeza que deseja confirmar?
         </h2>
-        <p id="bank-rule-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+        <p id="bank-rule-text" className="mt-2 text-sm leading-6 text-brand-quiet">
           {draft.everyone ? "O saldo de cada pessoa que usa banco de horas neste fechamento será quitado. O lançamento já feito neste fechamento é substituído." : draft.kind === "balance" ? "O saldo deste fechamento ficará neste valor." : draft.kind === "settlement" ? "O saldo deste fechamento será quitado." : "Este lançamento será gravado no banco deste fechamento."}
         </p>
-        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">
+        <p className="mt-4 rounded-xl bg-ui-line-muted px-4 py-3 text-sm font-semibold text-ui-ink">
           {draft.everyone ? "Todos que usam banco de horas · Quitação" : `${draft.name} · ${hourBankKindLabel[draft.kind]} · ${draft.kind === "balance" ? showBalanceTarget(draft.minutes) : draft.kind === "settlement" ? "00:00" : showMinutes(draft.minutes)}`}
         </p>
         <div className="mt-4 space-y-2">
@@ -269,7 +269,7 @@ function BankRemoveDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !pending) onClose()
       }}
@@ -280,15 +280,15 @@ function BankRemoveDialog({
         aria-modal="true"
         aria-labelledby="bank-remove-title"
         aria-describedby="bank-remove-text"
-        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7"
       >
-        <h2 id="bank-remove-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+        <h2 id="bank-remove-title" className="text-xl font-semibold tracking-tight text-ui-ink">
           Tem certeza que deseja excluir?
         </h2>
-        <p id="bank-remove-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+        <p id="bank-remove-text" className="mt-2 text-sm leading-6 text-brand-quiet">
           Este lançamento sai do fechamento e o saldo volta ao valor anterior.
         </p>
-        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{summary}</p>
+        <p className="mt-4 rounded-xl bg-ui-line-muted px-4 py-3 text-sm font-semibold text-ui-ink">{summary}</p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={onClose} disabled={pending}>
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -392,31 +392,31 @@ function ResultTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-brand-ink">Resultado</h2>
-          <p className="mt-1 text-sm text-[#64748B]">{peopleCount(total)}</p>
+          <p className="mt-1 text-sm text-ui-slate">{peopleCount(total)}</p>
         </div>
         <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} disabled={printing} onClick={onPrint}>
           <Printer className="h-4 w-4" aria-hidden />
           Imprimir folhas
         </Button>
       </div>
-      <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-[14px] border border-ui-line bg-white shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]">
         {loading ? (
           <div className="flex justify-center py-12">
             <Spinner />
           </div>
         ) : people.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#F1F5F9] text-[#64748B]">
+            <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-ui-wash text-ui-slate">
               <conceptIcon.result className="h-8 w-8" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[17px] font-semibold text-[#0A0A0A]">Nenhuma pessoa neste período</p>
+            <p className="mt-4 text-[17px] font-semibold text-ui-ink">Nenhuma pessoa neste período</p>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-[#F1F5F9] text-sm font-semibold text-[#64748B]">
+                  <tr className="border-b border-ui-wash text-sm font-semibold text-ui-slate">
                     <th className="px-4 py-3 font-semibold">Nome</th>
                     <th className="px-4 py-3 font-semibold">Matrícula</th>
                     {columns.map((column) => (
@@ -426,10 +426,10 @@ function ResultTable({
                 </thead>
                 <tbody>
                   {people.map((person) => (
-                    <tr key={person.employee_id} className="border-b border-[#F1F5F9] text-[#0A0A0A] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                    <tr key={person.employee_id} className="border-b border-ui-wash text-ui-ink transition-colors duration-200 last:border-b-0 hover:bg-brand-soft-alt motion-reduce:transition-none">
                       <td className="px-4 py-3 align-middle">
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                             <conceptIcon.employee className="h-[18px] w-[18px]" strokeWidth={1.75} />
                           </span>
                           <span className="block truncate font-semibold leading-5">{person.full_name?.trim() ? person.full_name : <EmptyMark />}</span>
@@ -444,7 +444,7 @@ function ResultTable({
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-[#F1F5F9] px-4 py-4">
+            <div className="border-t border-ui-wash px-4 py-4">
               <ListPager page={page} pageSize={pageSize} total={total} onPage={onPage} onPageSize={onPageSize} />
             </div>
           </>
@@ -515,7 +515,7 @@ function BankLaunch({
           </DetailTile>
         </div>
         <div className="space-y-4 pt-1">
-          <h3 className="text-base font-semibold text-[#111827]">Lançamento</h3>
+          <h3 className="text-base font-semibold text-ui-ink-strong">Lançamento</h3>
           <div className="min-w-0 space-y-2">
             <Label className={moduleLabelClass} htmlFor="closing-bank-hours">Horas</Label>
             <DurationField id="closing-bank-hours" className={moduleFieldClass} value={minutes} onValueChange={onMinutes} signed disabled={locked || pending} />
@@ -539,16 +539,16 @@ function BankLaunch({
             </Button>
           </div>
           {entry ? (
-            <div className={cn("flex min-h-16 flex-wrap items-center gap-3 rounded-xl border px-4 py-3", editing ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+            <div className={cn("flex min-h-16 flex-wrap items-center gap-3 rounded-xl border px-4 py-3", editing ? "border-brand-glow bg-brand-soft-alt" : "border-ui-line bg-white")}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                 <EntryIcon className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs leading-4 text-[#64748B]">Lançamento</p>
-                <p className="mt-0.5 text-[15px] font-semibold leading-5 text-[#111827]">{hourBankKindLabel[entry.kind] || "Não informado"} · {launchAmount(entry)}</p>
+                <p className="text-xs leading-4 text-ui-slate">Lançamento</p>
+                <p className="mt-0.5 text-[15px] font-semibold leading-5 text-ui-ink-strong">{hourBankKindLabel[entry.kind] || "Não informado"} · {launchAmount(entry)}</p>
                 <p className="mt-0.5 text-sm font-semibold leading-5">
                   <span className={cn("tabular-nums", balanceTone(entry.balance_before_minutes))}>{typeof entry.balance_before_minutes === "number" ? showSignedMinutes(entry.balance_before_minutes) : "Não informado"}</span>
-                  <span className="mx-1.5 text-lg font-bold leading-none text-[#111827]">→</span>
+                  <span className="mx-1.5 text-lg font-bold leading-none text-ui-ink-strong">→</span>
                   <span className={cn("tabular-nums", balanceTone(entry.balance_after_minutes))}>{typeof entry.balance_after_minutes === "number" ? showSignedMinutes(entry.balance_after_minutes) : "Não informado"}</span>
                 </p>
               </div>
@@ -760,7 +760,7 @@ export function ClosingResultPage() {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to="/timekeeping?tab=closings" appearance="detail" />
-        <p className="text-sm text-[#52525B]">Só o gestor ou o administrador consulta o fechamento.</p>
+        <p className="text-sm text-brand-muted">Só o gestor ou o administrador consulta o fechamento.</p>
       </div>
     )
   }
@@ -779,10 +779,10 @@ export function ClosingResultPage() {
         <>
           <section className={moduleCardClass}>
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                 <conceptIcon.closing className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </span>
-              <h2 className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-[#111827]">{period}</h2>
+              <h2 className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-ui-ink-strong">{period}</h2>
               <span className={cn("inline-flex h-7 items-center rounded-full px-3 text-[13px] font-semibold leading-none", closingStatusClass(closing.status))}>
                 {closingStatusLabel[closing.status] || "Não informado"}
               </span>

@@ -24,31 +24,31 @@ import { durationMinutes, hourBankEffectLabel, hourBankEntryAmount, hourBankKind
 
 export function BankBalance({ balance }: { balance: HourBank }) {
   const stats = [
-    { label: hourBankLaunchLabel.credit, value: showMinutes(balance.credit_minutes), dot: "bg-[#1E8A3A]" },
-    { label: hourBankLaunchLabel.debit, value: showMinutes(balance.debit_minutes), dot: "bg-[#EF5350]" },
-    { label: "Pago em hora extra", value: showMinutes(balance.paid_overtime_minutes), dot: "bg-[#3B82F6]" },
-    { label: "Descontado como falta", value: showMinutes(balance.discounted_absence_minutes), dot: "bg-[#F9A825]" },
+    { label: hourBankLaunchLabel.credit, value: showMinutes(balance.credit_minutes), dot: "bg-brand-cta" },
+    { label: hourBankLaunchLabel.debit, value: showMinutes(balance.debit_minutes), dot: "bg-danger" },
+    { label: "Pago em hora extra", value: showMinutes(balance.paid_overtime_minutes), dot: "bg-info-bright" },
+    { label: "Descontado como falta", value: showMinutes(balance.discounted_absence_minutes), dot: "bg-warn" },
   ]
   return (
-    <div className="rounded-[14px] border border-[rgba(30,138,58,0.12)] bg-[linear-gradient(105deg,rgba(30,138,58,0.045),rgba(255,255,255,0.98))] p-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] sm:p-6">
+    <div className="rounded-[14px] border border-brand-cta/12 bg-[linear-gradient(105deg,rgb(var(--brand-cta)/0.045),rgba(255,255,255,0.98))] p-5 shadow-[0_6px_18px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 items-center gap-4 lg:w-[240px] lg:shrink-0 lg:border-r lg:border-[#E4E8ED] lg:pr-6">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]">
+        <div className="flex min-w-0 items-center gap-4 lg:w-[240px] lg:shrink-0 lg:border-r lg:border-ui-line-field lg:pr-6">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-cta/10 text-brand-cta">
             <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="text-[13px] text-[#52525B]">Saldo atual</p>
-            <p className="mt-0.5 text-[26px] font-bold leading-none tabular-nums text-[#0A0A0A]">{showSignedMinutes(balance.balance_minutes)}</p>
+            <p className="text-[13px] text-brand-muted">Saldo atual</p>
+            <p className="mt-0.5 text-[26px] font-bold leading-none tabular-nums text-ui-ink">{showSignedMinutes(balance.balance_minutes)}</p>
           </div>
         </div>
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-5 border-t border-[#E7EBE4] pt-5 sm:grid-cols-4 lg:border-t-0 lg:pt-0">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-5 border-t border-brand-field pt-5 sm:grid-cols-4 lg:border-t-0 lg:pt-0">
           {stats.map((item) => (
             <div key={item.label} className="min-w-0">
-              <p className="flex items-start gap-1.5 text-[13px] leading-5 text-[#52525B]">
+              <p className="flex items-start gap-1.5 text-[13px] leading-5 text-brand-muted">
                 <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} aria-hidden />
                 <span>{item.label}</span>
               </p>
-              <p className="mt-1 text-[15px] font-semibold tabular-nums text-[#0A0A0A]">{item.value}</p>
+              <p className="mt-1 text-[15px] font-semibold tabular-nums text-ui-ink">{item.value}</p>
             </div>
           ))}
         </div>
@@ -142,7 +142,7 @@ export function HourBankPanel({
 
   if (appearance === "module") {
     return (
-      <section className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+      <section className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
         <div>
           <h2 className="text-lg font-semibold text-brand-ink">Banco de horas</h2>
           <p className="mt-1 text-sm text-brand-quiet">Consulte os lançamentos do banco.</p>
@@ -171,17 +171,17 @@ export function HourBankPanel({
               <ListPlaceholder loading empty="Nenhum lançamento." />
             </ul>
           ) : (
-            <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-white px-6 py-10 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <div className="mt-5 rounded-xl border border-ui-line bg-white px-6 py-10 text-center">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
                 <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </span>
-              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum lançamento.</p>
-              <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#52525B]">Não há registros no banco de horas deste funcionário.</p>
+              <p className="mt-4 text-[15px] font-semibold text-ui-ink">Nenhum lançamento.</p>
+              <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-brand-muted">Não há registros no banco de horas deste funcionário.</p>
             </div>
           )
         ) : null}
         {entries.items.length > 0 ? (
-          <ul className="mt-5 divide-y divide-[#F0F0F2] overflow-hidden rounded-xl border border-[#E2E8F0]">
+          <ul className="mt-5 divide-y divide-[rgb(var(--ui-panel))] overflow-hidden rounded-xl border border-ui-line">
             {entries.items.map((item) => (
               <li key={item.id} className="px-4 py-3 text-sm text-brand-ink">
                 {showDate(item.entry_on)} · {hourBankKindLabel[item.kind] || item.kind} · {hourBankEntryAmount(item.kind, item.minutes, item.effect)}
@@ -192,7 +192,7 @@ export function HourBankPanel({
           </ul>
         ) : null}
         {entries.total > 0 ? (
-          <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+          <div className="mt-4 border-t border-ui-panel pt-4">
             <ListPager page={entries.page} pageSize={entries.pageSize} total={entries.total} onPage={entries.setPage} onPageSize={entries.setPageSize} tone="module" />
           </div>
         ) : null}

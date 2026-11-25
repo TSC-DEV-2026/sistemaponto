@@ -97,9 +97,9 @@ export function CertificatePhotoField({
       <label
         htmlFor={id}
         className={cn(
-          "flex cursor-pointer rounded-xl border border-dashed bg-[rgba(30,138,58,0.04)] transition-[border-color,background-color,box-shadow] duration-200 peer-focus-visible:border-[#1E8A3A] peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.12)] motion-reduce:transition-none",
+          "flex cursor-pointer rounded-xl border border-dashed bg-brand-cta/4 transition-[border-color,background-color,box-shadow] duration-200 peer-focus-visible:border-brand-cta peer-focus-visible:shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.12)] motion-reduce:transition-none",
           stacked ? "flex-col items-center justify-center gap-2 px-4 py-8 text-center" : "items-center justify-between gap-4 px-4 py-3",
-          photoOver ? "border-[#1E8A3A] bg-[rgba(30,138,58,0.08)]" : "border-[#B7D7C3]",
+          photoOver ? "border-brand-cta bg-brand-cta/8" : "border-brand-edge",
         )}
         onDragOver={(event) => {
           event.preventDefault()
@@ -116,12 +116,12 @@ export function CertificatePhotoField({
         }}
       >
         <span className={cn("flex min-w-0 items-center gap-3", stacked && "flex-col gap-2")}>
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.12)] text-[#1E8A3A]">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/12 text-brand-cta">
             {stacked ? <Upload className="h-5 w-5" strokeWidth={1.75} aria-hidden /> : <FileImage className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
           </span>
           <span className="min-w-0">
-            <span className={cn("block text-sm font-semibold", stacked ? "text-[#1E8A3A]" : "truncate text-[#0A0A0A]")}>{photo ? photo.name : emptyLabel}</span>
-            <span className="mt-0.5 block text-xs text-[#71717A]">{hint}</span>
+            <span className={cn("block text-sm font-semibold", stacked ? "text-brand-cta" : "truncate text-ui-ink")}>{photo ? photo.name : emptyLabel}</span>
+            <span className="mt-0.5 block text-xs text-brand-quiet">{hint}</span>
           </span>
         </span>
         {stacked ? null : (
@@ -203,8 +203,8 @@ export function TimeOffFields({
           </div>
         ) : null}
         {isCertificateKind(kind) ? (
-          <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-[#F0F0F2] pt-5 lg:grid-cols-2">
-            <p className="text-sm font-semibold text-[#1B2534] lg:col-span-2">Dados do atestado</p>
+          <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-ui-panel pt-5 lg:grid-cols-2">
+            <p className="text-sm font-semibold text-ui-heading lg:col-span-2">Dados do atestado</p>
             <div className="space-y-2">
               <Label className={moduleLabelClass} htmlFor={`${idPrefix}-cid`}>
                 CID

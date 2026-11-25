@@ -11,12 +11,12 @@ import { conceptIcon } from "@/utils/concept-icons"
 import { showMoney, subscriptionStatusLabel } from "@/utils/labels"
 import { formatDate, trialDaysLeft, trialEnded } from "@/utils/trial"
 
-const cardShadow = "shadow-[0_4px_12px_rgba(15,23,42,0.035),0_10px_28px_rgba(15,23,42,0.045)]"
+const cardShadow = "shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035),0_10px_28px_rgb(var(--ui-shadow)/0.045)]"
 
 const greenLift = {
-  hoverShadow: "0 12px 24px rgba(30, 138, 58, 0.12), 0 20px 40px rgba(30, 138, 58, 0.07)",
-  hoverBorder: "rgba(30, 138, 58, 0.22)",
-  arrowHover: "#E5F6EC",
+  hoverShadow: "0 12px 24px rgb(var(--brand-cta)/0.12), 0 20px 40px rgb(var(--brand-cta)/0.07)",
+  hoverBorder: "rgb(var(--brand-cta)/0.22)",
+  arrowHover: "rgb(var(--brand-wash))",
 }
 
 type Tone = {
@@ -32,43 +32,43 @@ type Tone = {
 const tones = {
   green: {
     card: "bg-white",
-    iconWrap: "bg-[#E7F6EE]",
-    icon: "text-[#1E8A3A]",
-    action: "bg-[#F2FBF6] text-[#1E8A3A]",
+    iconWrap: "bg-brand-wash",
+    icon: "text-brand-cta",
+    action: "bg-brand-soft text-brand-cta",
     ...greenLift,
   },
   blue: {
     card: "bg-white",
-    iconWrap: "bg-[#E8F1FC]",
-    icon: "text-[#3B82C4]",
-    action: "bg-[#F1F6FC] text-[#3B82C4]",
-    hoverShadow: "0 12px 24px rgba(37, 99, 235, 0.12), 0 20px 40px rgba(37, 99, 235, 0.07)",
-    hoverBorder: "rgba(37, 99, 235, 0.22)",
-    arrowHover: "#E4EEF8",
+    iconWrap: "bg-tone-blue-soft",
+    icon: "text-tone-blue",
+    action: "bg-tone-blue-wash text-tone-blue",
+    hoverShadow: "0 12px 24px rgb(var(--info-ink)/0.12), 0 20px 40px rgb(var(--info-ink)/0.07)",
+    hoverBorder: "rgb(var(--info-ink)/0.22)",
+    arrowHover: "rgb(var(--tone-blue-arrow))",
   },
   gold: {
-    card: "bg-[#FFFCF6]",
-    iconWrap: "bg-[#F8EFCF]",
-    icon: "text-[#C4962A]",
-    action: "bg-[#FBF6E6] text-[#C4962A]",
-    hoverShadow: "0 12px 24px rgba(202, 138, 4, 0.12), 0 20px 40px rgba(202, 138, 4, 0.07)",
-    hoverBorder: "rgba(202, 138, 4, 0.22)",
-    arrowHover: "#F4EBD0",
+    card: "bg-tone-gold-card",
+    iconWrap: "bg-tone-gold-soft",
+    icon: "text-tone-gold",
+    action: "bg-tone-gold-wash text-tone-gold",
+    hoverShadow: "0 12px 24px rgb(var(--tone-gold-glow)/0.12), 0 20px 40px rgb(var(--tone-gold-glow)/0.07)",
+    hoverBorder: "rgb(var(--tone-gold-glow)/0.22)",
+    arrowHover: "rgb(var(--tone-gold-arrow))",
   },
   lilac: {
-    card: "bg-[#FBF9FE]",
-    iconWrap: "bg-[#F0EAFB]",
-    icon: "text-[#7C6BB0]",
-    action: "bg-[#F4F0FA] text-[#7C6BB0]",
-    hoverShadow: "0 12px 24px rgba(124, 88, 196, 0.12), 0 20px 40px rgba(124, 88, 196, 0.07)",
-    hoverBorder: "rgba(124, 88, 196, 0.22)",
-    arrowHover: "#EAE4F6",
+    card: "bg-tone-lilac-card",
+    iconWrap: "bg-tone-lilac-soft",
+    icon: "text-tone-lilac",
+    action: "bg-tone-lilac-wash text-tone-lilac",
+    hoverShadow: "0 12px 24px rgb(var(--tone-lilac-glow)/0.12), 0 20px 40px rgb(var(--tone-lilac-glow)/0.07)",
+    hoverBorder: "rgb(var(--tone-lilac-glow)/0.22)",
+    arrowHover: "rgb(var(--tone-lilac-arrow))",
   },
   plan: {
-    card: "bg-[#F6FBF8]",
-    iconWrap: "bg-[#E7F6EE]",
-    icon: "text-[#1E8A3A]",
-    action: "bg-[#F2FBF6] text-[#1E8A3A]",
+    card: "bg-brand-soft",
+    iconWrap: "bg-brand-wash",
+    icon: "text-brand-cta",
+    action: "bg-brand-soft text-brand-cta",
     ...greenLift,
   },
 } satisfies Record<string, Tone>
@@ -77,7 +77,7 @@ function LoadingLine() {
   return (
     <p className="mt-1" aria-hidden={false}>
       <span className="sr-only">Carregando</span>
-      <span className="block h-4 w-48 max-w-full animate-pulse rounded bg-[#E6EAEF]" />
+      <span className="block h-4 w-48 max-w-full animate-pulse rounded bg-ui-pulse" />
     </p>
   )
 }
@@ -109,7 +109,7 @@ function BoardCard({
     <Link
       to={href}
       className={cn(
-        "dashboard-card flex cursor-pointer items-center gap-4 rounded-[14px] border border-[#E7EBF0] px-5 py-5",
+        "dashboard-card flex cursor-pointer items-center gap-4 rounded-[14px] border border-ui-line-hair px-5 py-5",
         cardShadow,
         tone.card,
       )}

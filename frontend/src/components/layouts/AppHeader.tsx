@@ -154,7 +154,7 @@ export function AppHeader() {
   const mark = user?.full_name ? initials(user.full_name) : ""
 
   return (
-    <header className="flex min-h-20 items-center justify-between gap-3 border-b border-[#E7EBF0] bg-white px-6 md:px-8">
+    <header className="flex min-h-20 items-center justify-between gap-3 border-b border-ui-line-hair bg-white px-6 md:px-8">
       <div className="min-w-0">
         <h1 className="truncate text-[22px] font-bold tracking-tight text-brand-ink sm:text-2xl">{heading.title}</h1>
         {heading.subtitle ? <p className="mt-1 hidden truncate text-[13px] text-brand-quiet sm:block">{heading.subtitle}</p> : null}
@@ -164,11 +164,11 @@ export function AppHeader() {
         <Link
           to="/notices?tab=notices"
           aria-label={unread > 0 ? `Notificações, ${unread} não ${unread === 1 ? "lida" : "lidas"}` : "Notificações"}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-[#3F3F46] hover:bg-brand-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
+          className="relative inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-ui-zinc hover:bg-brand-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40"
         >
           <Bell className="h-5 w-5" strokeWidth={1.75} />
           {unread > 0 ? (
-            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#EF5350] px-1 text-[10px] font-semibold leading-none text-white">
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-white">
               {unread > 99 ? "99+" : unread}
             </span>
           ) : null}
@@ -179,7 +179,7 @@ export function AppHeader() {
               ref={trigger}
               type="button"
               className={cn(
-                "profile-trigger inline-flex max-w-full items-center gap-2 rounded-full border border-[#E7EBF0] bg-white py-1 pl-1 pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40 sm:pr-3",
+                "profile-trigger inline-flex max-w-full items-center gap-2 rounded-full border border-ui-line-hair bg-white py-1 pl-1 pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40 sm:pr-3",
                 phase === "open" && "profile-trigger-open",
               )}
               aria-haspopup="menu"
@@ -199,7 +199,7 @@ export function AppHeader() {
                 role="menu"
                 aria-label="Conta"
                 data-state={phase === "open" ? "open" : "closing"}
-                className="profile-menu absolute right-0 z-30 mt-2 w-[270px] max-w-[calc(100vw-3rem)] origin-top-right rounded-[14px] border border-[#E7EBF0] bg-white p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.09),0_22px_48px_rgba(15,23,42,0.06)]"
+                className="profile-menu absolute right-0 z-30 mt-2 w-[270px] max-w-[calc(100vw-3rem)] origin-top-right rounded-[14px] border border-ui-line-hair bg-white p-1.5 shadow-[0_12px_28px_rgb(var(--ui-shadow)/0.09),0_22px_48px_rgb(var(--ui-shadow)/0.06)]"
                 onKeyDown={onMenuKey}
                 onAnimationEnd={onMenuAnimationEnd}
               >
@@ -212,7 +212,7 @@ export function AppHeader() {
                     {user.email ? <span className="mt-0.5 block truncate text-xs font-normal text-brand-quiet">{user.email}</span> : null}
                   </span>
                 </div>
-                <div className="mx-2 my-1 h-px bg-[#E7EBF0]" />
+                <div className="mx-2 my-1 h-px bg-ui-line-hair" />
                 <Link role="menuitem" to="/settings" className="profile-item flex h-11 items-center gap-3 rounded-lg px-3 text-[13px]" onClick={() => hideMenu()}>
                   <Settings className="profile-item-icon h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
                   Configurações
@@ -221,7 +221,7 @@ export function AppHeader() {
                   <KeyRound className="profile-item-icon h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
                   Senha
                 </Link>
-                <div className="mx-2 my-1 h-px bg-[#E7EBF0]" />
+                <div className="mx-2 my-1 h-px bg-ui-line-hair" />
                 <button role="menuitem" type="button" className="profile-item profile-item-danger flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px]" onClick={() => void sair()}>
                   <LogOut className="profile-item-icon h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
                   Sair

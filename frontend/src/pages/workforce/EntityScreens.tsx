@@ -34,12 +34,12 @@ import { JourneyRecordPage } from "@/pages/workforce/JourneyRecordPage"
 import { qrCardsPdf } from "@/utils/qr-cards-pdf"
 
 function EmptyMark() {
-  return <span className="font-medium text-[#94A3B8]">Não informado</span>
+  return <span className="font-medium text-ui-slate-soft">Não informado</span>
 }
 
 function FieldMark({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+    <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
       <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
     </span>
   )
@@ -70,11 +70,11 @@ function RecordFacts({ fields, fallback, shown }: { fields: CatalogField[]; fall
 
 function RecordField({ icon, label, wide = false, children }: { icon: LucideIcon; label: string; wide?: boolean; children: ReactNode }) {
   return (
-    <div className={cn("flex h-full min-h-[66px] w-full min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#CFE3D4] hover:shadow-[0_4px_12px_rgba(16,24,40,0.05)] motion-reduce:transition-none", wide && "sm:col-span-2")}>
+    <div className={cn("flex h-full min-h-[66px] w-full min-w-0 items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)] transition-[border-color,box-shadow] duration-200 hover:border-brand-mist hover:shadow-[0_4px_12px_rgb(var(--ui-shadow-alt)/0.05)] motion-reduce:transition-none", wide && "sm:col-span-2")}>
       <FieldMark icon={icon} />
       <div className="min-w-0">
-        <dt className="text-xs leading-4 text-[#64748B]">{label}</dt>
-        <dd className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</dd>
+        <dt className="text-xs leading-4 text-ui-slate">{label}</dt>
+        <dd className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-ui-ink-strong [overflow-wrap:anywhere]">{children}</dd>
       </div>
     </div>
   )
@@ -108,7 +108,7 @@ function JourneySearch({ id, value, onChange, onSearch }: { id: string; value: s
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
       <div className="min-w-0 flex-1 space-y-1.5">
-        <Label className="text-sm font-semibold text-[#1B2534]" htmlFor={id}>
+        <Label className="text-sm font-semibold text-ui-heading" htmlFor={id}>
           Pesquisar
         </Label>
         <div className="relative">
@@ -124,7 +124,7 @@ function JourneySearch({ id, value, onChange, onSearch }: { id: string; value: s
               onSearch()
             }}
           />
-          <Search className="pointer-events-none absolute left-[14px] top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+          <Search className="pointer-events-none absolute left-[14px] top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
         </div>
       </div>
       <Button type="button" className={modulePrimaryClass} onClick={onSearch}>
@@ -143,7 +143,7 @@ function PeopleSearch({ id, value, placeholder, onChange, onSearch }: { id: stri
           Pesquisar
         </Label>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
           <Input
             id={id}
             value={value}
@@ -181,8 +181,8 @@ function asEmployee(item: object): Employee | null {
 export function SortArrows({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return (
     <span className="inline-flex flex-col" aria-hidden>
-      <ChevronUp className={cn("h-3.5 w-3.5", active && dir === "asc" ? "text-[#1E8A3A]" : "text-[#CBD5E1]")} strokeWidth={2.5} />
-      <ChevronDown className={cn("-mt-1.5 h-3.5 w-3.5", active && dir === "desc" ? "text-[#1E8A3A]" : "text-[#CBD5E1]")} strokeWidth={2.5} />
+      <ChevronUp className={cn("h-3.5 w-3.5", active && dir === "asc" ? "text-brand-cta" : "text-ui-line")} strokeWidth={2.5} />
+      <ChevronDown className={cn("-mt-1.5 h-3.5 w-3.5", active && dir === "desc" ? "text-brand-cta" : "text-ui-line")} strokeWidth={2.5} />
     </span>
   )
 }
@@ -256,7 +256,7 @@ export function DomainTabs({
       <div className="w-full min-w-0 space-y-5">
         {module || people || organization || !lead ? null : <p className="text-sm text-muted-foreground">{lead}</p>}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <SlidingHighlight className={module || people || organization ? "inline-flex max-w-full flex-wrap rounded-xl bg-[#E7E8EA] p-1" : "flex flex-wrap gap-2"} role="tablist">
+          <SlidingHighlight className={module || people || organization ? "inline-flex max-w-full flex-wrap rounded-xl bg-ui-line-muted p-1" : "flex flex-wrap gap-2"} role="tablist">
             {tabs.map((tab) =>
               module || people || organization ? (
                 <button
@@ -398,7 +398,7 @@ export function RecordList<T extends Row>({
   function sortButton(key: string, label: string) {
     const active = sort?.key === key
     return (
-      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#64748B] transition-colors duration-200 hover:text-[#334155]" onClick={() => toggleSort(key)}>
+      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ui-slate transition-colors duration-200 hover:text-ui-slate-deep" onClick={() => toggleSort(key)}>
         {label}
         <SortArrows active={active} dir={sort?.dir ?? "asc"} />
       </button>
@@ -411,12 +411,12 @@ export function RecordList<T extends Row>({
       <div className="w-full min-w-0 space-y-4">
         <section className={moduleCardClass}>
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Search className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">{searchTitle}</h2>
-              {searchLead ? <p className="text-sm text-[#64748B]">{searchLead}</p> : null}
+              <h2 className="text-lg font-semibold text-ui-ink">{searchTitle}</h2>
+              {searchLead ? <p className="text-sm text-ui-slate">{searchLead}</p> : null}
             </div>
           </div>
           <div className={cn("mt-4 grid w-full grid-cols-1 items-end gap-3", selects.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_auto_auto]" : "lg:grid-cols-[minmax(0,1fr)_auto]")}>
@@ -425,7 +425,7 @@ export function RecordList<T extends Row>({
                 Nome
               </Label>
               <div className="relative min-w-0 w-full">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
                 <Input
                   id={`search-${path}`}
                   value={query}
@@ -453,7 +453,7 @@ export function RecordList<T extends Row>({
                   searchable={Boolean(select.source)}
                   searchPath={select.source}
                   searchPlaceholder={`Pesquisar ${select.label.toLocaleLowerCase("pt-BR")}`}
-                  className="h-12 shadow-[0_4px_10px_rgba(15,23,42,0.035)]"
+                  className="h-12 shadow-[0_4px_10px_rgb(var(--ui-shadow)/0.035)]"
                   options={[{ value: "", label: "Todos" }, ...select.options]}
                   onChange={(value) => setChosen((current) => ({ ...current, [select.key]: value }))}
                 />
@@ -466,23 +466,23 @@ export function RecordList<T extends Row>({
           </div>
         </section>
         <section className={moduleCardClass}>
-          <h2 className="text-lg font-semibold text-[#0A0A0A]">Registros cadastrados</h2>
+          <h2 className="text-lg font-semibold text-ui-ink">Registros cadastrados</h2>
           {list.loading && rows.length === 0 && !list.error ? (
             <div className="flex justify-center py-10" role="status" aria-live="polite">
-              <Spinner label="Carregando os registros" className="h-8 w-8 text-[#1E8A3A]" />
+              <Spinner label="Carregando os registros" className="h-8 w-8 text-brand-cta" />
             </div>
           ) : rows.length === 0 && !list.error ? (
             <div className="px-2 py-10 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
                 <MarkIcon className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </span>
-              <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">{empty}</p>
-              <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+              <p className="mt-4 text-[15px] font-semibold text-ui-ink">{empty}</p>
+              <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
             </div>
           ) : (
             <ul className="mt-4 space-y-2">
               {rows.map((item) => (
-                <li key={item.id} className="group/card flex min-h-16 min-w-0 flex-col gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075),0_16px_32px_rgba(15,23,42,0.055)] motion-safe:hover:-translate-y-0.5 sm:flex-row sm:items-center motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+                <li key={item.id} className="group/card flex min-h-16 min-w-0 flex-col gap-1.5 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035),0_8px_20px_rgb(var(--ui-shadow)/0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-ui-slate-faint hover:shadow-[0_8px_20px_rgb(var(--ui-shadow)/0.075),0_16px_32px_rgb(var(--ui-shadow)/0.055)] motion-safe:hover:-translate-y-0.5 sm:flex-row sm:items-center motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                   <Link to={viewTo(item.id)} aria-label={`Visualizar ${nameOf(item)}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
                       <MarkIcon className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -492,13 +492,13 @@ export function RecordList<T extends Row>({
                       {detailOf?.(item) ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detailOf(item)}</span> : null}
                     </span>
                     <ActionTip label="Visualizar">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-ui-line bg-white text-ui-slate [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-ui-line-chip hover:!border-brand-cta/25 hover:!bg-brand-cta/8 hover:!text-brand-cta hover:!shadow-[0_4px_12px_rgb(var(--brand-cta)/0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
                         <Eye className="h-4 w-4" strokeWidth={1.75} />
                       </span>
                     </ActionTip>
                   </Link>
                   {pending === item.id ? (
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-ui-ink">
                       <span>Excluir {nameOf(item)}?</span>
                       <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -530,7 +530,7 @@ export function RecordList<T extends Row>({
             </ul>
           )}
           {rows.length > 0 || list.total > 0 ? (
-            <div className="mt-4 border-t border-[#F1F5F9] pt-4">
+            <div className="mt-4 border-t border-ui-wash pt-4">
               <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone="module" />
             </div>
           ) : null}
@@ -540,7 +540,7 @@ export function RecordList<T extends Row>({
   }
 
   return (
-    <div className={journey ? "w-full rounded-[14px] border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "space-y-4"}>
+    <div className={journey ? "w-full rounded-[14px] border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]" : "space-y-4"}>
       {journey ? (
         <div>
           <h2 className="text-lg font-semibold text-brand-ink">Jornadas</h2>
@@ -586,7 +586,7 @@ export function RecordList<T extends Row>({
           ))}
         </div>
       ) : null}
-      <div className={people ? "overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" : "contents"}>
+      <div className={people ? "overflow-hidden rounded-[14px] border border-ui-line bg-white shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]" : "contents"}>
       {people ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse">
@@ -602,7 +602,7 @@ export function RecordList<T extends Row>({
               <col />
             </colgroup>
             <thead>
-              <tr className="border-b border-[#F1F5F9]">
+              <tr className="border-b border-ui-wash">
                 <th className="px-4 py-3 text-left font-semibold">{sortButton("name", "Nome")}</th>
                 {path === "/employees" ? (
                   <>
@@ -611,7 +611,7 @@ export function RecordList<T extends Row>({
                     <th className="px-4 py-3 text-left font-semibold">{sortButton("admission", "Admissão")}</th>
                   </>
                 ) : null}
-                <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-[#64748B]">Ações</th>
+                <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-ui-slate">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -620,7 +620,7 @@ export function RecordList<T extends Row>({
                 const actions =
                   pending === item.id ? (
                     <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                      <span className="text-sm text-[#0A0A0A]">Excluir {nameOf(item)}?</span>
+                      <span className="text-sm text-ui-ink">Excluir {nameOf(item)}?</span>
                       <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
                         <Trash2 className="h-4 w-4" />
                         Excluir
@@ -658,33 +658,33 @@ export function RecordList<T extends Row>({
                     </div>
                   )
                 return (
-                  <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                  <tr key={item.id} className="border-b border-ui-wash transition-colors duration-200 last:border-b-0 hover:bg-brand-soft-alt motion-reduce:transition-none">
                     <td className="px-4 py-3 align-middle">
                       <div className="flex min-w-0 items-center gap-3">
                         {person ? (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-sm font-semibold text-[#086B35]" aria-hidden>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand-ink-deep" aria-hidden>
                             {initialsOf(person.full_name)}
                           </span>
                         ) : (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                             {Mark ? <Mark className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <conceptIcon.job className="h-[18px] w-[18px]" strokeWidth={1.75} />}
                           </span>
                         )}
                         <span className="min-w-0">
-                          <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{nameOf(item)}</span>
-                          {person || detailOf?.(item) ? <span className="mt-0.5 block truncate text-sm leading-5 text-[#64748B]">{person ? formatCpf(person.cpf) : detailOf?.(item)}</span> : null}
+                          <span className="block truncate font-semibold leading-5 text-ui-ink">{nameOf(item)}</span>
+                          {person || detailOf?.(item) ? <span className="mt-0.5 block truncate text-sm leading-5 text-ui-slate">{person ? formatCpf(person.cpf) : detailOf?.(item)}</span> : null}
                         </span>
                       </div>
                     </td>
                     {person ? (
                       <>
                         <td className="px-4 py-3 align-middle">
-                          <span className={cn("inline-flex h-7 items-center rounded-full px-3 text-[13px] font-semibold leading-none", person.situation === "active" ? "bg-[rgba(30,138,58,0.14)] text-[#146C2E]" : "bg-[#F1F5F9] text-[#475569]")}>
+                          <span className={cn("inline-flex h-7 items-center rounded-full px-3 text-[13px] font-semibold leading-none", person.situation === "active" ? "bg-brand-cta/14 text-brand-ink-strong" : "bg-ui-wash text-ui-slate-mid")}>
                             {situationLabel[person.situation || ""] || "Sem situação"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 align-middle text-sm leading-5 text-[#334155]">{clockMethodLabel[person.clock_method] || person.clock_method}</td>
-                        <td className="px-4 py-3 align-middle text-sm leading-5 text-[#64748B]">{showDate(person.admission_date)}</td>
+                        <td className="px-4 py-3 align-middle text-sm leading-5 text-ui-slate-deep">{clockMethodLabel[person.clock_method] || person.clock_method}</td>
+                        <td className="px-4 py-3 align-middle text-sm leading-5 text-ui-slate">{showDate(person.admission_date)}</td>
                       </>
                     ) : null}
                     <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">{actions}</td>
@@ -693,7 +693,7 @@ export function RecordList<T extends Row>({
               })}
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-[#64748B]" colSpan={path === "/employees" ? 5 : 2}>
+                  <td className="px-4 py-10 text-center text-sm text-ui-slate" colSpan={path === "/employees" ? 5 : 2}>
                     {list.loading ? <span className="inline-flex w-full justify-center"><Spinner /></span> : empty}
                   </td>
                 </tr>
@@ -708,7 +708,7 @@ export function RecordList<T extends Row>({
           const detail = detailOf?.(item)
           if (journey) {
             return (
-              <li key={item.id} className="group/card flex min-h-16 min-w-0 flex-col gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075),0_16px_32px_rgba(15,23,42,0.055)] motion-safe:hover:-translate-y-0.5 sm:flex-row sm:items-center motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+              <li key={item.id} className="group/card flex min-h-16 min-w-0 flex-col gap-1.5 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035),0_8px_20px_rgb(var(--ui-shadow)/0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-ui-slate-faint hover:shadow-[0_8px_20px_rgb(var(--ui-shadow)/0.075),0_16px_32px_rgb(var(--ui-shadow)/0.055)] motion-safe:hover:-translate-y-0.5 sm:flex-row sm:items-center motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                 <Link
                   to={viewTo(item.id)}
                   aria-label={`Visualizar ${nameOf(item)}`}
@@ -722,13 +722,13 @@ export function RecordList<T extends Row>({
                     {detail ? <span className="mt-[3px] block truncate text-sm text-brand-quiet">{detail}</span> : null}
                   </span>
                   <ActionTip label="Visualizar">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-ui-line bg-white text-ui-slate [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-ui-line-chip hover:!border-brand-cta/25 hover:!bg-brand-cta/8 hover:!text-brand-cta hover:!shadow-[0_4px_12px_rgb(var(--brand-cta)/0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
                       <Eye className="h-4 w-4" strokeWidth={1.75} />
                     </span>
                   </ActionTip>
                 </Link>
                 {pending === item.id ? (
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-[#0A0A0A]">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-ui-ink">
                     <span>Excluir {nameOf(item)}?</span>
                     <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
                       <Trash2 className="h-4 w-4" />
@@ -806,10 +806,10 @@ export function RecordList<T extends Row>({
             </li>
           )
         })}
-        {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty={empty} className={journey ? "rounded-xl border border-dashed border-[#E4E4E7] px-4 py-6 text-center" : undefined} /> : null}
+        {list.items.length === 0 ? <ListPlaceholder loading={list.loading} empty={empty} className={journey ? "rounded-xl border border-dashed border-ui-line-soft px-4 py-6 text-center" : undefined} /> : null}
       </ul>
       )}
-      <div className={people ? "border-t border-[#F1F5F9] px-4 py-3" : journey ? "mt-4 border-t border-[#F0F0F2] pt-3" : undefined}>
+      <div className={people ? "border-t border-ui-wash px-4 py-3" : journey ? "mt-4 border-t border-ui-panel pt-3" : undefined}>
         <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone="module" density={journey ? "compact" : "default"} />
       </div>
       </div>
@@ -848,7 +848,7 @@ export function EmployeeList() {
   }, [])
   const extra = useMemo(
     () => (
-      <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 shrink-0 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#1E8A3A]")} disabled={busy} onClick={() => printCards()}>
+      <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 shrink-0 hover:border-brand-cta/25 hover:bg-brand-tint hover:text-brand-cta")} disabled={busy} onClick={() => printCards()}>
         <QrCode className="h-4 w-4" />
         Gerar QR Code
       </Button>
@@ -986,35 +986,35 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
       <section className={moduleCardClass}>
         <PeopleSearch id="classification-values-search" value={query} placeholder="Pesquisar" onChange={setQuery} onSearch={list.reload} />
       </section>
-      <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-[14px] border border-ui-line bg-white shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b border-[#F1F5F9]">
+              <tr className="border-b border-ui-wash">
                 <th className="px-4 py-3 text-left font-semibold">
-                  <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#64748B] transition-colors duration-200 hover:text-[#334155]" onClick={() => setSort((current) => (!current ? { dir: "asc" } : current.dir === "asc" ? { dir: "desc" } : null))}>
+                  <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ui-slate transition-colors duration-200 hover:text-ui-slate-deep" onClick={() => setSort((current) => (!current ? { dir: "asc" } : current.dir === "asc" ? { dir: "desc" } : null))}>
                     Nome
                     <SortArrows active={Boolean(sort)} dir={sort?.dir ?? "asc"} />
                   </button>
                 </th>
-                <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-[#64748B]">Ações</th>
+                <th className="w-px whitespace-nowrap px-4 py-3 text-center align-middle text-sm font-semibold text-ui-slate">Ações</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((item) => (
-                <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                <tr key={item.id} className="border-b border-ui-wash transition-colors duration-200 last:border-b-0 hover:bg-brand-soft-alt motion-reduce:transition-none">
                   <td className="px-4 py-3 align-middle">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                         <conceptIcon.category className="h-[18px] w-[18px]" strokeWidth={1.75} />
                       </span>
-                      <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{item.name}</span>
+                      <span className="block truncate font-semibold leading-5 text-ui-ink">{item.name}</span>
                     </div>
                   </td>
                   <td className="w-px whitespace-nowrap px-4 py-3 text-center align-middle">
                     {pending === item.id ? (
                       <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                        <span className="text-sm text-[#0A0A0A]">Excluir {item.name}?</span>
+                        <span className="text-sm text-ui-ink">Excluir {item.name}?</span>
                         <Button type="button" className={moduleDangerClass} onClick={() => void remove(item)}>
                           <Trash2 className="h-4 w-4" />
                           Excluir
@@ -1056,7 +1056,7 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
               ))}
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-[#64748B]" colSpan={2}>
+                  <td className="px-4 py-10 text-center text-sm text-ui-slate" colSpan={2}>
                     {list.loading ? <span className="inline-flex w-full justify-center"><Spinner /></span> : "Nenhum valor."}
                   </td>
                 </tr>
@@ -1064,7 +1064,7 @@ function CategoryValues({ classificationId, canEdit }: { classificationId: numbe
             </tbody>
           </table>
         </div>
-        <div className="border-t border-[#F1F5F9] px-4 py-3">
+        <div className="border-t border-ui-wash px-4 py-3">
           <ListPager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} onPageSize={list.setPageSize} tone="module" />
         </div>
       </div>
@@ -1132,8 +1132,8 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
       <div className="w-full min-w-0 space-y-5">
         <BackLink to={backTo} appearance="detail" />
         <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-          <Spinner label="Carregando o valor" className="h-8 w-8 text-[#1E8A3A]" />
-          <p className="text-sm font-medium text-[#64748B]">Carregando o valor</p>
+          <Spinner label="Carregando o valor" className="h-8 w-8 text-brand-cta" />
+          <p className="text-sm font-medium text-ui-slate">Carregando o valor</p>
         </section>
       </div>
     )
@@ -1144,12 +1144,12 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
       <BackLink to={backTo} appearance="detail" />
       <section className={cn(moduleCardClass, "w-full space-y-5")}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <conceptIcon.category className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{mode === "view" ? name || "Valor" : mode === "new" ? "Novo valor" : "Editar valor"}</h2>
-            <p className="text-sm text-[#64748B]">{mode === "view" ? "Valor" : mode === "new" ? "Informe o nome do valor." : "Atualize o nome do valor."}</p>
+            <h2 className="text-lg font-semibold text-ui-ink">{mode === "view" ? name || "Valor" : mode === "new" ? "Novo valor" : "Editar valor"}</h2>
+            <p className="text-sm text-ui-slate">{mode === "view" ? "Valor" : mode === "new" ? "Informe o nome do valor." : "Atualize o nome do valor."}</p>
           </div>
         </div>
         {mode === "view" ? (
@@ -1162,7 +1162,7 @@ export function CategoryValueFormPage({ mode }: { mode: "new" | "edit" | "view" 
             <Label className={moduleLabelClass} htmlFor="classification-value-name">Nome</Label>
             <Input id="classification-value-name" className={moduleFieldClass} required value={name} onChange={(event) => setName(event.target.value)} />
           </div>
-          <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+          <div className="flex justify-end border-t border-ui-wash pt-5">
             <Button type="submit" className={modulePrimaryClass}>
               <Save className="h-4 w-4" />
               Salvar
@@ -1289,8 +1289,8 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
           <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-            <Spinner label={`Carregando ${article} ${noun}`} className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando {article} {noun}</p>
+            <Spinner label={`Carregando ${article} ${noun}`} className="h-8 w-8 text-brand-cta" />
+            <p className="text-sm font-medium text-ui-slate">Carregando {article} {noun}</p>
           </section>
         </div>
       )
@@ -1313,12 +1313,12 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         </div>
         <section className={cn(moduleCardClass, "w-full space-y-5")}>
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Icon className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
-              <p className="text-sm text-[#64748B]">{subtitle}</p>
+              <h2 className="text-lg font-semibold text-ui-ink">{heading}</h2>
+              <p className="text-sm text-ui-slate">{subtitle}</p>
             </div>
           </div>
           {mode === "view" ? (
@@ -1333,7 +1333,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
                   <Input id={`${catalog}-${field.name}`} className={moduleFieldClass} required={field.required} value={form[field.name] ?? ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
                 </div>
               ))}
-              <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+              <div className="flex justify-end border-t border-ui-wash pt-5">
                 <Button type="submit" className={modulePrimaryClass}>
                   <Save className="h-4 w-4" />
                   Salvar
@@ -1357,8 +1357,8 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
           <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-            <Spinner label={`Carregando ${article} ${noun}`} className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando {article} {noun}</p>
+            <Spinner label={`Carregando ${article} ${noun}`} className="h-8 w-8 text-brand-cta" />
+            <p className="text-sm font-medium text-ui-slate">Carregando {article} {noun}</p>
           </section>
         </div>
       )
@@ -1370,12 +1370,12 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         <BackLink to={entry.backTo} appearance="detail" />
         <section className={cn(moduleCardClass, "w-full space-y-5")}>
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Icon className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
-              <p className="text-sm text-[#64748B]">{subtitle}</p>
+              <h2 className="text-lg font-semibold text-ui-ink">{heading}</h2>
+              <p className="text-sm text-ui-slate">{subtitle}</p>
             </div>
           </div>
           {mode === "view" ? (
@@ -1406,7 +1406,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
                   )}
                 </div>
               ))}
-              <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+              <div className="flex justify-end border-t border-ui-wash pt-5">
                 <Button type="submit" className={modulePrimaryClass}>
                   <Save className="h-4 w-4" />
                   Salvar
@@ -1432,8 +1432,8 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         <div className="w-full min-w-0 space-y-5">
           <BackLink to={entry.backTo} appearance="detail" />
           <section className={cn(moduleCardClass, "flex min-h-[280px] w-full flex-col items-center justify-center gap-3")} role="status" aria-live="polite">
-            <Spinner label={`Carregando ${meta.article} ${meta.noun}`} className="h-8 w-8 text-[#1E8A3A]" />
-            <p className="text-sm font-medium text-[#64748B]">Carregando {meta.article} {meta.noun}</p>
+            <Spinner label={`Carregando ${meta.article} ${meta.noun}`} className="h-8 w-8 text-brand-cta" />
+            <p className="text-sm font-medium text-ui-slate">Carregando {meta.article} {meta.noun}</p>
           </section>
         </div>
       )
@@ -1550,12 +1550,12 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
         <BackLink to={entry.backTo} appearance="detail" />
         <section className={cn(moduleCardClass, "w-full space-y-5")}>
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Icon className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">{heading}</h2>
-              <p className="text-sm text-[#64748B]">{subtitle}</p>
+              <h2 className="text-lg font-semibold text-ui-ink">{heading}</h2>
+              <p className="text-sm text-ui-slate">{subtitle}</p>
             </div>
           </div>
           {mode === "view" ? (
@@ -1563,7 +1563,7 @@ export function EntityRecordPage({ catalog, mode }: { catalog: string; mode: "ne
           ) : (
             <ActionForm className="space-y-5" onSubmit={onSubmit}>
               {controls}
-              <div className="flex justify-end border-t border-[#F1F5F9] pt-5">
+              <div className="flex justify-end border-t border-ui-wash pt-5">
                 <Button type="submit" className={modulePrimaryClass}>
                   <Save className="h-4 w-4" />
                   Salvar
