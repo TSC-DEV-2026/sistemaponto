@@ -863,17 +863,20 @@ class FiscalFileUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class FiscalFileOut(BaseModel):
+class FiscalFileListOut(BaseModel):
     id: int
     kind: str
     starts_on: date
     ends_on: date
-    content: str
     valid: bool
     invalidated_at: datetime | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FiscalFileOut(FiscalFileListOut):
+    content: str
 
 
 class FiscalImportCreate(BaseModel):

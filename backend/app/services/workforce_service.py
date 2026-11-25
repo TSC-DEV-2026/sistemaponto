@@ -240,7 +240,7 @@ class WorkforceService:
             return self._list_cost_centers(scope, page, limit, equals)
         rows, total = self.repo.list_rows(model, scope.tenant_id, page=page, limit=limit, equals=equals, descending=False)
         if model is Journey:
-            rows = [self._present_journey(scope, row) for row in rows]
+            rows = self._present_journeys(scope, rows)
         return rows, total
 
     def get_named(self, model, scope: Scope, row_id: int):
@@ -979,26 +979,32 @@ class WorkforceService:
     def list_qr_cards(self, scope: Scope, page: int, limit: int):
         self._known(scope)
         ids = self._visible_ids(scope)
-        ready = []
-        cursor = 1
-        while True:
-            rows, total = self.repo.list_employees(
-                scope.tenant_id,
-                ids=ids,
-                page=cursor,
-                limit=100,
-                equals={"clock_method": "qr"},
+        rows, total = self.repo.list_qr_employees(
+            scope.tenant_id, self.today(), page=page, limit=limit, ids=ids
+        )
+        if not rows:
+            return [], total
+        labels = self.repo.labels_on([employee.id for employee in rows], self.today())
+        units = [labels.get(employee.id, {}).get("unit") for employee in rows]
+        names = self._entity_names(scope.tenant_id, [unit for unit in units if unit is not None])
+        cards = []
+        for employee in rows:
+            unit = labels.get(employee.id, {}).get("unit")
+            if unit is None or unit.reference_id is None or not employee.registration_number:
+                continue
+            registration = employee.registration_number
+            cards.append(
+                {
+                    "employee_id": employee.id,
+                    "full_name": employee.full_name,
+                    "unit_id": unit.reference_id,
+                    "unit_name": self._shown_name(unit, names),
+                    "cpf": employee.cpf,
+                    "registration_number": registration,
+                    "content": render_code(unit.reference_id, employee.cpf, registration),
+                }
             )
-            for employee in rows:
-                card = self._qr_card(employee)
-                if card is not None:
-                    ready.append(card)
-            if not rows or cursor * 100 >= total:
-                break
-            cursor += 1
-        ready.sort(key=lambda item: (item["full_name"].casefold(), item["employee_id"]))
-        start = (page - 1) * limit
-        return ready[start : start + limit], len(ready)
+        return cards, total
 
     def punch_qr(self, scope: Scope, data: dict) -> Punch:
         employee = self._employee(scope, int(data["employee_id"]))
@@ -1752,7 +1758,7 @@ class WorkforceService:
 
     def list_fiscal_files(self, scope: Scope, page: int, limit: int, equals: dict):
         self._can_manage_period(scope)
-        return self.repo.list_rows(FiscalFile, scope.tenant_id, page=page, limit=limit, equals=equals, descending=True)
+        return self.repo.list_fiscal_files(scope.tenant_id, page=page, limit=limit, equals=equals)
 
     def get_fiscal_file(self, scope: Scope, row_id: int) -> FiscalFile:
         self._can_manage_period(scope)
@@ -3365,6 +3371,41 @@ class WorkforceService:
 
     def _present_journey(self, scope: Scope, journey: Journey, spec: JourneySpec | None = None):
         chosen = spec or self._spec_latest(scope.tenant_id, journey)
+        return self._journey_view(journey, chosen)
+
+    def _present_journeys(self, scope: Scope, journeys: list[Journey]):
+        if not journeys:
+            return []
+        latest = self.repo.latest_versions_for(scope.tenant_id, [journey.id for journey in journeys])
+        version_ids = [version.id for version in latest.values()]
+        days_by_version = self.repo.days_for_versions(version_ids)
+        day_ids = [day.id for days in days_by_version.values() for day in days]
+        spans_by_day = self.repo.spans_for_days(day_ids)
+        views = []
+        for journey in journeys:
+            version = latest.get(journey.id)
+            if version is None:
+                views.append(self._journey_view(journey, legacy_spec(journey.morning_start, journey.morning_end, journey.afternoon_start, journey.afternoon_end)))
+                continue
+            days: list[DaySpec] = []
+            for stored in days_by_version.get(version.id, []):
+                spans = [
+                    SpanSpec(span.starts_at, span.ends_at)
+                    for span in spans_by_day.get(stored.id, [])
+                ]
+                days.append(DaySpec(position=stored.position, off=bool(stored.off), spans=spans))
+            days.sort(key=lambda item: item.position)
+            spec = JourneySpec(
+                kind=version.kind,
+                flexible=bool(version.flexible),
+                weekly_minutes=version.weekly_minutes,
+                days=days,
+                valid_from=version.valid_from,
+            )
+            views.append(self._journey_view(journey, spec))
+        return views
+
+    def _journey_view(self, journey: Journey, chosen: JourneySpec):
         morning, morning_end, afternoon, afternoon_end = clocks_of(chosen)
         return SimpleNamespace(
             id=journey.id,

@@ -685,6 +685,20 @@ class WorkforceRepository:
             .all()
         )
 
+    def latest_versions_for(self, tenant_id: int, journey_ids: list[int]) -> dict[int, JourneyVersion]:
+        if not journey_ids:
+            return {}
+        rows = (
+            self.db.query(JourneyVersion)
+            .filter(JourneyVersion.tenant_id == tenant_id, JourneyVersion.journey_id.in_(journey_ids))
+            .order_by(JourneyVersion.valid_from.asc(), JourneyVersion.id.asc())
+            .all()
+        )
+        found: dict[int, JourneyVersion] = {}
+        for row in rows:
+            found[row.journey_id] = row
+        return found
+
     def days_for(self, version_id: int) -> list[JourneyDay]:
         return (
             self.db.query(JourneyDay)
@@ -693,6 +707,20 @@ class WorkforceRepository:
             .all()
         )
 
+    def days_for_versions(self, version_ids: list[int]) -> dict[int, list[JourneyDay]]:
+        if not version_ids:
+            return {}
+        rows = (
+            self.db.query(JourneyDay)
+            .filter(JourneyDay.version_id.in_(version_ids))
+            .order_by(JourneyDay.position.asc(), JourneyDay.id.asc())
+            .all()
+        )
+        found: dict[int, list[JourneyDay]] = {version_id: [] for version_id in version_ids}
+        for row in rows:
+            found.setdefault(row.version_id, []).append(row)
+        return found
+
     def spans_for(self, day_id: int) -> list[JourneySpan]:
         return (
             self.db.query(JourneySpan)
@@ -700,6 +728,92 @@ class WorkforceRepository:
             .order_by(JourneySpan.position.asc(), JourneySpan.id.asc())
             .all()
         )
+
+    def spans_for_days(self, day_ids: list[int]) -> dict[int, list[JourneySpan]]:
+        if not day_ids:
+            return {}
+        rows = (
+            self.db.query(JourneySpan)
+            .filter(JourneySpan.day_id.in_(day_ids))
+            .order_by(JourneySpan.position.asc(), JourneySpan.id.asc())
+            .all()
+        )
+        found: dict[int, list[JourneySpan]] = {day_id: [] for day_id in day_ids}
+        for row in rows:
+            found.setdefault(row.day_id, []).append(row)
+        return found
+
+    def list_qr_employees(
+        self,
+        tenant_id: int,
+        day: date,
+        *,
+        page: int,
+        limit: int,
+        ids: list[int] | None,
+    ) -> tuple[list[Employee], int]:
+        if ids is not None and len(ids) == 0:
+            return [], 0
+        unit_exists = (
+            self.db.query(EmployeeVigency.id)
+            .filter(
+                EmployeeVigency.employee_id == Employee.id,
+                EmployeeVigency.kind == "unit",
+                EmployeeVigency.reference_id.isnot(None),
+                EmployeeVigency.valid_from <= day,
+                or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= day),
+            )
+            .exists()
+        )
+        query = self.db.query(Employee).filter(
+            Employee.tenant_id == tenant_id,
+            Employee.clock_method == "qr",
+            Employee.registration_number.isnot(None),
+            Employee.registration_number != "",
+            unit_exists,
+        )
+        if ids is not None:
+            query = query.filter(Employee.id.in_(ids))
+        total = query.count()
+        items = (
+            query.order_by(func.lower(Employee.full_name).asc(), Employee.id.asc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return items, total
+
+    def list_fiscal_files(
+        self,
+        tenant_id: int,
+        *,
+        page: int,
+        limit: int,
+        equals: dict,
+    ) -> tuple[list[FiscalFile], int]:
+        query = self.db.query(FiscalFile).filter(FiscalFile.tenant_id == tenant_id)
+        query = _apply_filters(query, FiscalFile, equals)
+        total = query.count()
+        items = (
+            query.options(
+                load_only(
+                    FiscalFile.id,
+                    FiscalFile.tenant_id,
+                    FiscalFile.kind,
+                    FiscalFile.starts_on,
+                    FiscalFile.ends_on,
+                    FiscalFile.valid,
+                    FiscalFile.invalidated_at,
+                    FiscalFile.created_by_person_id,
+                    FiscalFile.created_at,
+                )
+            )
+            .order_by(FiscalFile.id.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return items, total
 
     def vigencies_for_reference(self, tenant_id: int, kind: str, reference_id: int) -> list[EmployeeVigency]:
         return (

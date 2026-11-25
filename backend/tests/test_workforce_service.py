@@ -231,15 +231,76 @@ class Memory:
         found.sort(key=lambda item: (item.valid_from, item.id))
         return found
 
+    def latest_versions_for(self, tenant_id: int, journey_ids: list[int]):
+        found = {}
+        for journey_id in journey_ids:
+            versions = self.versions_for(tenant_id, journey_id)
+            if versions:
+                found[journey_id] = versions[-1]
+        return found
+
     def days_for(self, version_id: int):
         found = [row for row in self.rows if isinstance(row, JourneyDay) and row.version_id == version_id]
         found.sort(key=lambda item: (item.position, item.id))
         return found
 
+    def days_for_versions(self, version_ids: list[int]):
+        return {version_id: self.days_for(version_id) for version_id in version_ids}
+
     def spans_for(self, day_id: int):
         found = [row for row in self.rows if isinstance(row, JourneySpan) and row.day_id == day_id]
         found.sort(key=lambda item: (item.position, item.id))
         return found
+
+    def spans_for_days(self, day_ids: list[int]):
+        return {day_id: self.spans_for(day_id) for day_id in day_ids}
+
+    def list_qr_employees(self, tenant_id: int, day: date, *, page: int, limit: int, ids):
+        if ids is not None and len(ids) == 0:
+            return [], 0
+        found = []
+        for row in self._of(Employee, tenant_id):
+            if ids is not None and row.id not in ids:
+                continue
+            if row.clock_method != "qr":
+                continue
+            if not row.registration_number:
+                continue
+            unit = self.applicable(row.id, "unit", day)
+            if unit is None or unit.reference_id is None:
+                continue
+            found.append(row)
+        found.sort(key=lambda item: (item.full_name.casefold(), item.id))
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
+
+    def list_fiscal_files(self, tenant_id: int, *, page: int, limit: int, equals: dict):
+        found = []
+        for row in self._of(FiscalFile, tenant_id):
+            if not all(getattr(row, key) == value for key, value in equals.items()):
+                continue
+            found.append(row)
+        found.sort(key=lambda item: item.id, reverse=True)
+        total = len(found)
+        start = (page - 1) * limit
+        page_rows = found[start : start + limit]
+        lean = []
+        for row in page_rows:
+            lean.append(
+                SimpleNamespace(
+                    id=row.id,
+                    tenant_id=row.tenant_id,
+                    kind=row.kind,
+                    starts_on=row.starts_on,
+                    ends_on=row.ends_on,
+                    valid=row.valid,
+                    invalidated_at=row.invalidated_at,
+                    created_by_person_id=row.created_by_person_id,
+                    created_at=row.created_at,
+                )
+            )
+        return lean, total
 
     def vigencies_for_reference(self, tenant_id: int, kind: str, reference_id: int):
         return [
@@ -3719,6 +3780,34 @@ def test_lista_de_qr_so_traz_quem_pode_imprimir():
     hidden, hidden_total = workforce.list_qr_cards(scope(10, "member"), 1, 20)
     assert hidden_total == 0 and hidden == []
     assert plain["clock_method"] == "simple"
+
+
+def test_lista_de_qr_pagina_na_consulta():
+    workforce, _repo = service()
+    first = workforce.create_employee(admin(), {**admitted(date(2026, 10, 1), "22222222222", None), "full_name": "Ana"})
+    second = workforce.create_employee(admin(), {**admitted(date(2026, 10, 1), "33333333333", None), "full_name": "Bruno"})
+    workforce.update_employee(admin(), first["id"], {"clock_method": "qr", "registration_number": "A1"})
+    workforce.update_employee(admin(), second["id"], {"clock_method": "qr", "registration_number": "B2"})
+    assign_unit(workforce, first["id"], "Matriz", date(2026, 10, 1))
+    assign_unit(workforce, second["id"], "Filial", date(2026, 10, 1))
+    page, total = workforce.list_qr_cards(admin(), 1, 1)
+    assert total == 2
+    assert len(page) == 1
+    assert page[0]["full_name"] == "Ana"
+    other, other_total = workforce.list_qr_cards(admin(), 2, 1)
+    assert other_total == 2
+    assert other[0]["full_name"] == "Bruno"
+
+
+def test_lista_fiscal_omite_o_conteudo():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    created = workforce.create_fiscal_file(admin(), {"kind": "afd", "year": 2026, "month": 10})
+    assert created.content
+    rows, total = workforce.list_fiscal_files(admin(), 1, 20, {})
+    assert total == 1
+    assert rows[0].id == created.id
+    assert not hasattr(rows[0], "content") or "content" not in rows[0].__dict__
 
 
 def test_operacao_em_massa_altera_o_lote_ou_nenhum():

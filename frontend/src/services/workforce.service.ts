@@ -355,7 +355,7 @@ export type FiscalFile = {
   kind: string
   starts_on: string
   ends_on: string
-  content: string
+  content?: string
   valid: boolean
   invalidated_at: string | null
   created_at: string
