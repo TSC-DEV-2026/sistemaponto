@@ -2004,6 +2004,27 @@ def test_com_banco_o_excedente_soma_e_o_que_falta_compensa():
     assert balance["debit_minutes"] == 10
 
 
+def test_marco_de_saldo_limita_a_origem_do_banco():
+    workforce, _repo = service()
+    person = workforce.create_employee(admin(), admitted(date(2026, 1, 5)))
+    workforce.update_employee(admin(), person["id"], {"hour_bank": True})
+    work_journey(workforce, person["id"])
+    mark(workforce, person["id"], 6, (8, 0), (12, 0), (13, 0), (18, 18))
+    workforce.create_hour_bank_entry(
+        admin(),
+        {"employee_id": person["id"], "kind": "balance", "minutes": 100, "entry_on": date(2026, 10, 6), "note": "Marco"},
+    )
+    mark(workforce, person["id"], 7, (8, 0), (12, 0), (13, 0), (18, 18))
+    employee = workforce._employee(admin(), person["id"])
+    assert workforce._bank_calc_from(admin(), employee, date(2026, 10, 7), date(2026, 10, 7)) == date(2026, 10, 7)
+    result = workforce.calculations(admin(), person["id"], date(2026, 10, 7), date(2026, 10, 7))
+    assert day_result(result, date(2026, 10, 7))["bank_minutes"] == 30
+    assert result["balance_minutes"] == 130
+    assert workforce.hour_bank(admin(), person["id"])["balance_minutes"] == 130
+    item = next(row for row in workforce.payroll(admin(), 2026, 10)["items"] if row["employee_id"] == person["id"])
+    assert item["balance_minutes"] == 130
+
+
 def test_adicional_noturno_nao_entra_no_saldo():
     workforce, _repo = service()
     person = workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
