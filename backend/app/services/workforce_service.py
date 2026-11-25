@@ -360,6 +360,35 @@ class WorkforceService:
             for row in rows
         ]
 
+    def employees_lean(self, rows: list[Employee]) -> list[dict]:
+        return [
+            {
+                "id": row.id,
+                "full_name": row.full_name,
+                "cpf": row.cpf,
+                "email": row.email,
+                "person_id": row.person_id,
+                "admission_date": row.admission_date,
+                "note": row.note,
+                "hour_bank": row.hour_bank,
+                "registration_number": row.registration_number,
+                "clock_method": row.clock_method,
+                "face_key": None,
+                "face_url": None,
+                "situation": None,
+                "job_label": None,
+                "journey_label": None,
+                "cost_center_label": None,
+                "unit_label": None,
+                "team_label": None,
+                "norm_label": None,
+                "manager_label": None,
+                "managers": [],
+                "categories": [],
+            }
+            for row in rows
+        ]
+
     def get_employee(self, scope: Scope, employee_id: int) -> dict:
         self._known(scope)
         row = self._employee(scope, employee_id)
@@ -1370,7 +1399,21 @@ class WorkforceService:
 
     def list_closings(self, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
-        rows, total = self.repo.list_rows(Closing, scope.tenant_id, page=page, limit=limit, equals=equals, descending=True)
+        filters = dict(equals)
+        employee_id = filters.pop("employee_id", None)
+        if employee_id is not None:
+            rows, total = self.repo.list_closings_for_employee(
+                scope.tenant_id,
+                int(employee_id),
+                page=page,
+                limit=limit,
+                equals=filters,
+                descending=True,
+            )
+        else:
+            rows, total = self.repo.list_rows(
+                Closing, scope.tenant_id, page=page, limit=limit, equals=filters, descending=True
+            )
         events = self.repo.closing_events_for([row.id for row in rows])
         return [self._closing_out(row, events.get(row.id, [])) for row in rows], total
 
@@ -1530,6 +1573,10 @@ class WorkforceService:
         return self.repo.list_rows(
             Notice, scope.tenant_id, page=page, limit=limit, equals=filters, descending=True
         )
+
+    def count_unread_notices(self, scope: Scope) -> int:
+        self._known(scope)
+        return self.repo.count_unread_notices(scope.tenant_id, scope.person_id)
 
     def get_notice(self, scope: Scope, row_id: int) -> Notice:
         row = self._row(Notice, scope, row_id)

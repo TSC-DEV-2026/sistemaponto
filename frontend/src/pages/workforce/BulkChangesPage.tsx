@@ -105,7 +105,8 @@ async function loadAll<T>(path: string, params: Record<string, string | number> 
 }
 
 async function loadChoices(path: string): Promise<Choice[]> {
-  const items = await loadAll<NamedRecord | Employee>(path)
+  const lean = path === "/categories" || path === "/jobs" || path === "/teams" || path === "/norms"
+  const items = await loadAll<NamedRecord | Employee>(path, lean ? { fields: "id,name" } : {})
   return items.map((item) => ({
     value: String(item.id),
     label: "full_name" in item ? item.full_name || "Não informado" : item.name || "Não informado",
@@ -116,9 +117,9 @@ async function loadChoices(path: string): Promise<Choice[]> {
 
 async function loadManagerChoices(): Promise<Choice[]> {
   const [admins, managers, employees] = await Promise.all([
-    loadAll<Membership>("/memberships", { role: "admin" }),
-    loadAll<Membership>("/memberships", { role: "manager" }),
-    loadAll<Employee>("/employees"),
+    loadAll<Membership>("/memberships", { role: "admin", fields: "id,person_id" }),
+    loadAll<Membership>("/memberships", { role: "manager", fields: "id,person_id" }),
+    loadAll<Employee>("/employees", { fields: "id,full_name,person_id" }),
   ])
   const allowed = new Set([...admins, ...managers].map((item) => item.person_id))
   return employees
@@ -216,6 +217,7 @@ export function BulkChangesPage() {
   const list = usePagedList<Employee>("/employees", query, canEdit, saved)
   const queryKey = JSON.stringify(query)
   const queryKeyRef = useRef(queryKey)
+  const loadedChoices = useRef(new Set<string>())
   queryKeyRef.current = queryKey
   const selectedIds = new Set(selected.map((item) => item.id))
   const distinctPeople = new Set(rules.flatMap((rule) => rule.people.map((item) => item.id))).size
@@ -230,21 +232,25 @@ export function BulkChangesPage() {
   }, [role, canEdit, navigate])
 
   useEffect(() => {
-    if (!canEdit) return
+    if (!canEdit || !operationId) return
+    const current = operationOf(operationId)
+    const path = current.id === "category" ? "/categories" : current.path
+    if (!path || loadedChoices.current.has(path)) return
+    loadedChoices.current.add(path)
     let active = true
-    const paths = [...new Set(catalog.map((item) => item.path).filter(Boolean))]
-    Promise.all(paths.map(async (path) => [path, path === "/employees" ? await loadManagerChoices() : await loadChoices(path)] as const))
-      .then(async (loaded) => {
-        const groups = await loadChoices("/categories").catch(() => [])
-        if (active) setChoices({ ...Object.fromEntries(loaded), "/categories": groups })
+    const load = path === "/employees" ? loadManagerChoices() : loadChoices(path)
+    load
+      .then((items) => {
+        if (active) setChoices((next) => ({ ...next, [path]: items }))
       })
       .catch((caught: unknown) => {
+        loadedChoices.current.delete(path)
         if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível carregar.")
       })
     return () => {
       active = false
     }
-  }, [canEdit])
+  }, [canEdit, operationId])
 
   useEffect(() => {
     if (!classificationId) {

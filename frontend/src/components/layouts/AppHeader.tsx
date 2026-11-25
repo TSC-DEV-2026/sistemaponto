@@ -5,27 +5,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { TenantSwitcher } from "@/components/layouts/TenantSwitcher"
 import { headingFor } from "@/page-headings"
 import { logout } from "@/services/auth.service"
-import { listRecords, type Notice } from "@/services/workforce.service"
+import { unreadNoticeCount } from "@/services/workforce.service"
 import { useAuthStore } from "@/store/auth.store"
 import { cn } from "@/utils/cn"
 
 type MenuPhase = "closed" | "open" | "closing"
-
-async function countUnread() {
-  let page = 1
-  let unread = 0
-  let covered = 0
-  let total = 0
-  do {
-    const result = await listRecords<Notice>("/notices", { page, limit: 100 })
-    total = result.total
-    unread += result.items.filter((item) => !item.read_at).length
-    covered += result.items.length
-    page += 1
-    if (result.items.length === 0) break
-  } while (covered < total && page <= 20)
-  return unread
-}
 
 function prefersStill() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -74,9 +58,10 @@ export function AppHeader() {
     }
     let active = true
     function load() {
-      countUnread()
-        .then((total) => {
-          if (active) setUnread(total)
+      if (document.visibilityState === "hidden") return
+      unreadNoticeCount()
+        .then((result) => {
+          if (active) setUnread(result.total)
         })
         .catch(() => {
           if (active) setUnread(0)
@@ -84,13 +69,18 @@ export function AppHeader() {
     }
     load()
     const timer = window.setInterval(load, 30000)
+    function onVisible() {
+      if (document.visibilityState === "visible") load()
+    }
     window.addEventListener("notices-changed", load)
+    document.addEventListener("visibilitychange", onVisible)
     return () => {
       active = false
       window.clearInterval(timer)
       window.removeEventListener("notices-changed", load)
+      document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [tenantId, location.pathname])
+  }, [tenantId])
 
   useEffect(() => {
     if (phase !== "open") return

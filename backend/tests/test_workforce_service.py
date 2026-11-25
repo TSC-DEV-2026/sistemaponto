@@ -555,6 +555,35 @@ class Memory:
                     return row
         return None
 
+    def count_unread_notices(self, tenant_id: int, person_id: int) -> int:
+        return sum(
+            1
+            for row in self._of(Notice, tenant_id)
+            if row.person_id == person_id and row.read_at is None
+        )
+
+    def list_closings_for_employee(
+        self,
+        tenant_id: int,
+        employee_id: int,
+        *,
+        page: int,
+        limit: int,
+        equals: dict,
+        descending: bool,
+    ):
+        found = []
+        for row in self._of(Closing, tenant_id):
+            members = self.member_ids(row.id)
+            if members and employee_id not in members:
+                continue
+            if all(filter_matches(key, getattr(row, key), value) for key, value in equals.items()):
+                found.append(row)
+        found.sort(key=lambda item: item.id, reverse=descending)
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
+
     def closed_exact(self, tenant_id: int, start: date, end: date):
         for row in self._of(Closing, tenant_id):
             if row.status == "closed" and row.starts_on == start and row.ends_on == end:
@@ -2676,6 +2705,29 @@ def test_canal_do_aviso_separa_sistema_e_email():
         workforce.create_notice_preference(admin(), {"kind": "request_approved", "enabled": True, "channel": "sms"})
     assert invalid.value.status_code == 400
     assert invalid.value.message == "Canal inválido"
+
+
+def test_contagem_de_avisos_nao_lidos_e_fechamento_por_funcionario():
+    workforce, repo = service()
+    _access(repo, 9, "member")
+    first = workforce.create_employee(admin(), employee_payload("22222222222", 9))
+    second = workforce.create_employee(admin(), employee_payload("33333333333", 8))
+    workforce.update_employee(admin(), first["id"], {"email": "ana@example.com"})
+    workforce.create_request(scope(9, "member"), period("allowance"))
+    assert workforce.count_unread_notices(admin()) == 1
+    notices, _total = workforce.list_notices(admin(), 1, 10, {})
+    workforce.update_notice(admin(), notices[0].id, {"read": True})
+    assert workforce.count_unread_notices(admin()) == 0
+    opened = workforce.create_closing(
+        admin(),
+        {"year": 2026, "month": 10, "note": None, "employee_ids": [second["id"]]},
+    )
+    workforce.update_closing(admin(), opened["id"], {"status": "closed"})
+    mine, mine_total = workforce.list_closings(admin(), 1, 20, {"status": "closed", "employee_id": second["id"]})
+    other, other_total = workforce.list_closings(admin(), 1, 20, {"status": "closed", "employee_id": first["id"]})
+    assert mine_total == 1
+    assert mine[0]["id"] == opened["id"]
+    assert other_total == 0
 
 
 def test_envio_diario_de_ponto_fechamento_trial_e_plano():

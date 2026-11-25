@@ -24,6 +24,7 @@ import { CatalogList, DomainTabs, SortArrows, TabAction } from "@/pages/workforc
 import { CertificatePhotoField, DocumentLink } from "@/components/workforce/TimeOffFields"
 import {
   createRecord,
+  employeePickFields,
   getReport,
   listRecords,
   notifyNoticesChanged,
@@ -91,11 +92,10 @@ export function TimeClockPage() {
   useEffect(() => {
     if (role === "admin") navigate("/", { replace: true })
   }, [role, navigate])
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [mine, setMine] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
   const [failed, setFailed] = useState(false)
-  const mine = employees.find((item) => item.person_id === personId) ?? null
   const method = mine?.clock_method || "simple"
   const card = method === "qr" || method === "face" || method === "simple" ? clockCards[method] : null
   const Icon = card?.icon ?? Clock
@@ -103,9 +103,14 @@ export function TimeClockPage() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
+    setMine(null)
+    if (!personId) {
+      setLoading(false)
+      return
+    }
+    listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId, fields: employeePickFields })
       .then((page) => {
-        if (active) setEmployees(page.items)
+        if (active) setMine(page.items[0] ?? null)
       })
       .catch((caught: unknown) => {
         if (!active) return
@@ -118,7 +123,7 @@ export function TimeClockPage() {
     return () => {
       active = false
     }
-  }, [tenantId])
+  }, [tenantId, personId])
 
   async function punchSimple(employeeId: number) {
     setMessage("")
@@ -647,7 +652,6 @@ export function RequestsPage() {
   const [status, setStatus] = useState("pending")
   const [listEmployee, setListEmployee] = useState("")
   const [listKind, setListKind] = useState("")
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [canRequest, setCanRequest] = useState(false)
   const [ownEmployeeId, setOwnEmployeeId] = useState<number | null>(null)
   const [decision, setDecision] = useState<RequestDecision | null>(null)
@@ -669,12 +673,12 @@ export function RequestsPage() {
 
   async function load() {
     setOwnEmployeeId(null)
-    const [people, own] = await Promise.all([
-      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-      personId ? listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId }) : Promise.resolve(null),
-    ])
-    setEmployees(people.items)
-    const employee = own?.items[0]
+    if (!personId) {
+      setCanRequest(false)
+      return
+    }
+    const own = await listRecords<Employee>("/employees", { page: 1, limit: 1, person_id: personId, fields: `${employeePickFields},situation` })
+    const employee = own.items[0]
     setOwnEmployeeId(employee?.id ?? null)
     setCanRequest(employee != null && employee.situation !== "dismissed")
   }
@@ -738,7 +742,6 @@ export function RequestsPage() {
     if (busy.current) {
       return
     }
-    const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
     openerRef.current = opener
     setNote("")
     setDecision({
@@ -746,7 +749,7 @@ export function RequestsPage() {
       action,
       kind: item.kind,
       kindLabel: requestKindLabel[item.kind] || item.kind,
-      person,
+      person: String(item.employee_id),
     })
   }
 
@@ -794,11 +797,7 @@ export function RequestsPage() {
   }
 
   function ownRequest(item: TimeRequest) {
-    if (ownEmployeeId != null && item.employee_id === ownEmployeeId) {
-      return true
-    }
-    const employee = employees.find((person) => person.id === item.employee_id)
-    return employee?.person_id != null && employee.person_id === personId
+    return ownEmployeeId != null && item.employee_id === ownEmployeeId
   }
 
   function mayDecide(item: TimeRequest) {
@@ -883,9 +882,7 @@ export function RequestsPage() {
             <EmployeeCombobox
               id="request-employee"
               value={listEmployee}
-              employees={employees}
               emptyLabel="Todos"
-              extendSearch={employees.length >= 100}
               onChange={setListEmployee}
             />
           </div>
@@ -922,7 +919,7 @@ export function RequestsPage() {
         {!inbox.loading && !inbox.error && inbox.items.length > 0 ? (
           <ul className="flex flex-col gap-3">
             {inbox.items.map((item) => {
-              const person = employees.find((employee) => employee.id === item.employee_id)?.full_name || String(item.employee_id)
+              const person = String(item.employee_id)
               const kindLabel = requestKindLabel[item.kind] || item.kind
               const punches = requestedPunches(item.punches ?? [])
               const period = periodText(item)
@@ -1679,7 +1676,6 @@ export function NotificationsPage() {
   const canSend = role === "admin" || role === "manager"
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [preferences, setPreferences] = useState<NoticePreference[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [preferenceKind, setPreferenceKind] = useState("")
   const [noticeEmployee, setNoticeEmployee] = useState("")
   const [sent, setSent] = useState<number | null>(null)
@@ -1688,12 +1684,8 @@ export function NotificationsPage() {
   const notices = usePagedList<Notice>("/notices", noticeEmployee ? { employee_id: Number(noticeEmployee) } : {})
 
   async function load() {
-    const [prefs, people] = await Promise.all([
-      listRecords<NoticePreference>("/notice-preferences", { page: 1, limit: 100 }),
-      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-    ])
+    const prefs = await listRecords<NoticePreference>("/notice-preferences", { page: 1, limit: 100 })
     setPreferences(prefs.items)
-    setEmployees(people.items)
   }
 
   useEffect(() => {
@@ -1813,17 +1805,7 @@ export function NotificationsPage() {
         {sent !== null ? <p className="text-sm font-medium text-brand-cta">{sent} avisos enviados.</p> : null}
         <div className="space-y-2">
           <Label className={moduleLabelClass} htmlFor="notice-employee">Funcionário</Label>
-          <SiteSelect
-            id="notice-employee"
-            value={noticeEmployee}
-            className="h-12"
-            placeholder="Todos"
-            icon={conceptIcon.employee}
-            searchable
-            searchPlaceholder="Pesquisar funcionário"
-            options={[{ value: "", label: "Todos" }, ...employees.map((item) => ({ value: String(item.id), label: item.full_name || "Não informado" }))]}
-            onChange={setNoticeEmployee}
-          />
+          <EmployeeCombobox id="notice-employee" value={noticeEmployee} emptyLabel="Todos" onChange={setNoticeEmployee} />
         </div>
         {notices.loading && notices.items.length === 0 && !notices.error ? (
           <div className="flex justify-center py-10" role="status">
@@ -1967,10 +1949,8 @@ function reportGroups(items: Report["items"]) {
   return groups
 }
 
-function consultedPerson(query: ReportQuery, employees: Employee[], items: Report["items"]) {
+function consultedPerson(query: ReportQuery, items: Report["items"]) {
   if (!query.employeeId) return "Todos"
-  const known = employees.find((item) => String(item.id) === query.employeeId)
-  if (known) return known.full_name
   return items.find((item) => item.full_name)?.full_name || "Funcionário selecionado"
 }
 
@@ -1981,7 +1961,6 @@ export function ReportsPage() {
   const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const requestId = useRef(0)
   const [catalog, setCatalog] = useState<ReportCatalogItem[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [filtersReady, setFiltersReady] = useState(false)
   const [kind, setKind] = useState("punch")
   const [startsOn, setStartsOn] = useState(monthStart)
@@ -2004,16 +1983,12 @@ export function ReportsPage() {
     }
     let active = true
     setFiltersReady(false)
-    Promise.all([
-      listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 }),
-      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-    ])
-      .then(async ([reports, people]) => {
+    listRecords<ReportCatalogItem>("/report-catalog", { page: 1, limit: 20 })
+      .then((reports) => {
         if (!active) {
           return
         }
         setCatalog(reports.items)
-        setEmployees(people.items)
         if (reports.items[0]) {
           setKind(reports.items[0].kind)
         }
@@ -2135,7 +2110,7 @@ export function ReportsPage() {
             <Label className={moduleLabelClass} htmlFor="report-employee">
               Funcionário
             </Label>
-            <EmployeeCombobox id="report-employee" value={employeeId} employees={employees} emptyLabel="Todos" extendSearch={employees.length >= 100} loading={!filtersReady} onChange={setEmployeeId} />
+            <EmployeeCombobox id="report-employee" value={employeeId} emptyLabel="Todos" loading={!filtersReady} onChange={setEmployeeId} />
           </div>
           <Button type="submit" className={cn(modulePrimaryClass, "h-[50px] w-full px-5 sm:col-span-2 xl:col-span-1 xl:w-auto")} disabled={loading}>
             <Search className="h-4 w-4" aria-hidden />
@@ -2166,7 +2141,7 @@ export function ReportsPage() {
             [
               [FileText, "Tipo", result.name],
               [Calendar, result.starts_on === result.ends_on ? "Dia" : "Período", result.starts_on === result.ends_on ? showDate(result.starts_on) : `${showDate(result.starts_on)} a ${showDate(result.ends_on)}`],
-              [conceptIcon.employee, "Funcionário", consultedPerson(applied, employees, result.items)],
+              [conceptIcon.employee, "Funcionário", consultedPerson(applied, result.items)],
               [List, "Registros encontrados", String(result.total)],
             ] as const
           ).map(([Icon, label, value]) => (

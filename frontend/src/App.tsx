@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ReactElement, type ReactNode } from "react"
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation, useParams } from "react-router-dom"
 
 import { legacyPath } from "@/route-slugs"
@@ -22,27 +23,39 @@ import { TenantDetailPage } from "@/pages/TenantDetailPage"
 import { TenantFormPage } from "@/pages/TenantFormPage"
 import { TenantsPage } from "@/pages/TenantsPage"
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage"
-import { ApuracaoDayPage } from "@/pages/workforce/ApuracaoDayPage"
-import { BulkChangesPage } from "@/pages/workforce/BulkChangesPage"
-import { ClockDevicesPage } from "@/pages/workforce/ClockDevicesPage"
-import { EmployeeFormPage } from "@/pages/workforce/EmployeeFormPage"
-import { EmployeePage } from "@/pages/workforce/EmployeePage"
-import { HourBankEntryPage, JourneyPage, PunchAdjustPage } from "@/pages/workforce/JourneyPage"
-import {
-  LaborPage,
-  NotificationsPage,
-  OrganizationPage,
-  PayrollPage,
-  ReportsPage,
-  RequestsPage,
-  TimeClockPage,
-} from "@/pages/workforce/OperationsPages"
-import { CategoryValueFormPage, EntityRecordPage } from "@/pages/workforce/EntityScreens"
-import { OccurrenceEntryPage, OccurrenceRecordPage, OccurrencesPage } from "@/pages/workforce/OccurrencePages"
-import { PeoplePage } from "@/pages/workforce/PeoplePage"
-import { ClosingFormPage } from "@/pages/workforce/ClosingFormPage"
-import { ClosingResultPage } from "@/pages/workforce/ClosingResultPage"
-import { RequestFormPage } from "@/pages/workforce/RequestFormPage"
+
+const ApuracaoDayPage = lazy(() => import("@/pages/workforce/ApuracaoDayPage").then((m) => ({ default: m.ApuracaoDayPage })))
+const BulkChangesPage = lazy(() => import("@/pages/workforce/BulkChangesPage").then((m) => ({ default: m.BulkChangesPage })))
+const ClockDevicesPage = lazy(() => import("@/pages/workforce/ClockDevicesPage").then((m) => ({ default: m.ClockDevicesPage })))
+const EmployeeFormPage = lazy(() => import("@/pages/workforce/EmployeeFormPage").then((m) => ({ default: m.EmployeeFormPage })))
+const EmployeePage = lazy(() => import("@/pages/workforce/EmployeePage").then((m) => ({ default: m.EmployeePage })))
+const JourneyPage = lazy(() => import("@/pages/workforce/JourneyPage").then((m) => ({ default: m.JourneyPage })))
+const HourBankEntryPage = lazy(() => import("@/pages/workforce/JourneyPage").then((m) => ({ default: m.HourBankEntryPage })))
+const PunchAdjustPage = lazy(() => import("@/pages/workforce/JourneyPage").then((m) => ({ default: m.PunchAdjustPage })))
+const LaborPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.LaborPage })))
+const NotificationsPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.NotificationsPage })))
+const OrganizationPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.OrganizationPage })))
+const PayrollPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.PayrollPage })))
+const ReportsPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.ReportsPage })))
+const RequestsPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.RequestsPage })))
+const TimeClockPage = lazy(() => import("@/pages/workforce/OperationsPages").then((m) => ({ default: m.TimeClockPage })))
+const EntityRecordPage = lazy(() => import("@/pages/workforce/EntityScreens").then((m) => ({ default: m.EntityRecordPage })))
+const CategoryValueFormPage = lazy(() => import("@/pages/workforce/EntityScreens").then((m) => ({ default: m.CategoryValueFormPage })))
+const OccurrencesPage = lazy(() => import("@/pages/workforce/OccurrencePages").then((m) => ({ default: m.OccurrencesPage })))
+const OccurrenceEntryPage = lazy(() => import("@/pages/workforce/OccurrencePages").then((m) => ({ default: m.OccurrenceEntryPage })))
+const OccurrenceRecordPage = lazy(() => import("@/pages/workforce/OccurrencePages").then((m) => ({ default: m.OccurrenceRecordPage })))
+const PeoplePage = lazy(() => import("@/pages/workforce/PeoplePage").then((m) => ({ default: m.PeoplePage })))
+const ClosingFormPage = lazy(() => import("@/pages/workforce/ClosingFormPage").then((m) => ({ default: m.ClosingFormPage })))
+const ClosingResultPage = lazy(() => import("@/pages/workforce/ClosingResultPage").then((m) => ({ default: m.ClosingResultPage })))
+const RequestFormPage = lazy(() => import("@/pages/workforce/RequestFormPage").then((m) => ({ default: m.RequestFormPage })))
+
+function LazyPage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<div className="px-6 py-8 text-sm text-brand-quiet">Carregando…</div>}>{children}</Suspense>
+}
+
+function lazyElement(node: ReactElement) {
+  return <LazyPage>{node}</LazyPage>
+}
 
 function LegacyJourneyRedirect() {
   const { id } = useParams()
@@ -98,21 +111,21 @@ const router = createBrowserRouter([
                   { path: "/timekeeping/adjustments", element: <LegacyRouteRedirect /> },
                   { path: "/timekeeping/hour-bank/new", element: <LegacyRouteRedirect /> },
                   { path: "/timekeeping/calculation/:workDate", element: <LegacyRouteRedirect /> },
-                  { path: "/timekeeping", element: <JourneyPage /> },
-                  { path: "/calculations/:workDate", element: <ApuracaoDayPage /> },
-                  { path: "/punches/corrections", element: <PunchAdjustPage /> },
-                  { path: "/hour-bank-entries/new", element: <HourBankEntryPage /> },
-                  { path: "/hour-bank-entries/:id/edit", element: <HourBankEntryPage /> },
+                  { path: "/timekeeping", element: lazyElement(<JourneyPage />) },
+                  { path: "/calculations/:workDate", element: lazyElement(<ApuracaoDayPage />) },
+                  { path: "/punches/corrections", element: lazyElement(<PunchAdjustPage />) },
+                  { path: "/hour-bank-entries/new", element: lazyElement(<HourBankEntryPage />) },
+                  { path: "/hour-bank-entries/:id/edit", element: lazyElement(<HourBankEntryPage />) },
                   { path: "/time-clock", element: <LegacyRouteRedirect /> },
-                  { path: "/punches", element: <TimeClockPage /> },
-                  { path: "/occurrences/new", element: <OccurrenceEntryPage /> },
-                  { path: "/occurrences/:id/edit", element: <OccurrenceRecordPage mode="edit" /> },
-                  { path: "/occurrences/:id", element: <OccurrenceRecordPage mode="view" /> },
-                  { path: "/occurrences", element: <OccurrencesPage /> },
-                  { path: "/requests", element: <RequestsPage /> },
-                  { path: "/requests/new", element: <RequestFormPage /> },
-                  { path: "/closings/new", element: <ClosingFormPage /> },
-                  { path: "/closings/:id", element: <ClosingResultPage /> },
+                  { path: "/punches", element: lazyElement(<TimeClockPage />) },
+                  { path: "/occurrences/new", element: lazyElement(<OccurrenceEntryPage />) },
+                  { path: "/occurrences/:id/edit", element: lazyElement(<OccurrenceRecordPage mode="edit" />) },
+                  { path: "/occurrences/:id", element: lazyElement(<OccurrenceRecordPage mode="view" />) },
+                  { path: "/occurrences", element: lazyElement(<OccurrencesPage />) },
+                  { path: "/requests", element: lazyElement(<RequestsPage />) },
+                  { path: "/requests/new", element: lazyElement(<RequestFormPage />) },
+                  { path: "/closings/new", element: lazyElement(<ClosingFormPage />) },
+                  { path: "/closings/:id", element: lazyElement(<ClosingResultPage />) },
                   { path: "/closings", element: <Navigate to="/timekeeping?tab=closings" replace /> },
                   { path: "/people/*", element: <LegacyRouteRedirect /> },
                   { path: "/people", element: <LegacyRouteRedirect /> },
@@ -121,31 +134,31 @@ const router = createBrowserRouter([
                   { path: "/staff/journeys/*", element: <LegacyRouteRedirect /> },
                   { path: "/staff/jobs/*", element: <LegacyRouteRedirect /> },
                   { path: "/staff/classifications/*", element: <LegacyRouteRedirect /> },
-                  { path: "/employees/new", element: <EmployeeFormPage /> },
-                  { path: "/employees/:id/edit", element: <EmployeeFormPage /> },
-                  { path: "/journeys/new", element: <EntityRecordPage catalog="journeys" mode="new" /> },
-                  { path: "/journeys/:id/edit", element: <EntityRecordPage catalog="journeys" mode="edit" /> },
-                  { path: "/journeys/:id", element: <EntityRecordPage catalog="journeys" mode="view" /> },
-                  { path: "/jobs/new", element: <EntityRecordPage catalog="jobs" mode="new" /> },
-                  { path: "/jobs/:id/edit", element: <EntityRecordPage catalog="jobs" mode="edit" /> },
-                  { path: "/jobs/:id", element: <EntityRecordPage catalog="jobs" mode="view" /> },
+                  { path: "/employees/new", element: lazyElement(<EmployeeFormPage />) },
+                  { path: "/employees/:id/edit", element: lazyElement(<EmployeeFormPage />) },
+                  { path: "/journeys/new", element: lazyElement(<EntityRecordPage catalog="journeys" mode="new" />) },
+                  { path: "/journeys/:id/edit", element: lazyElement(<EntityRecordPage catalog="journeys" mode="edit" />) },
+                  { path: "/journeys/:id", element: lazyElement(<EntityRecordPage catalog="journeys" mode="view" />) },
+                  { path: "/jobs/new", element: lazyElement(<EntityRecordPage catalog="jobs" mode="new" />) },
+                  { path: "/jobs/:id/edit", element: lazyElement(<EntityRecordPage catalog="jobs" mode="edit" />) },
+                  { path: "/jobs/:id", element: lazyElement(<EntityRecordPage catalog="jobs" mode="view" />) },
                   { path: "/groups/*", element: <LegacyRouteRedirect /> },
                   { path: "/groups", element: <LegacyRouteRedirect /> },
-                  { path: "/categories/new", element: <EntityRecordPage catalog="categories" mode="new" /> },
-                  { path: "/categories/:id/edit", element: <EntityRecordPage catalog="categories" mode="edit" /> },
-                  { path: "/categories/:id/values/new", element: <CategoryValueFormPage mode="new" /> },
-                  { path: "/categories/:id/values/:valueId/edit", element: <CategoryValueFormPage mode="edit" /> },
-                  { path: "/categories/:id/values/:valueId", element: <CategoryValueFormPage mode="view" /> },
-                  { path: "/categories/:id", element: <EntityRecordPage catalog="categories" mode="view" /> },
+                  { path: "/categories/new", element: lazyElement(<EntityRecordPage catalog="categories" mode="new" />) },
+                  { path: "/categories/:id/edit", element: lazyElement(<EntityRecordPage catalog="categories" mode="edit" />) },
+                  { path: "/categories/:id/values/new", element: lazyElement(<CategoryValueFormPage mode="new" />) },
+                  { path: "/categories/:id/values/:valueId/edit", element: lazyElement(<CategoryValueFormPage mode="edit" />) },
+                  { path: "/categories/:id/values/:valueId", element: lazyElement(<CategoryValueFormPage mode="view" />) },
+                  { path: "/categories/:id", element: lazyElement(<EntityRecordPage catalog="categories" mode="view" />) },
                   { path: "/staff/cost-centers/new", element: <Navigate to="/categories/new" replace /> },
                   { path: "/staff/cost-centers/:id/edit", element: <Navigate to="/structure?tab=categories" replace /> },
                   { path: "/staff/cost-centers/:id", element: <Navigate to="/structure?tab=categories" replace /> },
                   { path: "/staff/cost-centers", element: <Navigate to="/structure?tab=categories" replace /> },
                   { path: "/staff/:id", element: <LegacyRouteRedirect /> },
-                  { path: "/employees/:id", element: <EmployeePage /> },
-                  { path: "/staff", element: <PeoplePage /> },
-                  { path: "/clock-devices", element: <ClockDevicesPage /> },
-                  { path: "/bulk-changes", element: <BulkChangesPage /> },
+                  { path: "/employees/:id", element: lazyElement(<EmployeePage />) },
+                  { path: "/staff", element: lazyElement(<PeoplePage />) },
+                  { path: "/clock-devices", element: lazyElement(<ClockDevicesPage />) },
+                  { path: "/bulk-changes", element: lazyElement(<BulkChangesPage />) },
                   { path: "/organization/units/*", element: <LegacyRouteRedirect /> },
                   { path: "/organization/sectors/*", element: <LegacyRouteRedirect /> },
                   { path: "/organization/teams/*", element: <LegacyRouteRedirect /> },
@@ -160,33 +173,33 @@ const router = createBrowserRouter([
                   { path: "/reasons/reason-allowance/*", element: <LegacyRouteRedirect /> },
                   { path: "/reasons/reason-certificate/*", element: <LegacyRouteRedirect /> },
                   { path: "/notifications", element: <LegacyRouteRedirect /> },
-                  { path: "/units/new", element: <EntityRecordPage catalog="units" mode="new" /> },
-                  { path: "/units/:id/edit", element: <EntityRecordPage catalog="units" mode="edit" /> },
-                  { path: "/units/:id", element: <EntityRecordPage catalog="units" mode="view" /> },
+                  { path: "/units/new", element: lazyElement(<EntityRecordPage catalog="units" mode="new" />) },
+                  { path: "/units/:id/edit", element: lazyElement(<EntityRecordPage catalog="units" mode="edit" />) },
+                  { path: "/units/:id", element: lazyElement(<EntityRecordPage catalog="units" mode="view" />) },
                   { path: "/sectors/*", element: <Navigate to="/structure?tab=teams" replace /> },
                   { path: "/sectors", element: <Navigate to="/structure?tab=teams" replace /> },
-                  { path: "/teams/new", element: <EntityRecordPage catalog="teams" mode="new" /> },
-                  { path: "/teams/:id/edit", element: <EntityRecordPage catalog="teams" mode="edit" /> },
-                  { path: "/teams/:id", element: <EntityRecordPage catalog="teams" mode="view" /> },
-                  { path: "/norms/new", element: <EntityRecordPage catalog="norms" mode="new" /> },
-                  { path: "/norms/:id/edit", element: <EntityRecordPage catalog="norms" mode="edit" /> },
-                  { path: "/norms/:id", element: <EntityRecordPage catalog="norms" mode="view" /> },
-                  { path: "/holidays/new", element: <EntityRecordPage catalog="holidays" mode="new" /> },
-                  { path: "/holidays/:id/edit", element: <EntityRecordPage catalog="holidays" mode="edit" /> },
-                  { path: "/holidays/:id", element: <EntityRecordPage catalog="holidays" mode="view" /> },
+                  { path: "/teams/new", element: lazyElement(<EntityRecordPage catalog="teams" mode="new" />) },
+                  { path: "/teams/:id/edit", element: lazyElement(<EntityRecordPage catalog="teams" mode="edit" />) },
+                  { path: "/teams/:id", element: lazyElement(<EntityRecordPage catalog="teams" mode="view" />) },
+                  { path: "/norms/new", element: lazyElement(<EntityRecordPage catalog="norms" mode="new" />) },
+                  { path: "/norms/:id/edit", element: lazyElement(<EntityRecordPage catalog="norms" mode="edit" />) },
+                  { path: "/norms/:id", element: lazyElement(<EntityRecordPage catalog="norms" mode="view" />) },
+                  { path: "/holidays/new", element: lazyElement(<EntityRecordPage catalog="holidays" mode="new" />) },
+                  { path: "/holidays/:id/edit", element: lazyElement(<EntityRecordPage catalog="holidays" mode="edit" />) },
+                  { path: "/holidays/:id", element: lazyElement(<EntityRecordPage catalog="holidays" mode="view" />) },
                   { path: "/punch-rules/new", element: <Navigate to="/norms/new" replace /> },
                   { path: "/punch-rules/:id/edit", element: <Navigate to="/punch-rules?tab=norms" replace /> },
                   { path: "/punch-rules/:id", element: <Navigate to="/punch-rules?tab=norms" replace /> },
-                  { path: "/reasons/new", element: <EntityRecordPage catalog="reasons" mode="new" /> },
-                  { path: "/reasons/:id/edit", element: <EntityRecordPage catalog="reasons" mode="edit" /> },
-                  { path: "/reasons/:id", element: <EntityRecordPage catalog="reasons" mode="view" /> },
-                  { path: "/reports", element: <ReportsPage /> },
-                  { path: "/notices", element: <NotificationsPage /> },
+                  { path: "/reasons/new", element: lazyElement(<EntityRecordPage catalog="reasons" mode="new" />) },
+                  { path: "/reasons/:id/edit", element: lazyElement(<EntityRecordPage catalog="reasons" mode="edit" />) },
+                  { path: "/reasons/:id", element: lazyElement(<EntityRecordPage catalog="reasons" mode="view" />) },
+                  { path: "/reports", element: lazyElement(<ReportsPage />) },
+                  { path: "/notices", element: lazyElement(<NotificationsPage />) },
                   { path: "/organization", element: <LegacyRouteRedirect /> },
-                  { path: "/structure", element: <OrganizationPage /> },
-                  { path: "/punch-rules", element: <LaborPage /> },
+                  { path: "/structure", element: lazyElement(<OrganizationPage />) },
+                  { path: "/punch-rules", element: lazyElement(<LaborPage />) },
                   { path: "/payroll", element: <LegacyRouteRedirect /> },
-                  { path: "/integrations", element: <PayrollPage /> },
+                  { path: "/integrations", element: lazyElement(<PayrollPage />) },
                   { path: "/reasons", element: <Navigate to="/punch-rules?tab=reasons" replace /> },
                 ],
               },

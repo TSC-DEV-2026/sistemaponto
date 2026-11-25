@@ -124,7 +124,10 @@ export function SiteSelect({
     setSearching(true)
     const timer = window.setTimeout(() => {
       const parsed = JSON.parse(extra) as Record<string, string | number | boolean | undefined> | null
-      const params = searchPath === "/employees" ? { page: 1, limit: 100, q: term, ...(parsed ?? {}) } : { page: 1, limit: 100, [searchKey]: term, ...(parsed ?? {}) }
+      const params =
+        searchPath === "/employees"
+          ? { page: 1, limit: 50, q: term, fields: "id,full_name,cpf,registration_number", ...(parsed ?? {}) }
+          : { page: 1, limit: 100, [searchKey]: term, fields: "id,name", ...(parsed ?? {}) }
       listRecords<{ id: number; name?: string; full_name?: string }>(searchPath, params)
         .then((page) => {
           if (current !== request.current) return

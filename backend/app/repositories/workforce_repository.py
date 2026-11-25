@@ -255,6 +255,43 @@ class WorkforceRepository:
             query = query.filter(model.id != exclude_id)
         return query.first() is not None
 
+    def count_unread_notices(self, tenant_id: int, person_id: int) -> int:
+        return (
+            self.db.query(Notice)
+            .filter(
+                Notice.tenant_id == tenant_id,
+                Notice.person_id == person_id,
+                Notice.read_at.is_(None),
+            )
+            .count()
+        )
+
+    def list_closings_for_employee(
+        self,
+        tenant_id: int,
+        employee_id: int,
+        *,
+        page: int,
+        limit: int,
+        equals: dict,
+        descending: bool,
+    ):
+        member_exists = self.db.query(ClosingMember.id).filter(ClosingMember.closing_id == Closing.id).exists()
+        is_member = (
+            self.db.query(ClosingMember.id)
+            .filter(ClosingMember.closing_id == Closing.id, ClosingMember.employee_id == employee_id)
+            .exists()
+        )
+        query = self.db.query(Closing).filter(
+            Closing.tenant_id == tenant_id,
+            or_(~member_exists, is_member),
+        )
+        query = _apply_filters(query, Closing, equals)
+        total = query.count()
+        order = (Closing.id.desc() if descending else Closing.id.asc(),)
+        items = query.order_by(*order).offset((page - 1) * limit).limit(limit).all()
+        return items, total
+
     def count_model(self, model, **equals) -> int:
         query = self.db.query(model)
         for key, value in equals.items():

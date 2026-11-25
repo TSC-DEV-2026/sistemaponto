@@ -3,7 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 
 import { authInputClass } from "@/components/auth-screen"
 import { Spinner } from "@/components/ui/spinner"
-import { listRecords, type Employee } from "@/services/workforce.service"
+import { employeePickFields, getRecord, listRecords, type Employee } from "@/services/workforce.service"
 import { cn } from "@/utils/cn"
 import { conceptIcon } from "@/utils/concept-icons"
 
@@ -29,8 +29,7 @@ function matchesEmployee(item: Employee, query: string) {
 export function EmployeeCombobox({
   id,
   value,
-  employees,
-  extendSearch = false,
+  employees = [],
   emptyLabel = "Todos",
   required = false,
   loading = false,
@@ -38,8 +37,7 @@ export function EmployeeCombobox({
 }: {
   id: string
   value: string
-  employees: Employee[]
-  extendSearch?: boolean
+  employees?: Employee[]
   emptyLabel?: string
   required?: boolean
   loading?: boolean
@@ -63,6 +61,21 @@ export function EmployeeCombobox({
   useEffect(() => {
     for (const item of employees) names.current.set(String(item.id), item.full_name)
   }, [employees])
+
+  useEffect(() => {
+    if (!value || names.current.has(value) || employees.some((item) => String(item.id) === value)) return
+    let active = true
+    getRecord<Employee>("/employees", Number(value), { fields: employeePickFields })
+      .then((item) => {
+        if (!active || !item) return
+        names.current.set(String(item.id), item.full_name)
+        setRemote((current) => (current.some((row) => row.id === item.id) ? current : [...current, item]))
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [value, employees])
 
   useEffect(() => {
     if (loading) setOpen(false)
@@ -93,16 +106,21 @@ export function EmployeeCombobox({
   }, [open, mounted])
 
   useEffect(() => {
-    const term = query.trim()
-    if (!open || !extendSearch || !term) {
+    if (!open) {
       setRemote([])
       setSearching(false)
       return
     }
+    const term = query.trim()
     const current = ++request.current
     setSearching(true)
     const timer = window.setTimeout(() => {
-      listRecords<Employee>("/employees", { page: 1, limit: 100, q: term })
+      listRecords<Employee>("/employees", {
+        page: 1,
+        limit: 50,
+        fields: employeePickFields,
+        ...(term ? { q: term } : {}),
+      })
         .then((page) => {
           if (current !== request.current) return
           setRemote(page.items)
@@ -114,9 +132,9 @@ export function EmployeeCombobox({
         .finally(() => {
           if (current === request.current) setSearching(false)
         })
-    }, 280)
+    }, term ? 280 : 0)
     return () => window.clearTimeout(timer)
-  }, [query, open, extendSearch])
+  }, [query, open])
 
   const options = useMemo(() => {
     const term = fold(query)

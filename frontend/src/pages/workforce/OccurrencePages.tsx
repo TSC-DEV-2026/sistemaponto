@@ -44,7 +44,7 @@ function canLaunchKind(role: string | null | undefined, _kind: string) {
   return canOperate(role)
 }
 
-function OccurrenceKindList({ kind, employees }: { kind: string; employees: Employee[] }) {
+function OccurrenceKindList({ kind }: { kind: string }) {
   const role = useAuthStore((state) => state.user?.role)
   const canLaunch = canLaunchKind(role, kind)
   const canEdit = canOperate(role)
@@ -76,7 +76,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
   }, [asksReason, kind])
 
   function nameOf(id: number) {
-    return employees.find((item) => item.id === id)?.full_name || String(id)
+    return String(id)
   }
 
   function reasonOf(id: number | null) {
@@ -107,9 +107,7 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
         <EmployeeCombobox
           id={`occurrence-employee-${kind}`}
           value={listEmployee}
-          employees={employees}
           emptyLabel="Todos"
-          extendSearch={employees.length >= 100}
           onChange={setListEmployee}
         />
       </div>
@@ -240,27 +238,11 @@ function OccurrenceKindList({ kind, employees }: { kind: string; employees: Empl
 
 export function OccurrencesPage() {
   const role = useAuthStore((state) => state.user?.role)
-  const tenantId = useAuthStore((state) => state.activeTenant?.id)
   const [params] = useSearchParams()
   const requested = params.get("tab") || params.get("aba")
   const kind = occurrenceKinds.some(([id]) => id === requested) ? requested || occurrenceKinds[0][0] : occurrenceKinds[0][0]
   const canLaunch = canLaunchKind(role, kind)
   const actionLabel = occurrenceNewLabel[kind] || "Novo lançamento"
-  const [employees, setEmployees] = useState<Employee[]>([])
-
-  useEffect(() => {
-    let active = true
-    listRecords<Employee>("/employees", { page: 1, limit: 100 })
-      .then((page) => {
-        if (active) setEmployees(page.items)
-      })
-      .catch((caught: unknown) => {
-        if (active) toastError(caught instanceof Error ? caught.message : "Não foi possível listar.")
-      })
-    return () => {
-      active = false
-    }
-  }, [tenantId])
 
   return (
     <div className="w-full min-w-0 space-y-5">
@@ -281,7 +263,7 @@ export function OccurrencesPage() {
           id,
           label,
           icon: occurrenceIcon[id],
-          panel: <OccurrenceKindList kind={id} employees={employees} />,
+          panel: <OccurrenceKindList kind={id} />,
         }))}
       />
     </div>
@@ -307,7 +289,6 @@ export function OccurrenceEntryPage() {
   const manual = known
   const canLaunch = canLaunchKind(role, kind)
   const asksReason = Boolean(reasonKindForOccurrence(kind))
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [reasons, setReasons] = useState<NamedRecord[]>([])
   const [reasonsReady, setReasonsReady] = useState(false)
   const [employeeId, setEmployeeId] = useState("")
@@ -343,13 +324,13 @@ export function OccurrenceEntryPage() {
     setReasons([])
     setReasonsReady(false)
     const reasonKind = reasonKindForOccurrence(kind)
-    Promise.all([
-      listRecords<Employee>("/employees", { page: 1, limit: 100 }),
-      reasonKind ? listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true }) : Promise.resolve({ items: [] as NamedRecord[] }),
-    ])
-      .then(([people, motive]) => {
+    if (!reasonKind) {
+      setReasonsReady(true)
+      return
+    }
+    listRecords<NamedRecord>("/reasons", { page: 1, limit: 100, kind: reasonKind, active: true })
+      .then((motive) => {
         if (!active) return
-        setEmployees(people.items)
         setReasons(motive.items)
         setReasonsReady(true)
       })
@@ -405,7 +386,7 @@ export function OccurrenceEntryPage() {
           <Label className={moduleLabelClass} htmlFor="occurrence-employee">
             Funcionário
           </Label>
-          <EmployeeCombobox id="occurrence-employee" value={employeeId} employees={employees} emptyLabel="Selecione" required extendSearch={employees.length >= 100} onChange={setEmployeeId} />
+          <EmployeeCombobox id="occurrence-employee" value={employeeId} emptyLabel="Selecione" required onChange={setEmployeeId} />
         </div>
         {manual ? (
           <TimeOffFields idPrefix="occurrence" kind={kind} draft={draft} fileKey={fileKey} onChange={setDraft} appearance="module" />
