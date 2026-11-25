@@ -45,6 +45,7 @@ async function punchesOnDay(employeeId: number, day: string) {
       ends_on: day,
       page,
       limit: 100,
+      fields: "id,employee_id,occurred_at,source,valid,reason_id,note,voided_at,channel,created_at",
     })
     found.push(...result.items)
     if (result.items.length === 0 || page * 100 >= result.total || page >= 8) break

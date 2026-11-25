@@ -1,5 +1,5 @@
 import inspect
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 
@@ -562,6 +562,7 @@ def list_punches(
         page,
         limit,
         read_filters(request, ("employee_id", "valid", "starts_on", "ends_on")),
+        fields=fields,
     )
     return json_data(dump_page(items, total, page, limit, PunchOut, fields))
 
@@ -618,15 +619,20 @@ def restore_punches(
     return json_data(dump_one(payload, PunchCorrectionOut, None))
 
 
-@face_embeddings.get("", summary="Baixar os rostos da organização")
+@face_embeddings.get(
+    "",
+    summary="Baixar os rostos da organização",
+    description="Página no banco. Filtro opcional updated_since (ISO) para sincronização incremental.",
+)
 def list_face_embeddings(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
+    updated_since: datetime | None = Query(default=None),
     fields: str | None = Query(default=None, max_length=500),
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    items, total = service.list_face_embeddings(as_scope(actor), page, limit)
+    items, total = service.list_face_embeddings(as_scope(actor), page, limit, updated_since=updated_since)
     return json_data(dump_page(items, total, page, limit, FaceEmbeddingOut, fields))
 
 

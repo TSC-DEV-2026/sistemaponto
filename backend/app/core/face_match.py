@@ -13,7 +13,7 @@ def _norm(values: list[float]) -> float:
     return _dot(values, values) ** 0.5
 
 
-def _unit(values: list[float]) -> list[float]:
+def unit(values: list[float]) -> list[float]:
     if len(values) != EMBEDDING_DIM:
         raise ValueError("embedding inválido")
     size = _norm(values)
@@ -23,9 +23,20 @@ def _unit(values: list[float]) -> list[float]:
 
 
 def cosine(left: list[float], right: list[float]) -> float:
-    a = _unit(left)
-    b = _unit(right)
-    return _dot(a, b)
+    return _dot(unit(left), unit(right))
+
+
+def match_one(
+    query: list[float],
+    stored: list[float],
+    *,
+    threshold: float = COSINE_THRESHOLD,
+    query_unit: bool = False,
+    stored_unit: bool = False,
+) -> bool:
+    left = query if query_unit else unit(query)
+    right = stored if stored_unit else unit(stored)
+    return _dot(left, right) >= threshold
 
 
 def best_match(
@@ -34,10 +45,15 @@ def best_match(
     *,
     threshold: float = COSINE_THRESHOLD,
     margin: float = MATCH_MARGIN,
+    registry_unit: bool = False,
 ) -> int | None:
     if not registry:
         return None
-    ranked = sorted(((cosine(query, vector), employee_id) for employee_id, vector in registry), reverse=True)
+    q = unit(query)
+    if registry_unit:
+        ranked = sorted(((_dot(q, vector), employee_id) for employee_id, vector in registry), reverse=True)
+    else:
+        ranked = sorted(((_dot(q, unit(vector)), employee_id) for employee_id, vector in registry), reverse=True)
     score, employee_id = ranked[0]
     if score < threshold:
         return None

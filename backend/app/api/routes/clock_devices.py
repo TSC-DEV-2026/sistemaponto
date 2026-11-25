@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.dependencies.auth import Actor, require_staff
@@ -63,17 +65,18 @@ def device_methods(
 @devices.get(
     "/face-embeddings",
     summary="Baixar os rostos das organizações liberadas",
-    description="Somente quem usa reconhecimento facial. Cada item traz a organização. X-Device-Id e X-Device-Keys.",
+    description="Somente quem usa reconhecimento facial. Página no banco. Filtro opcional updated_since. X-Device-Id e X-Device-Keys.",
 )
 def device_embeddings(
     request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
+    updated_since: datetime | None = Query(default=None),
     fields: str | None = Query(default=None, max_length=500),
     service: ClockDeviceService = Depends(get_clock_device_service),
 ):
     public_id, keys = device_keys(request)
-    items, total = service.embeddings(public_id, keys, page, limit)
+    items, total = service.embeddings(public_id, keys, page, limit, updated_since=updated_since)
     return json_data(dump_page(items, total, page, limit, DeviceFaceEmbeddingOut, fields))
 
 

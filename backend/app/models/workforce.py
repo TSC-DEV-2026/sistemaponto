@@ -245,7 +245,10 @@ class Punch(Base):
 
 class FaceEmbedding(Base):
     __tablename__ = "face_embeddings"
-    __table_args__ = (UniqueConstraint("tenant_id", "employee_id", name="uq_face_embedding_employee"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "employee_id", name="uq_face_embedding_employee"),
+        Index("ix_face_embeddings_tenant_updated", "tenant_id", "updated_at"),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = _tenant()
@@ -253,6 +256,7 @@ class FaceEmbedding(Base):
     model_name = Column(String(64), nullable=False)
     model_version = Column(String(64), nullable=False)
     embedding = Column(JSON, nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
 
 
 class Occurrence(Base):

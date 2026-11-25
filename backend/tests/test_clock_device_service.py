@@ -104,16 +104,25 @@ class Companies:
     def device_method_flags(self, tenant_id: int) -> dict:
         return self.flags.get(tenant_id, {"face": False, "qr": False})
 
-    def device_embeddings(self, tenant_id: int):
-        return self.embeddings.get(tenant_id, [])
+    def embedder(self, image: bytes):
+        return image
 
-    def device_face_candidate(self, tenant_id: int, image: bytes):
-        return self.faces.get((tenant_id, image))
+    def device_embeddings(self, tenant_ids, page: int = 1, limit: int = 100, updated_since=None):
+        ready = []
+        for tenant_id in tenant_ids:
+            for item in self.embeddings.get(tenant_id, []):
+                ready.append({"tenant_id": tenant_id, **item})
+        start = (page - 1) * limit
+        return ready[start : start + limit], len(ready)
+
+    def device_face_candidate(self, tenant_id: int, image: bytes | None = None, vector=None):
+        key = image if image is not None else vector
+        return self.faces.get((tenant_id, key))
 
     def device_qr_candidates(self, tenant_id: int, content: str):
         return list(self.qrs.get((tenant_id, content), []))
 
-    def commit_device_face(self, tenant_id: int, employee_id: int, data: dict, image: bytes):
+    def commit_device_face(self, tenant_id: int, employee_id: int, data: dict, image: bytes, vector=None):
         self.commits.append(("face", tenant_id, employee_id))
         return {"id": len(self.commits), "employee_id": employee_id, "source": "face", "occurred_at": data["occurred_at"], "request_id": None, "note": None, "valid": True, "voided_at": None, "channel": data.get("channel"), "created_at": NOW}
 

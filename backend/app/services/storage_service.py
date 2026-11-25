@@ -26,6 +26,8 @@ def object_key(tenant_id: int, folder: str, extension: str) -> str:
 class StorageService:
     """Único ponto que fala com o Cloudflare R2. A tela de upload ainda não usa."""
 
+    _shared_client = None
+
     def validate_upload(self, content_type: str, size: int) -> str:
         extension = ALLOWED_CONTENT_TYPES.get(content_type)
         if extension is None:
@@ -41,18 +43,21 @@ class StorageService:
     def _client(self):
         if not settings.R2_BUCKET or not settings.R2_ENDPOINT or not settings.R2_ACCESS_KEY_ID:
             raise AppError(503, "Armazenamento não configurado")
+        if StorageService._shared_client is not None:
+            return StorageService._shared_client
         import boto3
 
-        return boto3.client(
+        StorageService._shared_client = boto3.client(
             "s3",
             endpoint_url=settings.R2_ENDPOINT,
             aws_access_key_id=settings.R2_ACCESS_KEY_ID,
             aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
             region_name="auto",
         )
+        return StorageService._shared_client
 
     def upload(self, *, tenant_id: int, folder: str, content_type: str, body: bytes) -> str:
-        key = self.build_key(tenant_id, folder, content_type, len(body))
+        key = self.build_key(tenant_id, folder, content_type, size=len(body))
         return self._put(key, body, content_type, tenant_id=tenant_id)
 
     def save_punch(self, day: date, body: bytes) -> str:
