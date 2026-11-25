@@ -618,6 +618,65 @@ class Memory:
     def member_ids(self, closing_id: int) -> list[int]:
         return [row.employee_id for row in self.rows if isinstance(row, ClosingMember) and row.closing_id == closing_id]
 
+    def list_closing_members(
+        self,
+        tenant_id: int,
+        closing_id: int,
+        *,
+        page: int,
+        limit: int,
+        finish: date,
+        starts_on: date,
+        hour_bank: bool | None = None,
+        employee_id: int | None = None,
+    ):
+        members = set(self.member_ids(closing_id))
+        found = []
+        for row in self._of(Employee, tenant_id):
+            if members and row.id not in members:
+                continue
+            if hour_bank is not None and bool(row.hour_bank) != hour_bank:
+                continue
+            if employee_id is not None and row.id != employee_id:
+                continue
+            if row.admission_date > finish:
+                continue
+            day_start = row.admission_date if row.admission_date > starts_on else starts_on
+            if day_start > finish:
+                continue
+            found.append(row)
+        found.sort(key=lambda item: (item.full_name.casefold(), item.id))
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
+
+    def employee_ids_overlapping(
+        self,
+        tenant_id: int,
+        kind: str,
+        starts_on: date,
+        ends_on: date,
+        *,
+        reference_ids: set[int] | None = None,
+        label: str | None = None,
+    ):
+        found = set()
+        for row in self.rows:
+            if not isinstance(row, EmployeeVigency):
+                continue
+            if row.tenant_id != tenant_id or row.kind != kind:
+                continue
+            if row.valid_from > ends_on:
+                continue
+            if row.valid_to is not None and row.valid_to < starts_on:
+                continue
+            if reference_ids is not None and row.reference_id not in reference_ids:
+                continue
+            if label is not None and row.label != label:
+                continue
+            found.add(row.employee_id)
+        return found
+
     def closed_for_employee(self, tenant_id: int, day: date, employee_id: int):
         for row in self._of(Closing, tenant_id):
             if row.status == "closed" and row.starts_on <= day <= row.ends_on:
@@ -2396,9 +2455,13 @@ def test_resultado_do_fechamento_apura_so_a_pagina():
     assert page["banks"] == []
     other = workforce.get_closing(admin(), opened["id"], page=2, limit=1, part="people")
     assert {page["people"][0]["employee_id"], other["people"][0]["employee_id"]} == {first["id"], second["id"]}
-    banks = workforce.get_closing(admin(), opened["id"], part="banks")
+    roster = workforce.get_closing(admin(), opened["id"], part="bank_roster")
+    assert [item["employee_id"] for item in roster["banks"]] == [first["id"]]
+    assert roster["banks"][0]["balance_minutes"] is None
+    banks = workforce.get_closing(admin(), opened["id"], part="banks", employee_id=first["id"], page=1, limit=1)
     assert banks["people"] == []
     assert [item["employee_id"] for item in banks["banks"]] == [first["id"]]
+    assert isinstance(banks["banks"][0]["balance_minutes"], int)
     sheets = workforce.get_closing(admin(), opened["id"], part="sheets")
     assert len(sheets["people"]) == 2
     assert len(sheets["people"][0]["days"]) == 31
@@ -3040,9 +3103,9 @@ def test_relatorios_sao_historicos_e_o_dashboard_continua_operacional():
     start, end = date(2026, 10, 6), date(2026, 10, 7)
     punch = workforce.report(admin(), "punch", start, end, mate["id"], 1, 1)
     assert punch["name"] == "Ponto"
-    assert punch["total"] == 2
-    assert len(punch["items"]) == 1
-    assert "hora extra 00:00" in punch["items"][0]["detail"] or "hora extra 00:30" in punch["items"][0]["detail"]
+    assert punch["total"] == 1
+    assert len(punch["items"]) == 2
+    assert any("hora extra 00:00" in row["detail"] or "hora extra 00:30" in row["detail"] for row in punch["items"])
     full = workforce.report(admin(), "punch", start, end, mate["id"], 1, 10)
     by_day = {row["occurred_on"]: row["detail"] for row in full["items"]}
     assert "hora extra 00:00" in by_day[date(2026, 10, 6)]

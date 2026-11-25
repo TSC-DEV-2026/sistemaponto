@@ -613,10 +613,27 @@ export function ClosingResultPage() {
     setResultPage(1)
     setEditing(false)
     setMinutes("")
-    getRecord<Closing>("/closings", closingId, { part: "banks" })
-      .then((row) => {
+    setBankId("")
+    getRecord<Closing>("/closings", closingId, { part: "bank_roster" })
+      .then(async (row) => {
         if (!active) return
         if (row.status === "closed") setPeopleLoading(true)
+        const roster = row.banks || []
+        const firstId = roster[0]?.employee_id
+        if (row.status === "closed" && firstId) {
+          const detail = await getRecord<Closing>("/closings", closingId, { part: "banks", employee_id: firstId, page: 1, limit: 1 })
+          if (!active) return
+          const merged = (detail.banks || []).reduce<ClosingBank[]>((list, bank) => {
+            const index = list.findIndex((item) => item.employee_id === bank.employee_id)
+            if (index < 0) return [...list, bank]
+            const next = list.slice()
+            next[index] = bank
+            return next
+          }, roster)
+          setBankId(String(firstId))
+          setClosing({ ...row, banks: merged })
+          return
+        }
         setClosing(row)
       })
       .catch((caught: unknown) => {
@@ -660,6 +677,36 @@ export function ClosingResultPage() {
     setBankId(value)
     setEditing(false)
     setMinutes("")
+    const selected = Number(value)
+    if (!Number.isInteger(selected) || !Number.isInteger(closingId)) return
+    const known = (closing?.banks || []).find((item) => item.employee_id === selected)
+    if (known && typeof known.balance_minutes === "number") return
+    getRecord<Closing>("/closings", closingId, { part: "banks", employee_id: selected, page: 1, limit: 1 })
+      .then((row) => {
+        const bank = row.banks?.[0]
+        if (!bank) return
+        setClosing((current) => {
+          if (!current) return row
+          const banks = current.banks || []
+          const index = banks.findIndex((item) => item.employee_id === bank.employee_id)
+          if (index < 0) return { ...current, banks: [...banks, bank] }
+          const next = banks.slice()
+          next[index] = bank
+          return { ...current, banks: next }
+        })
+      })
+      .catch((caught: unknown) => toastError(apiErrorMessage(caught)))
+  }
+
+  function mergeBanks(current: ClosingBank[] | undefined, next: ClosingBank[] | undefined) {
+    const banks = current || []
+    return (next || []).reduce<ClosingBank[]>((list, bank) => {
+      const index = list.findIndex((item) => item.employee_id === bank.employee_id)
+      if (index < 0) return [...list, bank]
+      const copy = list.slice()
+      copy[index] = bank
+      return copy
+    }, banks)
   }
 
   function askRemove() {
@@ -707,7 +754,11 @@ export function ClosingResultPage() {
             note,
             ...(draft.kind === "settlement" ? {} : { minutes: draft.minutes }),
           })
-      setClosing((current) => (current ? { ...current, banks: next.banks || [] } : next))
+      setClosing((current) => {
+        if (!current) return next
+        if (draft.everyone) return { ...current, banks: next.banks || [] }
+        return { ...current, banks: mergeBanks(current.banks, next.banks) }
+      })
       setPeopleStamp((value) => value + 1)
       setEditing(false)
       setMinutes("")
@@ -724,7 +775,7 @@ export function ClosingResultPage() {
     setPending(true)
     try {
       const next = await clearClosingBank(closingId, removal.employeeId)
-      setClosing((current) => (current ? { ...current, banks: next.banks || [] } : next))
+      setClosing((current) => (current ? { ...current, banks: mergeBanks(current.banks, next.banks) } : next))
       setPeopleStamp((value) => value + 1)
       setEditing(false)
       setMinutes("")

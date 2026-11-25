@@ -860,6 +860,59 @@ class WorkforceRepository:
         rows = self.db.query(ClosingMember.employee_id).filter(ClosingMember.closing_id == closing_id).all()
         return [row[0] for row in rows]
 
+    def list_closing_members(
+        self,
+        tenant_id: int,
+        closing_id: int,
+        *,
+        page: int,
+        limit: int,
+        finish: date,
+        starts_on: date,
+        hour_bank: bool | None = None,
+        employee_id: int | None = None,
+    ) -> tuple[list[Employee], int]:
+        members = self.member_ids(closing_id)
+        query = self.db.query(Employee).filter(Employee.tenant_id == tenant_id, Employee.admission_date <= finish)
+        if members:
+            query = query.filter(Employee.id.in_(members))
+        if hour_bank is not None:
+            query = query.filter(Employee.hour_bank.is_(hour_bank))
+        if employee_id is not None:
+            query = query.filter(Employee.id == employee_id)
+        # Com finish >= starts_on, admission_date <= finish já garante dia útil no período.
+        _ = starts_on
+        total = query.count()
+        items = (
+            query.order_by(func.lower(Employee.full_name).asc(), Employee.id.asc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return items, total
+
+    def employee_ids_overlapping(
+        self,
+        tenant_id: int,
+        kind: str,
+        starts_on: date,
+        ends_on: date,
+        *,
+        reference_ids: set[int] | None = None,
+        label: str | None = None,
+    ) -> set[int]:
+        query = self.db.query(EmployeeVigency.employee_id).filter(
+            EmployeeVigency.tenant_id == tenant_id,
+            EmployeeVigency.kind == kind,
+            EmployeeVigency.valid_from <= ends_on,
+            or_(EmployeeVigency.valid_to.is_(None), EmployeeVigency.valid_to >= starts_on),
+        )
+        if reference_ids is not None:
+            query = query.filter(EmployeeVigency.reference_id.in_(reference_ids))
+        if label is not None:
+            query = query.filter(EmployeeVigency.label == label)
+        return {row[0] for row in query.distinct().all()}
+
     def closed_for_employee(self, tenant_id: int, day: date, employee_id: int) -> Closing | None:
         rows = (
             self.db.query(Closing)
