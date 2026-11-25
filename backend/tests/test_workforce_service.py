@@ -25,6 +25,7 @@ from app.models.workforce import (
     EmployeeVigency,
     FaceEmbedding,
     FiscalFile,
+    FiscalJob,
     Holiday,
     Norm,
     HourBankEntry,
@@ -515,6 +516,15 @@ class Memory:
                 return row
         return None
 
+    def employees_cpf_map(self, tenant_id: int):
+        return {row.cpf: row for row in self._of(Employee, tenant_id)}
+
+    def fiscal_job(self, job_id: int):
+        for row in self.rows:
+            if isinstance(row, FiscalJob) and row.id == job_id:
+                return row
+        return None
+
     def employee_by_registration(self, tenant_id: int, registration: str):
         for row in self._of(Employee, tenant_id):
             if row.registration_number == registration:
@@ -943,6 +953,7 @@ def service(capacity: int = 10) -> tuple[WorkforceService, Memory]:
             clock=lambda: NOW,
             embedder=fake_embed,
             files=KeptFiles(),
+            inline_jobs=True,
         ),
         repo,
     )
@@ -2868,11 +2879,25 @@ def test_folha_sem_evento_configurado_nao_gera_arquivo():
 def test_membro_nao_gera_arquivo_fiscal():
     workforce, _repo = service()
     with pytest.raises(AppError) as member:
-        workforce.create_fiscal_file(scope(9, "member"), {"kind": "afd", "year": 2026, "month": 10})
+        workforce.enqueue_fiscal_file(scope(9, "member"), {"kind": "afd", "year": 2026, "month": 10})
     with pytest.raises(AppError) as imported:
         workforce.import_afd(scope(9, "member"), "AFD\n")
     assert member.value.status_code == 403
     assert imported.value.status_code == 403
+
+
+def test_geracao_fiscal_enfileira_e_conclui():
+    workforce, _repo = service()
+    workforce.create_employee(admin(), admitted(date(2026, 10, 7)))
+    job = workforce.enqueue_fiscal_file(admin(), {"kind": "afd", "year": 2026, "month": 10})
+    assert job.status == "done"
+    assert job.fiscal_file_id is not None
+    file = workforce.get_fiscal_file(admin(), job.fiscal_file_id)
+    assert file.valid is True
+    assert file.content
+    with pytest.raises(AppError) as missing:
+        workforce.enqueue_fiscal_file(admin(), {"kind": "payroll", "year": 2026, "month": 10})
+    assert missing.value.message == "Configure ao menos um evento da folha."
 
 
 def _access(repo: Memory, person_id: int, role: str) -> None:

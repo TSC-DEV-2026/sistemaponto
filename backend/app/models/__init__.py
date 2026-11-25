@@ -13,6 +13,7 @@ from app.models.workforce import (  # noqa: F401
     Employee,
     EmployeeVigency,
     FiscalFile,
+    FiscalJob,
     Holiday,
     HourBankEntry,
     Job,

@@ -25,6 +25,7 @@ import { CertificatePhotoField, DocumentLink } from "@/components/workforce/Time
 import {
   createRecord,
   employeePickFields,
+  generateFiscalFile,
   getReport,
   listRecords,
   notifyNoticesChanged,
@@ -2367,7 +2368,7 @@ function AfdPanel() {
     setGenerating(true)
     try {
       const body = mode === "range" ? { kind, starts_on: startsOn, ends_on: endsOn || null } : { kind, year: Number(fileYear), month: Number(fileMonth) }
-      const file = await createRecord<FiscalFile>("/fiscal-files", body)
+      const file = await generateFiscalFile(body)
       downloadFiscalFile(file)
     } catch (caught) {
       // O interceptor já avisou o erro.
@@ -2556,7 +2557,7 @@ function PayrollTotalsPanel() {
         mode === "range"
           ? { kind: "payroll", starts_on: startsOn, ends_on: endsOn || null }
           : { kind: "payroll", year: Number(year), month: Number(month) }
-      const file = await createRecord<FiscalFile>("/fiscal-files", body)
+      const file = await generateFiscalFile(body)
       downloadFiscalFile(file)
       setNotice("Download iniciado.")
     } catch {

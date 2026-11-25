@@ -471,6 +471,25 @@ class FiscalFile(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 
+class FiscalJob(Base):
+    __tablename__ = "fiscal_jobs"
+    __table_args__ = (Index("ix_fiscal_jobs_tenant_status", "tenant_id", "status"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = _tenant()
+    kind = Column(String(32), nullable=False)
+    starts_on = Column(Date, nullable=False)
+    ends_on = Column(Date, nullable=False)
+    time_format = Column(String(16), nullable=True)
+    status = Column(String(16), nullable=False, default="pending")
+    fiscal_file_id = Column(BigInteger, ForeignKey("fiscal_files.id", ondelete="SET NULL"), nullable=True)
+    error = Column(Text, nullable=True)
+    created_by_person_id = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class PayrollEvent(Base):
     __tablename__ = "payroll_events"
     __table_args__ = (
