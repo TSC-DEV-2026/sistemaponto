@@ -879,6 +879,21 @@ class FiscalFileOut(FiscalFileListOut):
     content: str
 
 
+class FiscalJobOut(BaseModel):
+    id: int
+    kind: str
+    starts_on: date
+    ends_on: date
+    status: str
+    fiscal_file_id: int | None
+    error: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FiscalImportCreate(BaseModel):
     content: str = Field(min_length=1, max_length=500_000)
 

@@ -1,4 +1,5 @@
 import logging
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from time import monotonic
@@ -93,6 +94,7 @@ from app.models.workforce import (
     EmployeeVigency,
     FaceEmbedding,
     FiscalFile,
+    FiscalJob,
     Holiday,
     PayrollEvent,
     HourBankEntry,
@@ -217,6 +219,7 @@ class WorkforceService:
         clock=now_utc,
         embedder=None,
         files: StorageService | None = None,
+        inline_jobs: bool | None = None,
     ) -> None:
         self.repo = repo
         self.authenticator = authenticator
@@ -225,6 +228,7 @@ class WorkforceService:
         self.embedder = embedder or embed_image
         self.files = files or StorageService()
         self._scratch: _CalcScratch | None = None
+        self.inline_jobs = settings.FISCAL_JOBS_INLINE if inline_jobs is None else inline_jobs
 
     def _scratch_scope(self):
         outer = self._scratch
@@ -1795,8 +1799,117 @@ class WorkforceService:
         self._can_manage_period(scope)
         kind = data["kind"]
         start, end = self._closing_bounds(data)
-        if (end - start).days + 1 > 366:
-            raise AppError(400, "O arquivo aceita no máximo 366 dias")
+        max_days = settings.FISCAL_MAX_DAYS
+        if (end - start).days + 1 > max_days:
+            raise AppError(400, f"O arquivo aceita no máximo {max_days} dias")
+        return self._build_fiscal_file(scope, data, kind, start, end)
+
+    def enqueue_fiscal_file(self, scope: Scope, data: dict) -> FiscalJob:
+        self._can_manage_period(scope)
+        kind = data["kind"]
+        if kind not in {"afd", "aej", "payroll"}:
+            raise AppError(400, "Tipo de arquivo inválido")
+        start, end = self._closing_bounds(data)
+        max_days = settings.FISCAL_MAX_DAYS
+        if (end - start).days + 1 > max_days:
+            raise AppError(400, f"O arquivo aceita no máximo {max_days} dias")
+        time_format = data.get("time_format")
+        if kind == "payroll":
+            events = self._active_payroll_events(scope)
+            if not events:
+                raise AppError(400, "Configure ao menos um evento da folha.")
+            time_format = time_format or "centesimal"
+            if time_format not in {"centesimal", "sexagesimal"}:
+                raise AppError(400, "Formato de hora inválido.")
+        job = self.repo.add(
+            FiscalJob(
+                tenant_id=scope.tenant_id,
+                kind=kind,
+                starts_on=start,
+                ends_on=end,
+                time_format=time_format,
+                status="pending",
+                fiscal_file_id=None,
+                error=None,
+                created_by_person_id=scope.person_id,
+                created_at=self.clock(),
+                started_at=None,
+                finished_at=None,
+            )
+        )
+        if self.inline_jobs:
+            self.execute_fiscal_job(job.id)
+            return self.get_fiscal_job(scope, job.id)
+        self._spawn_fiscal_job(job.id)
+        return job
+
+    def get_fiscal_job(self, scope: Scope, job_id: int) -> FiscalJob:
+        self._can_manage_period(scope)
+        row = self.repo.get_row(FiscalJob, scope.tenant_id, job_id)
+        if row is None:
+            raise AppError(404, "Registro não encontrado")
+        return row
+
+    def _spawn_fiscal_job(self, job_id: int) -> None:
+        def run() -> None:
+            from app.db.session import SessionLocal
+
+            db = SessionLocal()
+            try:
+                service = WorkforceService(
+                    WorkforceRepository(db),
+                    authenticator=AuthenticatorClient(),
+                    today=self.today,
+                    clock=self.clock,
+                    embedder=self.embedder,
+                    files=self.files,
+                    inline_jobs=True,
+                )
+                service.execute_fiscal_job(job_id)
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("fiscal job %s failed", job_id)
+            finally:
+                db.close()
+
+        threading.Thread(target=run, name=f"fiscal-job-{job_id}", daemon=True).start()
+
+    def execute_fiscal_job(self, job_id: int) -> FiscalJob:
+        row = self.repo.fiscal_job(job_id)
+        if row is None:
+            raise AppError(404, "Registro não encontrado")
+        if row.status in {"done", "running"}:
+            return row
+        row.status = "running"
+        row.started_at = self.clock()
+        row.error = None
+        self.repo.add(row)
+        scope = Scope(person_id=row.created_by_person_id, tenant_id=row.tenant_id, role="admin")
+        payload = {
+            "kind": row.kind,
+            "starts_on": row.starts_on,
+            "ends_on": row.ends_on,
+            "time_format": row.time_format,
+        }
+        try:
+            created = self._build_fiscal_file(scope, payload, row.kind, row.starts_on, row.ends_on)
+            row.fiscal_file_id = created.id
+            row.status = "done"
+            row.finished_at = self.clock()
+        except AppError as error:
+            row.status = "failed"
+            row.error = error.message
+            row.finished_at = self.clock()
+        except Exception as error:
+            row.status = "failed"
+            row.error = str(error)
+            row.finished_at = self.clock()
+            logger.exception("fiscal job %s crashed", job_id)
+        self.repo.add(row)
+        return row
+
+    def _build_fiscal_file(self, scope: Scope, data: dict, kind: str, start: date, end: date) -> FiscalFile:
         tenant = self.repo.get_tenant(scope.tenant_id)
         employer = employer_from(getattr(tenant, "document", None), getattr(tenant, "name", None))
         generated = self.clock()
@@ -1860,11 +1973,12 @@ class WorkforceService:
 
     def import_afd(self, scope: Scope, content: str) -> dict:
         self._can_manage_period(scope)
+        by_cpf = self.repo.employees_cpf_map(scope.tenant_id)
         created = 0
         ignored = 0
         blocked = 0
         for cpf, moment in parse_afd(content):
-            employee = self.repo.employee_by_cpf(scope.tenant_id, cpf)
+            employee = by_cpf.get(cpf)
             if employee is None:
                 blocked += 1
                 continue
@@ -1872,11 +1986,7 @@ class WorkforceService:
                 ignored += 1
                 continue
             try:
-                self.create_punch(
-                    scope,
-                    {"employee_id": employee.id, "occurred_at": moment, "note": None},
-                    source="afd",
-                )
+                self._insert_afd_punch(scope, employee, moment)
             except AppError as error:
                 if error.status_code in {400, 409}:
                     blocked += 1
@@ -1884,6 +1994,33 @@ class WorkforceService:
                 raise
             created += 1
         return {"created": created, "ignored": ignored, "blocked": blocked}
+
+    def _insert_afd_punch(self, scope: Scope, employee: Employee, moment: datetime) -> Punch:
+        occurred = assert_aware(moment)
+        assert_not_future(occurred, self.today())
+        self._assert_working(scope, employee)
+        self._assert_open(scope.tenant_id, self._punch_day(occurred), employee.id)
+        row = self.repo.add(
+            Punch(
+                tenant_id=scope.tenant_id,
+                employee_id=employee.id,
+                occurred_at=occurred,
+                source="afd",
+                request_id=None,
+                reason_id=None,
+                note=None,
+                valid=True,
+                voided_at=None,
+                channel=None,
+                qr_key=None,
+                selfie_key=None,
+                face_key=None,
+                client_event_id=None,
+                created_at=self.clock(),
+            )
+        )
+        self._audit(scope, employee.id, "punch", row.id, None, "Marcação", self._punch_day(occurred))
+        return row
 
     def refuse_fiscal_file_change(self, scope: Scope, row_id: int) -> None:
         self.get_fiscal_file(scope, row_id)

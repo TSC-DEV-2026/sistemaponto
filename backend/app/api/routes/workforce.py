@@ -47,6 +47,7 @@ from app.schemas.workforce import (
     FiscalFileUpdate,
     FiscalImportCreate,
     FiscalImportOut,
+    FiscalJobOut,
     EmployeeOut,
     EmployeeUpdate,
     HolidayCreate,
@@ -1204,7 +1205,11 @@ def dashboard(
     return json_data(dump_one(service.dashboard(as_scope(actor)), DashboardOut, None))
 
 
-@reads.get("/payroll-totals", summary="Totais da folha no mês")
+@reads.get(
+    "/payroll-totals",
+    summary="Totais da folha no mês",
+    description="Consulta explícita. Abrir a tela de totais não chama esta rota; use só quando precisar dos números apurados.",
+)
 def payroll_totals(
     year: int = Query(ge=2000, le=2100),
     month: int = Query(ge=1, le=12),
@@ -1406,6 +1411,15 @@ def import_afd(
     return json_data(dump_one(result, FiscalImportOut, None), status_code=201)
 
 
+@fiscal_files.get("/jobs/{job_id}", summary="Status da geração fiscal")
+def get_fiscal_job(
+    job_id: int,
+    actor: Actor = Depends(require_tenant),
+    service: WorkforceService = Depends(get_workforce_service),
+):
+    return json_data(dump_one(service.get_fiscal_job(as_scope(actor), job_id), FiscalJobOut, None))
+
+
 @fiscal_files.get("/{row_id}", summary="Detalhe do arquivo fiscal")
 def get_fiscal_file(
     row_id: int,
@@ -1416,14 +1430,19 @@ def get_fiscal_file(
     return json_data(dump_one(service.get_fiscal_file(as_scope(actor), row_id), FiscalFileOut, fields))
 
 
-@fiscal_files.post("", status_code=201, summary="Gerar arquivo fiscal")
+@fiscal_files.post(
+    "",
+    status_code=202,
+    summary="Enfileirar geração fiscal",
+    description="Aceita o pedido e processa em segundo plano. Consulte GET /fiscal-files/jobs/{id} e baixe o arquivo quando status=done. Teto de dias: FISCAL_MAX_DAYS.",
+)
 def create_fiscal_file(
     body: FiscalFileCreate,
     actor: Actor = Depends(require_tenant),
     service: WorkforceService = Depends(get_workforce_service),
 ):
-    row = service.create_fiscal_file(as_scope(actor), body.model_dump())
-    return json_data(dump_one(row, FiscalFileOut, None), status_code=201)
+    row = service.enqueue_fiscal_file(as_scope(actor), body.model_dump())
+    return json_data(dump_one(row, FiscalJobOut, None), status_code=202)
 
 
 @fiscal_files.put("/{row_id}", summary="Atualizar arquivo fiscal")

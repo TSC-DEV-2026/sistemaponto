@@ -361,6 +361,19 @@ export type FiscalFile = {
   created_at: string
 }
 
+export type FiscalJob = {
+  id: number
+  kind: string
+  starts_on: string
+  ends_on: string
+  status: string
+  fiscal_file_id: number | null
+  error: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+}
+
 export type FiscalImport = {
   created: number
   ignored: number
@@ -538,6 +551,26 @@ export function getPunchCode(employeeId: number) {
 
 export function createRecord<T>(path: string, body: Record<string, unknown>) {
   return write<T>(() => api.post<ApiResponse<T>>(path, body))
+}
+
+async function wait(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export async function generateFiscalFile(body: Record<string, unknown>) {
+  const job = await createRecord<FiscalJob>("/fiscal-files", body)
+  let current = job
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    if (current.status === "done" && current.fiscal_file_id) {
+      return getRecord<FiscalFile>("/fiscal-files", current.fiscal_file_id)
+    }
+    if (current.status === "failed") {
+      throw new Error(current.error || "Não foi possível gerar o arquivo.")
+    }
+    await wait(1000)
+    current = await getRecord<FiscalJob>("/fiscal-files/jobs", current.id)
+  }
+  throw new Error("A geração do arquivo demorou demais.")
 }
 
 export function updateRecord<T>(path: string, id: number, body: Record<string, unknown>) {

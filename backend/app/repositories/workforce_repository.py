@@ -17,6 +17,7 @@ from app.models.workforce import (
     EmployeeVigency,
     FaceEmbedding,
     FiscalFile,
+    FiscalJob,
     Holiday,
     HourBankEntry,
     JourneyDay,
@@ -597,6 +598,13 @@ class WorkforceRepository:
             .filter(Employee.tenant_id == tenant_id, Employee.cpf == cpf)
             .one_or_none()
         )
+
+    def employees_cpf_map(self, tenant_id: int) -> dict[str, Employee]:
+        rows = self.db.query(Employee).filter(Employee.tenant_id == tenant_id).all()
+        return {row.cpf: row for row in rows}
+
+    def fiscal_job(self, job_id: int) -> FiscalJob | None:
+        return self.db.query(FiscalJob).filter(FiscalJob.id == job_id).one_or_none()
 
     def employee_by_registration(self, tenant_id: int, registration: str) -> Employee | None:
         return (

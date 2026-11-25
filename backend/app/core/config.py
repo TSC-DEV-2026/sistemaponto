@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     SEED_ADMIN_CPF: str = ""
     SEED_ADMIN_EMAIL: str = ""
     SEED_ADMIN_FULL_NAME: str = ""
+    FISCAL_MAX_DAYS: int = 366
+    FISCAL_JOBS_INLINE: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
