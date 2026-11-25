@@ -288,3 +288,90 @@ Em Pessoas, Centros de custo sai e entra Classificações. A lista mostra as cla
 Com o site lendo a classificação, a API deixa de gravar em `cost_centers`. A tabela antiga permanece até uma limpeza posterior, só com o que já foi copiado.
 
 Mais de um valor da mesma classificação na mesma pessoa fica de fora. Valor livre digitado na ficha fica de fora. O aplicativo não usa classificação.
+
+## Ponto 16 — Índices das consultas quentes
+
+Antes de hospedar, o banco ganha índices compostos nas leituras que a apuração, o fechamento, o fiscal e o ponto usam o tempo todo. Hoje quase tudo tem `tenant_id` ou `employee_id` isolado. Intervalo de data e vigência aberta ainda varrem mais linhas do que precisam.
+
+Entram, no mínimo:
+
+- `punches`: `(tenant_id, employee_id, occurred_at)` e índice parcial em marcações válidas por `(tenant_id, occurred_at)` quando `valid` for verdadeiro
+- `employee_vigencies`: `(employee_id, kind, valid_from, valid_to)` e, para filtros por vínculo, `(tenant_id, kind, reference_id)`
+- `occurrences`: `(tenant_id, employee_id, starts_on, ends_on)`
+- `hour_bank_entries`: `(tenant_id, employee_id, entry_on)`
+- `closings`: `(tenant_id, status, starts_on, ends_on)`
+- `notices`: o suficiente para contar não lidas por pessoa sem paginar a lista inteira
+
+A migração é só índice. Contrato de API e telas não mudam. Sem isso, os pontos seguintes aceleram pouco quando a empresa cresce.
+
+## Ponto 17 — Site sem varrer listas inteiras
+
+O cabeçalho conta avisos não lidos andando `GET /notices` página a página, até vinte páginas de cem, a cada navegação e em intervalo curto. Isso vira carga constante mesmo com o gestor parado. Passa a existir contagem própria (rota ou filtro que devolva só o total de não lidas). Aba oculta não dispara a contagem.
+
+Várias telas pré-carregam `GET /employees` com `limit` 100 e o payload completo da ficha, só para combobox. Empresa com mais de cem pessoas fica truncada; com menos, ainda paga vigências e URLs que a lista não precisa. O combobox passa a buscar no servidor pelo termo (`q`), com campos enxutos (`id`, nome). Pré-carga de cem fichas sai dessas telas.
+
+O bloqueio de dia fechado (`use-day-lock`) lê só cem fechamentos `closed`. Acima disso o bloqueio falha em silêncio. Entra consulta por funcionário e intervalo (ou filtro que cubra o dia), sem depender de uma página arbitrária da lista de fechamentos.
+
+Operações em massa e filtros que hoje andam todas as páginas de um catálogo passam a pedir só o necessário para a tela, ou campos reduzidos. Bundle: rotas pesadas de operações, fiscal e PDF entram com carregamento sob demanda, para a abertura do site não pagar o que a pessoa ainda não abriu.
+
+## Ponto 18 — Marcações do dia na apuração
+
+Na apuração, corrigir ou ver o dia abre o diálogo que busca marcações em `GET /punches` sem data. O site pagina válidas e inválidas, até várias páginas, e filtra o dia no navegador. Dia antigo pode nem aparecer. O repositório já sabe intervalo (`punches_between`); a rota ainda não expõe.
+
+`GET /punches` passa a aceitar início e fim (ou o dia). O diálogo pede só aquele dia. A apuração deixa de depender de varrer o histórico da pessoa para montar a tela de um dia.
+
+Depois de gravar correção, falta, atestado ou abono, a tela não precisa refazer a apuração de todo o período se a API devolver (ou aceitar) a atualização daquela linha. Enquanto isso não existir, a consulta do período permanece, mas o custo do diálogo de marcações já cai.
+
+## Ponto 19 — Caminho curto de QR e facial no aparelho
+
+No aparelho compartilhado e nas rotas de dispositivo, o QR ainda percorre quem está com método QR na empresa, monta identidade e confere unidade pessoa a pessoa. O payload já traz unidade, CPF e matrícula. A marcação passa a resolver a pessoa por CPF ou matrícula na empresa e a conferir o código e a unidade uma vez. Varredura de todos os QR sai do caminho feliz.
+
+No facial, a extração do embedding pode rodar mais de uma vez no mesmo pedido (candidatos e commit) e a comparação percorre o registry inteiro em Python, com carga de embedding e de funcionário em N+1. No pedido, o embedding da foto sobe uma vez. Quando a pessoa já está identificada (app do funcionário), a comparação é um para um com o cadastro dela. No aparelho compartilhado, a busca um para N usa registry carregado com junção (sem N+1), vetores já normalizados quando fizer sentido, e só quem está no método facial.
+
+O download de embeddings do aparelho deixa de montar a lista inteira para depois fatiar a página. A página nasce no banco. Sincronização incremental (`updated_since` ou equivalente) fica nesta etapa se o app já pedir refresh completo com frequência.
+
+Upload para o R2 e cliente S3: um cliente reutilizado; links temporários na listagem de marcações só quando a tela pediu imagem, alinhado ao Ponto 8.
+
+## Ponto 20 — Apuração e banco sem recalcular a vida toda
+
+Não há tabela de resultado do dia. Cada `GET /reads/calculations` recalcula. A resposta aceita no máximo 62 dias, mas com banco de horas a origem do cálculo volta para a data de admissão, para montar o saldo, e só depois filtra o intervalo pedido. Fechamento e folha repetem o mesmo padrão: `_day_results` por pessoa, às vezes duas vezes (período e admissão até o fim), e o cache interno `_CalcScratch` (versões de jornada, feriados, etc.) nasce de novo por funcionário em vários fluxos.
+
+Nesta etapa:
+
+- Um `_CalcScratch` por requisição nas rotas que apuram várias pessoas (fechamento, folha, AEJ, relatórios de ponto).
+- Onde já existir o resultado do período, o lançamento de banco e o saldo reutilizam esse cálculo (`computed`), sem segunda passagem admissão→fim.
+- Saldo de banco deixa de exigir, em toda consulta, o recálculo desde a admissão. O caminho preferido é um marco confiável (lançamento de saldo / fechamento / saldo persistido na data) e calcular só o trecho depois desse marco até o fim do pedido. Enquanto o marco não existir para aquela pessoa, o comportamento atual permanece, documentado como custo conhecido.
+
+A tela de apuração continua pedindo funcionário e período. Não inventa paginação de dias só no HTTP se o trabalho atrás continuar sendo a vida toda da ficha. O teto de 62 dias na resposta permanece até haver marco de saldo e, se ainda fizer falta, paginação de dias cujo custo seja o da página.
+
+Totais da folha e gerar arquivo fiscal neste ponto passam a compartilhar o scratch e a não duplicar `_day_results` à toa. Job assíncrono do arquivo fica no Ponto 23.
+
+## Ponto 21 — Fechamento e relatórios com custo da página
+
+`GET /closings/{id}` com `part=people` pagina depois de montar o roster. `banks` e `sheets` calculam todo mundo. Validar fechamento e avisos de ponto incompleto percorrem o período pessoa a pessoa.
+
+A lista de pessoas do fechamento pagina no banco (membros daquele fechamento), e só a página pedida entra em `_day_results`. Bancos e folhas ou paginam do mesmo modo, ou usam totais já materializados quando o período está fechado. Fechar o período grava o que a tela e o extrato precisam reler sem recalcular a empresa inteira, quando isso for barato de versionar; se a materialização completa for grande demais para esta etapa, no mínimo people e banks deixam de ser “calcular todos e devolver uma fatia”.
+
+`GET /reads/reports` monta todas as linhas (até 366 dias vezes as pessoas do filtro) e só então aplica `page` e `limit`. Cada página e cada impressão no site pagam o custo total. O relatório passa a escolher a página de pessoas (ou de linhas) antes de apurar, e só calcula essa fatia. Exportar PDF ou o arquivo completo vira caminho próprio, uma vez, sem repetir o cálculo página a página no navegador.
+
+Filtros de lugar (unidade, equipe, etc.) deixam de resolver vigência aplicável linha a linha quando der para resolver o conjunto de funcionários do filtro de uma vez.
+
+## Ponto 22 — Paginação de verdade em QR, embeddings e jornadas
+
+`GET /qr-cards` e `GET /face-embeddings` (e o espelho no aparelho) carregam e enriquecem todo o conjunto, ordenam e cortam a página. Cada pedido de página seguinte repete o trabalho inteiro. A página passa a nascer na consulta; rótulos e nomes só da página.
+
+`GET /journeys` monta a apresentação com várias idas por jornada (versão, dias, spans). Na listagem, essas peças vêm em lote para os ids da página.
+
+Listagem de arquivos fiscais, se ainda devolver o texto do arquivo em cada linha, passa a omitir `content` na lista. O download continua pelo detalhe ou pelo fluxo de gerar com download imediato já usado na tela.
+
+## Ponto 23 — Folha e fiscal sem travar a API
+
+Gerar AFD, AEJ ou totais da folha roda na requisição, até 366 dias, com apuração por pessoa. Empresa média já sente; empresa grande segura a API. Importar AFD faz lookup e insert linha a linha.
+
+Nesta etapa, depois dos Pontos 16 a 22:
+
+- Geração longa sai do ciclo pedido-resposta síncrono: a API aceita o pedido, processa em segundo plano (ou worker do mesmo processo no v1) e o site acompanha status e baixa quando pronto. Enquanto o job não existir, o teto de dias e o timeout ficam explícitos e o scratch do Ponto 20 permanece obrigatório nesse caminho.
+- Importação AFD pré-carrega mapa CPF→funcionário e evita repetir o caminho completo de `create_punch` quando a marcação só precisa inserir origem AFD.
+- Abrir Totais da folha não dispara apuração de empresa sem o usuário pedir gerar. Snapshot por competência fica de fora até haver medição no cliente real; o alvo desta etapa é não bloquear o worker da API no generate/import.
+
+Com 16 a 23 feitos e medidos no ambiente de desenvolvimento com volume próximo ao do primeiro cliente, a fase de hospedagem (Docker, servidor, TLS, `.env` de produção) pode seguir sem carregar esses gargalos conhecidos para produção.
