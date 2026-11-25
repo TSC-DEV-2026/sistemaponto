@@ -53,11 +53,18 @@ def test_lista_de_funcoes_mostra_o_nome_no_swagger():
     assert any(item.get("type") == "string" for item in name["schema"]["anyOf"])
 
 
+# Detalhe do fechamento reutiliza employee_id para apurar um banco da página.
+DETAIL_ALLOWS = {
+    "/api/v1/closings": {"employee_id"},
+}
+
+
 def test_listas_mostram_os_campos_de_busca_no_swagger():
     schema = create_app().openapi()
     for path, expected in LIST_FILTERS.items():
         assert expected <= _query_names(schema["paths"][path]["get"]), path
-        assert expected.isdisjoint(_query_names(schema["paths"][path + "/{row_id}"]["get"])), path
+        detail = _query_names(schema["paths"][path + "/{row_id}"]["get"])
+        assert (expected - DETAIL_ALLOWS.get(path, set())).isdisjoint(detail), path
 
 
 def _rotas(routes, prefix=""):

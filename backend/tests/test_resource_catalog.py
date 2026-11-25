@@ -22,6 +22,13 @@ def test_tenants_reflete_o_schema():
     assert item["list_fields"] == item["fields"]
 
 
+def test_fiscal_files_lista_omite_content():
+    item = catalog_item("fiscal-files")
+    assert item is not None
+    assert "content" in item["fields"]
+    assert "content" not in item["list_fields"]
+
+
 def test_nome_inexistente_retorna_none():
     assert catalog_item("products") is None
 
@@ -57,6 +64,7 @@ def test_lista_e_filtro_sem_sql():
         "closings",
         "hour-bank-entries",
         "fiscal-files",
+        "payroll-events",
         "notices",
         "notice-preferences",
         "notice-emails",

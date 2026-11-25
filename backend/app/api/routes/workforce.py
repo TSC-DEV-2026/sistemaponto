@@ -42,6 +42,7 @@ from app.schemas.workforce import (
     EmployeeBulkOut,
     EmployeeCreate,
     FiscalFileCreate,
+    FiscalFileListOut,
     FiscalFileOut,
     FiscalFileUpdate,
     FiscalImportCreate,
@@ -1392,7 +1393,7 @@ def list_fiscal_files(
     service: WorkforceService = Depends(get_workforce_service),
 ):
     items, total = service.list_fiscal_files(as_scope(actor), page, limit, read_filters(request, ("kind", "valid")))
-    return json_data(dump_page(items, total, page, limit, FiscalFileOut, fields))
+    return json_data(dump_page(items, total, page, limit, FiscalFileListOut, fields))
 
 
 @fiscal_files.post("/imports", status_code=201, summary="Importar marcações do AFD")

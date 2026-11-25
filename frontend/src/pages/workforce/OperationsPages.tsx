@@ -2297,6 +2297,7 @@ function ReportResultRow({ item, kind }: { item: Report["items"][number]; kind: 
 }
 
 function downloadFiscalFile(file: FiscalFile) {
+  if (!file.content) return
   const blob = new Blob([file.content], { type: "text/plain;charset=utf-8" })
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
