@@ -849,7 +849,37 @@ class WorkforceService:
                 raise AppError(409, "Período fechado")
 
     def list_punches(self, scope: Scope, page: int, limit: int, equals: dict):
-        rows, total = self._scoped_list(scope, Punch, page, limit, equals)
+        self._known(scope)
+        filters = dict(equals)
+        starts_on = filters.pop("starts_on", None)
+        ends_on = filters.pop("ends_on", None)
+        occurred_from = None
+        occurred_to = None
+        if starts_on is not None or ends_on is not None:
+            start_day = self._filter_day(starts_on) if starts_on is not None else None
+            end_day = self._filter_day(ends_on) if ends_on is not None else None
+            if start_day is not None and end_day is not None and end_day < start_day:
+                raise AppError(400, "Intervalo inválido")
+            if start_day is not None:
+                occurred_from, _ignored = day_bounds(start_day)
+            if end_day is not None:
+                _ignored, occurred_to = day_bounds(end_day)
+        ids = self._visible_ids(scope)
+        if "employee_id" in filters:
+            self._visible(scope, int(filters["employee_id"]))
+            ids = None
+        elif ids is not None and len(ids) == 0:
+            return [], 0
+        rows, total = self.repo.list_punches(
+            scope.tenant_id,
+            page=page,
+            limit=limit,
+            equals=filters,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            descending=True,
+            employee_ids=ids,
+        )
         for row in rows:
             self._punch_links(row)
         return rows, total
@@ -5212,3 +5242,13 @@ class WorkforceService:
 
     def _punch_day(self, value: datetime) -> date:
         return value.astimezone(BR).date()
+
+    def _filter_day(self, value) -> date:
+        if isinstance(value, datetime):
+            return value.astimezone(BR).date()
+        if isinstance(value, date):
+            return value
+        try:
+            return date.fromisoformat(str(value).strip()[:10])
+        except ValueError as error:
+            raise AppError(400, "Data inválida") from error

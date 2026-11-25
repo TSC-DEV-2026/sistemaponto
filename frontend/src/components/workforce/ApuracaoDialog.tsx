@@ -14,7 +14,7 @@ import { DocumentLink, emptyTimeOff, TimeOffFields, timeOffBody, type TimeOffDra
 import { createRecord, listRecords, uploadCertificatePhoto, type NamedRecord, type Punch, type TimeResult } from "@/services/workforce.service"
 import { toastError } from "@/store/toast.store"
 import { cn } from "@/utils/cn"
-import { punchDay, punchOrigin, showClock, showDuration } from "@/utils/labels"
+import { punchOrigin, showClock, showDuration } from "@/utils/labels"
 
 export type ApuracaoMode = "details" | "correct" | "absence" | "timeoff"
 
@@ -37,20 +37,18 @@ const detailTabs = [
 
 async function punchesOnDay(employeeId: number, day: string) {
   const found: Punch[] = []
-  for (const valid of [true, false]) {
-    let page = 1
-    for (;;) {
-      const result = await listRecords<Punch>("/punches", { employee_id: employeeId, valid, page, limit: 100 })
-      if (result.items.length === 0) break
-      let older = true
-      for (const item of result.items) {
-        const stamp = punchDay(item.occurred_at)
-        if (stamp === day) found.push(item)
-        if (stamp >= day) older = false
-      }
-      if (older || page * 100 >= result.total || page >= 8) break
-      page += 1
-    }
+  let page = 1
+  for (;;) {
+    const result = await listRecords<Punch>("/punches", {
+      employee_id: employeeId,
+      starts_on: day,
+      ends_on: day,
+      page,
+      limit: 100,
+    })
+    found.push(...result.items)
+    if (result.items.length === 0 || page * 100 >= result.total || page >= 8) break
+    page += 1
   }
   return found.sort((left, right) => left.occurred_at.localeCompare(right.occurred_at))
 }
