@@ -246,8 +246,8 @@ export function DatePickerField({
       ) : null}
       <div
         className={cn(
-          "flex h-12 cursor-text items-center gap-2 rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 shadow-[0_3px_8px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-[#B8C3CF] hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]",
-          open && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
+          "flex h-12 cursor-text items-center gap-2 rounded-[10px] border border-ui-line-input bg-white px-3.5 shadow-[0_3px_8px_rgb(var(--ui-shadow)/0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-ui-line-input-hover hover:shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.05)]",
+          open && "border-brand-cta shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.1)]",
           disabled && "pointer-events-none bg-brand-paper",
         )}
         onMouseDown={(event) => {
@@ -259,7 +259,7 @@ export function DatePickerField({
           inputRef.current?.focus()
         }}
       >
-        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]", open && "bg-[rgba(30,138,58,0.14)]")} aria-hidden>
+        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-brand-cta/8 text-brand-cta", open && "bg-brand-cta/14")} aria-hidden>
           <Calendar className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <input
@@ -273,7 +273,7 @@ export function DatePickerField({
           aria-expanded={open}
           aria-controls={listId}
           aria-required={required || undefined}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-[#0A0A0A] outline-none placeholder:text-[#9CA3AF]"
+          className="min-w-0 flex-1 bg-transparent text-[15px] text-ui-ink outline-none placeholder:text-brand-placeholder"
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
           onBlur={() => setDraft(selected ? formatBr(selected) : "")}
@@ -283,7 +283,7 @@ export function DatePickerField({
         {value ? (
           <button
             type="button"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#94A3B8] transition-colors duration-150 hover:bg-[#F4F4F5] hover:text-[#0A0A0A]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ui-slate-soft transition-colors duration-150 hover:bg-ui-paper hover:text-ui-ink"
             data-clear
             aria-label="Limpar data"
             onMouseDown={(event) => event.preventDefault()}
@@ -318,31 +318,31 @@ export function DatePickerField({
           role="dialog"
           aria-label={label || "Calendário"}
           className={cn(
-            "absolute z-30 w-[min(340px,calc(100vw-2rem))] rounded-[14px] border border-[#E4E4E7] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
+            "absolute z-30 w-[min(340px,calc(100vw-2rem))] rounded-[14px] border border-ui-line-soft bg-white p-4 shadow-[0_10px_28px_rgb(var(--ui-shadow)/0.08)]",
             above ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]",
             alignRight ? "right-0" : "left-0",
             open ? "site-select-in" : "pointer-events-none site-select-out",
           )}
         >
           <div className="flex items-center justify-between gap-2">
-            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E4E7] bg-white text-[#52525B] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" aria-label="Anterior" onClick={previous}>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-ui-line-soft bg-white text-brand-muted transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta" aria-label="Anterior" onClick={previous}>
               <ChevronLeft className="h-[18px] w-[18px]" />
             </button>
-            <div className="flex items-center gap-1 text-[15px] font-semibold text-[#0A0A0A]">
-              <button type="button" className="rounded-md px-1.5 py-1 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" onClick={() => setView(view === "months" ? "days" : "months")}>
+            <div className="flex items-center gap-1 text-[15px] font-semibold text-ui-ink">
+              <button type="button" className="rounded-md px-1.5 py-1 hover:bg-brand-cta/8 hover:text-brand-cta" onClick={() => setView(view === "months" ? "days" : "months")}>
                 {months[cursor.m]}
               </button>
-              <button type="button" className="rounded-md px-1.5 py-1 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" onClick={() => setView(view === "years" ? "days" : "years")}>
+              <button type="button" className="rounded-md px-1.5 py-1 hover:bg-brand-cta/8 hover:text-brand-cta" onClick={() => setView(view === "years" ? "days" : "years")}>
                 {view === "years" ? `${yearStart} – ${yearStart + 11}` : cursor.y}
               </button>
             </div>
-            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E4E7] bg-white text-[#52525B] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" aria-label="Seguinte" onClick={next}>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-ui-line-soft bg-white text-brand-muted transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta" aria-label="Seguinte" onClick={next}>
               <ChevronRight className="h-[18px] w-[18px]" />
             </button>
           </div>
           {view === "days" ? (
             <>
-              <div className="mt-4 grid grid-cols-7 text-center text-xs text-[#71717A]">
+              <div className="mt-4 grid grid-cols-7 text-center text-xs text-brand-quiet">
                 {weekdays.map((day, index) => (
                   <span key={`${day}-${index}`}>{day}</span>
                 ))}
@@ -359,10 +359,10 @@ export function DatePickerField({
                       disabled={blocked}
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg text-sm transition-colors duration-150",
-                        chosen ? "bg-[#1E8A3A] font-semibold text-white" : "text-[#0A0A0A] hover:bg-[rgba(30,138,58,0.08)] hover:text-[#187432]",
-                        day.outside && !chosen && "text-[#C5CDD6]",
-                        !chosen && sameDay(day, today) && "ring-1 ring-[#1E8A3A]/40",
-                        current && !chosen && "bg-[rgba(30,138,58,0.08)]",
+                        chosen ? "bg-brand-cta font-semibold text-white" : "text-ui-ink hover:bg-brand-cta/8 hover:text-brand-cta-deep",
+                        day.outside && !chosen && "text-ui-line-hover",
+                        !chosen && sameDay(day, today) && "ring-1 ring-brand-cta/40",
+                        current && !chosen && "bg-brand-cta/8",
                         blocked && "pointer-events-none opacity-30",
                       )}
                       onClick={() => commit(day)}
@@ -380,7 +380,7 @@ export function DatePickerField({
                 <button
                   key={month}
                   type="button"
-                  className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#187432]", index === cursor.m && "bg-[#1E8A3A] font-semibold text-white hover:bg-[#1E8A3A] hover:text-white")}
+                  className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta-deep", index === cursor.m && "bg-brand-cta font-semibold text-white hover:bg-brand-cta hover:text-white")}
                   onClick={() => {
                     setCursor({ ...cursor, m: index })
                     setView("days")
@@ -397,7 +397,7 @@ export function DatePickerField({
                 <button
                   key={year}
                   type="button"
-                  className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#187432]", year === cursor.y && "bg-[#1E8A3A] font-semibold text-white hover:bg-[#1E8A3A] hover:text-white")}
+                  className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta-deep", year === cursor.y && "bg-brand-cta font-semibold text-white hover:bg-brand-cta hover:text-white")}
                   onClick={() => {
                     setCursor({ ...cursor, y: year })
                     setView("months")
@@ -499,8 +499,8 @@ export function YearPickerField({
     <div ref={rootRef} className={cn("relative", mounted && "z-30")}>
       <div
         className={cn(
-          "flex h-12 cursor-text items-center gap-2 rounded-[10px] border border-[#D9DEE5] bg-white px-3.5 shadow-[0_3px_8px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-[#B8C3CF] hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]",
-          open && "border-[#1E8A3A] shadow-[0_0_0_3px_rgba(30,138,58,0.1)]",
+          "flex h-12 cursor-text items-center gap-2 rounded-[10px] border border-ui-line-input bg-white px-3.5 shadow-[0_3px_8px_rgb(var(--ui-shadow)/0.035)] transition-[border-color,box-shadow] duration-[180ms] hover:border-ui-line-input-hover hover:shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.05)]",
+          open && "border-brand-cta shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.1)]",
         )}
         onMouseDown={(event) => {
           const target = event.target as HTMLElement
@@ -512,7 +512,7 @@ export function YearPickerField({
       >
         <button
           type="button"
-          className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]", open && "bg-[rgba(30,138,58,0.14)]")}
+          className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-brand-cta/8 text-brand-cta", open && "bg-brand-cta/14")}
           aria-label="Escolher ano"
           aria-expanded={open}
           aria-controls={listId}
@@ -534,7 +534,7 @@ export function YearPickerField({
           aria-expanded={open}
           aria-controls={listId}
           aria-required={required || undefined}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-[#0A0A0A] outline-none placeholder:text-[#9CA3AF]"
+          className="min-w-0 flex-1 bg-transparent text-[15px] text-ui-ink outline-none placeholder:text-brand-placeholder"
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
           onChange={(event) => {
@@ -572,7 +572,7 @@ export function YearPickerField({
         {value ? (
           <button
             type="button"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#94A3B8] transition-colors duration-150 hover:bg-[#F4F4F5] hover:text-[#0A0A0A]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ui-slate-soft transition-colors duration-150 hover:bg-ui-paper hover:text-ui-ink"
             data-clear
             aria-label="Limpar ano"
             onMouseDown={(event) => event.preventDefault()}
@@ -607,20 +607,20 @@ export function YearPickerField({
           role="dialog"
           aria-label="Anos"
           className={cn(
-            "absolute z-30 w-[min(340px,calc(100vw-2rem))] rounded-[14px] border border-[#E4E4E7] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
+            "absolute z-30 w-[min(340px,calc(100vw-2rem))] rounded-[14px] border border-ui-line-soft bg-white p-4 shadow-[0_10px_28px_rgb(var(--ui-shadow)/0.08)]",
             above ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]",
             alignRight ? "right-0" : "left-0",
             open ? "site-select-in" : "pointer-events-none site-select-out",
           )}
         >
           <div className="flex items-center justify-between gap-2">
-            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E4E7] bg-white text-[#52525B] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" aria-label="Anos anteriores" onClick={() => setCursor((current) => current - 12)}>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-ui-line-soft bg-white text-brand-muted transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta" aria-label="Anos anteriores" onClick={() => setCursor((current) => current - 12)}>
               <ChevronLeft className="h-[18px] w-[18px]" />
             </button>
-            <p className="text-[15px] font-semibold text-[#0A0A0A]">
+            <p className="text-[15px] font-semibold text-ui-ink">
               {yearStart} – {yearStart + 11}
             </p>
-            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E4E7] bg-white text-[#52525B] transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#1E8A3A]" aria-label="Próximos anos" onClick={() => setCursor((current) => current + 12)}>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-ui-line-soft bg-white text-brand-muted transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta" aria-label="Próximos anos" onClick={() => setCursor((current) => current + 12)}>
               <ChevronRight className="h-[18px] w-[18px]" />
             </button>
           </div>
@@ -629,7 +629,7 @@ export function YearPickerField({
               <button
                 key={year}
                 type="button"
-                className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-[rgba(30,138,58,0.08)] hover:text-[#187432]", year === selected && "bg-[#1E8A3A] font-semibold text-white hover:bg-[#1E8A3A] hover:text-white")}
+                className={cn("rounded-lg px-2 py-2 text-sm transition-colors duration-150 hover:bg-brand-cta/8 hover:text-brand-cta-deep", year === selected && "bg-brand-cta font-semibold text-white hover:bg-brand-cta hover:text-white")}
                 onClick={() => choose(year)}
               >
                 {year}

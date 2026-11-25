@@ -45,7 +45,7 @@ function visibleCategories(categories: CategoryRecord[], query: string) {
 
 function MarkBox({ state }: { state: "on" | "off" | "some" }) {
   return (
-    <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", state === "off" ? "border-[#D5DCE3] bg-white" : "border-[#1E8A3A] bg-[#1E8A3A] text-white")}>
+    <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", state === "off" ? "border-ui-line-strong bg-white" : "border-brand-cta bg-brand-cta text-white")}>
       {state === "on" ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
       {state === "some" ? <Minus className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
     </span>
@@ -97,8 +97,8 @@ export function CategoryFilterField({
         id={id}
         type="button"
         className={cn(
-          "flex h-[50px] w-full items-center gap-2 rounded-[10px] border px-4 text-left text-[15px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30",
-          selected.length > 0 || present ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9]",
+          "flex h-[50px] w-full items-center gap-2 rounded-[10px] border px-4 text-left text-[15px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-cta/30",
+          selected.length > 0 || present ? "border-brand-cta bg-brand-tint text-brand-cta" : "border-ui-line bg-white text-ui-ink hover:border-brand-glow hover:bg-brand-soft-alt",
           loading && "cursor-wait disabled:opacity-100",
         )}
         aria-haspopup="dialog"
@@ -111,7 +111,7 @@ export function CategoryFilterField({
       >
         <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
         <span className="min-w-0 flex-1 truncate">{loading ? "Carregando" : selected.length > 0 ? summary : "Escolher categorias"}</span>
-        {loading ? <Spinner className="h-4 w-4 text-[#1E8A3A]" /> : <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />}
+        {loading ? <Spinner className="h-4 w-4 text-brand-cta" /> : <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />}
       </button>
       {present ? <CategoryDrawer categories={categories} selected={selected} phase={phase} onChange={onChange} onClose={close} onExited={finishClose} /> : null}
     </>
@@ -181,7 +181,7 @@ function CategoryDrawer({
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div
-        className={cn("absolute inset-0 bg-[rgba(15,23,42,0.45)]", phase === "in" ? "category-drawer-shade-in" : "category-drawer-shade-out")}
+        className={cn("absolute inset-0 bg-[rgb(var(--ui-shadow)/0.45)]", phase === "in" ? "category-drawer-shade-in" : "category-drawer-shade-out")}
         onMouseDown={() => {
           if (phaseRef.current === "in") onClose()
         }}
@@ -190,7 +190,7 @@ function CategoryDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={cn("relative flex h-full w-full max-w-[440px] flex-col bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)]", phase === "in" ? "category-drawer-in" : "category-drawer-out")}
+        className={cn("relative flex h-full w-full max-w-[440px] flex-col bg-white shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)]", phase === "in" ? "category-drawer-in" : "category-drawer-out")}
         onAnimationEnd={(event) => {
           if (event.target !== event.currentTarget) return
           if (event.animationName === "category-drawer-out" && phaseRef.current === "out") exitedRef.current()
@@ -198,10 +198,10 @@ function CategoryDrawer({
       >
         <div className="flex items-start justify-between gap-3 px-5 pb-2 pt-5">
           <div>
-            <h2 id={titleId} className="text-lg font-semibold text-[#0A0A0A]">Categorias</h2>
-            <p className="mt-1 text-sm text-[#64748B]">{selected.length === 0 ? "Nenhum valor marcado" : `${selected.length} ${selected.length === 1 ? "valor marcado" : "valores marcados"}`}</p>
+            <h2 id={titleId} className="text-lg font-semibold text-ui-ink">Categorias</h2>
+            <p className="mt-1 text-sm text-ui-slate">{selected.length === 0 ? "Nenhum valor marcado" : `${selected.length} ${selected.length === 1 ? "valor marcado" : "valores marcados"}`}</p>
           </div>
-          <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
+          <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ui-slate transition-colors duration-200 hover:bg-ui-paper hover:text-ui-ink-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none" aria-label="Fechar" onClick={onClose}>
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
@@ -209,7 +209,7 @@ function CategoryDrawer({
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor={searchId}>Pesquisar</Label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
               <Input ref={searchRef} id={searchId} value={query} placeholder="Pesquisar categoria ou valor" className={cn(moduleFieldClass, "pl-10")} onChange={(event) => setQuery(event.target.value)} />
             </div>
           </div>
@@ -226,7 +226,7 @@ function CategoryDrawer({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           {listed.length === 0 ? (
-            <p className="px-2 py-8 text-center text-sm text-[#64748B]">Nenhuma categoria encontrada.</p>
+            <p className="px-2 py-8 text-center text-sm text-ui-slate">Nenhuma categoria encontrada.</p>
           ) : (
             <ul className="space-y-1">
               {listed.map(({ category, values }) => {
@@ -238,7 +238,7 @@ function CategoryDrawer({
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-[#F7FCF9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 disabled:cursor-default disabled:hover:bg-transparent"
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-brand-soft-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 disabled:cursor-default disabled:hover:bg-transparent"
                         role="checkbox"
                         aria-checked={state === "on" ? true : state === "some" ? "mixed" : false}
                         disabled={category.values.length === 0}
@@ -246,15 +246,15 @@ function CategoryDrawer({
                       >
                         <MarkBox state={state} />
                         <span className="min-w-0">
-                          <span className={cn("block truncate text-[15px] font-semibold", state === "off" ? "text-[#0A0A0A]" : "text-[#1E8A3A]")}>{category.name}</span>
-                          {category.values.length === 0 ? <span className="mt-0.5 block text-xs text-[#64748B]">Sem valores.</span> : null}
-                          {state === "some" ? <span className="mt-0.5 block text-xs text-[#64748B]">{picked} de {category.values.length}</span> : null}
+                          <span className={cn("block truncate text-[15px] font-semibold", state === "off" ? "text-ui-ink" : "text-brand-cta")}>{category.name}</span>
+                          {category.values.length === 0 ? <span className="mt-0.5 block text-xs text-ui-slate">Sem valores.</span> : null}
+                          {state === "some" ? <span className="mt-0.5 block text-xs text-ui-slate">{picked} de {category.values.length}</span> : null}
                         </span>
                       </button>
                       {category.values.length > 0 ? (
                         <button
                           type="button"
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors hover:bg-[#F4F4F5] hover:text-[#0A0A0A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ui-slate transition-colors hover:bg-ui-paper hover:text-ui-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30"
                           aria-expanded={shown}
                           aria-label={shown ? `Recolher ${category.name}` : `Expandir ${category.name}`}
                           onClick={() => setCollapsed((current) => current.includes(category.id) ? current.filter((item) => item !== category.id) : [...current, category.id])}
@@ -264,20 +264,20 @@ function CategoryDrawer({
                       ) : null}
                     </div>
                     {shown && values.length > 0 ? (
-                      <ul className="mb-1 ml-[22px] border-l border-[#E7E8EA] pl-3">
+                      <ul className="mb-1 ml-[22px] border-l border-ui-line-muted pl-3">
                         {values.map((value) => {
                           const marked = selected.includes(value.id)
                           return (
                             <li key={value.id}>
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#F7FCF9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
+                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-brand-soft-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30"
                                 role="checkbox"
                                 aria-checked={marked}
                                 onClick={() => toggleValue(value.id)}
                               >
                                 <MarkBox state={marked ? "on" : "off"} />
-                                <span className={cn("truncate text-[15px]", marked ? "font-medium text-[#1E8A3A]" : "text-[#0A0A0A]")}>{value.name}</span>
+                                <span className={cn("truncate text-[15px]", marked ? "font-medium text-brand-cta" : "text-ui-ink")}>{value.name}</span>
                               </button>
                             </li>
                           )
@@ -290,7 +290,7 @@ function CategoryDrawer({
             </ul>
           )}
         </div>
-        <div className="flex justify-end border-t border-[#E2E8F0] px-5 py-4">
+        <div className="flex justify-end border-t border-ui-line px-5 py-4">
           <Button type="button" className={modulePrimaryClass} onClick={onClose}>
             <Check className="h-4 w-4" />
             Concluir

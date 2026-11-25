@@ -35,23 +35,23 @@ function DayAction({ label, disabled, onClick, children }: { label: string; disa
 
 function SummaryCard({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: "alert" | "warn" | "ok" }) {
   const toneClass = tone === "alert"
-    ? "border-[#F3C7C7] bg-[#FFF8F8]"
+    ? "border-danger-edge bg-danger-tint"
     : tone === "warn"
-      ? "border-[#F0E2B0] bg-[#FFF9EC]"
-      : "border-[#D7EBD9] bg-[rgba(30,138,58,0.06)]"
+      ? "border-warn-chip-deep bg-warn-banner"
+      : "border-brand-mist bg-brand-cta/6"
   const iconClass = tone === "alert"
-    ? "bg-[#FDECEC] text-[#C62828]"
+    ? "bg-danger-wash text-danger-ink"
     : tone === "warn"
-      ? "bg-[#FFF3CC] text-[#A16207]"
-      : "bg-white text-[#1E8A3A]"
-  const valueClass = tone === "alert" ? "text-[#C62828]" : tone === "warn" ? "text-[#8A5A00]" : "text-[#14532D]"
+      ? "bg-warn-chip-alt text-warn-gold"
+      : "bg-white text-brand-cta"
+  const valueClass = tone === "alert" ? "text-danger-ink" : tone === "warn" ? "text-warn-ink" : "text-brand-success-ink"
   return (
     <div className={cn("flex min-w-[9.5rem] flex-1 items-center gap-3 rounded-xl border px-3 py-3", toneClass)}>
       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", iconClass)}>
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-xs text-[#64748B]">{label}</span>
+        <span className="block text-xs text-ui-slate">{label}</span>
         <span className={cn("block text-2xl font-bold tabular-nums leading-none", valueClass)}>{value}</span>
       </span>
     </div>
@@ -87,19 +87,19 @@ function ResultadoApuracao({
     return total
   }, { absence: 0, alert: 0, clear: 0 })
   return (
-    <section className="rounded-2xl border border-[#E6EEE8] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-7">
+    <section className="rounded-2xl border border-brand-field bg-white p-5 shadow-[0_10px_30px_rgb(var(--ui-shadow)/0.04)] sm:p-7">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.10)] text-[#1E8A3A]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta">
               <Calendar className="h-5 w-5" strokeWidth={1.75} aria-hidden />
             </span>
             <div>
-              <h3 className="text-2xl font-bold tracking-tight text-[#0A0A0A]">Resultado da apuração</h3>
-              <p className="mt-0.5 text-sm text-[#64748B]">Consulte os resultados por dia.</p>
+              <h3 className="text-2xl font-bold tracking-tight text-ui-ink">Resultado da apuração</h3>
+              <p className="mt-0.5 text-sm text-ui-slate">Consulte os resultados por dia.</p>
             </div>
           </div>
-          <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[rgba(30,138,58,0.10)] px-3 py-1.5 text-sm font-medium text-[#187432]">
+          <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-cta/10 px-3 py-1.5 text-sm font-medium text-brand-cta-deep">
             <Calendar className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             Período {showDate(result.starts_on)} a {showDate(result.ends_on)}
             {result.balance_minutes != null ? <span className="font-semibold">· Saldo {showDuration(result.balance_minutes)}</span> : null}
@@ -111,7 +111,7 @@ function ResultadoApuracao({
           <SummaryCard icon={<CheckCircle2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />} label="Jornadas cumpridas" value={counts.clear} tone="ok" />
         </div>
       </div>
-      <div className="mt-5 border-t border-[#E6EEE8] pt-5">
+      <div className="mt-5 border-t border-brand-field pt-5">
         <div className="mb-4 w-full space-y-2">
           <Label className={moduleLabelClass} htmlFor="apuracao-day-filter">Situação</Label>
           <SiteSelect
@@ -143,7 +143,7 @@ function ResultadoApuracao({
                       <DayAction label="Atestado ou abono" disabled={Boolean(locked)} onClick={() => onOpen(day, "timeoff")}>
                         <FilePlus2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                       </DayAction>
-                      {locked ? <span className="max-w-[10rem] text-xs text-[#64748B]">{locked}</span> : null}
+                      {locked ? <span className="max-w-[10rem] text-xs text-ui-slate">{locked}</span> : null}
                     </>
                   ) : null}
                 />
@@ -262,11 +262,11 @@ export function CalculationsPanel({
   if (appearance === "module") {
     return (
       <section className="space-y-4">
-        <ActionForm className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6" onSubmit={onSubmit}>
+        <ActionForm className="rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6" onSubmit={onSubmit}>
           <div>
             <h2 className="text-lg font-semibold text-brand-ink">Apurações</h2>
             <p className="mt-1 text-sm text-brand-quiet">Consulte as horas apuradas.</p>
-            <p className="mt-2 text-sm leading-6 text-[#52525B]">{note || resultNote()}</p>
+            <p className="mt-2 text-sm leading-6 text-brand-muted">{note || resultNote()}</p>
           </div>
           {employees ? (
             <div className="mt-[18px] space-y-2">
@@ -280,13 +280,13 @@ export function CalculationsPanel({
             <DatePickerField id="result-start" label="De" value={startsOn} onChange={setStartsOn} required />
             <DatePickerField id="result-end" label="Até" value={endsOn} onChange={setEndsOn} required />
           </div>
-          <Button type="submit" className="mt-5 h-12 w-full rounded-[10px] bg-brand-cta text-white shadow-[0_8px_20px_rgba(30,138,58,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgba(30,138,58,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
+          <Button type="submit" className="mt-5 h-12 w-full rounded-[10px] bg-brand-cta text-white shadow-[0_8px_20px_rgb(var(--brand-cta)/0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-brand-cta-hover hover:shadow-[0_10px_24px_rgb(var(--brand-cta)/0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none">
             <Search className="h-4 w-4" />
             Apurar
           </Button>
         </ActionForm>
         {loading ? (
-          <div className="flex justify-center rounded-xl border border-[#E4E4E7] bg-white px-5 py-10">
+          <div className="flex justify-center rounded-xl border border-ui-line-soft bg-white px-5 py-10">
             <Spinner />
           </div>
         ) : null}

@@ -16,7 +16,7 @@ import { formatCpf } from "@/utils/digits"
 
 function shown(value: string | undefined) {
   const text = (value || "").trim()
-  return text ? text : <span className="font-medium text-[#94A3B8]">Não informado</span>
+  return text ? text : <span className="font-medium text-ui-slate-soft">Não informado</span>
 }
 
 function initials(name: string) {
@@ -28,7 +28,7 @@ function initials(name: string) {
 
 function IconTile({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
       <Icon className="h-5 w-5" strokeWidth={1.75} />
     </span>
   )
@@ -36,13 +36,13 @@ function IconTile({ icon: Icon }: { icon: LucideIcon }) {
 
 function AccountFact({ icon: Icon, label, value, wrap = false }: { icon: LucideIcon; label: string; value: ReactNode; wrap?: boolean }) {
   return (
-    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-3">
-      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-[10px] border border-ui-line bg-ui-canvas px-3.5 py-3">
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
       </span>
       <div className="min-w-0">
-        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
-        <p className={cn("mt-0.5 text-[15px] font-semibold leading-5 text-[#0A0A0A]", wrap ? "break-all" : "truncate")}>{value}</p>
+        <p className="text-xs leading-4 text-ui-slate">{label}</p>
+        <p className={cn("mt-0.5 text-[15px] font-semibold leading-5 text-ui-ink", wrap ? "break-all" : "truncate")}>{value}</p>
       </div>
     </div>
   )
@@ -122,12 +122,12 @@ export function SettingsPage() {
       {accountAdmin ? <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-sm font-semibold text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand-cta" aria-hidden>
               {initials(displayName)}
             </span>
             <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold text-[#0A0A0A]">{displayName.trim() || "Minha conta"}</h2>
-              <p className="text-sm text-[#64748B]">Informações do perfil</p>
+              <h2 className="truncate text-lg font-semibold text-ui-ink">{displayName.trim() || "Minha conta"}</h2>
+              <p className="text-sm text-ui-slate">Informações do perfil</p>
             </div>
           </div>
           {loaded && user && !editing ? (
@@ -140,14 +140,14 @@ export function SettingsPage() {
                 setEditing(true)
               }}
             >
-              <Pencil className="h-4 w-4 text-[#1E8A3A]" />
+              <Pencil className="h-4 w-4 text-brand-cta" />
               Editar
             </Button>
           ) : null}
         </div>
         {!loaded ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando a conta" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando a conta" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : null}
         {loaded && user && editing ? (
@@ -198,19 +198,19 @@ export function SettingsPage() {
             <IconTile icon={Mail} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-[#0A0A0A]">Verificação de e-mail</h2>
+                <h2 className="text-lg font-semibold text-ui-ink">Verificação de e-mail</h2>
                 {loaded && user ? (
-                  <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold", verified ? "bg-[#EAF7EF] text-[#1E8A3A]" : "bg-[#F4F4F5] text-[#64748B]")}>
+                  <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold", verified ? "bg-brand-tint text-brand-cta" : "bg-ui-paper text-ui-slate")}>
                     {verified ? "Confirmado" : "Não confirmado"}
                   </span>
                 ) : null}
               </div>
-              {loaded && user && !verified ? <p className="text-sm text-[#64748B]">O acesso não depende dessa confirmação.</p> : null}
+              {loaded && user && !verified ? <p className="text-sm text-ui-slate">O acesso não depende dessa confirmação.</p> : null}
             </div>
           </div>
           {!loaded ? (
             <div className="flex justify-center py-8" role="status">
-              <Spinner label="Carregando a verificação" className="h-8 w-8 text-[#1E8A3A]" />
+              <Spinner label="Carregando a verificação" className="h-8 w-8 text-brand-cta" />
             </div>
           ) : user ? (
             <>
@@ -219,7 +219,7 @@ export function SettingsPage() {
                   <Label className={moduleLabelClass} htmlFor="email">E-mail</Label>
                   <Input id="email" className={cn(moduleFieldClass, "h-[46px]")} type="email" value={resendEmail} onChange={(event) => setResendEmail(event.target.value)} required />
                 </div>
-                {message ? <p className="text-sm text-[#1E8A3A]" role="status">{message}</p> : null}
+                {message ? <p className="text-sm text-brand-cta" role="status">{message}</p> : null}
                 <div className="flex justify-end">
                   <Button type="submit" className={cn(moduleQuietClass, "h-11 px-4")}>
                     <Send className="h-4 w-4" />
@@ -234,24 +234,24 @@ export function SettingsPage() {
         <section className={cn(moduleCardClass, "space-y-4")}>
           <div className="flex items-center gap-3">
             <IconTile icon={KeyRound} />
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Segurança</h2>
+            <h2 className="text-lg font-semibold text-ui-ink">Segurança</h2>
           </div>
-          <p className="text-sm leading-6 text-[#64748B]">Gerencie a senha de acesso à sua conta.</p>
+          <p className="text-sm leading-6 text-ui-slate">Gerencie a senha de acesso à sua conta.</p>
           <Link
             to="/change-password"
-            className="group flex min-h-16 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-200 hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+            className="group flex min-h-16 items-center gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035)] transition-[border-color,box-shadow] duration-200 hover:border-ui-slate-faint hover:shadow-[0_8px_20px_rgb(var(--ui-shadow)/0.075)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-brand-cta/10 text-brand-cta" aria-hidden>
               <KeyRound className="h-4 w-4" strokeWidth={1.75} />
             </span>
-            <span className="min-w-0 flex-1 text-sm font-semibold text-[#0A0A0A]">Trocar senha</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[#64748B] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" aria-hidden />
+            <span className="min-w-0 flex-1 text-sm font-semibold text-ui-ink">Trocar senha</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-ui-slate transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" aria-hidden />
           </Link>
         </section>
       </div>
 
       <section className={cn(moduleCardClass, "space-y-4")}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Gerenciamento do sistema</h2>
+        <h2 className="text-lg font-semibold text-ui-ink">Gerenciamento do sistema</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {links.map((item) => {
             const Icon = item.icon
@@ -259,16 +259,16 @@ export function SettingsPage() {
               <Link
                 key={item.to}
                 to={item.to}
-                className="group flex min-h-16 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035)] transition-[border-color,box-shadow] duration-200 hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none"
+                className="group flex min-h-16 items-center gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035)] transition-[border-color,box-shadow] duration-200 hover:border-ui-slate-faint hover:shadow-[0_8px_20px_rgb(var(--ui-shadow)/0.075)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none"
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
                   <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-[#0A0A0A]">{item.title}</span>
-                  <span className="mt-0.5 block text-sm text-[#64748B]">{item.text}</span>
+                  <span className="block font-semibold text-ui-ink">{item.title}</span>
+                  <span className="mt-0.5 block text-sm text-ui-slate">{item.text}</span>
                 </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-[#64748B] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" aria-hidden />
+                <ChevronRight className="h-4 w-4 shrink-0 text-ui-slate transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" aria-hidden />
               </Link>
             )
           })}

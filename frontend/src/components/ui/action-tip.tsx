@@ -41,7 +41,7 @@ export function ActionTip({ label, children }: { label: string; children: ReactN
             <span
               role="tooltip"
               className={cn(
-                "pointer-events-none fixed z-[60] -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#E2E8F0] bg-white px-2 py-1 text-xs font-medium text-[#0A0A0A] shadow-[0_4px_12px_rgba(15,23,42,0.08)]",
+                "pointer-events-none fixed z-[60] -translate-x-1/2 whitespace-nowrap rounded-lg border border-ui-line bg-white px-2 py-1 text-xs font-medium text-ui-ink shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.08)]",
                 spot.above && "-translate-y-full",
               )}
               style={{ top: spot.top, left: spot.left }}

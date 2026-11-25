@@ -105,19 +105,19 @@ export function TenantsPage() {
       </div>
       <section className={cn(moduleCardClass, "p-0 sm:p-0")}>
         <div className="flex min-w-0 items-center gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Layers className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Organizações</h2>
-            <p className="text-sm text-[#64748B]">Organizações deste sistema.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Organizações</h2>
+            <p className="text-sm text-ui-slate">Organizações deste sistema.</p>
           </div>
         </div>
         <div className="mt-5 flex flex-col gap-3 px-5 sm:flex-row sm:items-end sm:px-6">
           <div className="min-w-0 flex-1 space-y-2">
             <Label className={moduleLabelClass} htmlFor="tenant-search">Pesquisar</Label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
               <Input
                 id="tenant-search"
                 value={query}
@@ -140,48 +140,48 @@ export function TenantsPage() {
         </div>
         {loading && all.length === 0 && !failed ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando as organizações" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando as organizações" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : null}
         {!loading && !failed && items.length === 0 ? (
           <div className="px-2 py-10 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
               <Layers className="h-6 w-6" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhuma organização</p>
-            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+            <p className="mt-4 text-[15px] font-semibold text-ui-ink">Nenhuma organização</p>
+            <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
           </div>
         ) : null}
         {items.length > 0 ? (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse">
               <thead>
-                <tr className="border-b border-[#F1F5F9]">
-                  <th className="px-5 py-3 text-left text-sm font-semibold text-[#64748B] sm:px-6">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-[#64748B]">CNPJ</th>
-                  <th className="w-px whitespace-nowrap px-5 py-3 text-center text-sm font-semibold text-[#64748B] sm:px-6">Ações</th>
+                <tr className="border-b border-ui-wash">
+                  <th className="px-5 py-3 text-left text-sm font-semibold text-ui-slate sm:px-6">Nome</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-ui-slate">CNPJ</th>
+                  <th className="w-px whitespace-nowrap px-5 py-3 text-center text-sm font-semibold text-ui-slate sm:px-6">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => {
                   const canEdit = isAdmin && activeId === item.id
                   return (
-                    <tr key={item.id} className="border-b border-[#F1F5F9] transition-colors duration-200 last:border-b-0 hover:bg-[#F7FBF8] motion-reduce:transition-none">
+                    <tr key={item.id} className="border-b border-ui-wash transition-colors duration-200 last:border-b-0 hover:bg-brand-soft-alt motion-reduce:transition-none">
                       <td className="px-5 py-3 align-middle sm:px-6">
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF7EF] text-[#1E8A3A]" aria-hidden>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-tint text-brand-cta" aria-hidden>
                             <Layers className="h-[18px] w-[18px]" strokeWidth={1.75} />
                           </span>
-                          <span className="block truncate font-semibold leading-5 text-[#0A0A0A]">{item.name || "Não informado"}</span>
+                          <span className="block truncate font-semibold leading-5 text-ui-ink">{item.name || "Não informado"}</span>
                         </div>
                       </td>
-                      <td className={cn("px-4 py-3 align-middle text-sm leading-5", item.document ? "text-[#64748B]" : "font-medium text-[#94A3B8]")}>
+                      <td className={cn("px-4 py-3 align-middle text-sm leading-5", item.document ? "text-ui-slate" : "font-medium text-ui-slate-soft")}>
                         {item.document ? formatCnpj(item.document) : "Não informado"}
                       </td>
                       <td className="w-px whitespace-nowrap px-5 py-3 text-center align-middle sm:px-6">
                         {pending === item.id ? (
                           <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                            <span className="text-sm text-[#0A0A0A]">Excluir {item.name || "organização"}?</span>
+                            <span className="text-sm text-ui-ink">Excluir {item.name || "organização"}?</span>
                             <Button type="button" className={moduleDangerClass} onClick={() => onDelete(item.id)}>
                               <Trash2 className="h-4 w-4" />
                               Excluir
@@ -227,7 +227,7 @@ export function TenantsPage() {
           </div>
         ) : null}
         {items.length > 0 || total > 0 ? (
-          <div className="border-t border-[#F1F5F9] px-4 py-3">
+          <div className="border-t border-ui-wash px-4 py-3">
             <ListPager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={(size) => { setPage(1); setPageSize(size) }} tone="module" />
           </div>
         ) : null}

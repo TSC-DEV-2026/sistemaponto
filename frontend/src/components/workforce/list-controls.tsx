@@ -104,7 +104,7 @@ export function ListPager({
   void density
   const sizeButton = "h-8 w-8 px-0"
   const selectedSize = "bg-brand-cta text-white hover:bg-brand-cta-hover"
-  const idleSize = "border-[#E4E4E7] bg-white text-brand-ink hover:bg-zinc-50"
+  const idleSize = "border-ui-line-soft bg-white text-brand-ink hover:bg-zinc-50"
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex gap-1.5" role="group" aria-label="Itens por página">

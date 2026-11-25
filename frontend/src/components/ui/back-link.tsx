@@ -14,13 +14,13 @@ export function BackLink({ to, className, appearance = "default" }: { to: string
       <Button
         variant="outline"
         className={cn(
-          "group h-10 w-fit gap-2 rounded-[10px] border-[#D9DEE5] bg-white px-3.5 text-sm font-semibold text-[#0A0A0A] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#1E8A3A] hover:bg-[rgba(30,138,58,0.1)] hover:shadow-[0_4px_12px_rgba(30,138,58,0.16)] active:bg-[rgba(30,138,58,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30",
+          "group h-10 w-fit gap-2 rounded-[10px] border-ui-line-input bg-white px-3.5 text-sm font-semibold text-ui-ink shadow-[0_2px_6px_rgb(var(--ui-shadow)/0.04)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-brand-cta hover:bg-brand-cta/10 hover:shadow-[0_4px_12px_rgb(var(--brand-cta)/0.16)] active:bg-brand-cta/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30",
           className,
         )}
         asChild
       >
         <Link to={to} onClick={scrollPageToTop}>
-          <ArrowLeft className="h-4 w-4 text-[#1E8A3A] transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
+          <ArrowLeft className="h-4 w-4 text-brand-cta transition-transform duration-200 motion-reduce:transition-none motion-safe:group-hover:-translate-x-[3px]" />
           Voltar
         </Link>
       </Button>

@@ -18,13 +18,13 @@ import { formatCnpj, onlyDigits } from "@/utils/digits"
 
 function Fact({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
   return (
-    <div className="flex h-full min-h-[66px] w-full min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+    <div className="flex h-full min-h-[66px] w-full min-w-0 items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)]">
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
       </span>
       <div className="min-w-0">
-        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
-        <p className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</p>
+        <p className="text-xs leading-4 text-ui-slate">{label}</p>
+        <p className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-ui-ink-strong [overflow-wrap:anywhere]">{children}</p>
       </div>
     </div>
   )
@@ -97,7 +97,7 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackLink to="/tenants" appearance="detail" />
         {mode === "view" && canEdit ? (
-          <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-[#E2E8F0] bg-white px-3.5 text-sm font-semibold text-[#111827] shadow-[0_2px_6px_rgba(15,23,42,0.04)] transition-[background-color,border-color,color] duration-200 hover:border-[rgba(30,138,58,0.25)] hover:bg-[#EAF7EF] hover:text-[#086B35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none">
+          <Button asChild variant="outline" className="h-10 gap-2 rounded-[10px] border-ui-line bg-white px-3.5 text-sm font-semibold text-ui-ink-strong shadow-[0_2px_6px_rgb(var(--ui-shadow)/0.04)] transition-[background-color,border-color,color] duration-200 hover:border-brand-cta/25 hover:bg-brand-tint hover:text-brand-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none">
             <Link to={`/tenants/${id}/edit`}>
               <Pencil className="h-4 w-4" strokeWidth={1.75} />
               Editar
@@ -107,25 +107,25 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
       </div>
       <section className={cn(moduleCardClass, "space-y-5")}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <Layers className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">{loaded && name.trim() ? name : "Organização"}</h2>
-            <p className="text-sm text-[#64748B]">{mode === "edit" ? "Atualize os dados da organização." : "Dados da organização."}</p>
+            <h2 className="text-lg font-semibold text-ui-ink">{loaded && name.trim() ? name : "Organização"}</h2>
+            <p className="text-sm text-ui-slate">{mode === "edit" ? "Atualize os dados da organização." : "Dados da organização."}</p>
           </div>
         </div>
         {!loaded ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando a organização" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando a organização" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : mode === "view" ? (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Fact icon={Layers} label="Nome">{name.trim() ? name : <span className="font-medium text-[#94A3B8]">Não informado</span>}</Fact>
-              <Fact icon={FileText} label="CNPJ">{document ? document : <span className="font-medium text-[#94A3B8]">Não informado</span>}</Fact>
+              <Fact icon={Layers} label="Nome">{name.trim() ? name : <span className="font-medium text-ui-slate-soft">Não informado</span>}</Fact>
+              <Fact icon={FileText} label="CNPJ">{document ? document : <span className="font-medium text-ui-slate-soft">Não informado</span>}</Fact>
             </div>
-            {!canEdit ? <p className="text-sm text-[#64748B]">Troque para esta organização para editá-la.</p> : null}
+            {!canEdit ? <p className="text-sm text-ui-slate">Troque para esta organização para editá-la.</p> : null}
           </>
         ) : (
           <ActionForm className="space-y-5" onSubmit={onSubmit}>
@@ -140,8 +140,8 @@ export function TenantDetailPage({ mode }: { mode: "view" | "edit" }) {
               </div>
             </div>
             {confirming ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-[#F3D7A1] bg-[#FFF8EB] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-[#8A5A00]">Excluir esta organização?</p>
+              <div className="flex flex-col gap-3 rounded-xl border border-warn-glow bg-warn-wash px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-warn-ink">Excluir esta organização?</p>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" className={cn(moduleQuietClass, "h-11 px-4")} onClick={() => setConfirming(false)}>
                     <X className="h-4 w-4" />

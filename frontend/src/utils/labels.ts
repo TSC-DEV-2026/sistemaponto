@@ -17,10 +17,10 @@ export const requestStatusLabel: Record<string, string> = {
 }
 
 export function requestStatusClass(status: string) {
-  if (status === "approved") return "bg-[rgba(30,138,58,0.14)] text-[#146C2E]"
-  if (status === "pending") return "bg-[#FFF1E0] text-[#C2410C]"
-  if (status === "rejected") return "bg-[rgba(239,83,80,0.16)] text-[#C62828]"
-  return "bg-[#F4F4F5] text-[#52525B]"
+  if (status === "approved") return "bg-brand-cta/14 text-brand-ink-strong"
+  if (status === "pending") return "bg-warn-soft text-warn-brown"
+  if (status === "rejected") return "bg-[rgb(var(--danger)/0.16)] text-danger-ink"
+  return "bg-ui-paper text-brand-muted"
 }
 
 export const requestKindLabel: Record<string, string> = {

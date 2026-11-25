@@ -59,7 +59,7 @@ export function DayTimesFields({
                 <TimePickerField id={`${dayId}-time-${index}`} value={time} inputLabel={`Marcação ${index + 1}`} onChange={(value) => changeTime(index, value)} />
               </div>
               {times.length > 1 ? (
-                <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-12 shrink-0 hover:border-[rgba(239,83,80,0.4)] hover:bg-[rgba(239,83,80,0.08)] hover:text-[#EF5350]")} onClick={() => onTimes(times.filter((_, position) => position !== index))}>
+                <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-12 shrink-0 hover:border-[rgb(var(--danger)/0.4)] hover:bg-[rgb(var(--danger)/0.08)] hover:text-danger")} onClick={() => onTimes(times.filter((_, position) => position !== index))}>
                   <Trash2 className="h-4 w-4" />
                   Remover
                 </Button>
@@ -190,7 +190,7 @@ export function PunchCorrectionForm({
 
   return (
     <ActionForm id={formId} className={formId ? "space-y-5" : module ? cn(moduleCardClass, "space-y-5") : "grid gap-3 rounded-md border border-border bg-card p-3"} onSubmit={onSubmit}>
-      <p className={module ? "text-sm leading-6 text-[#52525B]" : "text-sm text-muted-foreground"}>A correção substitui as marcações que valem neste dia. Outra correção substitui a anterior. O registro original pode ser restaurado em Ver detalhes.</p>
+      <p className={module ? "text-sm leading-6 text-brand-muted" : "text-sm text-muted-foreground"}>A correção substitui as marcações que valem neste dia. Outra correção substitui a anterior. O registro original pode ser restaurado em Ver detalhes.</p>
       {employees ? (
         <div className="space-y-2">
           <Label className={module ? moduleLabelClass : undefined} htmlFor="correction-employee">
@@ -260,14 +260,14 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
   if (appearance === "module") {
     return (
       <div className="space-y-4">
-        <section className="min-w-0 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <section className="min-w-0 rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
           <div>
             <h2 className="text-lg font-semibold text-brand-ink">Marcações</h2>
             <p className="mt-1 text-sm text-brand-quiet">Consulte as marcações que valem.</p>
           </div>
           {employeeId ? null : (
             <div className="mt-[18px] w-full space-y-2">
-              <Label className="text-sm font-semibold text-[#1B2534]" htmlFor="punch-employee">
+              <Label className="text-sm font-semibold text-ui-heading" htmlFor="punch-employee">
                 Funcionário
               </Label>
               <EmployeeCombobox id="punch-employee" value={person} employees={employees || []} extendSearch={(employees || []).length >= 100} onChange={setPerson} />
@@ -276,16 +276,16 @@ export function PunchLists({ employeeId, employees, reloadKey = 0, appearance }:
           <h3 className="mt-6 text-sm font-semibold text-brand-ink">Marcações que valem</h3>
           <PunchTable className="mt-3" empty="Nenhuma marcação válida." loading={current.loading} punches={current.items} employeeName={employeeName} />
           {current.total > 0 ? (
-            <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+            <div className="mt-4 border-t border-ui-panel pt-4">
               <ListPager page={current.page} pageSize={current.pageSize} total={current.total} onPage={current.setPage} onPageSize={current.setPageSize} tone="module" />
             </div>
           ) : null}
         </section>
-        <section className="min-w-0 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-6">
+        <section className="min-w-0 rounded-xl border border-ui-line-soft bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)] sm:p-6">
           <h2 className="text-base font-semibold text-brand-ink">Histórico — deixaram de valer</h2>
           <PunchTable className="mt-4" empty="Nenhuma marcação antiga." loading={history.loading} punches={history.items} employeeName={employeeName} quietEmpty />
           {history.total > 0 ? (
-            <div className="mt-4 border-t border-[#F0F0F2] pt-4">
+            <div className="mt-4 border-t border-ui-panel pt-4">
               <ListPager page={history.page} pageSize={history.pageSize} total={history.total} onPage={history.setPage} onPageSize={history.setPageSize} tone="module" />
             </div>
           ) : null}
@@ -328,7 +328,7 @@ function PunchTable({
   if (punches.length === 0) {
     if (quietEmpty && !loading) {
       return (
-        <div className={`${className || ""} flex items-center gap-3 rounded-xl border border-[#E4E4E7] px-4 py-4 text-sm text-brand-quiet`}>
+        <div className={`${className || ""} flex items-center gap-3 rounded-xl border border-ui-line-soft px-4 py-4 text-sm text-brand-quiet`}>
           <History className="h-4 w-4 shrink-0" aria-hidden />
           <p>{empty}</p>
         </div>
@@ -336,12 +336,12 @@ function PunchTable({
     }
     return (
       <ul className={className}>
-        <ListPlaceholder loading={loading} empty={empty} className="rounded-xl border border-dashed border-[#E4E4E7] px-4 py-8 text-center" />
+        <ListPlaceholder loading={loading} empty={empty} className="rounded-xl border border-dashed border-ui-line-soft px-4 py-8 text-center" />
       </ul>
     )
   }
   return (
-    <div className={`${className || ""} min-w-0 max-w-full overflow-x-auto rounded-xl border border-[#E4E4E7]`}>
+    <div className={`${className || ""} min-w-0 max-w-full overflow-x-auto rounded-xl border border-ui-line-soft`}>
       <table className="w-full min-w-[640px] table-fixed text-left text-sm">
         <colgroup>
           <col className="w-[38%]" />
@@ -349,7 +349,7 @@ function PunchTable({
           <col className="w-[16%]" />
           <col className="w-[28%]" />
         </colgroup>
-        <thead className="bg-[#F4F4F5] text-brand-muted">
+        <thead className="bg-ui-paper text-brand-muted">
           <tr>
             <th className="px-4 py-3 font-medium">Funcionário</th>
             <th className="px-4 py-3 font-medium">Data</th>
@@ -363,7 +363,7 @@ function PunchTable({
             const extra = punchExtra(item)
             const person = employeeName ? employeeName(item.employee_id) : String(item.employee_id)
             return (
-              <tr key={item.id} className="border-t border-[#F0F0F2]">
+              <tr key={item.id} className="border-t border-ui-panel">
                 <td className="overflow-hidden px-4 py-3 align-middle text-brand-ink">
                   <span className="block truncate" title={person}>
                     {person}
@@ -373,8 +373,8 @@ function PunchTable({
                 <td className="whitespace-nowrap px-4 py-3 align-middle font-semibold tabular-nums text-brand-ink">{when.time}</td>
                 <td className="px-4 py-3 align-middle text-brand-quiet">
                   <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="whitespace-nowrap font-medium text-[#0A0A0A]">{punchOrigin(item.source)}</span>
-                    {extra ? <span className="min-w-0 text-xs text-[#71717A]">{extra}</span> : null}
+                    <span className="whitespace-nowrap font-medium text-ui-ink">{punchOrigin(item.source)}</span>
+                    {extra ? <span className="min-w-0 text-xs text-brand-quiet">{extra}</span> : null}
                   </div>
                   {item.qr_url || item.selfie_url || item.face_url ? (
                     <span className="mt-1 flex flex-wrap gap-3">

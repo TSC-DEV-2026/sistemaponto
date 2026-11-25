@@ -113,23 +113,23 @@ function movementPeriod(item: Movement) {
 function SectionHeading({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
     <div className="mb-4 flex items-center gap-3">
-      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
       </span>
-      <h2 className="text-[17px] font-bold text-[#111827]">{title}</h2>
+      <h2 className="text-[17px] font-bold text-ui-ink-strong">{title}</h2>
     </div>
   )
 }
 
 function CurrentValueCard({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-[#E8EEEA] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#E8F7ED] text-[#1E8A3A]" aria-hidden>
+    <div className="flex min-h-[66px] min-w-0 items-center gap-3 rounded-xl border border-brand-field bg-white px-3.5 py-3 shadow-[0_1px_2px_rgb(var(--ui-shadow-alt)/0.04)]">
+      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand-wash text-brand-cta" aria-hidden>
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
       </span>
       <div className="min-w-0">
-        <p className="text-xs leading-4 text-[#64748B]">{label}</p>
-        <p className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-[#111827] [overflow-wrap:anywhere]">{children}</p>
+        <p className="text-xs leading-4 text-ui-slate">{label}</p>
+        <p className="mt-0.5 min-w-0 text-[15px] font-semibold leading-5 text-ui-ink-strong [overflow-wrap:anywhere]">{children}</p>
       </div>
     </div>
   )
@@ -217,7 +217,7 @@ function VigencyDeleteDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) dismiss()
       }}
@@ -228,17 +228,17 @@ function VigencyDeleteDialog({
         aria-modal="true"
         aria-labelledby="vigency-delete-title"
         aria-describedby="vigency-delete-text"
-        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7"
       >
-        <h2 id="vigency-delete-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+        <h2 id="vigency-delete-title" className="text-xl font-semibold tracking-tight text-ui-ink">
           Excluir {title}?
         </h2>
-        <p id="vigency-delete-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+        <p id="vigency-delete-text" className="mt-2 text-sm leading-6 text-brand-quiet">
           Este registro sai do histórico.
         </p>
-        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">
+        <p className="mt-4 rounded-xl bg-ui-line-muted px-4 py-3 text-sm font-semibold text-ui-ink">
           {title}
-          <span className="mt-1 block text-sm font-medium text-[#71717A]">{period}</span>
+          <span className="mt-1 block text-sm font-medium text-brand-quiet">{period}</span>
         </p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
@@ -315,7 +315,7 @@ function MovementHistory({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Spinner label="Carregando histórico" className="h-6 w-6 text-[#1E8A3A]" />
+        <Spinner label="Carregando histórico" className="h-6 w-6 text-brand-cta" />
       </div>
     )
   }
@@ -330,7 +330,7 @@ function MovementHistory({
           return (
             <li
               key={item.id}
-              className="group/card flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)]"
+              className="group/card flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035),0_8px_20px_rgb(var(--ui-shadow)/0.035)]"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
@@ -698,7 +698,7 @@ export function EmployeeFormPage() {
         <BackLink to={id === null ? "/staff?tab=employees" : `/employees/${id}`} appearance="detail" />
       </div>
       {id !== null ? (
-        <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-[#E7E8EA] p-1" role="tablist">
+        <SlidingHighlight className="inline-flex max-w-full gap-0 overflow-x-auto rounded-xl bg-ui-line-muted p-1" role="tablist">
           {(
             [
               { id: "data", label: "Dados", icon: conceptIcon.employee, show: true },
@@ -737,9 +737,9 @@ export function EmployeeFormPage() {
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <SectionHeading icon={conceptIcon.employee} title={id === null ? "Novo funcionário" : "Informações principais"} />
         {notice ? (
-          <div className="flex items-start gap-3 rounded-xl border border-[rgba(30,138,58,0.16)] bg-[#EAF7EF] px-4 py-3">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
-            <p className="text-sm leading-6 text-[#334155]">{notice}</p>
+          <div className="flex items-start gap-3 rounded-xl border border-brand-cta/16 bg-brand-tint px-4 py-3">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-cta" strokeWidth={1.75} aria-hidden />
+            <p className="text-sm leading-6 text-ui-slate-deep">{notice}</p>
           </div>
         ) : null}
         <div className="space-y-2">
@@ -760,7 +760,7 @@ export function EmployeeFormPage() {
               E-mail
             </Label>
             <Input id="email" className={moduleFieldClass} type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-            {id === null ? <p className="text-sm text-[#64748B]">Obrigatório se este CPF ainda não tiver pessoa.</p> : null}
+            {id === null ? <p className="text-sm text-ui-slate">Obrigatório se este CPF ainda não tiver pessoa.</p> : null}
           </div>
         </div>
         <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
@@ -775,7 +775,7 @@ export function EmployeeFormPage() {
               Tipo de registro
             </Label>
             <SiteSelect id="clock-method" value={clockMethod} options={Object.entries(clockMethodLabel).map(([value, label]) => ({ value, label }))} onChange={setClockMethod} />
-            <p className="text-sm leading-5 text-[#64748B]">O aplicativo mostra só este tipo. Quem já existe fica em Simples.</p>
+            <p className="text-sm leading-5 text-ui-slate">O aplicativo mostra só este tipo. Quem já existe fica em Simples.</p>
           </div>
         </div>
         {clockMethod === "face" ? (
@@ -784,14 +784,14 @@ export function EmployeeFormPage() {
               Foto de referência
             </Label>
             {hasFacePhoto ? (
-              <div className="flex items-start gap-3 rounded-xl border border-[rgba(30,138,58,0.16)] bg-[#EAF7EF] px-4 py-3">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1E8A3A]" strokeWidth={1.75} aria-hidden />
-                <p className="text-sm leading-6 text-[#334155]">
+              <div className="flex items-start gap-3 rounded-xl border border-brand-cta/16 bg-brand-tint px-4 py-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-cta" strokeWidth={1.75} aria-hidden />
+                <p className="text-sm leading-6 text-ui-slate-deep">
                   A foto de referência já foi enviada neste cadastro.
                   {faceUrl ? (
                     <>
                       {" "}
-                      <a className="font-medium text-[#1E8A3A]" href={faceUrl} target="_blank" rel="noreferrer">
+                      <a className="font-medium text-brand-cta" href={faceUrl} target="_blank" rel="noreferrer">
                         Ver foto
                       </a>
                       .
@@ -802,7 +802,7 @@ export function EmployeeFormPage() {
               </div>
             ) : null}
             <CertificatePhotoField id="face-image" fileKey={0} photo={faceFile} accept="image/png,image/jpeg" emptyLabel={hasFacePhoto ? "Arraste ou selecione uma nova foto" : "Arraste ou selecione a foto"} hint="PNG ou JPG (máx. 2 MB)" onChange={setFaceFile} />
-            <p className="text-sm text-[#64748B]">{hasFacePhoto ? "A foto atual permanece até você enviar outra." : "Pode ficar vazia. Sem a foto, a batida responde que não há foto de referência. Quando enviada, o servidor guarda o embedding e a foto."}</p>
+            <p className="text-sm text-ui-slate">{hasFacePhoto ? "A foto atual permanece até você enviar outra." : "Pode ficar vazia. Sem a foto, a batida responde que não há foto de referência. Quando enviada, o servidor guarda o embedding e a foto."}</p>
           </div>
         ) : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -811,7 +811,7 @@ export function EmployeeFormPage() {
               Matrícula
             </Label>
             <Input id="registration" className={moduleFieldClass} value={registration} onChange={(event) => setRegistration(event.target.value)} />
-            <p className="text-sm leading-5 text-[#64748B]">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
+            <p className="text-sm leading-5 text-ui-slate">Pode ficar vazia. O QR exige matrícula e empresa vigente. Na organização ela não se repete.</p>
           </div>
         </div>
         <button
@@ -820,19 +820,19 @@ export function EmployeeFormPage() {
           role="switch"
           aria-checked={hourBank}
           className={cn(
-            "flex w-full items-center justify-between gap-4 rounded-[10px] border px-4 py-3 text-left transition-[background-color,border-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30 motion-reduce:transition-none",
+            "flex w-full items-center justify-between gap-4 rounded-[10px] border px-4 py-3 text-left transition-[background-color,border-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30 motion-reduce:transition-none",
             hourBank
-              ? "border-[#8ED4A8] bg-[#E7F6EC] shadow-[0_8px_22px_rgba(30,138,58,0.16)]"
-              : "border-[#E4E4E7] bg-white hover:border-[#B7D7C3]",
+              ? "border-brand-glow bg-brand-wash shadow-[0_8px_22px_rgb(var(--brand-cta)/0.16)]"
+              : "border-ui-line-soft bg-white hover:border-brand-edge",
           )}
           onClick={() => setHourBank((current) => !current)}
         >
           <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[#0A0A0A]">Banco de horas</span>
-            <span className={cn("mt-0.5 block text-sm", hourBank ? "font-medium text-[#146C2E]" : "text-[#64748B]")}>{hourBank ? "Usa" : "Não usa"}</span>
+            <span className="block text-sm font-semibold text-ui-ink">Banco de horas</span>
+            <span className={cn("mt-0.5 block text-sm", hourBank ? "font-medium text-brand-ink-strong" : "text-ui-slate")}>{hourBank ? "Usa" : "Não usa"}</span>
           </span>
-          <span className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none", hourBank ? "bg-[#1E8A3A]" : "bg-[#E4E4E7]")} aria-hidden>
-            <span className={cn("absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.2)] transition-transform duration-200 motion-reduce:transition-none", hourBank ? "translate-x-[22px]" : "translate-x-0.5")} />
+          <span className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none", hourBank ? "bg-brand-cta" : "bg-ui-line-soft")} aria-hidden>
+            <span className={cn("absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-[0_1px_3px_rgb(var(--ui-shadow)/0.2)] transition-transform duration-200 motion-reduce:transition-none", hourBank ? "translate-x-[22px]" : "translate-x-0.5")} />
           </span>
         </button>
         <div className="space-y-2">
@@ -923,7 +923,7 @@ export function EmployeeFormPage() {
                     setCycleTouched(true)
                   }}
                 />
-                <p className="text-sm text-[#64748B]">Na programada de sete dias, a sugestão é o dia da semana da vigência. Você pode escolher outro.</p>
+                <p className="text-sm text-ui-slate">Na programada de sete dias, a sugestão é o dia da semana da vigência. Você pode escolher outro.</p>
               </div>
             ) : null}
             <div className="space-y-2 md:col-span-2">

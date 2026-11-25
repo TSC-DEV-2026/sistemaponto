@@ -7,21 +7,21 @@ import { cn } from "@/utils/cn"
 const kinds: Record<ToastKind, { label: string; icon: string; card: string; title: string }> = {
   success: {
     label: "Sucesso",
-    icon: "bg-[#16A34A]",
-    card: "border-[#22C55E] bg-[#F0FDF4]",
-    title: "text-[#15803D]",
+    icon: "bg-success-mid",
+    card: "border-success bg-success-soft",
+    title: "text-success-deep",
   },
   warning: {
     label: "Aviso",
-    icon: "bg-[#F59E0B]",
-    card: "border-[#F59E0B] bg-[#FFFBEB]",
-    title: "text-[#92400E]",
+    icon: "bg-warn-amber",
+    card: "border-warn-amber bg-warn-note",
+    title: "text-warn-brown-deep",
   },
   error: {
     label: "Erro",
-    icon: "bg-[#EF4444]",
-    card: "border-[#EF4444] bg-[#FEF2F2]",
-    title: "text-[#B91C1C]",
+    icon: "bg-danger-strong",
+    card: "border-danger-strong bg-danger-soft",
+    title: "text-danger-deep",
   },
 }
 
@@ -129,11 +129,11 @@ export function Toaster() {
             </span>
             <span className="min-w-0 flex-1">
               <span className={cn("block text-sm font-bold leading-5", kind.title)}>{kind.label}</span>
-              <span className="mt-0.5 block break-words text-[13px] font-normal leading-[1.4] text-[#3F3F46]">{item.message}</span>
+              <span className="mt-0.5 block break-words text-[13px] font-normal leading-[1.4] text-ui-zinc">{item.message}</span>
             </span>
             <button
               type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#3F3F46] ring-1 ring-black/10 transition-colors duration-200 hover:bg-[#F4F4F5] hover:text-[#18181B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16A34A]/30"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-ui-zinc ring-1 ring-black/10 transition-colors duration-200 hover:bg-ui-paper hover:text-brand-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-mid/30"
               aria-label="Fechar aviso"
               onClick={() => dismiss(item.id)}
             >

@@ -43,7 +43,7 @@ export function OwnClockSummary({ employeeId, hourBank, showBank = true }: { emp
 
   if (loading) {
     return (
-      <div className="flex justify-center rounded-[14px] border border-[#E2E8F0] bg-white px-5 py-10">
+      <div className="flex justify-center rounded-[14px] border border-ui-line bg-white px-5 py-10">
         <Spinner label="Carregando o ponto" />
       </div>
     )
@@ -52,10 +52,10 @@ export function OwnClockSummary({ employeeId, hourBank, showBank = true }: { emp
   return (
     <div className={showBank ? "grid grid-cols-1 gap-4 lg:grid-cols-2" : "grid grid-cols-1 gap-4"}>
       {showBank ? (
-      <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-        <h2 className="text-base font-semibold text-[#0A0A0A]">Saldo do banco</h2>
+      <section className="rounded-[14px] border border-ui-line bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]">
+        <h2 className="text-base font-semibold text-ui-ink">Saldo do banco</h2>
         {hourBank && bank ? (
-          <dl className="mt-4 space-y-2 text-sm text-[#1B2534]">
+          <dl className="mt-4 space-y-2 text-sm text-ui-heading">
             <div className="flex items-center justify-between gap-3">
               <dt>Saldo</dt>
               <dd className="font-semibold">{showDuration(bank.balance_minutes)}</dd>
@@ -70,19 +70,19 @@ export function OwnClockSummary({ employeeId, hourBank, showBank = true }: { emp
             </div>
           </dl>
         ) : (
-          <p className="mt-3 text-sm text-[#64748B]">Este cadastro não usa banco de horas.</p>
+          <p className="mt-3 text-sm text-ui-slate">Este cadastro não usa banco de horas.</p>
         )}
       </section>
       ) : null}
-      <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-        <h2 className="text-base font-semibold text-[#0A0A0A]">Histórico de marcações</h2>
-        {punches.length === 0 && !failed ? <p className="mt-3 text-sm text-[#64748B]">Nenhuma marcação.</p> : null}
+      <section className="rounded-[14px] border border-ui-line bg-white p-5 shadow-[0_8px_24px_rgb(var(--ui-shadow)/0.04)]">
+        <h2 className="text-base font-semibold text-ui-ink">Histórico de marcações</h2>
+        {punches.length === 0 && !failed ? <p className="mt-3 text-sm text-ui-slate">Nenhuma marcação.</p> : null}
         {punches.length > 0 ? (
-          <ul className="mt-3 divide-y divide-[#E7EBF0]">
+          <ul className="mt-3 divide-y divide-[rgb(var(--ui-line-hair))]">
             {punches.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                <span className="text-[#1B2534]">{when(item.occurred_at)}</span>
-                <span className={item.valid ? "text-[#1E8A3A]" : "text-[#64748B]"}>{item.valid ? "Válida" : "Histórico"}</span>
+                <span className="text-ui-heading">{when(item.occurred_at)}</span>
+                <span className={item.valid ? "text-brand-cta" : "text-ui-slate"}>{item.valid ? "Válida" : "Histórico"}</span>
               </li>
             ))}
           </ul>

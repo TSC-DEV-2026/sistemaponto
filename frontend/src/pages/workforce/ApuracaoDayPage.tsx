@@ -72,12 +72,12 @@ export function ApuracaoDayPage() {
     <div className="w-full min-w-0 space-y-5">
       <BackLink to={backTo} appearance="detail" />
       {status === "loading" ? (
-        <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-[#E4E4E7] bg-white px-5 py-10" role="status" aria-live="polite">
-          <Spinner label="Carregando a apuração" className="h-8 w-8 text-[#1E8A3A]" />
+        <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-ui-line-soft bg-white px-5 py-10" role="status" aria-live="polite">
+          <Spinner label="Carregando a apuração" className="h-8 w-8 text-brand-cta" />
         </div>
       ) : null}
       {status === "missing" ? (
-        <p className="rounded-xl border border-[#E4E4E7] bg-white px-5 py-4 text-sm text-brand-muted">
+        <p className="rounded-xl border border-ui-line-soft bg-white px-5 py-4 text-sm text-brand-muted">
           O resultado desta apuração não está disponível. Volte à consulta para apurar de novo.
         </p>
       ) : null}

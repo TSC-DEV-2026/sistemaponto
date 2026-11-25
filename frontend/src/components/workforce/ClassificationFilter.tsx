@@ -68,14 +68,14 @@ export function CategoryFilter({
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {groups.map((group) => (
         <fieldset key={group.id} className="min-w-0 space-y-2">
-          <legend className="text-sm font-semibold text-[#0A0A0A]">{group.name}</legend>
-          {group.values.length === 0 ? <p className="text-sm text-[#64748B]">Sem valores.</p> : null}
+          <legend className="text-sm font-semibold text-ui-ink">{group.name}</legend>
+          {group.values.length === 0 ? <p className="text-sm text-ui-slate">Sem valores.</p> : null}
           <div className="space-y-1">
             {group.values.map((value) => (
-              <label key={value.id} className="flex items-center gap-2 text-sm text-[#334155]">
+              <label key={value.id} className="flex items-center gap-2 text-sm text-ui-slate-deep">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 accent-[#1E8A3A]"
+                  className="h-4 w-4 accent-brand-cta"
                   checked={selected.includes(value.id)}
                   onChange={() => toggle(value.id)}
                 />

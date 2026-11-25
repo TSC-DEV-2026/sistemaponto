@@ -14,6 +14,146 @@
   --border: 214 20% 88%;
   --destructive: 0 72% 46%;
   --destructive-foreground: 0 0% 100%;
+
+  /* ── Brand (verde) ───────────────────────────────────────── */
+  --brand-ink: 10 10 10;
+  --brand-paper: 244 244 245;
+  --brand-panel: 243 244 246;
+  --brand-muted: 82 82 91;
+  --brand-quiet: 113 113 122;
+  --brand-placeholder: 156 163 175;
+  --brand-cta: 30 138 58;
+  --brand-cta-hover: 33 148 64;
+  --brand-cta-deep: 24 116 50;
+  --brand-ink-strong: 20 108 46;
+  --brand-ink-deep: 8 107 53;
+  --brand-nav: 18 61 34;
+  --brand-tint: 234 247 239;
+  --brand-soft: 245 251 247;
+  --brand-soft-alt: 247 252 248;
+  --brand-wash: 231 246 236;
+  --brand-mist: 215 240 225;
+  --brand-edge: 183 215 195;
+  --brand-glow: 142 212 168;
+  --brand-leaf: 125 202 160;
+  --brand-leaf-border: 191 230 203;
+  --brand-leaf-fill: 221 243 228;
+  --brand-field: 215 232 220;
+  --brand-field-mid: 212 239 217;
+  --brand-focus: 83 187 126;
+  --brand-focus-ring: 50 149 92;
+  --brand-focus-glow: 80 186 130;
+  --brand-focus-hover: 86 173 123;
+  --brand-wordmark: 45 164 104;
+  --brand-auth: 24 148 75;
+  --brand-auth-hover: 27 159 83;
+  --brand-auth-active: 22 136 69;
+  --brand-line: 34 34 34;
+  --brand-accent: 124 207 18;
+  --brand-danger: 239 83 80;
+  --brand-success-ink: 20 83 45;
+  --brand-lime: 198 232 36;
+
+  /* ── UI / chrome (neutros) ───────────────────────────────── */
+  --ui-ink: 10 10 10;
+  --ui-ink-strong: 17 24 39;
+  --ui-heading: 27 37 52;
+  --ui-body: 110 116 127;
+  --ui-slate: 100 116 139;
+  --ui-slate-soft: 148 163 184;
+  --ui-slate-mid: 71 85 105;
+  --ui-slate-deep: 51 65 85;
+  --ui-slate-faint: 174 187 201;
+  --ui-zinc: 63 63 70;
+  --ui-zinc-soft: 161 161 170;
+  --ui-shadow: 15 23 42;
+  --ui-shadow-alt: 16 24 40;
+  --ui-line: 226 232 240;
+  --ui-line-soft: 228 228 231;
+  --ui-line-field: 228 232 237;
+  --ui-line-hair: 231 235 240;
+  --ui-line-muted: 231 232 234;
+  --ui-line-strong: 213 220 227;
+  --ui-line-hover: 197 205 214;
+  --ui-line-input: 217 222 229;
+  --ui-line-input-hover: 184 195 207;
+  --ui-line-chip: 197 206 216;
+  --ui-paper: 244 244 245;
+  --ui-panel: 240 240 242;
+  --ui-wash: 241 245 249;
+  --ui-canvas: 248 250 252;
+  --ui-canvas-soft: 250 251 252;
+  --ui-pulse: 230 234 239;
+
+  /* ── Semânticos ──────────────────────────────────────────── */
+  --danger: 239 83 80;
+  --danger-hover: 224 72 72;
+  --danger-ink: 198 40 40;
+  --danger-strong: 220 38 38;
+  --danger-deep: 185 28 28;
+  --danger-rose: 225 29 72;
+  --danger-soft: 254 242 242;
+  --danger-wash: 253 236 236;
+  --danger-tint: 255 248 248;
+  --danger-mist: 255 246 246;
+  --danger-edge: 243 199 199;
+
+  --warn: 249 168 37;
+  --warn-amber: 245 158 11;
+  --warn-ink: 138 90 0;
+  --warn-deep: 122 91 18;
+  --warn-brown: 194 65 12;
+  --warn-brown-deep: 146 64 14;
+  --warn-gold: 161 98 7;
+  --warn-soft: 255 241 224;
+  --warn-wash: 255 248 235;
+  --warn-tint: 255 248 238;
+  --warn-cream: 255 248 241;
+  --warn-banner: 255 249 236;
+  --warn-note: 255 251 235;
+  --warn-edge: 240 199 160;
+  --warn-glow: 243 215 161;
+  --warn-chip: 255 246 216;
+  --warn-chip-alt: 255 243 204;
+  --warn-chip-deep: 240 226 176;
+
+  --info: 59 130 196;
+  --info-bright: 59 130 246;
+  --info-ink: 37 99 235;
+  --info-soft: 232 241 252;
+  --info-wash: 241 246 252;
+  --info-arrow: 228 238 248;
+
+  --success: 34 197 94;
+  --success-mid: 22 163 74;
+  --success-deep: 21 128 61;
+  --success-soft: 240 253 244;
+
+  /* ── Tons decorativos (home / cards) ─────────────────────── */
+  --tone-blue: 59 130 196;
+  --tone-blue-soft: 232 241 252;
+  --tone-blue-wash: 241 246 252;
+  --tone-blue-arrow: 228 238 248;
+  --tone-gold: 196 150 42;
+  --tone-gold-card: 255 252 246;
+  --tone-gold-soft: 248 239 207;
+  --tone-gold-wash: 251 246 230;
+  --tone-gold-arrow: 244 235 208;
+  --tone-lilac: 124 107 176;
+  --tone-lilac-card: 251 249 254;
+  --tone-lilac-soft: 240 234 251;
+  --tone-lilac-wash: 244 240 250;
+  --tone-lilac-arrow: 234 228 246;
+  --tone-lilac-glow: 124 88 196;
+  --tone-gold-glow: 202 138 4;
+
+  /* ── Sidebar ─────────────────────────────────────────────── */
+  --sidebar-from: 7 56 28;
+  --sidebar-mid: 11 78 38;
+  --sidebar-deep: 14 92 46;
+  --sidebar-end: 8 72 34;
+  --sidebar-tab: 244 244 245;
+  --sidebar-lime: 198 232 36;
 }
 
 body {
@@ -108,10 +248,10 @@ body {
 
 .profile-trigger:hover,
 .profile-trigger-open {
-  border-color: rgba(30, 138, 58, 0.25);
+  border-color: rgb(var(--brand-cta) / 0.25);
   box-shadow:
-    0 4px 12px rgba(30, 138, 58, 0.07),
-    0 8px 20px rgba(15, 23, 42, 0.04);
+    0 4px 12px rgb(var(--brand-cta) / 0.07),
+    0 8px 20px rgb(var(--ui-shadow)/0.04);
 }
 
 .profile-chevron {
@@ -131,14 +271,14 @@ body {
 }
 
 .profile-item {
-  color: #0a0a0a;
+  color: rgb(var(--ui-ink));
   transition:
     background-color 150ms ease,
     color 150ms ease;
 }
 
 .profile-item-icon {
-  color: #71717a;
+  color: rgb(var(--brand-quiet));
   transition:
     color 150ms ease,
     transform 150ms ease;
@@ -146,27 +286,27 @@ body {
 
 .profile-item:hover,
 .profile-item:focus-visible {
-  background: rgba(30, 138, 58, 0.08);
-  outline: 2px solid rgba(30, 138, 58, 0.35);
+  background: rgb(var(--brand-cta) / 0.08);
+  outline: 2px solid rgb(var(--brand-cta) / 0.35);
   outline-offset: -2px;
 }
 
 .profile-item:hover .profile-item-icon,
 .profile-item:focus-visible .profile-item-icon {
-  color: #1e8a3a;
+  color: rgb(var(--brand-cta));
   transform: translateX(2px);
 }
 
 .profile-item-danger:hover,
 .profile-item-danger:focus-visible {
-  background: rgba(239, 83, 80, 0.1);
-  color: #ef5350;
-  outline-color: rgba(239, 83, 80, 0.4);
+  background: rgb(var(--danger) / 0.1);
+  color: rgb(var(--danger));
+  outline-color: rgb(var(--danger) / 0.4);
 }
 
 .profile-item-danger:hover .profile-item-icon,
 .profile-item-danger:focus-visible .profile-item-icon {
-  color: #ef5350;
+  color: rgb(var(--danger));
 }
 
 @keyframes profile-menu-in {
@@ -210,7 +350,6 @@ body {
 
 .app-sidebar {
   --sidebar-curve: 26px;
-  --sidebar-tab: #f4f4f5;
   position: relative;
   display: flex;
   width: 100%;
@@ -218,7 +357,13 @@ body {
   flex-direction: column;
   overflow: visible;
   color: #fff;
-  background: linear-gradient(180deg, #07381c 0%, #0b4e26 36%, #0e5c2e 64%, #084822 100%);
+  background: linear-gradient(
+    180deg,
+    rgb(var(--sidebar-from)) 0%,
+    rgb(var(--sidebar-mid)) 36%,
+    rgb(var(--sidebar-deep)) 64%,
+    rgb(var(--sidebar-end)) 100%
+  );
 }
 
 .app-sidebar-scroll {
@@ -263,7 +408,7 @@ body {
 }
 
 .app-brand-point {
-  color: #c6e824;
+  color: rgb(var(--sidebar-lime));
 }
 
 .app-collapse {
@@ -286,13 +431,13 @@ body {
 }
 
 .app-collapse:hover {
-  border-color: rgba(198, 232, 36, 0.45);
+  border-color: rgb(var(--sidebar-lime) / 0.45);
   background: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 0 0 4px rgba(124, 207, 18, 0.14);
+  box-shadow: 0 0 0 4px rgb(var(--brand-accent) / 0.14);
 }
 
 .app-collapse:focus-visible {
-  outline: 2px solid #c6e824;
+  outline: 2px solid rgb(var(--sidebar-lime));
   outline-offset: 2px;
 }
 
@@ -363,7 +508,7 @@ body {
 }
 
 .app-nav-link:focus-visible {
-  outline: 2px solid rgba(198, 232, 36, 0.9);
+  outline: 2px solid rgb(var(--sidebar-lime) / 0.9);
   outline-offset: 2px;
 }
 
@@ -371,12 +516,12 @@ body {
   margin-right: 0;
   padding-left: 16px;
   background: transparent;
-  color: #123d22;
+  color: rgb(var(--brand-nav));
   font-weight: 600;
 }
 
 .app-nav-link[data-active="true"] .app-nav-icon {
-  color: #1e8a3a;
+  color: rgb(var(--brand-cta));
 }
 
 .app-nav-link[data-active="true"]:hover {
@@ -395,7 +540,7 @@ body {
   z-index: 0;
   overflow: visible;
   border-radius: 28px 0 0 28px;
-  background: var(--sidebar-tab);
+  background: rgb(var(--sidebar-tab));
   pointer-events: none;
 }
 
@@ -427,7 +572,7 @@ body {
   background: radial-gradient(
     circle at 0 0,
     transparent calc(var(--sidebar-curve) - 0.5px),
-    var(--sidebar-tab) var(--sidebar-curve)
+    rgb(var(--sidebar-tab)) var(--sidebar-curve)
   );
 }
 
@@ -436,7 +581,7 @@ body {
   background: radial-gradient(
     circle at 0 100%,
     transparent calc(var(--sidebar-curve) - 0.5px),
-    var(--sidebar-tab) var(--sidebar-curve)
+    rgb(var(--sidebar-tab)) var(--sidebar-curve)
   );
 }
 
@@ -445,7 +590,7 @@ body {
     display: grid;
     column-gap: 0;
     grid-template-columns: 272px minmax(0, 1fr);
-    background: #f4f4f5;
+    background: rgb(var(--ui-paper));
     transition: grid-template-columns 280ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -678,8 +823,8 @@ body {
 
 .toast-card {
   box-shadow:
-    0 8px 28px rgba(15, 23, 42, 0.1),
-    0 2px 8px rgba(15, 23, 42, 0.04);
+    0 8px 28px rgb(var(--ui-shadow)/0.1),
+    0 2px 8px rgb(var(--ui-shadow)/0.04);
 }
 
 @keyframes toast-in {

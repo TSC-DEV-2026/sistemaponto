@@ -170,7 +170,7 @@ export function ClosingFormPage() {
     return (
       <div className="w-full min-w-0 space-y-5">
         <BackLink to="/closings" appearance="detail" />
-        <p className="text-sm text-[#52525B]">Só o gestor ou o administrador fecha o período.</p>
+        <p className="text-sm text-brand-muted">Só o gestor ou o administrador fecha o período.</p>
       </div>
     )
   }
@@ -180,8 +180,8 @@ export function ClosingFormPage() {
       <BackLink to="/closings" appearance="detail" />
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={askClose}>
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight text-[#111827]">Novo fechamento</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Selecione o período e quem entra no fechamento.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-ui-ink-strong">Novo fechamento</h2>
+          <p className="mt-1 text-sm text-ui-slate">Selecione o período e quem entra no fechamento.</p>
         </div>
         <div className="min-w-0 space-y-2">
           <Label className={moduleLabelClass} htmlFor="closing-mode">
@@ -219,15 +219,15 @@ export function ClosingFormPage() {
           </div>
         )}
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-[#0A0A0A]">Quem entra no fechamento</h3>
+          <h3 className="text-lg font-semibold text-ui-ink">Quem entra no fechamento</h3>
           <div className="space-y-2">
             <Label className={moduleLabelClass} htmlFor="closing-person">Pesquisar</Label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#94A3B8]" strokeWidth={1.75} aria-hidden />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-slate-soft" strokeWidth={1.75} aria-hidden />
               <Input id="closing-person" value={personDraft} placeholder="Pesquisar por nome, CPF ou matrícula" className={cn(moduleFieldClass, "pl-10 pr-12")} onChange={(event) => setPersonDraft(event.target.value)} />
               <button
                 type="button"
-                className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" : "text-[#64748B] hover:bg-[#F4F4F5] hover:text-[#0A0A0A]")}
+                className={cn("absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition-colors", filtersOpen || places.active ? "bg-brand-cta/10 text-brand-cta" : "text-ui-slate hover:bg-ui-paper hover:text-ui-ink")}
                 aria-expanded={filtersOpen}
                 aria-label={filtersOpen ? "Ocultar filtros" : "Mostrar filtros"}
                 onClick={() => setFiltersOpen((current) => !current)}
@@ -239,12 +239,12 @@ export function ClosingFormPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allMarked ? "border-[#1E8A3A] bg-[#EAF7EF] text-[#1E8A3A]" : "border-[#E2E8F0] bg-white text-[#0A0A0A] hover:border-[#8ED4A8] hover:bg-[#F7FCF9] active:bg-[#EAF7EF]")}
+              className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50", allMarked ? "border-brand-cta bg-brand-tint text-brand-cta" : "border-ui-line bg-white text-ui-ink hover:border-brand-glow hover:bg-brand-soft-alt active:bg-brand-tint")}
               disabled={!peopleReady || candidates.length === 0}
               aria-pressed={allMarked}
               onClick={() => setChosen((current) => [...new Set([...current, ...candidates.map((item) => item.id)])])}
             >
-              <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", allMarked ? "border-[#1E8A3A] bg-[#1E8A3A] text-white" : "border-[#D5DCE3] bg-white")}>
+              <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border", allMarked ? "border-brand-cta bg-brand-cta text-white" : "border-ui-line-strong bg-white")}>
                 {allMarked ? <Check className="h-3.5 w-3.5" strokeWidth={2.75} /> : null}
               </span>
               Selecionar todos do filtro ({candidates.length})
@@ -254,12 +254,12 @@ export function ClosingFormPage() {
                 <X className="h-4 w-4 shrink-0" />
                 Limpar seleção
               </Button>
-              <p className="whitespace-nowrap text-sm font-medium text-[#1E8A3A]">{chosen.length} selecionados</p>
+              <p className="whitespace-nowrap text-sm font-medium text-brand-cta">{chosen.length} selecionados</p>
             </div>
           </div>
           {filtersOpen ? (
-            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-              <h4 className="text-sm font-semibold text-[#0A0A0A]">Filtros</h4>
+            <div className="rounded-xl border border-ui-line bg-ui-canvas p-4">
+              <h4 className="text-sm font-semibold text-ui-ink">Filtros</h4>
               <div className="mt-4">
                 <OrganizationFilterFields idPrefix="closing" filters={places} />
               </div>
@@ -268,7 +268,7 @@ export function ClosingFormPage() {
           {!peopleReady ? (
             <div className="flex justify-center py-6"><Spinner /></div>
           ) : candidates.length === 0 ? (
-            <p className="text-sm text-[#64748B]">Nenhuma pessoa neste filtro.</p>
+            <p className="text-sm text-ui-slate">Nenhuma pessoa neste filtro.</p>
           ) : (
             <ul className="space-y-2">
               {visible.map((person) => {
@@ -276,18 +276,18 @@ export function ClosingFormPage() {
                 const notice = marked ? notices[person.id] : undefined
                 return (
                   <li key={person.id}>
-                    <label htmlFor={`closing-person-${person.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", notice ? "border-[#F0C7A0] bg-[#FFF8F1]" : marked ? "border-[#8ED4A8] bg-[#F7FCF9]" : "border-[#E2E8F0] bg-white")}>
+                    <label htmlFor={`closing-person-${person.id}`} className={cn("flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3", notice ? "border-warn-edge bg-warn-cream" : marked ? "border-brand-glow bg-brand-soft-alt" : "border-ui-line bg-white")}>
                       <span className="relative h-[22px] w-[22px] shrink-0">
                         <input id={`closing-person-${person.id}`} type="checkbox" className="peer sr-only" checked={marked} onChange={() => togglePerson(person.id)} />
-                        <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-[#D5DCE3] bg-white peer-checked:border-[#1E8A3A] peer-checked:bg-[#1E8A3A] peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgba(30,138,58,0.16)]">
+                        <span className="pointer-events-none flex h-[22px] w-[22px] items-center justify-center rounded-[7px] border border-ui-line-strong bg-white peer-checked:border-brand-cta peer-checked:bg-brand-cta peer-checked:[&>svg]:opacity-100 peer-focus-visible:shadow-[0_0_0_3px_rgb(var(--brand-cta)/0.16)]">
                           <Check className="h-3.5 w-3.5 text-white opacity-0" strokeWidth={2.75} />
                         </span>
                       </span>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EF] text-xs font-semibold text-[#1E8A3A]">{initials(person.full_name || "")}</span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-tint text-xs font-semibold text-brand-cta">{initials(person.full_name || "")}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold text-[#0A0A0A]">{person.full_name || "Não informado"}</span>
-                        <span className="mt-0.5 block truncate text-sm text-[#64748B]">Matrícula {registration(person.registration_number)}</span>
-                        {notice ? <span className="mt-0.5 block truncate text-sm font-medium text-[#C2410C]">{notice}</span> : null}
+                        <span className="block truncate font-semibold text-ui-ink">{person.full_name || "Não informado"}</span>
+                        <span className="mt-0.5 block truncate text-sm text-ui-slate">Matrícula {registration(person.registration_number)}</span>
+                        {notice ? <span className="mt-0.5 block truncate text-sm font-medium text-warn-brown">{notice}</span> : null}
                       </span>
                     </label>
                   </li>
@@ -296,7 +296,7 @@ export function ClosingFormPage() {
             </ul>
           )}
           {candidates.length > 0 ? (
-            <div className="border-t border-[#F1F5F9] pt-4">
+            <div className="border-t border-ui-wash pt-4">
               <ListPager
                 page={page}
                 pageSize={pageSize}
@@ -418,7 +418,7 @@ export function ClosingConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.45)] p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgb(var(--ui-shadow)/0.45)] p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) dismiss()
       }}
@@ -429,15 +429,15 @@ export function ClosingConfirmDialog({
         aria-modal="true"
         aria-labelledby="closing-confirm-title"
         aria-describedby="closing-confirm-text"
-        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.18)] sm:p-7"
+        className="w-full max-w-[480px] rounded-2xl bg-white p-6 shadow-[0_24px_64px_rgb(var(--ui-shadow)/0.18)] sm:p-7"
       >
-        <h2 id="closing-confirm-title" className="text-xl font-semibold tracking-tight text-[#0A0A0A]">
+        <h2 id="closing-confirm-title" className="text-xl font-semibold tracking-tight text-ui-ink">
           Fechar este período?
         </h2>
-        <p id="closing-confirm-text" className="mt-2 text-sm leading-6 text-[#71717A]">
+        <p id="closing-confirm-text" className="mt-2 text-sm leading-6 text-brand-quiet">
           Depois de fechado, marcação, ajuste, ocorrência, vigência e banco ficam bloqueados para as pessoas deste fechamento até reabrir.
         </p>
-        <p className="mt-4 rounded-xl bg-[#E7E8EA] px-4 py-3 text-sm font-semibold text-[#0A0A0A]">{period}</p>
+        <p className="mt-4 rounded-xl bg-ui-line-muted px-4 py-3 text-sm font-semibold text-ui-ink">{period}</p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" className={cn(moduleQuietClass, "h-11 px-4")} onClick={dismiss} disabled={pending}>
             <X className="h-4 w-4" aria-hidden />

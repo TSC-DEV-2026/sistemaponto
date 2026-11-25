@@ -40,12 +40,12 @@ export function ChangePasswordPage() {
       <BackLink to="/settings" appearance="detail" />
       <ActionForm className={cn(moduleCardClass, "space-y-5")} onSubmit={onSubmit}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
             <KeyRound className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A0A0A]">Trocar senha</h2>
-            <p className="text-sm text-[#64748B]">Altere a senha de acesso.</p>
+            <h2 className="text-lg font-semibold text-ui-ink">Trocar senha</h2>
+            <p className="text-sm text-ui-slate">Altere a senha de acesso.</p>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -62,7 +62,7 @@ export function ChangePasswordPage() {
             <PasswordField id="confirm" className={moduleFieldClass} autoComplete="new-password" minLength={8} maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
           </div>
         </div>
-        {message ? <p className="text-sm text-[#1E8A3A]">{message}</p> : null}
+        {message ? <p className="text-sm text-brand-cta">{message}</p> : null}
         <div className="flex justify-end">
           <Button type="submit" className={modulePrimaryClass}>
             <Save className="h-4 w-4" />

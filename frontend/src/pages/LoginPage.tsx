@@ -69,7 +69,7 @@ export function LoginPage() {
           </FieldBlock>
           <Link
             to="/forgot-password"
-            className="block text-right text-sm font-medium text-[#1E8A3A] transition-colors duration-150 hover:text-[#187432] hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3A]/30"
+            className="block text-right text-sm font-medium text-brand-cta transition-colors duration-150 hover:text-brand-cta-deep hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/30"
           >
             Esqueceu a senha?
           </Link>

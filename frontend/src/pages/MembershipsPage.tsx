@@ -80,12 +80,12 @@ export function MembershipsPage() {
       <section className={moduleCardClass}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(30,138,58,0.1)] text-[#1E8A3A]" aria-hidden>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-cta/10 text-brand-cta" aria-hidden>
               <Shield className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[#0A0A0A]">Acessos</h2>
-              <p className="text-sm text-[#64748B]">Quem entra neste sistema. O funcionário fica em Quadro.</p>
+              <h2 className="text-lg font-semibold text-ui-ink">Acessos</h2>
+              <p className="text-sm text-ui-slate">Quem entra neste sistema. O funcionário fica em Quadro.</p>
             </div>
           </div>
           {role === "admin" ? (
@@ -109,25 +109,25 @@ export function MembershipsPage() {
         </div>
       </section>
       <section className={moduleCardClass}>
-        <h2 className="text-lg font-semibold text-[#0A0A0A]">Registros cadastrados</h2>
+        <h2 className="text-lg font-semibold text-ui-ink">Registros cadastrados</h2>
         {loading ? (
           <div className="flex justify-center py-10" role="status">
-            <Spinner label="Carregando os acessos" className="h-8 w-8 text-[#1E8A3A]" />
+            <Spinner label="Carregando os acessos" className="h-8 w-8 text-brand-cta" />
           </div>
         ) : null}
         {!loading && !failed && items.length === 0 ? (
           <div className="px-2 py-10 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(30,138,58,0.08)] text-[#1E8A3A]">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-cta/8 text-brand-cta">
               <Shield className="h-6 w-6" strokeWidth={1.75} aria-hidden />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#0A0A0A]">Nenhum vínculo</p>
-            <p className="mt-1 text-sm text-[#71717A]">A consulta não encontrou registros.</p>
+            <p className="mt-4 text-[15px] font-semibold text-ui-ink">Nenhum vínculo</p>
+            <p className="mt-1 text-sm text-brand-quiet">A consulta não encontrou registros.</p>
           </div>
         ) : null}
         {!loading && items.length > 0 ? (
           <ul className="mt-4 space-y-2">
             {items.map((item) => (
-              <li key={item.id} className="group/card flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.035),0_8px_20px_rgba(15,23,42,0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-[#AEBBC9] hover:shadow-[0_8px_20px_rgba(15,23,42,0.075),0_16px_32px_rgba(15,23,42,0.055)] motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+              <li key={item.id} className="group/card flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-ui-line bg-white px-4 py-3 shadow-[0_4px_12px_rgb(var(--ui-shadow)/0.035),0_8px_20px_rgb(var(--ui-shadow)/0.035)] [transition:transform_220ms_cubic-bezier(0.22,1,0.36,1),border-color_220ms_ease,box-shadow_220ms_ease] hover:border-ui-slate-faint hover:shadow-[0_8px_20px_rgb(var(--ui-shadow)/0.075),0_16px_32px_rgb(var(--ui-shadow)/0.055)] motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                 <Link to={`/memberships/${item.id}`} aria-label={`Visualizar ${item.full_name || "acesso"}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cta/40">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-brand-cta" aria-hidden>
                     <Shield className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -137,7 +137,7 @@ export function MembershipsPage() {
                     <span className="mt-[3px] block truncate text-sm text-brand-quiet">{membershipRoleLabel[item.role] || item.role || "Não informado"}</span>
                   </span>
                   <ActionTip label="Visualizar">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B] [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-[#C5CED8] hover:!border-[rgba(30,138,58,0.25)] hover:!bg-[rgba(30,138,58,0.08)] hover:!text-[#1E8A3A] hover:!shadow-[0_4px_12px_rgba(30,138,58,0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-ui-line bg-white text-ui-slate [transition:background-color_180ms_ease,color_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease,transform_180ms_ease] group-hover/card:border-ui-line-chip hover:!border-brand-cta/25 hover:!bg-brand-cta/8 hover:!text-brand-cta hover:!shadow-[0_4px_12px_rgb(var(--brand-cta)/0.10)] motion-safe:hover:!-translate-y-px motion-reduce:transition-none motion-reduce:hover:!translate-y-0">
                       <Eye className="h-4 w-4" strokeWidth={1.75} />
                     </span>
                   </ActionTip>
@@ -147,7 +147,7 @@ export function MembershipsPage() {
           </ul>
         ) : null}
         {!loading && total > 0 ? (
-          <div className="mt-4 border-t border-[#F1F5F9] pt-4">
+          <div className="mt-4 border-t border-ui-wash pt-4">
             <ListPager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={(size) => { setPage(1); setPageSize(size) }} />
           </div>
         ) : null}
