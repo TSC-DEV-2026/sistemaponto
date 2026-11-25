@@ -204,6 +204,7 @@ class _CalcScratch:
         self.pins: dict[tuple[int, int], list] = {}
         self.closed: list | None = None
         self.closed_tenant: int | None = None
+        self.holidays: dict[tuple[int, date, date], set[date]] = {}
 
 
 class WorkforceService:
@@ -224,6 +225,14 @@ class WorkforceService:
         self.embedder = embedder or embed_image
         self.files = files or StorageService()
         self._scratch: _CalcScratch | None = None
+
+    def _scratch_scope(self):
+        outer = self._scratch
+        self._scratch = _CalcScratch()
+        return outer
+
+    def _end_scratch(self, outer: _CalcScratch | None) -> None:
+        self._scratch = outer
 
     def list_named(self, model, scope: Scope, page: int, limit: int, equals: dict):
         self._known(scope)
@@ -1483,28 +1492,32 @@ class WorkforceService:
         payload["people_total"] = 0
         if row.status != "closed":
             return payload
-        if part == "banks":
-            _people, banks, total = self._closing_statement(scope, row, include_people=False)
+        outer = self._scratch_scope()
+        try:
+            if part == "banks":
+                _people, banks, total = self._closing_statement(scope, row, include_people=False)
+                payload["banks"] = banks
+                payload["people_total"] = total
+                return payload
+            if part == "people":
+                current = page or 1
+                size = limit or 20
+                people, _banks, total = self._closing_statement(scope, row, page=current, limit=size, with_days=False, include_banks=False)
+                payload["people"] = people
+                payload["people_total"] = total
+                return payload
+            if part == "sheets":
+                people, _banks, total = self._closing_statement(scope, row, include_banks=False)
+                payload["people"] = people
+                payload["people_total"] = total
+                return payload
+            people, banks, total = self._closing_statement(scope, row)
+            payload["people"] = people
             payload["banks"] = banks
             payload["people_total"] = total
             return payload
-        if part == "people":
-            current = page or 1
-            size = limit or 20
-            people, _banks, total = self._closing_statement(scope, row, page=current, limit=size, with_days=False, include_banks=False)
-            payload["people"] = people
-            payload["people_total"] = total
-            return payload
-        if part == "sheets":
-            people, _banks, total = self._closing_statement(scope, row, include_banks=False)
-            payload["people"] = people
-            payload["people_total"] = total
-            return payload
-        people, banks, total = self._closing_statement(scope, row)
-        payload["people"] = people
-        payload["banks"] = banks
-        payload["people_total"] = total
-        return payload
+        finally:
+            self._end_scratch(outer)
 
     def create_closing(self, scope: Scope, data: dict) -> dict:
         self._can_manage_period(scope)
@@ -1551,12 +1564,11 @@ class WorkforceService:
 
     def update_closing(self, scope: Scope, row_id: int, data: dict) -> dict:
         self._can_manage_period(scope)
-        outer = self._scratch
-        self._scratch = _CalcScratch()
+        outer = self._scratch_scope()
         try:
             return self._update_closing(scope, row_id, data)
         finally:
-            self._scratch = outer
+            self._end_scratch(outer)
 
     def _update_closing(self, scope: Scope, row_id: int, data: dict) -> dict:
         row = self._row(Closing, scope, row_id)
@@ -1695,7 +1707,11 @@ class WorkforceService:
             end = date(year, 12, 31)
         else:
             end = date(year, month + 1, 1) - timedelta(days=1)
-        return {"year": year, "month": month, "items": self._payroll_items(scope, start, end)}
+        outer = self._scratch_scope()
+        try:
+            return {"year": year, "month": month, "items": self._payroll_items(scope, start, end)}
+        finally:
+            self._end_scratch(outer)
 
     def list_fiscal_files(self, scope: Scope, page: int, limit: int, equals: dict):
         self._can_manage_period(scope)
@@ -1741,6 +1757,13 @@ class WorkforceService:
         tenant = self.repo.get_tenant(scope.tenant_id)
         employer = employer_from(getattr(tenant, "document", None), getattr(tenant, "name", None))
         generated = self.clock()
+        outer = self._scratch_scope()
+        try:
+            return self._create_fiscal_file(scope, data, kind, start, end, employer, generated)
+        finally:
+            self._end_scratch(outer)
+
+    def _create_fiscal_file(self, scope: Scope, data: dict, kind: str, start: date, end: date, employer, generated: datetime) -> FiscalFile:
         if kind == "afd":
             content = render_afd(
                 employer=employer,
@@ -1831,13 +1854,12 @@ class WorkforceService:
             raise AppError(400, "A apuração aceita no máximo 62 dias")
         employee = self._employee(scope, employee_id)
         self._visible(scope, employee.id)
-        outer = self._scratch
-        self._scratch = _CalcScratch()
+        outer = self._scratch_scope()
         try:
-            origin = starts_on
-            if employee.hour_bank and employee.admission_date < starts_on:
-                origin = employee.admission_date
-            covered = self._day_results(scope, employee, origin, ends_on)
+            calc_from = starts_on
+            if employee.hour_bank:
+                calc_from = self._bank_calc_from(scope, employee, starts_on, ends_on)
+            covered = self._day_results(scope, employee, calc_from, ends_on)
             items = [item for item in covered if starts_on <= item["work_date"] <= ends_on]
             balance = None
             if employee.hour_bank:
@@ -1849,7 +1871,7 @@ class WorkforceService:
                 for item in items:
                     item["balance_minutes"] = None
         finally:
-            self._scratch = outer
+            self._end_scratch(outer)
         return {
             "employee_id": employee.id,
             "starts_on": starts_on,
@@ -1887,18 +1909,22 @@ class WorkforceService:
             raise AppError(400, "O relatório de funcionários pede um dia")
         if (ends_on - starts_on).days + 1 > 366:
             raise AppError(400, "O relatório aceita no máximo 366 dias")
-        lines = self._report_lines(scope, kind, starts_on, ends_on, employee_id, filters or {})
-        start = (page - 1) * limit
-        return {
-            "kind": kind,
-            "name": name,
-            "starts_on": starts_on,
-            "ends_on": ends_on,
-            "items": lines[start : start + limit],
-            "total": len(lines),
-            "page": page,
-            "limit": limit,
-        }
+        outer = self._scratch_scope()
+        try:
+            lines = self._report_lines(scope, kind, starts_on, ends_on, employee_id, filters or {})
+            start = (page - 1) * limit
+            return {
+                "kind": kind,
+                "name": name,
+                "starts_on": starts_on,
+                "ends_on": ends_on,
+                "items": lines[start : start + limit],
+                "total": len(lines),
+                "page": page,
+                "limit": limit,
+            }
+        finally:
+            self._end_scratch(outer)
 
     def _report_lines(
         self,
@@ -2088,10 +2114,12 @@ class WorkforceService:
             if not employee.hour_bank:
                 continue
             start = max(starts_on, employee.admission_date)
+            period_days: list[dict] = []
             movement = 0
             if start <= finish:
-                movement = sum(day["bank_minutes"] for day in self._day_results(scope, employee, start, finish))
-            projection = self._project_hour_bank(scope, employee, finish)
+                period_days = self._day_results(scope, employee, start, finish)
+                movement = sum(day["bank_minutes"] for day in period_days)
+            projection = project_balance(self._bank_events(scope, employee, finish, period_days), finish)
             detail = f"saldo {show_duration(projection['balance_minutes'])}; movimento {show_duration(movement)}"
             if projection["warning"]:
                 detail = f"{detail}; {projection['warning']}"
@@ -2225,7 +2253,14 @@ class WorkforceService:
         for rows in by_day.values():
             rows.sort(key=lambda row: (row.occurred_at, row.id))
         occurrences = self.repo.occurrences_between(scope.tenant_id, employee.id, span_start, span_end)
-        holidays = {row.holiday_date for row in self.repo.holidays_between(scope.tenant_id, span_start, span_end)}
+        holiday_key = (scope.tenant_id, span_start, span_end)
+        scratch = self._scratch
+        if scratch is not None and holiday_key in scratch.holidays:
+            holidays = scratch.holidays[holiday_key]
+        else:
+            holidays = {row.holiday_date for row in self.repo.holidays_between(scope.tenant_id, span_start, span_end)}
+            if scratch is not None:
+                scratch.holidays[holiday_key] = holidays
         journeys: dict[int, Journey] = {}
         rule_on = self._norm_rules(scope, employee.id, span_start - timedelta(days=1), span_end)
         consumed: set[int] = set()
@@ -2426,9 +2461,11 @@ class WorkforceService:
         punch_count = counts.get(employee.id, 0) if finish >= starts_on else 0
         worked = overtime = night = shortage = balance = 0
         absence_days = allowance_days = vacation_days = leave_days = certificate_days = 0
+        period_days: list[dict] = []
         if finish >= starts_on and employee.admission_date <= finish:
             day_start = employee.admission_date if employee.admission_date > starts_on else starts_on
-            for day in self._day_results(scope, employee, day_start, finish):
+            period_days = self._day_results(scope, employee, day_start, finish)
+            for day in period_days:
                 worked += day["worked_minutes"]
                 overtime += day["overtime_minutes"]
                 night += day["night_additional_minutes"]
@@ -2450,7 +2487,7 @@ class WorkforceService:
                 elif row.kind == "certificates":
                     certificate_days += days
             if employee.hour_bank:
-                balance = self._project_hour_bank(scope, employee, finish)["balance_minutes"]
+                balance = project_balance(self._bank_events(scope, employee, finish, period_days), finish)["balance_minutes"]
         return {
             "employee_id": employee.id,
             "full_name": employee.full_name,
@@ -2717,13 +2754,73 @@ class WorkforceService:
         limit = self.today() if until is None or until > self.today() else until
         return project_balance(self._bank_events(scope, employee, limit), limit)
 
-    def _bank_events(self, scope: Scope, employee: Employee, limit: date, computed: list[dict] | None = None) -> list[tuple]:
+    def _latest_balance_entry(self, entries: list, limit: date):
+        found = None
+        for entry in entries:
+            if entry.kind == "balance" and entry.entry_on <= limit:
+                found = entry
+        return found
+
+    def _bank_day_origin(self, employee: Employee, entries: list, limit: date) -> date:
+        marco = self._latest_balance_entry(entries, limit)
+        if marco is None:
+            # Custo conhecido: sem lançamento kind=balance, o saldo recalcula desde a admissão.
+            return employee.admission_date
+        after = marco.entry_on + timedelta(days=1)
+        return after if after > employee.admission_date else employee.admission_date
+
+    def _bank_calc_from(self, scope: Scope, employee: Employee, starts_on: date, ends_on: date) -> date:
+        entries = self.repo.hour_bank_entries_for(scope.tenant_id, employee.id)
+        marco = self._latest_balance_entry(entries, ends_on)
+        if marco is None:
+            # Custo conhecido: sem marco de saldo, a apuração com banco volta à admissão.
+            if employee.admission_date < starts_on:
+                return employee.admission_date
+            return starts_on
+        if marco.entry_on < starts_on:
+            origin = self._bank_day_origin(employee, entries, ends_on)
+            return origin if origin < starts_on else starts_on
+        prior_limit = starts_on - timedelta(days=1)
+        prior = self._latest_balance_entry(entries, prior_limit) if prior_limit >= employee.admission_date else None
+        if prior is not None:
+            origin = self._bank_day_origin(employee, [prior], prior.entry_on)
+            return origin if origin < starts_on else starts_on
+        if employee.admission_date < starts_on:
+            return employee.admission_date
+        return starts_on
+
+    def _bank_day_items(
+        self,
+        scope: Scope,
+        employee: Employee,
+        origin: date,
+        limit: date,
+        computed: list[dict] | None,
+    ) -> list[dict]:
+        if origin > limit:
+            return []
         if computed is None:
-            items = []
-            if employee.admission_date <= limit:
-                items = self._day_results(scope, employee, employee.admission_date, limit)
-        else:
-            items = computed
+            return self._day_results(scope, employee, origin, limit)
+        items = [day for day in computed if origin <= day["work_date"] <= limit]
+        if not items:
+            return self._day_results(scope, employee, origin, limit)
+        first = min(day["work_date"] for day in items)
+        if first > origin:
+            return self._day_results(scope, employee, origin, first - timedelta(days=1)) + items
+        return items
+
+    def _bank_events(
+        self,
+        scope: Scope,
+        employee: Employee,
+        limit: date,
+        computed: list[dict] | None = None,
+        *,
+        since: date | None = None,
+    ) -> list[tuple]:
+        entries = self.repo.hour_bank_entries_for(scope.tenant_id, employee.id)
+        origin = since if since is not None else self._bank_day_origin(employee, entries, limit)
+        items = self._bank_day_items(scope, employee, origin, limit, computed)
         events = []
         for day in items:
             if day["work_date"] < employee.admission_date or day["work_date"] > limit:
@@ -2732,7 +2829,7 @@ class WorkforceService:
                 events.append((day["work_date"], 0, "credit", day["bank_minutes"]))
             elif day["bank_minutes"] < 0:
                 events.append((day["work_date"], 0, "debit", -day["bank_minutes"]))
-        for entry in self.repo.hour_bank_entries_for(scope.tenant_id, employee.id):
+        for entry in entries:
             if entry.entry_on > limit:
                 continue
             if entry.kind == "settlement":
@@ -2747,7 +2844,18 @@ class WorkforceService:
     def _balances_on(self, scope: Scope, employee: Employee, days: list[date], computed: list[dict] | None = None) -> dict[date, int]:
         if not days:
             return {}
-        events = self._bank_events(scope, employee, max(days), computed)
+        first = min(days)
+        last = max(days)
+        entries = self.repo.hour_bank_entries_for(scope.tenant_id, employee.id)
+        prior = None
+        if first > employee.admission_date:
+            prior = self._latest_balance_entry(entries, first - timedelta(days=1))
+        if prior is not None:
+            since = self._bank_day_origin(employee, entries, prior.entry_on)
+        else:
+            # Custo conhecido: sem marco antes do intervalo, o saldo diário recalcula desde a admissão.
+            since = employee.admission_date
+        events = self._bank_events(scope, employee, last, computed, since=since)
         return balance_minutes_by_day(events, days)
 
     def _forget_closing_cache(self) -> None:
@@ -4464,7 +4572,7 @@ class WorkforceService:
         balance = None
         bank = None
         if employee.hour_bank:
-            balance, entries = self._closing_launch(scope, row, employee, finish)
+            balance, entries = self._closing_launch(scope, row, employee, finish, list(computed.values()))
             bank = {
                 "employee_id": employee.id,
                 "full_name": employee.full_name,
@@ -4520,8 +4628,15 @@ class WorkforceService:
                 banks.append(self._closing_bank_row(scope, row, employee, finish))
         return people, banks, len(roster)
 
-    def _closing_launch(self, scope: Scope, row: Closing, employee: Employee, finish: date) -> tuple[int, list[dict]]:
-        events = self._bank_events(scope, employee, finish)
+    def _closing_launch(
+        self,
+        scope: Scope,
+        row: Closing,
+        employee: Employee,
+        finish: date,
+        computed: list[dict] | None = None,
+    ) -> tuple[int, list[dict]]:
+        events = self._bank_events(scope, employee, finish, computed)
         after = project_balance(events, finish)["balance_minutes"]
         saved = [
             item
@@ -4927,20 +5042,24 @@ class WorkforceService:
     def _daily_incomplete(self, scope: Scope) -> None:
         start = date(self.today().year, self.today().month, 1)
         found = False
-        page = 1
-        while True:
-            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
-            for employee in rows:
-                if employee.admission_date > self.today():
-                    continue
-                first = employee.admission_date if employee.admission_date > start else start
-                if any(day["incomplete"] for day in self._day_results(scope, employee, first, self.today())):
-                    found = True
-                    if employee.person_id is not None:
-                        self._deliver(scope, employee.person_id, employee.id, "incomplete_punch", daily=True)
-            if page * 100 >= total or not rows:
-                break
-            page += 1
+        outer = self._scratch_scope()
+        try:
+            page = 1
+            while True:
+                rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+                for employee in rows:
+                    if employee.admission_date > self.today():
+                        continue
+                    first = employee.admission_date if employee.admission_date > start else start
+                    if any(day["incomplete"] for day in self._day_results(scope, employee, first, self.today())):
+                        found = True
+                        if employee.person_id is not None:
+                            self._deliver(scope, employee.person_id, employee.id, "incomplete_punch", daily=True)
+                if page * 100 >= total or not rows:
+                    break
+                page += 1
+        finally:
+            self._end_scratch(outer)
         if not found:
             return
         for person_id in self._closer_ids(scope):
@@ -5180,20 +5299,26 @@ class WorkforceService:
         if waiting:
             raise AppError(409, "Há solicitação pendente no período", sorted(waiting))
         incomplete: set[int] = set()
-        page = 1
-        while True:
-            rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
-            for employee in rows:
-                if not included(employee.id) or employee.admission_date > end:
-                    continue
-                first = employee.admission_date if employee.admission_date > start else start
-                for day in self._day_results(scope, employee, first, end):
-                    if day["incomplete"]:
-                        incomplete.add(employee.id)
-                        break
-            if page * 100 >= total or not rows:
-                break
-            page += 1
+        owns = self._scratch is None
+        outer = self._scratch_scope() if owns else None
+        try:
+            page = 1
+            while True:
+                rows, total = self.repo.list_employees(scope.tenant_id, ids=None, page=page, limit=100, equals={})
+                for employee in rows:
+                    if not included(employee.id) or employee.admission_date > end:
+                        continue
+                    first = employee.admission_date if employee.admission_date > start else start
+                    for day in self._day_results(scope, employee, first, end):
+                        if day["incomplete"]:
+                            incomplete.add(employee.id)
+                            break
+                if page * 100 >= total or not rows:
+                    break
+                page += 1
+        finally:
+            if owns:
+                self._end_scratch(outer)
         if incomplete:
             raise AppError(409, "Há ponto incompleto no período", sorted(incomplete))
         conflict: set[int] = set()
