@@ -23,6 +23,7 @@ from app.models.workforce import (
     ClosingJourneyPin,
     Employee,
     EmployeeVigency,
+    FaceEmbedding,
     FiscalFile,
     Holiday,
     Norm,
@@ -452,6 +453,46 @@ class Memory:
             if row.cpf == cpf:
                 return row
         return None
+
+    def employee_by_registration(self, tenant_id: int, registration: str):
+        for row in self._of(Employee, tenant_id):
+            if row.registration_number == registration:
+                return row
+        return None
+
+    def list_face_embeddings(self, tenant_id: int, *, page: int, limit: int, updated_since=None):
+        found = []
+        for row in self._of(FaceEmbedding, tenant_id):
+            employee = self.get_row(Employee, tenant_id, row.employee_id)
+            if employee is None or employee.clock_method != "face":
+                continue
+            if updated_since is not None and getattr(row, "updated_at", None) is not None and row.updated_at <= updated_since:
+                continue
+            found.append((row, employee))
+        found.sort(key=lambda item: item[0].id)
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
+
+    def list_face_embeddings_for_tenants(self, tenant_ids, *, page: int, limit: int, updated_since=None):
+        found = []
+        for tenant_id in tenant_ids:
+            rows, _total = self.list_face_embeddings(tenant_id, page=1, limit=10_000, updated_since=updated_since)
+            found.extend(rows)
+        found.sort(key=lambda item: (item[0].tenant_id, item[0].id))
+        total = len(found)
+        start = (page - 1) * limit
+        return found[start : start + limit], total
+
+    def face_registry_rows(self, tenant_id: int):
+        found = []
+        for row in self._of(FaceEmbedding, tenant_id):
+            employee = self.get_row(Employee, tenant_id, row.employee_id)
+            if employee is None or employee.clock_method != "face":
+                continue
+            found.append((row, employee.id))
+        found.sort(key=lambda item: item[0].id)
+        return found
 
     def punches_between(self, tenant_id: int, employee_id: int, start: datetime, end: datetime):
         found = [
@@ -4016,7 +4057,8 @@ def test_aparelho_reconhece_rosto_e_qr_sem_sessao_da_pessoa():
     simple = workforce.create_employee(admin(), admitted(date(2026, 10, 1), "33333333333", 10))
     assert workforce.device_face_candidate(1, b"ana") == face["id"]
     assert workforce.device_face_candidate(1, b"bia") is None
-    assert simple["id"] not in {item["employee_id"] for item in workforce.device_embeddings(1)}
+    items, _total = workforce.device_embeddings([1], 1, 100)
+    assert simple["id"] not in {item["employee_id"] for item in items}
     saved = workforce.commit_device_face(
         1,
         face["id"],

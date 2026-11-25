@@ -415,6 +415,7 @@ class FaceEmbeddingOut(BaseModel):
     model_name: str
     model_version: str
     threshold: float
+    updated_at: datetime | None = None
 
 
 class PunchCorrectionCreate(BaseModel):

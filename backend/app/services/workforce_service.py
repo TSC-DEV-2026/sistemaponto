@@ -41,7 +41,8 @@ from app.core.journey_plan import (
 )
 from app.core.time_result import settle_day
 from app.core.exceptions import AppError
-from app.core.face_match import COSINE_THRESHOLD, MODEL_NAME, MODEL_VERSION, best_match
+from app.core.face_match import COSINE_THRESHOLD, MODEL_NAME, MODEL_VERSION, best_match, match_one, unit
+from app.core.fields import parse_fields
 from app.core.images import decode_image
 from app.core.notices import CHANNELS, PHRASES, notice_channels
 from app.core.punch_code import read_code, render_code
@@ -848,7 +849,7 @@ class WorkforceService:
             if not members or employee_id in members:
                 raise AppError(409, "Período fechado")
 
-    def list_punches(self, scope: Scope, page: int, limit: int, equals: dict):
+    def list_punches(self, scope: Scope, page: int, limit: int, equals: dict, fields: str | None = None):
         self._known(scope)
         filters = dict(equals)
         starts_on = filters.pop("starts_on", None)
@@ -881,7 +882,7 @@ class WorkforceService:
             employee_ids=ids,
         )
         for row in rows:
-            self._punch_links(row)
+            self._punch_links(row, fields=fields)
         return rows, total
 
     def get_punch(self, scope: Scope, row_id: int) -> Punch:
@@ -890,7 +891,14 @@ class WorkforceService:
         self._punch_links(row)
         return row
 
-    def _punch_links(self, row: Punch) -> None:
+    def _punch_links(self, row: Punch, fields: str | None = None) -> None:
+        requested = parse_fields(fields)
+        want = requested is None or bool({"qr_url", "selfie_url", "face_url"} & set(requested))
+        if not want:
+            row.qr_url = None
+            row.selfie_url = None
+            row.face_url = None
+            return
         row.qr_url = self._photo_url(getattr(row, "qr_key", None))
         row.selfie_url = self._photo_url(getattr(row, "selfie_key", None))
         row.face_url = self._photo_url(getattr(row, "face_key", None))
@@ -1011,12 +1019,14 @@ class WorkforceService:
             if existing is not None:
                 return existing
         self._assert_clock_method(employee, "face")
-        if self._embedding(scope, employee.id) is None:
+        stored = self._embedding(scope, employee.id)
+        if stored is None:
             raise AppError(400, "Este funcionário não tem foto de referência.")
         image = decode_image(str(data.get("image") or ""), message="A foto não foi aceita.")
         try:
             vector = self.embedder(image)
-            matched = best_match(vector, self._face_registry(scope))
+            if not match_one(vector, list(stored.embedding)):
+                raise AppError(400, "O rosto não foi reconhecido.")
         except AppError:
             raise
         except ValueError:
@@ -1024,8 +1034,6 @@ class WorkforceService:
         except Exception:
             logger.exception("falha ao comparar o rosto employee_id=%s", employee.id)
             raise AppError(503, "Reconhecimento indisponível") from None
-        if matched != employee.id:
-            raise AppError(400, "O rosto não foi reconhecido.")
         return self.create_punch(
             scope,
             data,
@@ -1035,43 +1043,35 @@ class WorkforceService:
             client_event_id=event_id,
         )
 
-    def list_face_embeddings(self, scope: Scope, page: int, limit: int):
+    def list_face_embeddings(self, scope: Scope, page: int, limit: int, updated_since: datetime | None = None):
         self._known(scope)
-        ready = []
-        cursor = 1
-        while True:
-            rows, total = self.repo.list_rows(
-                FaceEmbedding,
-                scope.tenant_id,
-                page=cursor,
-                limit=100,
-                equals={},
-                descending=False,
-            )
-            for row in rows:
-                employee = self.repo.get_row(Employee, scope.tenant_id, row.employee_id)
-                if employee is None or employee.clock_method != "face":
-                    continue
-                ready.append(
-                    {
-                        "employee_id": employee.id,
-                        "person_id": employee.person_id,
-                        "embedding": list(row.embedding),
-                        "model_name": row.model_name,
-                        "model_version": row.model_version,
-                        "threshold": COSINE_THRESHOLD,
-                    }
-                )
-            if cursor * 100 >= total:
-                break
-            cursor += 1
-        start = (page - 1) * limit
-        return ready[start : start + limit], len(ready)
+        rows, total = self.repo.list_face_embeddings(
+            scope.tenant_id,
+            page=page,
+            limit=limit,
+            updated_since=updated_since,
+        )
+        ready = [
+            {
+                "employee_id": employee.id,
+                "person_id": employee.person_id,
+                "embedding": list(row.embedding),
+                "model_name": row.model_name,
+                "model_version": row.model_version,
+                "threshold": COSINE_THRESHOLD,
+                "updated_at": row.updated_at,
+            }
+            for row, employee in rows
+        ]
+        return ready, total
 
-    def device_face_candidate(self, tenant_id: int, image: bytes) -> int | None:
+    def device_face_candidate(self, tenant_id: int, image: bytes | None = None, vector: list[float] | None = None) -> int | None:
         scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
         try:
-            vector = self.embedder(image)
+            if vector is None:
+                if image is None:
+                    raise AppError(400, "A foto não foi aceita.")
+                vector = self.embedder(image)
         except AppError:
             raise
         except ValueError:
@@ -1079,46 +1079,64 @@ class WorkforceService:
         except Exception:
             logger.exception("falha ao comparar o rosto no aparelho tenant_id=%s", tenant_id)
             raise AppError(503, "Reconhecimento indisponível") from None
-        return best_match(vector, self._face_registry(scope))
+        return best_match(vector, self._face_registry(scope), registry_unit=True)
 
     def device_qr_candidates(self, tenant_id: int, content: str) -> list[int]:
         parsed = read_code(content)
         if parsed is None:
             return []
-        found = []
-        page = 1
-        while True:
-            rows, total = self.repo.list_rows(
-                Employee,
-                tenant_id,
-                page=page,
-                limit=100,
-                equals={"clock_method": "qr"},
-                descending=False,
-            )
-            for employee in rows:
-                try:
-                    unit, registration = self._clock_identity(employee, self.today())
-                except AppError:
-                    continue
-                if (unit.reference_id, employee.cpf, registration) == parsed:
-                    found.append(employee.id)
-            if page * 100 >= total:
-                break
-            page += 1
-        return found
+        unit_id, cpf, registration = parsed
+        employee = self.repo.employee_by_cpf(tenant_id, cpf)
+        if employee is None:
+            employee = self.repo.employee_by_registration(tenant_id, registration)
+        if employee is None or employee.clock_method != "qr":
+            return []
+        try:
+            unit, current_registration = self._clock_identity(employee, self.today())
+        except AppError:
+            return []
+        if (unit.reference_id, employee.cpf, current_registration) != (unit_id, cpf, registration):
+            return []
+        return [employee.id]
 
     def device_method_flags(self, tenant_id: int) -> dict:
         return {"face": self._has_clock_method(tenant_id, "face"), "qr": self._has_clock_method(tenant_id, "qr")}
 
-    def device_embeddings(self, tenant_id: int) -> list[dict]:
-        scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
-        items, total = self.list_face_embeddings(scope, 1, 100)
-        if total > len(items):
-            items, _total = self.list_face_embeddings(scope, 1, total)
-        return items
+    def device_embeddings(
+        self,
+        tenant_ids: list[int],
+        page: int,
+        limit: int,
+        updated_since: datetime | None = None,
+    ) -> tuple[list[dict], int]:
+        rows, total = self.repo.list_face_embeddings_for_tenants(
+            tenant_ids,
+            page=page,
+            limit=limit,
+            updated_since=updated_since,
+        )
+        ready = [
+            {
+                "tenant_id": row.tenant_id,
+                "employee_id": employee.id,
+                "embedding": list(row.embedding),
+                "model_name": row.model_name,
+                "model_version": row.model_version,
+                "threshold": COSINE_THRESHOLD,
+                "updated_at": row.updated_at,
+            }
+            for row, employee in rows
+        ]
+        return ready, total
 
-    def commit_device_face(self, tenant_id: int, employee_id: int, data: dict, image: bytes) -> Punch:
+    def commit_device_face(
+        self,
+        tenant_id: int,
+        employee_id: int,
+        data: dict,
+        image: bytes,
+        vector: list[float] | None = None,
+    ) -> Punch:
         scope = Scope(person_id=0, tenant_id=tenant_id, role="member")
         employee = self._employee(scope, employee_id)
         channel = data.get("channel")
@@ -1132,10 +1150,20 @@ class WorkforceService:
             if existing is not None:
                 return existing
         self._assert_clock_method(employee, "face")
-        if self._embedding(scope, employee.id) is None:
+        stored = self._embedding(scope, employee.id)
+        if stored is None:
             raise AppError(400, "Este funcionário não tem foto de referência.")
-        if self.device_face_candidate(tenant_id, image) != employee.id:
-            raise AppError(400, "O rosto não foi reconhecido.")
+        try:
+            probe = vector if vector is not None else self.embedder(image)
+            if not match_one(probe, list(stored.embedding)):
+                raise AppError(400, "O rosto não foi reconhecido.")
+        except AppError:
+            raise
+        except ValueError:
+            raise AppError(400, "O rosto não foi reconhecido.") from None
+        except Exception:
+            logger.exception("falha ao confirmar o rosto no aparelho employee_id=%s", employee.id)
+            raise AppError(503, "Reconhecimento indisponível") from None
         return self.create_punch(
             scope,
             {"employee_id": employee.id, "occurred_at": data["occurred_at"], "note": None},
@@ -1176,7 +1204,7 @@ class WorkforceService:
         self._known(scope)
         if content_type not in {"image/jpeg", "image/png"}:
             raise AppError(400, "A selfie precisa ser uma imagem")
-        return StorageService().upload(
+        return self.files.upload(
             tenant_id=scope.tenant_id,
             folder="selfies",
             content_type=content_type,
@@ -3432,6 +3460,7 @@ class WorkforceService:
         return vector, self.files.save_reference(decoded)
 
     def _write_embedding(self, scope: Scope, employee_id: int, vector: list[float]) -> None:
+        stamp = self.clock()
         current = self._embedding(scope, employee_id)
         if current is None:
             self.repo.add(
@@ -3441,12 +3470,14 @@ class WorkforceService:
                     model_name=MODEL_NAME,
                     model_version=MODEL_VERSION,
                     embedding=vector,
+                    updated_at=stamp,
                 )
             )
         else:
             current.model_name = MODEL_NAME
             current.model_version = MODEL_VERSION
             current.embedding = vector
+            current.updated_at = stamp
             self.repo.add(current)
         self._drop_faces(scope.tenant_id)
 
@@ -3475,24 +3506,11 @@ class WorkforceService:
 
     def _load_face_registry(self, scope: Scope) -> list[tuple[int, list[float]]]:
         found = []
-        page = 1
-        while True:
-            rows, total = self.repo.list_rows(
-                FaceEmbedding,
-                scope.tenant_id,
-                page=page,
-                limit=100,
-                equals={},
-                descending=False,
-            )
-            for row in rows:
-                employee = self.repo.get_row(Employee, scope.tenant_id, row.employee_id)
-                if employee is None or employee.clock_method != "face":
-                    continue
-                found.append((employee.id, list(row.embedding)))
-            if page * 100 >= total:
-                break
-            page += 1
+        for row, employee_id in self.repo.face_registry_rows(scope.tenant_id):
+            try:
+                found.append((employee_id, unit(list(row.embedding))))
+            except ValueError:
+                continue
         return found
 
     def _punch_by_event(self, scope: Scope, employee_id: int, event_id: str) -> Punch | None:

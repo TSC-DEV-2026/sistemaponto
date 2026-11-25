@@ -15,6 +15,7 @@ from app.models.workforce import (
     ClosingJourneyPin,
     Employee,
     EmployeeVigency,
+    FaceEmbedding,
     FiscalFile,
     Holiday,
     HourBankEntry,
@@ -596,6 +597,85 @@ class WorkforceRepository:
             .filter(Employee.tenant_id == tenant_id, Employee.cpf == cpf)
             .one_or_none()
         )
+
+    def employee_by_registration(self, tenant_id: int, registration: str) -> Employee | None:
+        return (
+            self.db.query(Employee)
+            .filter(Employee.tenant_id == tenant_id, Employee.registration_number == registration)
+            .one_or_none()
+        )
+
+    def list_face_embeddings(
+        self,
+        tenant_id: int,
+        *,
+        page: int,
+        limit: int,
+        updated_since: datetime | None = None,
+    ):
+        query = (
+            self.db.query(FaceEmbedding, Employee)
+            .join(Employee, Employee.id == FaceEmbedding.employee_id)
+            .filter(
+                FaceEmbedding.tenant_id == tenant_id,
+                Employee.tenant_id == tenant_id,
+                Employee.clock_method == "face",
+            )
+        )
+        if updated_since is not None:
+            query = query.filter(FaceEmbedding.updated_at > updated_since)
+        total = query.count()
+        rows = (
+            query.order_by(FaceEmbedding.id.asc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return rows, total
+
+    def list_face_embeddings_for_tenants(
+        self,
+        tenant_ids: list[int],
+        *,
+        page: int,
+        limit: int,
+        updated_since: datetime | None = None,
+    ):
+        if not tenant_ids:
+            return [], 0
+        query = (
+            self.db.query(FaceEmbedding, Employee)
+            .join(Employee, Employee.id == FaceEmbedding.employee_id)
+            .filter(
+                FaceEmbedding.tenant_id.in_(tenant_ids),
+                Employee.tenant_id == FaceEmbedding.tenant_id,
+                Employee.clock_method == "face",
+            )
+        )
+        if updated_since is not None:
+            query = query.filter(FaceEmbedding.updated_at > updated_since)
+        total = query.count()
+        rows = (
+            query.order_by(FaceEmbedding.tenant_id.asc(), FaceEmbedding.id.asc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return rows, total
+
+    def face_registry_rows(self, tenant_id: int) -> list[tuple[FaceEmbedding, int]]:
+        rows = (
+            self.db.query(FaceEmbedding, Employee.id)
+            .join(Employee, Employee.id == FaceEmbedding.employee_id)
+            .filter(
+                FaceEmbedding.tenant_id == tenant_id,
+                Employee.tenant_id == tenant_id,
+                Employee.clock_method == "face",
+            )
+            .order_by(FaceEmbedding.id.asc())
+            .all()
+        )
+        return [(row, employee_id) for row, employee_id in rows]
 
     def versions_for(self, tenant_id: int, journey_id: int) -> list[JourneyVersion]:
         return (

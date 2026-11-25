@@ -137,30 +137,25 @@ class ClockDeviceService:
             tenants.append(grant.tenant_id)
         return {"face": face, "qr": qr, "tenant_ids": tenants}
 
-    def embeddings(self, public_id: str, keys: list[str], page: int, limit: int):
+    def embeddings(self, public_id: str, keys: list[str], page: int, limit: int, updated_since=None):
         grants = self._usable(public_id, keys)
-        ready = []
-        for grant in grants:
-            for item in self.workforce.device_embeddings(grant.tenant_id):
-                ready.append(
-                    {
-                        "tenant_id": grant.tenant_id,
-                        "employee_id": item["employee_id"],
-                        "embedding": item["embedding"],
-                        "model_name": item["model_name"],
-                        "model_version": item["model_version"],
-                        "threshold": item["threshold"],
-                    }
-                )
-        start = (page - 1) * limit
-        return ready[start : start + limit], len(ready)
+        tenant_ids = [grant.tenant_id for grant in grants]
+        return self.workforce.device_embeddings(tenant_ids, page, limit, updated_since=updated_since)
 
     def punch_face(self, public_id: str, keys: list[str], data: dict) -> dict:
         image = decode_image(str(data.get("image") or ""), message="A foto não foi aceita.")
         grants = self._usable(public_id, keys)
+        try:
+            vector = self.workforce.embedder(image)
+        except AppError:
+            raise
+        except ValueError:
+            raise AppError(400, "O rosto não foi reconhecido.") from None
+        except Exception:
+            raise AppError(503, "Reconhecimento indisponível") from None
         matches = []
         for grant in grants:
-            employee_id = self.workforce.device_face_candidate(grant.tenant_id, image)
+            employee_id = self.workforce.device_face_candidate(grant.tenant_id, vector=vector)
             if employee_id is not None:
                 matches.append((grant, employee_id))
         if len(matches) != 1:
@@ -168,7 +163,7 @@ class ClockDeviceService:
                 raise AppError(400, "O rosto foi reconhecido em mais de uma organização.")
             raise AppError(400, "O rosto não foi reconhecido.")
         grant, employee_id = matches[0]
-        punch = self.workforce.commit_device_face(grant.tenant_id, employee_id, data, image)
+        punch = self.workforce.commit_device_face(grant.tenant_id, employee_id, data, image, vector=vector)
         return {"tenant_id": grant.tenant_id, "punch": punch}
 
     def punch_qr(self, public_id: str, keys: list[str], data: dict) -> dict:
