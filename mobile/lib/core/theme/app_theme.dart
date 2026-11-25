@@ -10,18 +10,24 @@ class BrandColors {
   static const panel = Color(0xFFF3F4F6);
   static const quiet = Color(0xFF71717A);
   static const placeholder = Color(0xFF9CA3AF);
-  static const cta = Color(0xFF1E8A3A);
-  static const ctaDeep = Color(0xFF187432);
-  static const wordmark = Color(0xFF2DA468);
-  static const focus = Color(0xFF53BB7E);
+  static const cta = Color(0xFF084D6E);
+  static const ctaDeep = Color(0xFF073F5A);
+  /// "ponto" em fundo claro.
+  static const wordmark = Color(0xFF084D6E);
+  /// "ponto" em fundo escuro (sidebar / faixa da marca).
+  static const wordmarkOnDark = Color(0xFF90AFBE);
+  /// Faixa da marca no app (mesma família da sidebar do site).
+  static const markPanel = Color(0xFF053248);
+  static const focus = Color(0xFF4D7F97);
   static const danger = Color(0xFFEF5350);
   static const warn = Color(0xFFE6B325);
   static const onWarn = Color(0xFF1B2534);
+  static const success = Color(0xFF1E8A3A);
   static const field = Color(0xFFE4E8ED);
   static const line = Color(0xFF222222);
   static const stroke = Color(0xFFD9DEE5);
   static const card = Color(0xFFE7EBF0);
-  static const tint = Color(0xFFEAF7EF);
+  static const tint = Color(0xFFEBF1F3);
   static const white = Color(0xFFFFFFFF);
 }
 
@@ -140,7 +146,7 @@ ThemeData appTheme() {
     ),
     extensions: const [
       FeedbackColors(
-        success: BrandColors.cta,
+        success: BrandColors.success,
         onSuccess: BrandColors.white,
         warning: BrandColors.warn,
         onWarning: BrandColors.onWarn,

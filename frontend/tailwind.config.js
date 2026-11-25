@@ -68,6 +68,7 @@ export default {
           "focus-glow": rgb("--brand-focus-glow"),
           "focus-hover": rgb("--brand-focus-hover"),
           wordmark: rgb("--brand-wordmark"),
+          "wordmark-on-dark": rgb("--brand-wordmark-on-dark"),
           auth: rgb("--brand-auth"),
           "auth-hover": rgb("--brand-auth-hover"),
           "auth-active": rgb("--brand-auth-active"),
