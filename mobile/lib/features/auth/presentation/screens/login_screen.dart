@@ -53,31 +53,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         children: [
           const BrandMarkBanner(),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                Text('Entrar', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _cpf,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [CpfInputFormatter()],
-                  decoration: const InputDecoration(labelText: 'CPF'),
-                ),
-                const SizedBox(height: 12),
-                SecretField(controller: _password, label: 'Senha'),
-                if ((notice ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(notice!),
-                ],
-                if (_error.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                ],
-                const SizedBox(height: 16),
-                BusyButton(onPressed: _submit, icon: LucideIcons.logIn, label: 'Entrar'),
-                TextButton(onPressed: () => context.go('/forgot-password'), child: const Text('Esqueci a senha')),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Entrar',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 24),
+                            TextField(
+                              controller: _cpf,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [CpfInputFormatter()],
+                              decoration: const InputDecoration(labelText: 'CPF'),
+                            ),
+                            const SizedBox(height: 12),
+                            SecretField(controller: _password, label: 'Senha'),
+                            if ((notice ?? '').isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Text(notice!),
+                            ],
+                            if (_error.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                            ],
+                            const SizedBox(height: 16),
+                            BusyButton(onPressed: _submit, icon: LucideIcons.logIn, label: 'Entrar'),
+                            TextButton(onPressed: () => context.go('/forgot-password'), child: const Text('Esqueci a senha')),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

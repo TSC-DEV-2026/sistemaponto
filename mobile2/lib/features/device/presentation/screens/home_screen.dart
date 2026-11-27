@@ -81,59 +81,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final device = ref.watch(deviceProvider);
     final companies = device.grants.length;
     final companyLabel = companies == 1 ? '1 organização' : '$companies organizações';
-    return Scaffold(
-      appBar: AppBar(title: const Text('Registrar ponto')),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight > 48 ? constraints.maxHeight - 48 : 0),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(companyLabel, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
-                        const SizedBox(height: 24),
-                        FilledButton.icon(
-                          onPressed: device.face ? _face : null,
-                          icon: const Icon(LucideIcons.scanFace),
-                          label: const Text('Reconhecimento facial'),
+    return SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight > 48 ? constraints.maxHeight - 48 : 0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Registrar ponto',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(companyLabel, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        onPressed: device.face ? _face : null,
+                        icon: const Icon(LucideIcons.scanFace),
+                        label: const Text('Reconhecimento facial'),
+                      ),
+                      if (!device.face) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Nenhuma organização deste aparelho usa reconhecimento facial.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        if (!device.face) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Nenhuma organização deste aparelho usa reconhecimento facial.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed: device.qr ? _qr : null,
-                          icon: const Icon(LucideIcons.qrCode),
-                          label: const Text('QR Code'),
-                        ),
-                        if (!device.qr) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Nenhuma organização deste aparelho usa QR Code.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
                       ],
-                    ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: device.qr ? _qr : null,
+                        icon: const Icon(LucideIcons.qrCode),
+                        label: const Text('QR Code'),
+                      ),
+                      if (!device.qr) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Nenhuma organização deste aparelho usa QR Code.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

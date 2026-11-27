@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/api_exception.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../data/network/dio_client.dart';
 import '../../../../shared/providers/loader_provider.dart';
 import '../../../../shared/widgets/busy_button.dart';
@@ -24,7 +25,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   static const _tabs = [
     ('registro', 'Registro'),
     ('apuracao', 'Apuração do mês'),
@@ -32,24 +34,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ('banco', 'Banco de horas'),
   ];
 
+  static const _recentLimit = 5;
+
+  late final TabController _tabController;
   Map<String, dynamic>? _employee;
   Map<String, dynamic>? _journey;
   Map<String, dynamic>? _bank;
   List<Map<String, dynamic>> _punches = [];
+  List<Map<String, dynamic>> _recent = [];
   List<Map<String, dynamic>> _days = [];
   String _tab = 'registro';
   String? _profileError;
   String? _panelError;
   bool _profileLoading = true;
   bool _panelReady = true;
+  bool _recentReady = false;
   bool _missing = false;
   int _panelTicket = 0;
+  int _recentTicket = 0;
   int? _facePreparedFor;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController.addListener(_onTabTick);
     Future<void>.microtask(_load);
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabTick);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabTick() {
+    if (_tabController.indexIsChanging) {
+      return;
+    }
+    final next = _tabs[_tabController.index].$1;
+    if (next == _tab) {
+      return;
+    }
+    _select(next);
   }
 
   Future<void> _load() async {
@@ -134,6 +162,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _afterEmployee() {
     unawaited(_loadJourney());
+    unawaited(_loadRecent());
     final employee = _employee;
     if (employee == null) {
       return;
@@ -145,6 +174,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     _facePreparedFor = id;
     unawaited(_prepareFace());
+  }
+
+  Future<void> _loadRecent() async {
+    final employee = _employee;
+    if (employee == null) {
+      return;
+    }
+    final ticket = ++_recentTicket;
+    final client = ref.read(apiClientProvider);
+    try {
+      final page = await client.get(
+        '/api/v1/punches',
+        query: {
+          'employee_id': _employeeId(employee),
+          'limit': _recentLimit,
+        },
+      );
+      if (!mounted || ticket != _recentTicket) {
+        return;
+      }
+      setState(() {
+        _recent = pageItems(page);
+        _recentReady = true;
+      });
+    } on ApiException {
+      if (mounted && ticket == _recentTicket) {
+        setState(() => _recentReady = true);
+      }
+    }
   }
 
   Future<void> _loadJourney() async {
@@ -232,6 +290,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final sent = await flow.syncPending();
       if (sent > 0 && mounted) {
         showPunchToast(context, message: 'Marcações offline enviadas.', ok: true);
+        unawaited(_loadRecent());
       }
     } on ApiException {
       return;
@@ -316,6 +375,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
     if (tab == 'registro') {
       unawaited(_loadJourney());
+      unawaited(_loadRecent());
       return;
     }
     unawaited(_loadPanel());
@@ -336,6 +396,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
       if (mounted) {
         showPunchToast(context, message: 'Marcação registrada.', ok: true);
+        unawaited(_loadRecent());
       }
     } on ApiException catch (error) {
       if (mounted) {
@@ -361,6 +422,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     showPunchToast(context, message: result.message, ok: result.ok, stored: result.stored);
+    if (result.ok) {
+      unawaited(_loadRecent());
+    }
   }
 
   Future<void> _openFace() async {
@@ -383,6 +447,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ).punchFace(employeeId: _employeeId(employee), imagePath: path);
       if (mounted) {
         showPunchToast(context, message: result.message, ok: result.ok, stored: result.stored);
+        if (result.ok) {
+          unawaited(_loadRecent());
+        }
       }
     } on ApiException catch (error) {
       if (mounted) {
@@ -409,51 +476,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
     final employee = _employee;
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
+      top: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Meu ponto', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final tab in _tabs)
-                tab.$1 == _tab
-                    ? FilledButton(
-                        onPressed: () => _select(tab.$1),
-                        child: Text(tab.$2),
-                      )
-                    : OutlinedButton(
-                        onPressed: () => _select(tab.$1),
-                        child: Text(tab.$2),
-                      ),
-            ],
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelColor: BrandColors.cta,
+            unselectedLabelColor: BrandColors.quiet,
+            indicatorColor: BrandColors.cta,
+            labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            tabs: [for (final tab in _tabs) Tab(text: tab.$2)],
           ),
-          const SizedBox(height: 16),
-          if (_missing)
-            const Text('Seu acesso ainda não está ligado a um funcionário.')
-          else if (employee == null && _profileLoading)
-            const PanelSpinner()
-          else if (employee == null)
-            Text(
-              _profileError ?? 'Sem conexão. A sessão continua neste aparelho.',
-            )
-          else if (_tab == 'registro')
-            _registro(employee)
-          else if (_panelError != null)
-            Text(
-              _panelError!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            )
-          else if (!_panelReady)
-            const PanelSpinner()
-          else if (_tab == 'apuracao')
-            ..._days.map(_dayTile)
-          else if (_tab == 'marcacoes')
-            ..._marcacoes()
-          else
-            _banco(employee),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                if (_missing)
+                  const Text('Seu acesso ainda não está ligado a um funcionário.')
+                else if (employee == null && _profileLoading)
+                  const PanelSpinner()
+                else if (employee == null)
+                  Text(
+                    _profileError ??
+                        'Sem conexão. A sessão continua neste aparelho.',
+                  )
+                else if (_tab == 'registro')
+                  _registro(employee)
+                else if (_panelError != null)
+                  Text(
+                    _panelError!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  )
+                else if (!_panelReady)
+                  const PanelSpinner()
+                else if (_tab == 'apuracao')
+                  ..._days.map(_dayTile)
+                else if (_tab == 'marcacoes')
+                  ..._marcacoes()
+                else
+                  _banco(employee),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -462,6 +533,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _registro(Map<String, dynamic> employee) {
     final dismissed = employee['situation'] == 'dismissed';
     final method = '${employee['clock_method'] ?? 'simple'}';
+    if (!_recentReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tab == 'registro' && !_recentReady) {
+          unawaited(_loadRecent());
+        }
+      });
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -477,6 +555,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Text('Registro: ${_clockLabel(method)}'),
         const SizedBox(height: 8),
         _clockButton(dismissed, method),
+        const SizedBox(height: 24),
+        Text(
+          'Últimos registros',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (!_recentReady)
+          const PanelSpinner()
+        else if (_recent.isEmpty)
+          const Text('Nenhum registro ainda.')
+        else
+          for (final punch in _recent) _punchTile(punch),
       ],
     );
   }
@@ -566,7 +656,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text('${day['work_date']}'),
+      title: Text(showDay('${day['work_date']}')),
       subtitle: Text(
         'H. trabalhadas ${showMinutes(day['worked_minutes'])} · H. contratadas ${showMinutes(day['contracted_minutes'])}'
         '${extra.isEmpty ? '' : '\n${extra.join(' · ')}'}',

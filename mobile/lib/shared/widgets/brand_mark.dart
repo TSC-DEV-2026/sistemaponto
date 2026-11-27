@@ -19,13 +19,16 @@ class BrandMarkBanner extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-          child: Text.rich(
-            TextSpan(
-              text: 'sistema',
-              style: base,
-              children: [
-                TextSpan(text: 'ponto', style: base?.copyWith(color: BrandColors.wordmarkOnDark)),
-              ],
+          child: Center(
+            child: Text.rich(
+              TextSpan(
+                text: 'sistema',
+                style: base,
+                children: [
+                  TextSpan(text: 'ponto', style: base?.copyWith(color: BrandColors.wordmarkOnDark)),
+                ],
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ),

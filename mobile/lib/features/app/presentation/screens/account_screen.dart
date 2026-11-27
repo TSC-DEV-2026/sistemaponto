@@ -16,17 +16,18 @@ class AccountScreen extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final tenants = user?.tenants ?? const [];
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Conta', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
           Text(user?.fullName ?? ''),
           Text(user?.email ?? ''),
           Text(user?.activeTenant?.name ?? ''),
           const SizedBox(height: 8),
           Text(
-            user?.emailVerified == true ? 'E-mail confirmado.' : 'E-mail ainda não confirmado. O acesso não depende disso.',
+            user?.emailVerified == true
+                ? 'E-mail confirmado.'
+                : 'E-mail ainda não confirmado. O acesso não depende disso.',
           ),
           const SizedBox(height: 16),
           if (tenants.length > 1)
