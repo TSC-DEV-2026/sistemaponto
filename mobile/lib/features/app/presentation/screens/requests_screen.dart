@@ -102,11 +102,10 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Solicitações', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
           const Text('A solicitação pendente não altera o ponto.'),
           if (_canRequest) ...[
             const SizedBox(height: 16),

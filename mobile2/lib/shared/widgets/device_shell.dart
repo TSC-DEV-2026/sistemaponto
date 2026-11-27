@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'brand_mark.dart';
+
 class DeviceShell extends StatelessWidget {
   const DeviceShell({super.key, required this.child});
 
@@ -12,7 +14,13 @@ class DeviceShell extends StatelessWidget {
     final path = GoRouterState.of(context).uri.path;
     final index = path.startsWith('/organization') ? 1 : 0;
     return Scaffold(
-      body: child,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const BrandMarkBanner(centered: true),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (value) {

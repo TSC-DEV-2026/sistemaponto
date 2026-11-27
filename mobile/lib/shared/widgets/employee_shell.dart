@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'brand_mark.dart';
+
 class EmployeeShell extends StatelessWidget {
   const EmployeeShell({super.key, required this.child});
 
@@ -19,7 +21,13 @@ class EmployeeShell extends StatelessWidget {
       index = 3;
     }
     return Scaffold(
-      body: child,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const BrandMarkBanner(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (value) {

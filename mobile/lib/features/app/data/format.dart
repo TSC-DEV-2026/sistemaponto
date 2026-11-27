@@ -13,17 +13,36 @@ String stampAt(DateTime day, int hour, int minute) {
   return local.toUtc().toIso8601String();
 }
 
-String showWhen(String? iso) {
-  final parsed = DateTime.tryParse(iso ?? '');
+String showDay(String? value) {
+  final parsed = DateTime.tryParse(value ?? '');
   if (parsed == null) {
     return '';
   }
   final local = parsed.toLocal();
   final month = local.month.toString().padLeft(2, '0');
   final date = local.day.toString().padLeft(2, '0');
+  return '$date/$month/${local.year}';
+}
+
+String showWhen(String? iso) {
+  final parsed = DateTime.tryParse(iso ?? '');
+  if (parsed == null) {
+    return '';
+  }
+  final local = parsed.toLocal();
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
-  return '${local.year}-$month-$date $hour:$minute';
+  final clock = '$hour:$minute';
+  final day = DateTime(local.year, local.month, local.day);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  if (day == today) {
+    return 'Hoje $clock';
+  }
+  if (day == today.subtract(const Duration(days: 1))) {
+    return 'Ontem $clock';
+  }
+  return '${showDay(iso)} $clock';
 }
 
 String showClock(String? iso) {

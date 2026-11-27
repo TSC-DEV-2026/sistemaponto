@@ -228,6 +228,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
   Widget build(BuildContext context) {
     final certificate = _kind == 'certificate';
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [

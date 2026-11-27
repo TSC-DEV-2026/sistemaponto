@@ -134,19 +134,24 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Avisos', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
           const Text('Cada aviso pode ir pelo sistema, pelo e-mail ou pelos dois. Sem escolha gravada, os dois ficam ligados.'),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _kind,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'Tipo'),
             items: [
               const DropdownMenuItem(value: '', child: Text('Todos')),
-              ...employeeNoticeLabel.entries.map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))),
+              ...employeeNoticeLabel.entries.map(
+                (item) => DropdownMenuItem(
+                  value: item.key,
+                  child: Text(item.value, overflow: TextOverflow.ellipsis),
+                ),
+              ),
             ],
             onChanged: (value) {
               setState(() {
@@ -195,7 +200,9 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
               contentPadding: EdgeInsets.zero,
               title: Text('${item['body'] ?? ''}'),
               subtitle: Text(showWhen('${item['created_at']}')),
-              trailing: read ? const Text('Lida') : BusyButton(kind: BusyButtonKind.text, onPressed: () => _mark(item['id'] as int), label: 'Marcar lida'),
+              trailing: read
+                  ? const Text('Lida')
+                  : BusyButton(kind: BusyButtonKind.text, onPressed: () => _mark(item['id'] as int), label: 'Marcar lida'),
             );
           }),
           if (_loading && _items.isEmpty)
