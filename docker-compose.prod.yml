@@ -1,0 +1,30 @@
+name: sistemaponto
+
+services:
+  sistemaponto-api:
+    build: ./backend
+    container_name: sistemaponto-api
+    env_file: ./backend/.env
+    restart: unless-stopped
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--proxy-headers", "--forwarded-allow-ips=*"]
+    volumes:
+      - insightface:/root/.insightface
+    networks:
+      - zioncor
+
+  sistemaponto-web:
+    build: ./frontend
+    container_name: sistemaponto-web
+    restart: unless-stopped
+    depends_on:
+      - sistemaponto-api
+    networks:
+      - zioncor
+
+volumes:
+  insightface:
+
+networks:
+  zioncor:
+    external: true
+    name: zioncor-prod_zioncor
