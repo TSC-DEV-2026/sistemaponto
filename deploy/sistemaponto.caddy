@@ -1,0 +1,4 @@
+sistemaponto.zioncor.com.br {
+	encode gzip
+	reverse_proxy sistemaponto-web:80
+}
