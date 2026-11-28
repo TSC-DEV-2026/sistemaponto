@@ -78,6 +78,54 @@ function Update-Database {
     }
 }
 
+function Start-DatabaseTunnel([int] $port) {
+    if (Test-Listening $port) {
+        Write-Host "O banco já está acessível na porta $port."
+        return $null
+    }
+    $ssh = Get-Command ssh -ErrorAction SilentlyContinue
+    if (-not $ssh) {
+        throw "Não encontrei o ssh para acessar o banco."
+    }
+    $key = Join-Path $env:USERPROFILE ".ssh\id_ed25519"
+    if (-not (Test-Path $key)) {
+        throw "Não encontrei a chave SSH em $key."
+    }
+    Write-Host "Abrindo o acesso ao banco..."
+    $errorLog = Join-Path $env:TEMP "db-tunnel-$port.err"
+    if (Test-Path $errorLog) {
+        Remove-Item $errorLog -Force
+    }
+    $process = Start-Process -FilePath $ssh.Source -ArgumentList @(
+        "-N",
+        "-i", $key,
+        "-o", "ExitOnForwardFailure=yes",
+        "-o", "ServerAliveInterval=30",
+        "-L", "${port}:127.0.0.1:${port}",
+        "root@2.24.107.120"
+    ) -PassThru -WindowStyle Hidden -RedirectStandardError $errorLog
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Listening $port) {
+            return $process
+        }
+        if ($process.HasExited) {
+            break
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    Stop-Tree $process
+    $detail = ""
+    if (Test-Path $errorLog) {
+        $detail = (Get-Content $errorLog -Raw -ErrorAction SilentlyContinue)
+        $detail = "$detail".Trim()
+    }
+    if ($detail) {
+        throw "Não consegui abrir o acesso ao banco. $detail"
+    }
+    throw "Não consegui abrir o acesso ao banco na porta $port."
+}
+
 function Install-Frontend {
     Write-Host "Conferindo dependências do site..."
     Push-Location (Join-Path $root "frontend")
@@ -111,6 +159,7 @@ if (Test-Listening 5175) {
     exit 1
 }
 
+$tunnel = $null
 try {
     if ($choice -eq "1") {
         Update-Code
@@ -119,10 +168,12 @@ try {
         Write-Host "Seguindo com o código que já está aqui."
     }
     Install-Backend
+    $tunnel = Start-DatabaseTunnel 5434
     Update-Database
     Install-Frontend
 }
 catch {
+    Stop-Tree $tunnel
     Write-Host $_.Exception.Message
     exit 1
 }
@@ -228,6 +279,7 @@ public static class DevJob {
 
 $job = [DevJob]::CreateJobObject([IntPtr]::Zero, $null)
 if ($job -eq [IntPtr]::Zero) {
+    Stop-Tree $tunnel
     Write-Host "Não foi possível preparar o encerramento dos processos."
     exit 1
 }
@@ -246,8 +298,17 @@ finally {
     [Runtime.InteropServices.Marshal]::FreeHGlobal($pointer)
 }
 if (-not $configured) {
+    Stop-Tree $tunnel
     Write-Host "Não foi possível preparar o encerramento dos processos."
     exit 1
+}
+if ($null -ne $tunnel -and -not $tunnel.HasExited) {
+    $tunnelAssigned = [DevJob]::AssignProcessToJobObject($job, $tunnel.Handle)
+    if (-not $tunnelAssigned) {
+        Stop-Tree $tunnel
+        Write-Host "Não foi possível ligar o acesso ao banco ao encerramento da janela."
+        exit 1
+    }
 }
 
 function Start-Dev($file, $arguments, $directory, [switch] $NewWindow, $WindowTitle) {
@@ -309,7 +370,7 @@ try {
     Write-Host ""
     Write-Host "O backend fica em outra janela, e o log dele aparece lá."
     Write-Host "Se essa janela fechar, ela abre de novo."
-    Write-Host "Feche esta janela para encerrar os dois."
+    Write-Host "Feche esta janela para encerrar o site, o backend e o acesso ao banco."
     Write-Host ""
     while (-not $frontend.HasExited) {
         if ($null -eq $backend -or $backend.HasExited) {
@@ -332,4 +393,5 @@ try {
 finally {
     Stop-Tree $backend
     Stop-Tree $frontend
+    Stop-Tree $tunnel
 }
